@@ -1,0 +1,49 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": [
+    "src/components.ts",
+    "src/letter.ts",
+    "src/public.ts",
+    "src/template.ts",
+    "src/domain/**/*.ts",
+    "src/project/artifact.ts",
+    "src/project/define.ts",
+    "src/project/scaffold.ts",
+    "src/project/scaffold_cli.ts",
+    "src/project/style.ts",
+    "src/render/**/*.ts",
+    "src/renderer/mod.ts",
+    "src/renderer/docx_renderer.ts",
+    "src/renderer/web_renderer.ts",
+    "src/runtime/**/*.ts",
+    "src/template/**/*.ts"
+  ],
+  "exclude": [
+    "src/engine/**",
+    "src/preview/**",
+    "src/storage/**",
+    "src/renderer/react/**",
+    "src/mod.ts",
+    "src/component_renderer.ts",
+    "src/project/project.ts",
+    "src/project/cli.ts",
+    "node_modules",
+    "dist"
+  ]
+}

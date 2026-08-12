@@ -1,0 +1,88 @@
+{
+  "name": "docxcelerate",
+  "version": "0.1.3",
+  "description": "TypeScript toolkit and CLI for building DOCX letter projects with a browser preview.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LiamDotPro/Docxcelerate.git"
+  },
+  "homepage": "https://github.com/LiamDotPro/Docxcelerate#readme",
+  "bugs": {
+    "url": "https://github.com/LiamDotPro/Docxcelerate/issues"
+  },
+  "keywords": [
+    "docx",
+    "letters",
+    "documents",
+    "templates",
+    "cli",
+    "typescript"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "dxcl": "./bin/dxcl.mjs"
+  },
+  "files": [
+    "bin/dxcl.mjs",
+    "dist/",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/public.d.ts",
+      "default": "./dist/public.js"
+    },
+    "./cli": {
+      "types": "./dist/project/scaffold_cli.d.ts",
+      "default": "./dist/project/scaffold_cli.js"
+    },
+    "./docx": {
+      "types": "./dist/render/docx_document.d.ts",
+      "default": "./dist/render/docx_document.js"
+    },
+    "./letter": {
+      "types": "./dist/letter.d.ts",
+      "default": "./dist/letter.js"
+    },
+    "./renderer": {
+      "types": "./dist/renderer/mod.d.ts",
+      "default": "./dist/renderer/mod.js"
+    },
+    "./scaffold": {
+      "types": "./dist/project/scaffold.d.ts",
+      "default": "./dist/project/scaffold.js"
+    },
+    "./template": {
+      "types": "./dist/template.d.ts",
+      "default": "./dist/template.js"
+    },
+    "./template/jsx-runtime": {
+      "types": "./dist/template/jsx-runtime.d.ts",
+      "default": "./dist/template/jsx-runtime.js"
+    },
+    "./template/jsx-dev-runtime": {
+      "types": "./dist/template/jsx-dev-runtime.d.ts",
+      "default": "./dist/template/jsx-dev-runtime.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "npm run build && tsc -p tsconfig.test.json && node --test \"dist-tests/tests/**/*.test.js\"",
+    "clean": "node -e \"for (const d of ['dist','dist-tests']) require('node:fs').rmSync(d,{recursive:true,force:true})\"",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run clean && npm run build",
+    "typecheck": "npm run build && tsc -p tsconfig.json",
+    "dxcl": "node ./bin/dxcl.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "docx": "^9.6.1"
+  }
+}
