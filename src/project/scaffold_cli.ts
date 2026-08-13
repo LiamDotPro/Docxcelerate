@@ -3,7 +3,7 @@ import {
   normalizeDocxcelerateApiEndpoint,
   officialDocxcelerateApiEndpoint,
   officialDocxcelerateApiServer,
-  scaffoldLetterProject,
+  scaffoldDocumentProject,
   scaffoldWorkspaceProject,
   type WorkspaceProjectTemplate,
 } from "./scaffold.ts";
@@ -63,7 +63,7 @@ if (command === "new" || command === "scaffold") {
   const force = args.flags.has("force") ||
     (guided ? await askBoolean("Overwrite existing files if needed?", false) : false);
 
-  const result = await scaffoldLetterProject({
+  const result = await scaffoldDocumentProject({
     name,
     title,
     lettersDir,

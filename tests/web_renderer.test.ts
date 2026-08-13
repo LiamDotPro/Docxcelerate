@@ -1,10 +1,10 @@
 import { test } from "node:test";
 import { assertStringIncludes } from "./assert.ts";
-import { renderLetterWebsite } from "docxcelerate/renderer";
-import type { LetterDocument } from "../src/domain/types.ts";
+import type { DocumentModel } from "docxcelerate";
+import { renderDocumentWebsite } from "docxcelerate/renderer";
 
 test("web renderer creates a Word-style workspace with one A4 page", () => {
-  const letter: LetterDocument = {
+  const letter: DocumentModel = {
     schemaVersion: "docxcelerate.letter/v0",
     id: "sample",
     title: "Sample Letter",
@@ -25,7 +25,7 @@ test("web renderer creates a Word-style workspace with one A4 page", () => {
     ],
   };
 
-  const html = renderLetterWebsite(letter);
+  const html = renderDocumentWebsite(letter);
 
   assertStringIncludes(html, 'class="workspace"');
   assertStringIncludes(html, 'class="workspace-inner"');

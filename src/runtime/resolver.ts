@@ -2,8 +2,8 @@ import type {
   GraphNode,
   ImageNode,
   JsonObject,
-  LetterDocument,
-  LetterNode,
+  DocumentModel,
+  DocumentNode,
   ParagraphNode,
   PromptSpec,
   RuntimeState,
@@ -16,11 +16,11 @@ export interface ResolveOptions {
   derivers?: DeriverRegistry;
 }
 
-export async function resolveLetter(
-  letter: LetterDocument,
+export async function resolveDocument(
+  letter: DocumentModel,
   state: RuntimeState,
   options: ResolveOptions = {},
-): Promise<LetterDocument> {
+): Promise<DocumentModel> {
   const derivers = options.derivers ?? createDefaultDeriverRegistry();
   const nodes = await resolveNodes(letter.nodes, state, derivers);
 
@@ -31,11 +31,11 @@ export async function resolveLetter(
 }
 
 async function resolveNodes(
-  nodes: LetterNode[],
+  nodes: DocumentNode[],
   state: RuntimeState,
   derivers: DeriverRegistry,
-): Promise<LetterNode[]> {
-  const resolvedNodes: LetterNode[] = [];
+): Promise<DocumentNode[]> {
+  const resolvedNodes: DocumentNode[] = [];
 
   for (const node of nodes) {
     const resolved = await resolveNode(node, state, derivers);
@@ -48,10 +48,10 @@ async function resolveNodes(
 }
 
 async function resolveNode(
-  node: LetterNode,
+  node: DocumentNode,
   state: RuntimeState,
   derivers: DeriverRegistry,
-): Promise<LetterNode | undefined> {
+): Promise<DocumentNode | undefined> {
   await runDerivers(node.derivers, state, derivers);
 
   const conditionMatches = await evaluateCondition(node.when, state);

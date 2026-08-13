@@ -1,7 +1,7 @@
 import {
-  letter,
-  type LetterOptions,
-  type LetterTemplate,
+  doc,
+  type DocumentOptions,
+  type DocumentTemplate,
   type NodeChildren,
   type NodeComponent,
   section,
@@ -10,7 +10,7 @@ import {
 import type { SectionNode } from "./domain/types.ts";
 
 export type TemplateElement<TData = unknown> =
-  | LetterTemplate<TData>
+  | DocumentTemplate<TData>
   | NodeComponent<TData>
   | TemplateNodeComponent<TData>
   | TemplateElement<TData>[]
@@ -18,22 +18,22 @@ export type TemplateElement<TData = unknown> =
   | null
   | undefined;
 
-export interface LetterProps<TData = unknown> extends LetterOptions {
+export interface DocumentProps<TData = unknown> extends DocumentOptions {
   children?: TemplateElement<TData>;
 }
 
 export type TemplateOptions<TProps, TOptions> = TOptions | ((props: TProps) => TOptions);
 
-export type LetterComponent<TData, TProps extends Record<string, unknown> = Record<never, never>> =
-  (props: TProps & { children?: TemplateElement<TData> }) => LetterTemplate<TData>;
+export type DocumentComponent<TData, TProps extends Record<string, unknown> = Record<never, never>> =
+  (props: TProps & { children?: TemplateElement<TData> }) => DocumentTemplate<TData>;
 
 export type SectionComponent<
   TData,
   TProps extends Record<string, unknown> = Record<never, never>,
 > = (props: TProps & { children?: TemplateElement<TData> }) => NodeComponent<TData, SectionNode>;
 
-export function Letter<TData = unknown>(props: LetterProps<TData>): LetterTemplate<TData> {
-  return letter(
+export function Document<TData = unknown>(props: DocumentProps<TData>): DocumentTemplate<TData> {
+  return doc(
     {
       id: props.id,
       title: props.title,
@@ -43,14 +43,14 @@ export function Letter<TData = unknown>(props: LetterProps<TData>): LetterTempla
   );
 }
 
-export function defineLetterComponent<
+export function defineDocumentComponent<
   TData,
   TProps extends Record<string, unknown> = Record<never, never>,
 >(
-  options: TemplateOptions<TProps, LetterOptions>,
-): LetterComponent<TData, TProps> {
+  options: TemplateOptions<TProps, DocumentOptions>,
+): DocumentComponent<TData, TProps> {
   return (props) =>
-    Letter<TData>({
+    Document<TData>({
       ...resolveTemplateOptions(options, props),
       children: props.children,
     });
@@ -93,7 +93,7 @@ export function Node<TData = unknown>(
   return props.component as unknown as NodeComponent<unknown>;
 }
 
-export function template<TData>(element: TemplateElement<TData>): LetterTemplate<TData> {
+export function template<TData>(element: TemplateElement<TData>): DocumentTemplate<TData> {
   const values = flattenTemplate(element).filter((value) => value !== undefined);
 
   if (values.length === 1 && isLetterTemplate(values[0])) {
@@ -132,7 +132,7 @@ function nodeChildrenFromTemplate<TData>(
 
 function flattenTemplate<TData>(
   element: TemplateElement<TData>,
-): Array<LetterTemplate<TData> | NodeComponent<TData> | undefined> {
+): Array<DocumentTemplate<TData> | NodeComponent<TData> | undefined> {
   if (element === false || element === null || element === undefined) {
     return [undefined];
   }
@@ -145,8 +145,8 @@ function flattenTemplate<TData>(
 }
 
 function isLetterTemplate<TData>(
-  value: LetterTemplate<TData> | NodeComponent<TData> | TemplateNodeComponent<TData> | undefined,
-): value is LetterTemplate<TData> {
+  value: DocumentTemplate<TData> | NodeComponent<TData> | TemplateNodeComponent<TData> | undefined,
+): value is DocumentTemplate<TData> {
   return Boolean(
     value &&
       typeof value === "object" &&

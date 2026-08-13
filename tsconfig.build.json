@@ -16,7 +16,7 @@
   },
   "include": [
     "src/components.ts",
-    "src/letter.ts",
+    "src/document.ts",
     "src/public.ts",
     "src/template.ts",
     "src/domain/**/*.ts",

@@ -1,6 +1,6 @@
-import type { LetterStyle } from "../domain/types.ts";
+import type { DocumentStyle } from "../domain/types.ts";
 
-export const cleanMinimalLetterStyle: LetterStyle = {
+export const cleanMinimalDocumentStyle: DocumentStyle = {
   preset: "clean-minimal",
   page: {
     size: "A4",

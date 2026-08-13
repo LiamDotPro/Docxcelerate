@@ -1,9 +1,9 @@
 import { Document, HeadingLevel, Packer, PageOrientation, Paragraph, TextRun } from "docx";
-import type { LetterDocument, LetterNode, LetterStyle } from "../domain/types.ts";
-import { cleanMinimalLetterStyle } from "../project/style.ts";
+import type { DocumentModel, DocumentNode, DocumentStyle } from "../domain/types.ts";
+import { cleanMinimalDocumentStyle } from "../project/style.ts";
 
-export function createDocxDocument(letter: LetterDocument): Document {
-  const style = letter.style ?? cleanMinimalLetterStyle;
+export function createDocxDocument(letter: DocumentModel): Document {
+  const style = letter.style ?? cleanMinimalDocumentStyle;
 
   return new Document({
     styles: createDocxStyles(style),
@@ -38,11 +38,11 @@ export function createDocxDocument(letter: LetterDocument): Document {
   });
 }
 
-export async function createDocxBlob(letter: LetterDocument): Promise<Blob> {
+export async function createDocxBlob(letter: DocumentModel): Promise<Blob> {
   return await Packer.toBlob(createDocxDocument(letter));
 }
 
-function renderNode(node: LetterNode, style: LetterStyle): Paragraph[] {
+function renderNode(node: DocumentNode, style: DocumentStyle): Paragraph[] {
   if (node.kind === "section") {
     return [
       new Paragraph({
@@ -90,7 +90,7 @@ function renderNode(node: LetterNode, style: LetterStyle): Paragraph[] {
   ];
 }
 
-function createDocxStyles(style: LetterStyle) {
+function createDocxStyles(style: DocumentStyle) {
   return {
     default: {
       document: {
@@ -138,11 +138,11 @@ function createDocxStyles(style: LetterStyle) {
   };
 }
 
-function pageWidthTwips(style: LetterStyle): number {
+function pageWidthTwips(style: DocumentStyle): number {
   return mmToTwips(style.page.size === "A4" ? 210 : 215.9);
 }
 
-function pageHeightTwips(style: LetterStyle): number {
+function pageHeightTwips(style: DocumentStyle): number {
   return mmToTwips(style.page.size === "A4" ? 297 : 279.4);
 }
 

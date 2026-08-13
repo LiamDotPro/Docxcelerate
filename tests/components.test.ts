@@ -1,20 +1,18 @@
 import { test } from "node:test";
 import { assertEquals, assertRejects } from "./assert.ts";
 import {
-  buildLetterDocument,
-  defineLetter,
-  dynamicGraph,
-  dynamicParagraph,
+  buildDocument,
+  defineDocument,
   EchoAiClient,
-  letter,
+  graph,
+  image,
+  doc,
   type Node,
   type NodeComponent,
+  paragraph,
+  type ParagraphNode,
   section,
-  staticGraph,
-  staticImage,
-  staticParagraph,
 } from "docxcelerate";
-import type { ParagraphNode } from "../src/domain/types.ts";
 
 interface LetterData {
   recipientName: string;
@@ -33,7 +31,7 @@ const Greeting: NodeComponent<LetterData, ParagraphNode> = (
 });
 
 test("component API builds a static letter document tree", async () => {
-  const letterTemplate = letter<LetterData>(
+  const letterTemplate = doc<LetterData>(
     {
       id: "welcome",
       title: "Welcome Letter",
@@ -46,7 +44,7 @@ test("component API builds a static letter document tree", async () => {
         },
         [
           Greeting,
-          staticParagraph({
+          paragraph({
             id: "introText",
             render: () => "A simple static paragraph.",
           }),
@@ -54,7 +52,7 @@ test("component API builds a static letter document tree", async () => {
       ),
     ],
   );
-  const legacyLetterTemplate = defineLetter<LetterData>({
+  const legacyLetterTemplate = defineDocument<LetterData>({
     id: "legacy",
     title: "Legacy Shape",
     nodes: [
@@ -67,7 +65,7 @@ test("component API builds a static letter document tree", async () => {
   });
   assertEquals(legacyLetterTemplate.nodes.length, 1);
 
-  const builtLetter = await buildLetterDocument(letterTemplate, {
+  const builtLetter = await buildDocument(letterTemplate, {
     recipientName: "Avery",
     households: 2,
   });
@@ -92,7 +90,7 @@ test("component API builds a static letter document tree", async () => {
 });
 
 test("dynamic paragraph components resolve through an AI client", async () => {
-  const DynamicSummary = dynamicParagraph<LetterData>({
+  const DynamicSummary = paragraph<LetterData>({
     id: "summary",
     generalPrompt(data, availableTokens) {
       return `Write a paragraph for ${data.households} households using ${availableTokens} tokens.`;
@@ -102,30 +100,30 @@ test("dynamic paragraph components resolve through an AI client", async () => {
     },
   });
 
-  const letterTemplate = defineLetter<LetterData>({
+  const letterTemplate = defineDocument<LetterData>({
     id: "dynamic",
     title: "Dynamic Letter",
     nodes: [DynamicSummary],
   });
 
-  const letter = await buildLetterDocument(
+  const letter = await buildDocument(
     letterTemplate,
     { recipientName: "Avery", households: 2 },
     { availableTokens: 500, aiClient: new EchoAiClient() },
   );
 
-  const paragraph = letter.nodes[0];
-  assertEquals(paragraph.kind, "paragraph");
+  const paragraphNode = letter.nodes[0];
+  assertEquals(paragraphNode.kind, "paragraph");
 
-  if (paragraph.kind === "paragraph") {
-    assertEquals(paragraph.mode, "dynamic");
-    assertEquals(paragraph.prompts?.[0].kind, "general");
-    assertEquals(paragraph.text?.includes("2 households"), true);
+  if (paragraphNode.kind === "paragraph") {
+    assertEquals(paragraphNode.mode, "dynamic");
+    assertEquals(paragraphNode.prompts?.[0].kind, "general");
+    assertEquals(paragraphNode.text?.includes("2 households"), true);
   }
 });
 
 test("dynamic paragraph components can render placeholders", async () => {
-  const DynamicSummary = dynamicParagraph<LetterData>({
+  const DynamicSummary = paragraph<LetterData>({
     id: "summary",
     placeholder(data) {
       return `Placeholder for ${data.recipientName}.`;
@@ -135,34 +133,34 @@ test("dynamic paragraph components can render placeholders", async () => {
     },
   });
 
-  const letterTemplate = defineLetter<LetterData>({
+  const letterTemplate = defineDocument<LetterData>({
     id: "preview",
     title: "Preview Letter",
     nodes: [DynamicSummary],
   });
 
-  const letter = await buildLetterDocument(
+  const letter = await buildDocument(
     letterTemplate,
     { recipientName: "Avery", households: 2 },
     { dynamicMode: "placeholder" },
   );
 
-  const paragraph = letter.nodes[0];
-  assertEquals(paragraph.kind, "paragraph");
+  const paragraphNode = letter.nodes[0];
+  assertEquals(paragraphNode.kind, "paragraph");
 
-  if (paragraph.kind === "paragraph") {
-    assertEquals(paragraph.mode, "dynamic");
-    assertEquals(paragraph.text, "Placeholder for Avery.");
-    assertEquals(paragraph.prompts, undefined);
+  if (paragraphNode.kind === "paragraph") {
+    assertEquals(paragraphNode.mode, "dynamic");
+    assertEquals(paragraphNode.text, "Placeholder for Avery.");
+    assertEquals(paragraphNode.prompts, undefined);
   }
 });
 
 test("dynamic paragraph components require an AI client", async () => {
-  const letterTemplate = defineLetter<LetterData>({
+  const letterTemplate = defineDocument<LetterData>({
     id: "dynamic",
     title: "Dynamic Letter",
     nodes: [
-      dynamicParagraph({
+      paragraph({
         id: "summary",
         generalPrompt: () => "Write a summary.",
       }),
@@ -171,7 +169,7 @@ test("dynamic paragraph components require an AI client", async () => {
 
   await assertRejects(
     () =>
-      buildLetterDocument(letterTemplate, {
+      buildDocument(letterTemplate, {
         recipientName: "Avery",
         households: 2,
       }),
@@ -181,16 +179,16 @@ test("dynamic paragraph components require an AI client", async () => {
 });
 
 test("image and graph node types resolve from component helpers", async () => {
-  const letterTemplate = defineLetter<LetterData>({
+  const letterTemplate = defineDocument<LetterData>({
     id: "visuals",
     title: "Visual Letter",
     nodes: [
-      staticImage({
+      image({
         id: "signature",
         src: "assets/signature.png",
         alt: (data) => `Signature for ${data.recipientName}.`,
       }),
-      staticGraph({
+      graph({
         id: "households",
         graphType: "bar",
         data: (data) => ({
@@ -202,35 +200,70 @@ test("image and graph node types resolve from component helpers", async () => {
     ],
   });
 
-  const letter = await buildLetterDocument(letterTemplate, {
+  const letter = await buildDocument(letterTemplate, {
     recipientName: "Avery",
     households: 2,
   });
 
-  const image = letter.nodes[0];
-  const graph = letter.nodes[1];
+  const imageNode = letter.nodes[0];
+  const graphNode = letter.nodes[1];
 
-  assertEquals(image.kind, "image");
-  if (image.kind === "image") {
-    assertEquals(image.mode, "static");
-    assertEquals(image.path, "assets/signature.png");
-    assertEquals(image.alt, "Signature for Avery.");
+  assertEquals(imageNode.kind, "image");
+  if (imageNode.kind === "image") {
+    assertEquals(imageNode.mode, "static");
+    assertEquals(imageNode.path, "assets/signature.png");
+    assertEquals(imageNode.alt, "Signature for Avery.");
   }
 
-  assertEquals(graph.kind, "graph");
-  if (graph.kind === "graph") {
-    assertEquals(graph.mode, "static");
-    assertEquals(graph.graphType, "bar");
-    assertEquals(graph.caption, "Household count for Avery.");
+  assertEquals(graphNode.kind, "graph");
+  if (graphNode.kind === "graph") {
+    assertEquals(graphNode.mode, "static");
+    assertEquals(graphNode.graphType, "bar");
+    assertEquals(graphNode.caption, "Household count for Avery.");
   }
 });
 
+test("mode is inferred from the options, not declared", async () => {
+  const letterTemplate = defineDocument<LetterData>({
+    id: "inference",
+    title: "Inference",
+    nodes: [
+      // Local-resolution member present -> static.
+      paragraph({ id: "p-static", render: () => "Text." }),
+      image({ id: "i-static", src: "assets/logo.png" }),
+      graph({ id: "g-static", data: () => ({ values: [1] }) }),
+      // Prompts instead -> dynamic, without anyone saying so.
+      paragraph({ id: "p-dynamic", generalPrompt: () => "Write it." }),
+      image({ id: "i-dynamic", generalPrompt: () => "Draw it." }),
+      graph({ id: "g-dynamic", generalPrompt: () => "Plot it." }),
+    ],
+  });
+
+  const built = await buildDocument(
+    letterTemplate,
+    { recipientName: "Avery", households: 2 },
+    { dynamicMode: "placeholder" },
+  );
+
+  assertEquals(
+    built.nodes.map((node) => `${node.id}:${"mode" in node ? node.mode : ""}`),
+    [
+      "p-static:static",
+      "i-static:static",
+      "g-static:static",
+      "p-dynamic:dynamic",
+      "i-dynamic:dynamic",
+      "g-dynamic:dynamic",
+    ],
+  );
+});
+
 test("dynamic graph components can render placeholders", async () => {
-  const letterTemplate = defineLetter<LetterData>({
+  const letterTemplate = defineDocument<LetterData>({
     id: "dynamic-graph",
     title: "Dynamic Graph Letter",
     nodes: [
-      dynamicGraph({
+      graph({
         id: "trend",
         placeholder: (data) => `Preview graph for ${data.recipientName}.`,
         generalPrompt: (data) => `Build a graph for ${data.households} households.`,
@@ -238,17 +271,17 @@ test("dynamic graph components can render placeholders", async () => {
     ],
   });
 
-  const letter = await buildLetterDocument(
+  const letter = await buildDocument(
     letterTemplate,
     { recipientName: "Avery", households: 2 },
     { dynamicMode: "placeholder" },
   );
-  const graph = letter.nodes[0];
+  const graphNode = letter.nodes[0];
 
-  assertEquals(graph.kind, "graph");
-  if (graph.kind === "graph") {
-    assertEquals(graph.mode, "dynamic");
-    assertEquals(graph.placeholder, "Preview graph for Avery.");
-    assertEquals(graph.prompts, undefined);
+  assertEquals(graphNode.kind, "graph");
+  if (graphNode.kind === "graph") {
+    assertEquals(graphNode.mode, "dynamic");
+    assertEquals(graphNode.placeholder, "Preview graph for Avery.");
+    assertEquals(graphNode.prompts, undefined);
   }
 });

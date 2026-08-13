@@ -1,15 +1,15 @@
-import { buildLetterDocument, type ComponentRuntimeOptions } from "../components.ts";
-import type { AiClient, JsonObject, LetterDocument } from "../domain/types.ts";
+import { buildDocument, type ComponentRuntimeOptions } from "../components.ts";
+import type { AiClient, JsonObject, DocumentModel } from "../domain/types.ts";
 import {
-  collectLetterDeriverNames,
+  collectDocumentDeriverNames,
   createDefaultDeriverRegistry,
   createDeriverBundle,
-  type LetterDeriverBundle,
+  type DocumentDeriverBundle,
   listDeriverDefinitionNames,
 } from "../runtime/derivers.ts";
-import type { LetterProject } from "./define.ts";
+import type { DocumentProject } from "./define.ts";
 
-export interface LetterProjectManifest {
+export interface DocumentProjectManifest {
   schemaVersion: "docxcelerate.project-manifest/v0";
   id: string;
   name: string;
@@ -21,11 +21,11 @@ export interface LetterProjectManifest {
   engineLetter: string;
   derivers?: string;
   deriverNames?: string[];
-  style?: LetterDocument["style"];
+  style?: DocumentModel["style"];
   metadata?: JsonObject;
 }
 
-export interface CreateLetterProjectArtifactOptions {
+export interface CreateDocumentProjectArtifactOptions {
   entrypoint?: string;
   builtAt?: string;
   previewFileName?: string;
@@ -33,24 +33,29 @@ export interface CreateLetterProjectArtifactOptions {
   deriversFileName?: string;
 }
 
-export interface LetterProjectArtifact {
-  manifest: LetterProjectManifest;
-  previewLetter: LetterDocument;
-  engineLetter: LetterDocument;
-  derivers?: LetterDeriverBundle;
+export interface DocumentProjectArtifact {
+  manifest: DocumentProjectManifest;
+  previewLetter: DocumentModel;
+  engineLetter: DocumentModel;
+  derivers?: DocumentDeriverBundle;
 }
 
-export async function createLetterProjectArtifact<TData>(
-  project: LetterProject<TData>,
-  options: CreateLetterProjectArtifactOptions = {},
-): Promise<LetterProjectArtifact> {
+export interface BuildProjectFinalDocumentOptions<TData = unknown>
+  extends Omit<ComponentRuntimeOptions, "dynamicMode"> {
+  data?: TData;
+}
+
+export async function createDocumentProjectArtifact<TData>(
+  project: DocumentProject<TData>,
+  options: CreateDocumentProjectArtifactOptions = {},
+): Promise<DocumentProjectArtifact> {
   const previewFileName = options.previewFileName ?? "preview.json";
   const engineFileName = options.engineFileName ?? "letter.json";
   const deriversFileName = options.deriversFileName ?? "derivers.js";
   const builtAt = options.builtAt ?? new Date().toISOString();
-  const previewLetter = await buildProjectPreviewLetter(project);
-  const engineLetter = await buildProjectEngineLetter(project);
-  const deriverNames = collectLetterDeriverNames(engineLetter);
+  const previewLetter = await buildProjectPreviewDocument(project);
+  const engineLetter = await buildProjectEngineDocument(project);
+  const deriverNames = collectDocumentDeriverNames(engineLetter);
   assertReferencedDeriversAreAvailable(project, deriverNames);
   const derivers = createDeriverBundle(project.derivers, {
     names: deriverNames,
@@ -81,7 +86,7 @@ export async function createLetterProjectArtifact<TData>(
 }
 
 function assertReferencedDeriversAreAvailable<TData>(
-  project: LetterProject<TData>,
+  project: DocumentProject<TData>,
   names: string[],
 ): void {
   const defaultDerivers = createDefaultDeriverRegistry();
@@ -97,11 +102,11 @@ function assertReferencedDeriversAreAvailable<TData>(
   }
 }
 
-export async function buildProjectPreviewLetter<TData>(
-  project: LetterProject<TData>,
+export async function buildProjectPreviewDocument<TData>(
+  project: DocumentProject<TData>,
   options: ComponentRuntimeOptions = {},
-): Promise<LetterDocument> {
-  const letter = await buildLetterDocument(project.template, project.previewData, {
+): Promise<DocumentModel> {
+  const letter = await buildDocument(project.template, project.previewData, {
     ...project.previewOptions,
     ...options,
     derivers: project.derivers,
@@ -116,12 +121,12 @@ export async function buildProjectPreviewLetter<TData>(
   };
 }
 
-export async function buildProjectEngineLetter<TData>(
-  project: LetterProject<TData>,
+export async function buildProjectEngineDocument<TData>(
+  project: DocumentProject<TData>,
   options: ComponentRuntimeOptions = {},
-): Promise<LetterDocument> {
+): Promise<DocumentModel> {
   const data = createEngineArtifactData(project.previewData) as TData;
-  const letter = await buildLetterDocument(project.template, data, {
+  const letter = await buildDocument(project.template, data, {
     ...project.buildOptions,
     ...options,
     availableTokens: "{{ctx.availableTokens}}" as unknown as number,
@@ -134,6 +139,30 @@ export async function buildProjectEngineLetter<TData>(
   return {
     ...letter,
     nodes: removeEmptyDynamicText(letter.nodes),
+    style: project.style,
+    metadata: project.metadata ? { ...project.metadata, ...letter.metadata } : letter.metadata,
+  };
+}
+
+/**
+ * Resolves a project into its final letter, running dynamic nodes through the
+ * AI client. This is what a generation service calls with request-time data.
+ */
+export async function buildProjectFinalDocument<TData>(
+  project: DocumentProject<TData>,
+  options: BuildProjectFinalDocumentOptions<TData> = {},
+): Promise<DocumentModel> {
+  const { data = project.previewData, ...runtimeOptions } = options;
+  const letter = await buildDocument(project.template, data, {
+    ...project.buildOptions,
+    ...runtimeOptions,
+    derivers: project.derivers,
+    deriverMode: "resolve",
+    dynamicMode: "resolve",
+  });
+
+  return {
+    ...letter,
     style: project.style,
     metadata: project.metadata ? { ...project.metadata, ...letter.metadata } : letter.metadata,
   };
@@ -162,7 +191,7 @@ function createEngineArtifactData(value: unknown, path: string[] = []): unknown 
   return path.length === 0 ? "{{data.value}}" : `{{data.${path.join(".")}}}`;
 }
 
-function removeEmptyDynamicText(nodes: LetterDocument["nodes"]): LetterDocument["nodes"] {
+function removeEmptyDynamicText(nodes: DocumentModel["nodes"]): DocumentModel["nodes"] {
   return nodes.map((node) => {
     if (node.kind === "section") {
       return {

@@ -8,13 +8,13 @@
     "jsxImportSource": "docxcelerate/template",
     "strict": true,
     "outDir": "dist-tests",
-    "rootDir": ".",
+    "rootDir": "tests",
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["tests/**/*.ts", "tests/**/*.tsx", "src/domain/**/*.ts"],
+  "include": ["tests/**/*.ts", "tests/**/*.tsx"],
   "exclude": ["node_modules", "dist", "dist-tests"]
 }

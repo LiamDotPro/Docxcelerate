@@ -1,12 +1,12 @@
-import type { LetterDocument, LetterNode } from "../domain/types.ts";
+import type { DocumentModel, DocumentNode } from "../domain/types.ts";
 
 export interface WebRenderOptions {
   liveReload?: boolean;
   title?: string;
 }
 
-export function renderLetterWebsite(
-  letter: LetterDocument,
+export function renderDocumentWebsite(
+  letter: DocumentModel,
   options: WebRenderOptions = {},
 ): string {
   const title = options.title ?? letter.title;
@@ -223,12 +223,6 @@ export function renderLetterWebsite(
         color: #111827;
       }
 
-      .paragraph-dynamic {
-        padding: 7pt 9pt 7pt 10pt;
-        border-left: 3px solid var(--accent);
-        background: #f7faff;
-      }
-
       .node-id {
         display: block;
         margin-bottom: 3pt;
@@ -308,7 +302,7 @@ export function renderLetterWebsite(
 </html>`;
 }
 
-function renderNode(node: LetterNode): string {
+function renderNode(node: DocumentNode): string {
   if (node.kind === "section") {
     return `<section class="letter-section" data-node-id="${escapeHtml(node.id)}">
       <h2>${escapeHtml(node.title ?? node.id)}</h2>
