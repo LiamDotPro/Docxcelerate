@@ -6,28 +6,28 @@ export type NodeMode = "static" | "dynamic";
 
 export type GraphType = "bar" | "line" | "pie";
 
-export type LetterStylePreset = "clean-minimal";
+export type DocumentStylePreset = "clean-minimal";
 
-export type LetterPageSize = "A4" | "LETTER";
+export type DocumentPageSize = "A4" | "LETTER";
 
-export type LetterPageOrientation = "portrait" | "landscape";
+export type DocumentPageOrientation = "portrait" | "landscape";
 
-export type LetterFontWeight = "regular" | "bold";
+export type DocumentFontWeight = "regular" | "bold";
 
-export interface LetterPageMargins {
+export interface DocumentPageMargins {
   topMm: number;
   rightMm: number;
   bottomMm: number;
   leftMm: number;
 }
 
-export interface LetterPageStyle {
-  size: LetterPageSize;
-  orientation: LetterPageOrientation;
-  margins: LetterPageMargins;
+export interface DocumentPageStyle {
+  size: DocumentPageSize;
+  orientation: DocumentPageOrientation;
+  margins: DocumentPageMargins;
 }
 
-export interface LetterTypographyStyle {
+export interface DocumentTypographyStyle {
   bodyFont: string;
   headingFont: string;
   bodySizePt: number;
@@ -35,24 +35,24 @@ export interface LetterTypographyStyle {
   color: string;
 }
 
-export interface LetterParagraphStyle {
+export interface DocumentParagraphStyle {
   spacingAfterPt: number;
 }
 
-export interface LetterTextBlockStyle {
+export interface DocumentTextBlockStyle {
   fontSizePt: number;
-  weight: LetterFontWeight;
+  weight: DocumentFontWeight;
   spacingBeforePt: number;
   spacingAfterPt: number;
 }
 
-export interface LetterStyle {
-  preset: LetterStylePreset;
-  page: LetterPageStyle;
-  typography: LetterTypographyStyle;
-  paragraph: LetterParagraphStyle;
-  title: LetterTextBlockStyle;
-  sectionHeading: LetterTextBlockStyle;
+export interface DocumentStyle {
+  preset: DocumentStylePreset;
+  page: DocumentPageStyle;
+  typography: DocumentTypographyStyle;
+  paragraph: DocumentParagraphStyle;
+  title: DocumentTextBlockStyle;
+  sectionHeading: DocumentTextBlockStyle;
 }
 
 export type PromptKind = "general" | "info" | "negative" | "system";
@@ -95,7 +95,7 @@ export interface BaseNode {
 
 export interface SectionNode extends BaseNode {
   kind: "section";
-  children: LetterNode[];
+  children: DocumentNode[];
 }
 
 export interface ParagraphNode extends BaseNode {
@@ -127,15 +127,15 @@ export interface TableOfContentsNode extends BaseNode {
   kind: "tableOfContents";
 }
 
-export type LetterNode = SectionNode | ParagraphNode | ImageNode | GraphNode | TableOfContentsNode;
+export type DocumentNode = SectionNode | ParagraphNode | ImageNode | GraphNode | TableOfContentsNode;
 
-export interface LetterDocument {
+export interface DocumentModel {
   schemaVersion: "docxcelerate.letter/v0";
   id: string;
   title: string;
-  style?: LetterStyle;
+  style?: DocumentStyle;
   metadata?: JsonObject;
-  nodes: LetterNode[];
+  nodes: DocumentNode[];
 }
 
 export interface RuntimeState {

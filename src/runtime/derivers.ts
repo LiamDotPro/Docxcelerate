@@ -1,8 +1,8 @@
 import type {
   DataReference,
   DeriverInvocation,
-  LetterDocument,
-  LetterNode,
+  DocumentModel,
+  DocumentNode,
   RuntimeState,
   ValueExpression,
 } from "../domain/types.ts";
@@ -23,7 +23,7 @@ export type DeriverDefinitions =
   | Record<string, DeriverFunction>
   | readonly DeriverDefinition[];
 
-export interface LetterDeriverBundle {
+export interface DocumentDeriverBundle {
   schemaVersion: "docxcelerate.deriver-bundle/v0";
   format: "esm";
   names: string[];
@@ -99,7 +99,7 @@ export function createDeriverRegistry(
 }
 
 export async function createDeriverRegistryFromBundle(
-  definitions?: DeriverDefinitions | DeriverRegistry | LetterDeriverBundle,
+  definitions?: DeriverDefinitions | DeriverRegistry | DocumentDeriverBundle,
 ): Promise<DeriverRegistry> {
   if (!definitions) {
     return createDefaultDeriverRegistry();
@@ -138,7 +138,7 @@ export function listDeriverDefinitionNames(definitions: DeriverDefinitions | und
 export function createDeriverBundle(
   definitions: DeriverDefinitions | undefined,
   options: CreateDeriverBundleOptions = {},
-): LetterDeriverBundle | undefined {
+): DocumentDeriverBundle | undefined {
   if (!definitions) {
     return undefined;
   }
@@ -162,7 +162,7 @@ export function createDeriverBundle(
   };
 }
 
-export function collectLetterDeriverNames(letter: LetterDocument): string[] {
+export function collectDocumentDeriverNames(letter: DocumentModel): string[] {
   const names = new Set<string>();
   collectNodeDeriverNames(letter.nodes, names);
   return [...names].sort((left, right) => left.localeCompare(right));
@@ -271,7 +271,7 @@ function serializableFunctionSource(definition: DeriverDefinition): string {
   return source;
 }
 
-function collectNodeDeriverNames(nodes: LetterNode[], names: Set<string>): void {
+function collectNodeDeriverNames(nodes: DocumentNode[], names: Set<string>): void {
   for (const node of nodes) {
     for (const invocation of node.derivers ?? []) {
       names.add(invocation.name);
@@ -293,7 +293,7 @@ function ref(scope: DataReference["scope"], path: string): ValueExpression {
   };
 }
 
-function isLetterDeriverBundle(value: unknown): value is LetterDeriverBundle {
+function isLetterDeriverBundle(value: unknown): value is DocumentDeriverBundle {
   return Boolean(
     value &&
       typeof value === "object" &&

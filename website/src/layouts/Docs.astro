@@ -1,0 +1,169 @@
+---
+import type { MarkdownHeading } from "astro";
+import Base from "./Base.astro";
+import Sidebar from "../components/Sidebar.astro";
+import Toc from "../components/Toc.astro";
+import { GITHUB_URL } from "../site";
+
+interface Props {
+  title: string;
+  description: string;
+  group: string;
+  currentId: string;
+  headings: MarkdownHeading[];
+}
+
+const { title, description, group, currentId, headings } = Astro.props;
+const editUrl = `${GITHUB_URL}/edit/main/website/src/content/docs/${currentId}.mdx`;
+---
+
+<Base title={title} description={description}>
+  <div
+    class="mx-auto flex w-full max-w-6xl gap-10 px-5 py-10 sm:px-8 lg:gap-12"
+  >
+    <!-- Left rail -->
+    <aside
+      class="hidden w-52 shrink-0 lg:block"
+    >
+      <div class="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pb-8">
+        <Sidebar currentId={currentId} />
+      </div>
+    </aside>
+
+    <!-- Article -->
+    <article class="doc-prose min-w-0 flex-1">
+      <p
+        class="m-0 mb-2 font-mono text-[0.65rem] uppercase tracking-[0.14em] text-muted"
+      >
+        {group}
+      </p>
+      <h1 class="mt-0 mb-3 text-4xl font-semibold">{title}</h1>
+      <p class="mt-0 mb-10 text-lg leading-relaxed text-muted">{description}</p>
+
+      <slot />
+
+      <hr class="my-12 border-0 border-t border-border" />
+      <p class="text-sm text-muted">
+        <a
+          href={editUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-accent">Edit this page on GitHub ↗</a
+        >
+      </p>
+    </article>
+
+    <!-- Right rail -->
+    <aside class="hidden w-48 shrink-0 xl:block">
+      <div class="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pb-8">
+        <Toc headings={headings} />
+      </div>
+    </aside>
+  </div>
+</Base>
+
+<style is:global>
+  /* Prose styling is scoped to the article so it can't leak into the rails.
+     Written against the tokens, so both themes come for free. */
+  .doc-prose {
+    max-width: 46rem;
+    line-height: 1.7;
+  }
+
+  .doc-prose h2 {
+    margin: 2.75rem 0 0.75rem;
+    font-size: 1.6rem;
+    font-weight: 600;
+    scroll-margin-top: 5rem;
+  }
+
+  .doc-prose h3 {
+    margin: 2rem 0 0.5rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+    scroll-margin-top: 5rem;
+  }
+
+  .doc-prose p {
+    margin: 0 0 1.1rem;
+  }
+
+  .doc-prose a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+  }
+
+  .doc-prose a:hover {
+    color: var(--accent-deep);
+  }
+
+  .doc-prose ul,
+  .doc-prose ol {
+    margin: 0 0 1.1rem;
+    padding-left: 1.4rem;
+  }
+
+  .doc-prose li {
+    margin: 0.3rem 0;
+  }
+
+  .doc-prose :not(pre) > code {
+    font-size: 0.86em;
+    background: var(--accent-tint);
+    color: var(--accent);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+  }
+
+  .doc-prose pre {
+    margin: 0 0 1.35rem;
+    padding: 1rem 1.15rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 0.82rem;
+    line-height: 1.6;
+  }
+
+  .doc-prose table {
+    width: 100%;
+    margin: 0 0 1.35rem;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    display: block;
+    overflow-x: auto;
+  }
+
+  .doc-prose th,
+  .doc-prose td {
+    border-bottom: 1px solid var(--border);
+    padding: 0.55rem 0.85rem;
+    text-align: left;
+  }
+
+  .doc-prose th {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    background: var(--surface-2);
+  }
+
+  .doc-prose blockquote {
+    margin: 0 0 1.35rem;
+    padding: 0.9rem 1.15rem;
+    border: 0;
+    border-left: 3px solid var(--accent-solid);
+    border-radius: 0 4px 4px 0;
+    background: var(--accent-tint);
+  }
+
+  .doc-prose blockquote p:last-child {
+    margin-bottom: 0;
+  }
+
+</style>

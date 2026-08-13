@@ -1,0 +1,87 @@
+---
+title: Documents and nodes
+description: A document is a tree of typed components resolved against your data.
+group: Essentials
+order: 1
+---
+
+A document is a template plus a data type. The template is a tree of **nodes**;
+resolving it against data produces a `DocumentModel` — plain JSON, no rendering
+implied.
+
+## The node helpers
+
+Each helper takes an `id` and either a render function or a set of prompts, and
+returns a component you can place in a template. There are helpers for
+paragraphs, images, graphs and sections, in static and dynamic pairs.
+
+[Nodes](/docs/nodes/overview/) documents each type, with its options and
+previews. The rest of this page is what they have in common.
+
+Ids matter: they are how a generation endpoint addresses individual nodes, and
+how build artifacts stay diffable between runs. Keep them stable.
+
+## A node is a function of your data
+
+```ts
+import { paragraph } from "docxcelerate";
+import type { LetterData } from "../types.ts";
+
+export const Greeting = paragraph<LetterData>({
+  id: "greeting",
+  render: (data) => `Dear ${data.residentName},`,
+});
+```
+
+`render` receives your typed data and an `availableTokens` budget, and returns a
+string. There is no template language — anything you can express in TypeScript
+is available, including conditionals, formatting helpers and imports.
+
+## Sections nest, nodes don't
+
+`section` is the only nesting construct. It carries a title into the document
+outline:
+
+```ts
+import { section } from "docxcelerate";
+
+section({ id: "opening", title: "Opening" }, [Greeting, Offer]);
+```
+
+In TSX the same thing reads as markup:
+
+```tsx
+<Section id="opening" title="Opening">
+  <Greeting />
+  <Offer />
+</Section>
+```
+
+Both produce the same tree. See [Templates](/docs/essentials/templates/) for when
+each form is worth using, and [Section](/docs/nodes/section/) for what a section
+may hold and how deeply.
+
+## Building the document
+
+```ts
+import { buildDocument } from "docxcelerate";
+
+const letter = await buildDocument(letterTemplate, data);
+```
+
+The result is a `DocumentModel`: a `schemaVersion`, an `id`, a `title`, and a
+`nodes` array. It contains no styling and no layout — those are applied later by
+whichever renderer consumes it.
+
+For a document project defined with `defineDocumentProject`, prefer
+`buildProjectPreviewDocument`, which applies the project's style and resolves
+dynamic nodes to their placeholders:
+
+```ts
+import { buildProjectPreviewDocument } from "docxcelerate";
+
+const letter = await buildProjectPreviewDocument(project);
+```
+
+That is exactly what the preview app calls, so what you build in code matches
+what you saw in the browser.

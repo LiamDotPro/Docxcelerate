@@ -1,37 +1,37 @@
-import type { ComponentRuntimeOptions, LetterTemplate } from "../components.ts";
-import type { JsonObject, LetterStyle } from "../domain/types.ts";
+import type { ComponentRuntimeOptions, DocumentTemplate } from "../components.ts";
+import type { JsonObject, DocumentStyle } from "../domain/types.ts";
 import type { DeriverDefinitions } from "../runtime/derivers.ts";
 
-export interface LetterProject<TData = unknown> {
+export interface DocumentProject<TData = unknown> {
   schemaVersion: "docxcelerate.project/v0";
   id: string;
   name: string;
   version: string;
-  template: LetterTemplate<TData>;
+  template: DocumentTemplate<TData>;
   previewData: TData;
   derivers?: DeriverDefinitions;
-  style?: LetterStyle;
+  style?: DocumentStyle;
   previewOptions?: ComponentRuntimeOptions;
   buildOptions?: ComponentRuntimeOptions;
   metadata?: JsonObject;
 }
 
-export interface DefineLetterProjectOptions<TData> {
+export interface DefineDocumentProjectOptions<TData> {
   id: string;
   name: string;
   version?: string;
-  template: LetterTemplate<TData>;
+  template: DocumentTemplate<TData>;
   previewData: TData;
   derivers?: DeriverDefinitions;
-  style?: LetterStyle;
+  style?: DocumentStyle;
   previewOptions?: ComponentRuntimeOptions;
   buildOptions?: ComponentRuntimeOptions;
   metadata?: JsonObject;
 }
 
-export function defineLetterProject<TData>(
-  options: DefineLetterProjectOptions<TData>,
-): LetterProject<TData> {
+export function defineDocumentProject<TData>(
+  options: DefineDocumentProjectOptions<TData>,
+): DocumentProject<TData> {
   return {
     schemaVersion: "docxcelerate.project/v0",
     id: options.id,

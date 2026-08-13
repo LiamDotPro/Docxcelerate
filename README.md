@@ -101,15 +101,15 @@ letters/arrears-notice/
     index.ts
 ```
 
-The entrypoint exports `defineLetterProject(...)`:
+The entrypoint exports `defineDocumentProject(...)`:
 
 ```tsx
-import { defineLetterProject } from "docxcelerate/letter";
+import { defineDocumentProject } from "docxcelerate/document";
 import { letterTemplate } from "./letter.tsx";
 import { letterStyle } from "./letter-style.ts";
 import type { LetterData } from "./types.ts";
 
-export default defineLetterProject<LetterData>({
+export default defineDocumentProject<LetterData>({
   id: "arrears-notice",
   name: "Arrears Notice",
   version: "0.1.0",
@@ -126,26 +126,26 @@ Templates can be written with TSX:
 
 ```tsx
 /** @jsxImportSource docxcelerate/template */
-import { Letter, Section, template } from "docxcelerate/template";
+import { Document, Section, template } from "docxcelerate/template";
 import type { LetterData } from "./types.ts";
 import { Greeting } from "./nodes/index.ts";
 
 export const letterTemplate = template<LetterData>(
-  <Letter id="arrears-notice" title="Arrears Notice">
+  <Document id="arrears-notice" title="Arrears Notice">
     <Section id="opening" title="Opening">
       <Greeting />
     </Section>
-  </Letter>,
+  </Document>,
 );
 ```
 
 Static and dynamic nodes live in normal TypeScript modules:
 
 ```ts
-import { dynamicParagraph } from "docxcelerate/letter";
+import { paragraph } from "docxcelerate/document";
 import type { LetterData } from "../types.ts";
 
-export const RepaymentSummary = dynamicParagraph<LetterData>({
+export const RepaymentSummary = paragraph<LetterData>({
   id: "repayment-summary",
   placeholder(data) {
     return `${data.recipientName} has an active repayment plan.`;
@@ -156,8 +156,11 @@ export const RepaymentSummary = dynamicParagraph<LetterData>({
 });
 ```
 
-Static nodes render their text locally. Dynamic nodes keep a placeholder for preview and carry
-prompts that a document generation endpoint resolves at request time.
+There is one helper per node kind — `paragraph`, `image`, `graph` — and the mode is inferred from
+the options. Give a node its local-resolution member (`render`, `src`, `data`) and it renders
+locally; give it prompts instead and it keeps a placeholder for preview while the engine resolves
+it at request time. Supplying both is a compile error, so `mode` in the built document always
+matches the source.
 
 ## Project Config
 
@@ -226,11 +229,11 @@ You can also edit `upload.endpoint` in `docxcelerate.config.json` at any time.
 ## Package Entrypoints
 
 ```ts
-import { buildLetterDocument, createLetterProjectArtifact } from "docxcelerate";
+import { buildDocument, createDocumentProjectArtifact } from "docxcelerate";
 import { createDocxDocument } from "docxcelerate/docx";
-import { defineLetterProject, dynamicParagraph, staticParagraph } from "docxcelerate/letter";
-import { Letter, Section, template } from "docxcelerate/template";
-import { renderLetterWebsite } from "docxcelerate/renderer";
+import { defineDocumentProject, paragraph } from "docxcelerate/document";
+import { Document, Section, template } from "docxcelerate/template";
+import { renderDocumentWebsite } from "docxcelerate/renderer";
 ```
 
 ## Development

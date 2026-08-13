@@ -1,4 +1,4 @@
-export interface ScaffoldLetterProjectOptions {
+export interface ScaffoldDocumentProjectOptions {
   name: string;
   title?: string;
   lettersDir?: string;
@@ -32,7 +32,7 @@ export const officialDocxcelerateApiServer: string = "https://docxcelerate.thoug
 export const officialDocxcelerateApiEndpoint: string =
   `${officialDocxcelerateApiServer}api/letters`;
 
-export interface ScaffoldLetterProjectResult {
+export interface ScaffoldDocumentProjectResult {
   projectDir: string;
   entrypoint: string;
   files: string[];
@@ -52,9 +52,9 @@ export interface GenerateNodeResult {
   nodeId: string;
 }
 
-export async function scaffoldLetterProject(
-  options: ScaffoldLetterProjectOptions,
-): Promise<ScaffoldLetterProjectResult> {
+export async function scaffoldDocumentProject(
+  options: ScaffoldDocumentProjectOptions,
+): Promise<ScaffoldDocumentProjectResult> {
   const slug = slugify(options.name);
   const title = options.title ?? titleFromSlug(slug);
   const projectDir = joinPath(options.lettersDir ?? "letters", slug);
@@ -379,12 +379,12 @@ export const previewData: LetterData = {
 }
 
 function letterStyleTemplate(): string {
-  return `import { cleanMinimalLetterStyle, type LetterStyle } from "docxcelerate/letter";
+  return `import { cleanMinimalDocumentStyle, type DocumentStyle } from "docxcelerate/document";
 
-export const letterStyle: LetterStyle = {
-  ...cleanMinimalLetterStyle,
+export const letterStyle: DocumentStyle = {
+  ...cleanMinimalDocumentStyle,
   page: {
-    ...cleanMinimalLetterStyle.page,
+    ...cleanMinimalDocumentStyle.page,
     margins: {
       topMm: 25.4,
       rightMm: 25.4,
@@ -1019,14 +1019,14 @@ function slugify(value: string): string {
 }
 
 function workspacePreviewMainTemplate(): string {
-  return `import { buildLetterDocument, createLetterProjectArtifact } from "docxcelerate";
-import type { LetterDocument, LetterProject } from "docxcelerate/letter";
+  return `import { buildDocument, createDocumentProjectArtifact } from "docxcelerate";
+import type { DocumentModel, DocumentProject } from "docxcelerate/document";
 import "./styles.css";
 
 interface LetterProjectModule {
-  default?: LetterProject<unknown>;
-  project?: LetterProject<unknown>;
-  letterProject?: LetterProject<unknown>;
+  default?: DocumentProject<unknown>;
+  project?: DocumentProject<unknown>;
+  letterProject?: DocumentProject<unknown>;
 }
 
 interface DocxcelerateConfig {
@@ -1126,7 +1126,7 @@ async function loadConfig(): Promise<
   return await response.json();
 }
 
-async function loadProject(path: string): Promise<LetterProject<unknown>> {
+async function loadProject(path: string): Promise<DocumentProject<unknown>> {
   const module = await projectLoaders[path]();
   const project = module.letterProject ?? module.project ?? module.default;
 
@@ -1137,8 +1137,8 @@ async function loadProject(path: string): Promise<LetterProject<unknown>> {
   return project;
 }
 
-async function buildPreviewLetter(project: LetterProject<unknown>): Promise<LetterDocument> {
-  const letter = await buildLetterDocument(project.template, project.previewData, {
+async function buildPreviewLetter(project: DocumentProject<unknown>): Promise<DocumentModel> {
+  const letter = await buildDocument(project.template, project.previewData, {
     ...project.previewOptions,
     dynamicMode: "placeholder",
   });
@@ -1297,8 +1297,8 @@ function renderError(paths: string[], currentPath: string, error: unknown): void
 async function renderPreview(
   paths: string[],
   currentPath: string,
-  project: LetterProject<unknown>,
-  letter: LetterDocument,
+  project: DocumentProject<unknown>,
+  letter: DocumentModel,
 ): Promise<void> {
   const shell = createShell({
     currentPath,
@@ -1314,7 +1314,7 @@ function createShell(options: {
   currentPath?: string;
   paths: string[];
   titleText: string;
-  project?: LetterProject<unknown>;
+  project?: DocumentProject<unknown>;
 }): HTMLElement {
   const shell = document.createElement("main");
   shell.className = "preview-shell";
@@ -1365,10 +1365,10 @@ function createShell(options: {
   if (options.project && options.currentPath) {
     header.append(
       actionButton("Build", () =>
-        buildProjectFromUi(options.project as LetterProject<unknown>, options.currentPath as string, false, status)
+        buildProjectFromUi(options.project as DocumentProject<unknown>, options.currentPath as string, false, status)
       ),
       actionButton("Build & upload", () =>
-        buildProjectFromUi(options.project as LetterProject<unknown>, options.currentPath as string, true, status)
+        buildProjectFromUi(options.project as DocumentProject<unknown>, options.currentPath as string, true, status)
       ),
     );
   }
@@ -1426,13 +1426,13 @@ function actionButton(label: string, handler: () => Promise<void>): HTMLButtonEl
 }
 
 async function buildProjectFromUi(
-  project: LetterProject<unknown>,
+  project: DocumentProject<unknown>,
   path: string,
   upload: boolean,
   status: HTMLElement,
 ): Promise<void> {
   status.textContent = upload ? "Building and uploading" : "Building";
-  const artifact = await createLetterProjectArtifact(project, {
+  const artifact = await createDocumentProjectArtifact(project, {
     entrypoint: entrypointFromPath(path),
   });
   const response = await fetch("/api/docxcelerate/build", {
@@ -1458,7 +1458,7 @@ async function buildProjectFromUi(
 }
 
 async function renderDocumentPreview(
-  letter: LetterDocument,
+  letter: DocumentModel,
   renderer: PreviewRenderer,
 ): Promise<HTMLElement> {
   const { createDocxBlob } = await import("docxcelerate/docx");
@@ -1471,7 +1471,7 @@ async function renderDocumentPreview(
   return await renderHostedDocxPreview(letter, documentBlob, renderer);
 }
 
-async function renderClientDocxPreview(letter: LetterDocument, documentBlob: Blob): Promise<HTMLElement> {
+async function renderClientDocxPreview(letter: DocumentModel, documentBlob: Blob): Promise<HTMLElement> {
   const docxPreview = await import("docx-preview");
   const stage = document.createElement("div");
   stage.className = "docx-preview-stage";
@@ -1502,7 +1502,7 @@ async function renderClientDocxPreview(letter: LetterDocument, documentBlob: Blo
 }
 
 async function renderHostedDocxPreview(
-  letter: LetterDocument,
+  letter: DocumentModel,
   documentBlob: Blob,
   renderer: Exclude<PreviewRenderer, "docx-preview">,
 ): Promise<HTMLElement> {
@@ -1539,7 +1539,7 @@ function renderHostedPreviewNotice(renderer: PreviewRenderer): HTMLElement {
   return panel;
 }
 
-async function uploadPreviewDocx(letter: LetterDocument, documentBlob: Blob): Promise<string> {
+async function uploadPreviewDocx(letter: DocumentModel, documentBlob: Blob): Promise<string> {
   const response = await fetch(
     "/api/docxcelerate/preview-docx?name=" + encodeURIComponent(letter.id + ".docx"),
     {
@@ -1965,10 +1965,10 @@ select {
 }
 
 function greetingNodeTemplate(): string {
-  return `import { staticParagraph } from "docxcelerate/letter";
+  return `import { paragraph } from "docxcelerate/document";
 import type { LetterData } from "../types.ts";
 
-export const Greeting = staticParagraph<LetterData>({
+export const Greeting = paragraph<LetterData>({
   id: "greeting",
   render(data) {
     return \`Hello \${data.recipientName},\`;
@@ -1978,10 +1978,10 @@ export const Greeting = staticParagraph<LetterData>({
 }
 
 function introNodeTemplate(): string {
-  return `import { staticParagraph } from "docxcelerate/letter";
+  return `import { paragraph } from "docxcelerate/document";
 import type { LetterData } from "../types.ts";
 
-export const Intro = staticParagraph<LetterData>({
+export const Intro = paragraph<LetterData>({
   id: "intro",
   render(data) {
     return \`We are writing to share an update for \${data.city}.\`;
@@ -1991,10 +1991,10 @@ export const Intro = staticParagraph<LetterData>({
 }
 
 function sampleBalanceSummaryNodeTemplate(): string {
-  return `import { dataRef, derive, staticParagraph } from "docxcelerate/letter";
+  return `import { dataRef, derive, paragraph } from "docxcelerate/document";
 import type { LetterData } from "../types.ts";
 
-export const BalanceSummary = staticParagraph<LetterData>({
+export const BalanceSummary = paragraph<LetterData>({
   id: "balance-summary",
   derivers: [
     derive("currencyLabel", {
@@ -2016,7 +2016,7 @@ export { Intro } from "./intro.node.ts";
 }
 
 function deriversIndexTemplate(): string {
-  return `import type { DeriverDefinitions } from "docxcelerate/letter";
+  return `import type { DeriverDefinitions } from "docxcelerate/document";
 
 export const derivers = {
 } satisfies DeriverDefinitions;
@@ -2026,7 +2026,7 @@ export default derivers;
 }
 
 function sampleDeriversIndexTemplate(): string {
-  return `import type { DeriverDefinitions } from "docxcelerate/letter";
+  return `import type { DeriverDefinitions } from "docxcelerate/document";
 
 export const derivers = {
   currencyLabel: ([amount]) =>
@@ -2042,47 +2042,47 @@ export default derivers;
 
 function letterTemplate(options: { id: string; title: string }): string {
   return `/** @jsxImportSource docxcelerate/template */
-import { Letter, Section, template } from "docxcelerate/template";
+import { Document, Section, template } from "docxcelerate/template";
 import * as Nodes from "./nodes/index.ts";
 import type { LetterData } from "./types.ts";
 
 export const letterTemplate = template<LetterData>(
-  <Letter id="${options.id}" title="${options.title}">
+  <Document id="${options.id}" title="${options.title}">
     <Section id="opening" title="Opening">
       <Nodes.Greeting />
       <Nodes.Intro />
     </Section>
-  </Letter>,
+  </Document>,
 );
 `;
 }
 
 function sampleLetterTemplate(): string {
   return `/** @jsxImportSource docxcelerate/template */
-import { Letter, Section, template } from "docxcelerate/template";
+import { Document, Section, template } from "docxcelerate/template";
 import * as Nodes from "./nodes/index.ts";
 import type { LetterData } from "./types.ts";
 
 export const letterTemplate = template<LetterData>(
-  <Letter id="welcome" title="Welcome">
+  <Document id="welcome" title="Welcome">
     <Section id="opening" title="Opening">
       <Nodes.Greeting />
       <Nodes.BalanceSummary />
     </Section>
-  </Letter>,
+  </Document>,
 );
 `;
 }
 
 function projectTemplate(options: { id: string; title: string }): string {
-  return `import { defineLetterProject } from "docxcelerate/letter";
+  return `import { defineDocumentProject } from "docxcelerate/document";
 import { derivers } from "./derivers/index.ts";
 import { letterTemplate } from "./letter.tsx";
 import { letterStyle } from "./letter-style.ts";
 import { previewData } from "./preview-data.ts";
 import type { LetterData } from "./types.ts";
 
-export default defineLetterProject<LetterData>({
+export default defineDocumentProject<LetterData>({
   id: "${options.id}",
   name: "${options.title}",
   version: "0.1.0",
@@ -2104,10 +2104,10 @@ export { Greeting } from "./greeting.node.ts";
 }
 
 function staticParagraphNodeTemplate(options: { componentName: string; nodeId: string }): string {
-  return `import { staticParagraph } from "docxcelerate/letter";
+  return `import { paragraph } from "docxcelerate/document";
 import type { LetterData } from "../types.ts";
 
-export const ${options.componentName} = staticParagraph<LetterData>({
+export const ${options.componentName} = paragraph<LetterData>({
   id: "${options.nodeId}",
   render(data) {
     return \`Add ${
@@ -2119,10 +2119,10 @@ export const ${options.componentName} = staticParagraph<LetterData>({
 }
 
 function dynamicParagraphNodeTemplate(options: { componentName: string; nodeId: string }): string {
-  return `import { dynamicParagraph } from "docxcelerate/letter";
+  return `import { paragraph } from "docxcelerate/document";
 import type { LetterData } from "../types.ts";
 
-export const ${options.componentName} = dynamicParagraph<LetterData>({
+export const ${options.componentName} = paragraph<LetterData>({
   id: "${options.nodeId}",
   placeholder(data) {
     return \`Placeholder ${
@@ -2140,10 +2140,10 @@ export const ${options.componentName} = dynamicParagraph<LetterData>({
 }
 
 function staticImageNodeTemplate(options: { componentName: string; nodeId: string }): string {
-  return `import { staticImage } from "docxcelerate/letter";
+  return `import { image } from "docxcelerate/document";
 import type { LetterData } from "../types.ts";
 
-export const ${options.componentName} = staticImage<LetterData>({
+export const ${options.componentName} = image<LetterData>({
   id: "${options.nodeId}",
   src() {
     return "assets/${options.nodeId}.png";
@@ -2156,10 +2156,10 @@ export const ${options.componentName} = staticImage<LetterData>({
 }
 
 function dynamicImageNodeTemplate(options: { componentName: string; nodeId: string }): string {
-  return `import { dynamicImage } from "docxcelerate/letter";
+  return `import { image } from "docxcelerate/document";
 import type { LetterData } from "../types.ts";
 
-export const ${options.componentName} = dynamicImage<LetterData>({
+export const ${options.componentName} = image<LetterData>({
   id: "${options.nodeId}",
   placeholder(data) {
     return \`Placeholder ${
@@ -2177,10 +2177,10 @@ export const ${options.componentName} = dynamicImage<LetterData>({
 }
 
 function staticGraphNodeTemplate(options: { componentName: string; nodeId: string }): string {
-  return `import { staticGraph } from "docxcelerate/letter";
+  return `import { graph } from "docxcelerate/document";
 import type { LetterData } from "../types.ts";
 
-export const ${options.componentName} = staticGraph<LetterData>({
+export const ${options.componentName} = graph<LetterData>({
   id: "${options.nodeId}",
   graphType: "bar",
   data(data) {
@@ -2197,10 +2197,10 @@ export const ${options.componentName} = staticGraph<LetterData>({
 }
 
 function dynamicGraphNodeTemplate(options: { componentName: string; nodeId: string }): string {
-  return `import { dynamicGraph } from "docxcelerate/letter";
+  return `import { graph } from "docxcelerate/document";
 import type { LetterData } from "../types.ts";
 
-export const ${options.componentName} = dynamicGraph<LetterData>({
+export const ${options.componentName} = graph<LetterData>({
   id: "${options.nodeId}",
   graphType: "bar",
   placeholder(data) {

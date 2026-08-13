@@ -1,11 +1,11 @@
 /** @jsxImportSource docxcelerate/template */
 import { test } from "node:test";
 import { assertEquals } from "./assert.ts";
-import { buildLetterDocument, staticParagraph } from "docxcelerate";
+import { buildDocument, paragraph } from "docxcelerate";
 import {
-  defineLetterComponent,
+  defineDocumentComponent,
   defineSectionComponent,
-  Letter,
+  Document,
   Section,
   template,
 } from "docxcelerate/template";
@@ -14,7 +14,7 @@ interface LetterData {
   recipientName: string;
 }
 
-const Greeting = staticParagraph<LetterData>({
+const Greeting = paragraph<LetterData>({
   id: "greeting",
   render(data) {
     return `Hello ${data.recipientName},`;
@@ -23,14 +23,14 @@ const Greeting = staticParagraph<LetterData>({
 
 test("TSX template composes a letter tree from node components", async () => {
   const letterTemplate = template<LetterData>(
-    <Letter id="welcome" title="Welcome">
+    <Document id="welcome" title="Welcome">
       <Section id="opening" title="Opening">
         <Greeting />
       </Section>
-    </Letter>,
+    </Document>,
   );
 
-  const builtLetter = await buildLetterDocument(letterTemplate, {
+  const builtLetter = await buildDocument(letterTemplate, {
     recipientName: "Avery",
   });
 
@@ -51,7 +51,7 @@ test("TSX template composes a letter tree from node components", async () => {
 });
 
 test("TSX template can extend generic letter and section components", async () => {
-  const CaseLetter = defineLetterComponent<LetterData>({
+  const CaseLetter = defineDocumentComponent<LetterData>({
     id: "case-letter",
     title: "Case Letter",
   });
@@ -71,7 +71,7 @@ test("TSX template can extend generic letter and section components", async () =
     </CaseLetter>,
   );
 
-  const builtLetter = await buildLetterDocument(letterTemplate, {
+  const builtLetter = await buildDocument(letterTemplate, {
     recipientName: "Avery",
   });
   const opening = builtLetter.nodes[0];

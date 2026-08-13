@@ -1,0 +1,24 @@
+---
+import { GITHUB_URL, NPM_URL, CLOUD_URL } from "../site";
+
+const year = new Date().getFullYear();
+---
+
+<footer class="border-t border-border bg-surface">
+  <div
+    class="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-10 text-sm text-muted sm:flex-row sm:items-center sm:justify-between sm:px-8"
+  >
+    <p class="m-0">
+      MIT licensed. Authoring, preview and DOCX packing run entirely on your machine.
+    </p>
+    <nav aria-label="Footer" class="flex gap-5">
+      <a href="/docs/start-here/" class="no-underline text-muted hover:text-accent">Docs</a>
+      <a href={CLOUD_URL} target="_blank" rel="noopener noreferrer" class="no-underline text-muted hover:text-accent">Cloud ↗</a>
+      <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" class="no-underline text-muted hover:text-accent">GitHub ↗</a>
+      <a href={NPM_URL} target="_blank" rel="noopener noreferrer" class="no-underline text-muted hover:text-accent">npm ↗</a>
+    </nav>
+  </div>
+  <div class="mx-auto max-w-6xl px-5 pb-8 text-xs text-muted sm:px-8">
+    <p class="m-0">© {year} Docxcelerate contributors.</p>
+  </div>
+</footer>

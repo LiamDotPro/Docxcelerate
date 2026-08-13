@@ -40,13 +40,13 @@
       "types": "./dist/project/scaffold_cli.d.ts",
       "default": "./dist/project/scaffold_cli.js"
     },
+    "./document": {
+      "types": "./dist/document.d.ts",
+      "default": "./dist/document.js"
+    },
     "./docx": {
       "types": "./dist/render/docx_document.d.ts",
       "default": "./dist/render/docx_document.js"
-    },
-    "./letter": {
-      "types": "./dist/letter.d.ts",
-      "default": "./dist/letter.js"
     },
     "./renderer": {
       "types": "./dist/renderer/mod.d.ts",
@@ -60,18 +60,18 @@
       "types": "./dist/template.d.ts",
       "default": "./dist/template.js"
     },
-    "./template/jsx-runtime": {
-      "types": "./dist/template/jsx-runtime.d.ts",
-      "default": "./dist/template/jsx-runtime.js"
-    },
     "./template/jsx-dev-runtime": {
       "types": "./dist/template/jsx-dev-runtime.d.ts",
       "default": "./dist/template/jsx-dev-runtime.js"
+    },
+    "./template/jsx-runtime": {
+      "types": "./dist/template/jsx-runtime.d.ts",
+      "default": "./dist/template/jsx-runtime.js"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "test": "npm run build && tsc -p tsconfig.test.json && node --test \"dist-tests/tests/**/*.test.js\"",
+    "test": "npm run build && tsc -p tsconfig.test.json && node --test \"dist-tests/**/*.test.js\"",
     "clean": "node -e \"for (const d of ['dist','dist-tests']) require('node:fs').rmSync(d,{recursive:true,force:true})\"",
     "prepare": "npm run build",
     "prepublishOnly": "npm run clean && npm run build",

@@ -1,0 +1,69 @@
+---
+title: Paragraph
+description: Prose, rendered from your data or resolved from prompts at request time.
+group: Nodes
+subgroup: Node types
+order: 10
+---
+
+import NodeSummary from "../../../components/NodeSummary.astro";
+import NodeVariants from "../../../components/NodeVariants.astro";
+
+<NodeSummary type="paragraph" />
+
+## Writing one
+
+`render` receives your typed data and the token budget, and returns a string.
+There is no template language between them, so formatting, branching and
+pluralisation are all ordinary TypeScript:
+
+```ts
+import { paragraph } from "docxcelerate";
+import type { MemberData } from "../types.ts";
+
+export const Greeting = paragraph<MemberData>({
+  id: "greeting",
+  render: (data) => `Dear ${data.memberName},`,
+});
+```
+
+It may be `async` — but a node that fetches is a node that can fail mid-build,
+so prefer putting the value in your data first.
+
+## The token budget
+
+The second argument to `render`, `placeholder` and every prompt is
+`availableTokens`: the budget this node was allotted, `2000` unless you set
+`availableTokens` in the build options. Static nodes can ignore it. Dynamic ones
+should spend it:
+
+```ts
+generalPrompt: (data, availableTokens) =>
+  `Explain the change. At most ${Math.floor(availableTokens / 4)} words.`,
+```
+
+## Branching belongs in the render
+
+A document that says one of three things is one node with three outcomes, not
+three nodes behind conditions. The id stays put, the tree keeps its shape
+whoever the recipient is, and the logic is code you can test.
+
+## Dynamic paragraphs
+
+A dynamic paragraph swaps `render` for prompts and a placeholder. Preview builds
+resolve it to the placeholder and label it; request-time builds send the prompts.
+Only `generalPrompt` is required — the fourth variant below shows what the other
+three are for.
+
+## Variants
+
+<NodeVariants type="paragraph" />
+
+## Notes
+
+- Both modes resolve to `kind: "paragraph"`. A renderer reads `mode` if it cares
+  at all; it never branches on which helper you called.
+- An empty string returns an empty paragraph, not no node. To drop the node,
+  leave it out of the tree.
+- Renderers escape the text. A paragraph cannot smuggle markup into the page,
+  and is not the place for formatting.

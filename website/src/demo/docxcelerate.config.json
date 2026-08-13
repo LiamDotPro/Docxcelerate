@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "docxcelerate.config/v0",
+  "activePreset": "local",
+  "presets": {
+    "local": {
+      "build": { "outDir": "build" },
+      "upload": {
+        "endpoint": "",
+        "method": "POST",
+        "headers": {},
+        "body": "letter"
+      }
+    },
+    "staging": {
+      "build": { "outDir": "build" },
+      "upload": {
+        "endpoint": "https://letters.staging.example.com/api/letters",
+        "method": "POST",
+        "headers": { "Authorization": "Bearer ${LETTERS_TOKEN}" },
+        "body": "letter"
+      }
+    }
+  }
+}

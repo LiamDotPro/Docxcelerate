@@ -5,8 +5,8 @@ import type {
   GraphType,
   ImageNode,
   JsonObject,
-  LetterDocument,
-  LetterNode,
+  DocumentModel,
+  DocumentNode,
   ParagraphNode,
   PromptKind,
   PromptSpec,
@@ -44,7 +44,7 @@ interface ComponentRuntime {
   state: ReturnType<typeof createRuntimeState>;
 }
 
-export interface LetterTemplate<TData> {
+export interface DocumentTemplate<TData> {
   id: string;
   title: string;
   metadata?: JsonObject;
@@ -53,12 +53,12 @@ export interface LetterTemplate<TData> {
 
 export type NodeChildren<TData> = NodeComponent<TData>[];
 
-export type NodeComponent<TData, TNode extends LetterNode = LetterNode> = (
+export type NodeComponent<TData, TNode extends DocumentNode = DocumentNode> = (
   data: TData,
   availableTokens: number,
 ) => MaybePromise<Node<TNode, TData> | Node<TNode, TData>[] | EmptyNode>;
 
-export interface TemplateNodeComponent<TData, TNode extends LetterNode = LetterNode> {
+export interface TemplateNodeComponent<TData, TNode extends DocumentNode = DocumentNode> {
   (): TemplateNodeComponent<TData, TNode>;
   (data: TData, availableTokens: number): MaybePromise<
     Node<TNode, TData> | Node<TNode, TData>[] | EmptyNode
@@ -66,7 +66,7 @@ export interface TemplateNodeComponent<TData, TNode extends LetterNode = LetterN
   readonly [nodeComponentMarker]: true;
 }
 
-export type Node<TNode extends LetterNode = LetterNode, TData = unknown> = TNode extends SectionNode
+export type Node<TNode extends DocumentNode = DocumentNode, TData = unknown> = TNode extends SectionNode
   ? SectionDefinition<TData>
   : TNode extends ParagraphNode ? StaticParagraphDefinition | DynamicParagraphDefinition
   : TNode extends ImageNode ? StaticImageDefinition | DynamicImageDefinition
@@ -150,15 +150,15 @@ export interface TableOfContentsDefinition {
   derivers?: DeriverInvocation[];
 }
 
-export interface DefineLetterOptions<TData> {
+export interface DefineDocumentOptions<TData> {
   id: string;
   title: string;
   metadata?: JsonObject;
   nodes: NodeChildren<TData>;
 }
 
-export function defineLetter<TData>(options: DefineLetterOptions<TData>): LetterTemplate<TData> {
-  return letter(
+export function defineDocument<TData>(options: DefineDocumentOptions<TData>): DocumentTemplate<TData> {
+  return doc(
     {
       id: options.id,
       title: options.title,
@@ -168,16 +168,16 @@ export function defineLetter<TData>(options: DefineLetterOptions<TData>): Letter
   );
 }
 
-export interface LetterOptions {
+export interface DocumentOptions {
   id: string;
   title: string;
   metadata?: JsonObject;
 }
 
-export function letter<TData>(
-  options: LetterOptions,
+export function doc<TData>(
+  options: DocumentOptions,
   nodes: NodeChildren<TData>,
-): LetterTemplate<TData> {
+): DocumentTemplate<TData> {
   return {
     id: options.id,
     title: options.title,
@@ -222,7 +222,7 @@ export function isTemplateNodeComponent(value: unknown): value is TemplateNodeCo
   );
 }
 
-function markNodeComponent<TData, TNode extends LetterNode>(
+function markNodeComponent<TData, TNode extends DocumentNode>(
   component: NodeComponent<TData, TNode>,
 ): TemplateNodeComponent<TData, TNode> {
   Object.defineProperty(component, nodeComponentMarker, {
@@ -238,7 +238,33 @@ export interface StaticParagraphOptions<TData> {
   render(data: TData, availableTokens: number): MaybePromise<string>;
 }
 
-export function staticParagraph<TData>(
+/**
+ * A paragraph's mode is inferred, never declared.
+ *
+ * Supplying `render` means the text can be produced from your data, so the node
+ * resolves locally. Supplying prompts means it can't, so it resolves at request
+ * time. The `never` members make supplying both a compile error rather than a
+ * silent precedence rule, and keep `mode` a single source of truth — derived
+ * from the options, not asserted alongside them.
+ */
+export type ParagraphOptions<TData> =
+  | (StaticParagraphOptions<TData> & { generalPrompt?: never })
+  | (DynamicParagraphOptions<TData> & { render?: never });
+
+export function paragraph<TData>(
+  options: ParagraphOptions<TData>,
+): TemplateNodeComponent<TData, ParagraphNode> {
+  // The options carry no discriminant of their own, so the local-resolution
+  // member is the discriminant. Its type is a function on one side of the union
+  // and `undefined` on the other, which is enough for TypeScript to narrow —
+  // and testing against undefined means an explicitly-undefined `render`
+  // behaves the same as an absent one.
+  return options.render !== undefined
+    ? staticParagraphComponent(options)
+    : dynamicParagraphComponent(options);
+}
+
+function staticParagraphComponent<TData>(
   options: StaticParagraphOptions<TData>,
 ): TemplateNodeComponent<TData, ParagraphNode> {
   return markNodeComponent((data, availableTokens) => ({
@@ -260,7 +286,7 @@ export interface DynamicParagraphOptions<TData> {
   systemPrompt?(data: TData, availableTokens: number): MaybePromise<string>;
 }
 
-export function dynamicParagraph<TData>(
+function dynamicParagraphComponent<TData>(
   options: DynamicParagraphOptions<TData>,
 ): TemplateNodeComponent<TData, ParagraphNode> {
   return markNodeComponent((data, availableTokens) => ({
@@ -297,7 +323,20 @@ export interface StaticImageOptions<TData> {
   height?: StaticValue<TData, number | undefined>;
 }
 
-export function staticImage<TData>(
+/** An image resolves locally when you can point at a `src`. */
+export type ImageOptions<TData> =
+  | (StaticImageOptions<TData> & { generalPrompt?: never })
+  | (DynamicImageOptions<TData> & { src?: never });
+
+export function image<TData>(
+  options: ImageOptions<TData>,
+): TemplateNodeComponent<TData, ImageNode> {
+  return options.src !== undefined
+    ? staticImageComponent(options)
+    : dynamicImageComponent(options);
+}
+
+function staticImageComponent<TData>(
   options: StaticImageOptions<TData>,
 ): TemplateNodeComponent<TData, ImageNode> {
   return markNodeComponent((data, availableTokens) => ({
@@ -326,7 +365,7 @@ export interface DynamicImageOptions<TData> {
   systemPrompt?(data: TData, availableTokens: number): MaybePromise<string>;
 }
 
-export function dynamicImage<TData>(
+function dynamicImageComponent<TData>(
   options: DynamicImageOptions<TData>,
 ): TemplateNodeComponent<TData, ImageNode> {
   return markNodeComponent((data, availableTokens) => ({
@@ -358,7 +397,24 @@ export interface StaticGraphOptions<TData> {
   caption?: StaticValue<TData, string | undefined>;
 }
 
-export function staticGraph<TData>(
+/**
+ * A graph resolves locally when you can supply its `data`. `graphType` is
+ * available either way — the shape of the chart is a layout decision, known
+ * before the figures are.
+ */
+export type GraphOptions<TData> =
+  | (StaticGraphOptions<TData> & { generalPrompt?: never })
+  | (DynamicGraphOptions<TData> & { data?: never });
+
+export function graph<TData>(
+  options: GraphOptions<TData>,
+): TemplateNodeComponent<TData, GraphNode> {
+  return options.data !== undefined
+    ? staticGraphComponent(options)
+    : dynamicGraphComponent(options);
+}
+
+function staticGraphComponent<TData>(
   options: StaticGraphOptions<TData>,
 ): TemplateNodeComponent<TData, GraphNode> {
   return markNodeComponent((data, availableTokens) => ({
@@ -385,7 +441,7 @@ export interface DynamicGraphOptions<TData> {
   systemPrompt?(data: TData, availableTokens: number): MaybePromise<string>;
 }
 
-export function dynamicGraph<TData>(
+function dynamicGraphComponent<TData>(
   options: DynamicGraphOptions<TData>,
 ): TemplateNodeComponent<TData, GraphNode> {
   return markNodeComponent((data, availableTokens) => ({
@@ -410,11 +466,11 @@ export function dynamicGraph<TData>(
   }));
 }
 
-export async function buildLetterDocument<TData>(
-  template: LetterTemplate<TData>,
+export async function buildDocument<TData>(
+  template: DocumentTemplate<TData>,
   data: TData,
   options: ComponentRuntimeOptions = {},
-): Promise<LetterDocument> {
+): Promise<DocumentModel> {
   const aiClient = options.aiClient ?? missingAiClient;
   const runtime: ComponentRuntime = {
     availableTokens: options.availableTokens ?? 2_000,
@@ -438,8 +494,8 @@ async function resolveComponents<TData>(
   components: NodeComponent<TData>[],
   data: TData,
   runtime: ComponentRuntime,
-): Promise<LetterNode[]> {
-  const nodes: LetterNode[] = [];
+): Promise<DocumentNode[]> {
+  const nodes: DocumentNode[] = [];
 
   for (const component of components) {
     const output = await component(data, runtime.availableTokens);
@@ -453,8 +509,8 @@ async function resolveComponents<TData>(
 }
 
 function flattenDefinitions<TData>(
-  output: Node<LetterNode, TData> | Node<LetterNode, TData>[] | EmptyNode,
-): Node<LetterNode, TData>[] {
+  output: Node<DocumentNode, TData> | Node<DocumentNode, TData>[] | EmptyNode,
+): Node<DocumentNode, TData>[] {
   if (!output) {
     return [];
   }
@@ -463,10 +519,10 @@ function flattenDefinitions<TData>(
 }
 
 async function resolveDefinition<TData>(
-  definition: Node<LetterNode, TData>,
+  definition: Node<DocumentNode, TData>,
   data: TData,
   runtime: ComponentRuntime,
-): Promise<LetterNode> {
+): Promise<DocumentNode> {
   if (definition.kind === "section") {
     await runDefinitionDerivers(definition, runtime);
 

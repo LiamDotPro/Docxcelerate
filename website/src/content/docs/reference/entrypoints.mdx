@@ -1,0 +1,85 @@
+---
+title: Package entrypoints
+description: Every importable path and what lives behind it.
+group: Reference
+order: 1
+---
+
+The package ships compiled output with type declarations. Every entrypoint below
+is declared in `exports`, so they resolve in Node and in bundlers without deep
+imports into `dist/`.
+
+## docxcelerate
+
+The main surface: node helpers, the document builder, artifact helpers, runtime
+types, and every type in the document domain.
+
+```ts
+import {
+  buildDocument,
+  buildProjectPreviewDocument,
+  cleanMinimalDocumentStyle,
+  graph,
+  image,
+  letter,
+  paragraph,
+  section,
+  type DocumentModel,
+  type ParagraphNode,
+} from "docxcelerate";
+```
+
+## docxcelerate/document
+
+Document project definition — the entrypoint a scaffolded `letter.project.ts`
+uses. The CLI and the scaffolded filenames still say `letter`; the API does not.
+
+```ts
+import { defineDocumentProject } from "docxcelerate/document";
+```
+
+## docxcelerate/template
+
+The TSX component surface.
+
+```ts
+import {
+  defineDocumentComponent,
+  defineSectionComponent,
+  Document,
+  Section,
+  template,
+} from "docxcelerate/template";
+```
+
+Its JSX runtime is exposed at `docxcelerate/template/jsx-runtime` (and
+`.../jsx-dev-runtime`), which is what `jsxImportSource` resolves to.
+
+## docxcelerate/renderer
+
+Renderers that turn a `DocumentModel` into something viewable.
+
+```ts
+import { renderDocumentWebsite } from "docxcelerate/renderer";
+```
+
+`renderDocumentWebsite` returns a **complete standalone HTML document** — its own
+`<html>` and `<style>` — rather than a fragment. Embed it in an iframe if you
+need it inside another page; that is how this site's homepage preview works.
+
+## docxcelerate/docx
+
+DOCX construction.
+
+```ts
+import { createDocxDocument } from "docxcelerate/docx";
+```
+
+## docxcelerate/scaffold and /cli
+
+The workspace generator and its command-line front end, for building your own
+tooling on top.
+
+```ts
+import { scaffoldWorkspace } from "docxcelerate/scaffold";
+```

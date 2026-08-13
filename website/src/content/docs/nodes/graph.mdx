@@ -1,0 +1,56 @@
+---
+title: Graph
+description: Charts declared as data — bar, line or pie — from your figures or an endpoint's.
+group: Nodes
+subgroup: Node types
+order: 13
+---
+
+import NodeSummary from "../../../components/NodeSummary.astro";
+import NodeVariants from "../../../components/NodeVariants.astro";
+
+<NodeSummary type="graph" />
+
+## Declared, not drawn
+
+A graph node holds numbers and a form, never an image:
+
+```ts
+graph<MemberData>({
+  id: "visits-by-month",
+  graphType: "bar",
+  data: (data) => ({
+    labels: data.visitsByMonth.map((entry) => entry.month),
+    series: [{ name: "Visits", values: data.visitsByMonth.map((entry) => entry.visits) }],
+  }),
+  caption: () => "Your visits, last six months",
+});
+```
+
+Carrying figures rather than a picture means one declaration serves every
+renderer, diffs legibly between builds, and can be asserted on in a test.
+
+## The payload shape is yours
+
+`data` is a `JsonObject` and the framework never looks inside it. The
+`{ labels, series }` shape used here is a convention, not a schema — use
+whatever your renderer expects, and keep it consistent across a project.
+
+One thing does happen to the payload: string values are run through the template
+renderer, the same as prose. A label containing `{{derived.total}}` resolves.
+
+## Deriving in `data`
+
+Running totals, percentages and rebasing belong in the `data` function rather
+than upstream. The chart and the prose beside it are then computed from one
+source, so they cannot disagree.
+
+## Variants
+
+<NodeVariants type="graph" />
+
+## Notes
+
+- `graphType` defaults to `bar` on both helpers.
+- On a dynamic graph the form is still fixed locally. The endpoint supplies the
+  figures, and may override `graphType` and `caption` in its response.

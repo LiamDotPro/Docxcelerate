@@ -1,0 +1,100 @@
+---
+title: Workspace and config
+description: How a scaffolded workspace is laid out, and what the config presets control.
+group: Projects
+order: 1
+---
+
+`dxcl init` produces an ordinary Vite project. Nothing about it is magic — you
+can open it in your editor, add dependencies, and commit it like any other
+repository.
+
+```text
+my-letters/
+  docxcelerate.config.json
+  index.html
+  package.json
+  preview/
+    main.ts
+    styles.css
+  vite.config.ts
+  tsconfig.json
+  letters/
+```
+
+`letters/` holds one directory per document project. Everything else is the
+preview app that runs on `npm run dev`.
+
+## Config presets
+
+`docxcelerate.config.json` stores named presets for build and upload behaviour:
+
+```json
+{
+  "schemaVersion": "docxcelerate.config/v0",
+  "activePreset": "local",
+  "presets": {
+    "local": {
+      "build": { "outDir": "build" },
+      "upload": {
+        "endpoint": "",
+        "method": "POST",
+        "headers": {},
+        "body": "letter"
+      }
+    }
+  }
+}
+```
+
+`activePreset` selects which one applies. Presets are the mechanism for having
+a local setup and a staging or production endpoint side by side without editing
+configuration between runs:
+
+```json
+{
+  "activePreset": "local",
+  "presets": {
+    "local": { "build": { "outDir": "build" }, "upload": { "endpoint": "" } },
+    "staging": {
+      "build": { "outDir": "build" },
+      "upload": {
+        "endpoint": "https://letters.staging.example.com/api/letters",
+        "method": "POST",
+        "headers": { "Authorization": "Bearer ${LETTERS_TOKEN}" },
+        "body": "letter"
+      }
+    }
+  }
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `build.outDir` | Where artifacts are written, relative to the document directory |
+| `upload.endpoint` | The generation endpoint; empty disables upload |
+| `upload.method` | HTTP method, normally `POST` |
+| `upload.headers` | Sent with the upload request |
+| `upload.body` | Which artifact to send — `letter` is the request-time one |
+
+Build & upload is enabled in the preview UI only when the active preset has a
+non-empty `upload.endpoint`. With it empty, everything still builds — you simply
+get artifacts on disk instead of a finished document.
+
+## Document project layout
+
+```text
+letters/offer-of-admission/
+  letter.project.ts
+  letter-style.ts
+  letter.tsx
+  preview-data.ts
+  types.ts
+  nodes/
+    index.ts
+```
+
+The split is the point: `types.ts` is the contract, `preview-data.ts` is one
+instance of it, `letter.tsx` is structure only, and each node is a small module
+under `nodes/`. Documents get long, and a template that inlines its prose becomes
+unreadable quickly.

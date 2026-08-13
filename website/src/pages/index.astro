@@ -1,0 +1,330 @@
+---
+import Base from "../layouts/Base.astro";
+import HeroDemo from "../components/HeroDemo.astro";
+import { CLOUD_URL, INSTALL_COMMAND } from "../site";
+import release from "../generated/release.json";
+
+// Long enough to be recognisable, short enough to sit on one line; the full
+// value is on the element and on the clipboard.
+const shortIntegrity = `${release.integrity.slice(0, 24)}…`;
+
+// The label names the dimension each point argues on, so the three read as a
+// set covering authoring, AI and governance rather than three loose claims.
+const POINTS = [
+  {
+    label: "Authoring",
+    title: "Write documents like websites",
+    body:
+      "A document is a tree of typed components. If you have written React you " +
+      "already know the shape of this — props, composition, small files — so a " +
+      "frontend engineer is productive on the first afternoon rather than " +
+      "learning a template language first.",
+  },
+  {
+    label: "AI",
+    title: "Designed for AI",
+    body:
+      "Generated prose is a node type, not a bolt-on. Mark the one paragraph " +
+      "that genuinely needs a model, give it prompts and a placeholder, and " +
+      "leave the rest deterministic — so AI solves the hard part without " +
+      "putting the whole document at its mercy.",
+  },
+  {
+    label: "Change control",
+    title: "Documents live in your repo",
+    body:
+      "Because a document is source, changing a sentence is a pull request — " +
+      "diffed, reviewed, and still attributable a year later when someone asks " +
+      "who altered the arrears wording. Tests assert a document renders what you " +
+      "expect, so CI catches the mistake before a recipient does.",
+  },
+];
+---
+
+<Base bare>
+  <!-- Hero -->
+  <section class="mx-auto max-w-6xl px-5 pt-12 pb-10 sm:px-8 sm:pt-16">
+    <div class="flex flex-col items-center gap-6 text-center">
+      <h1
+        class="m-0 max-w-3xl text-[clamp(2.6rem,7vw,4.5rem)] font-semibold leading-[1.02]"
+      >
+        Documents as components.<br />DOCX as output.
+      </h1>
+      <p class="m-0 max-w-xl text-lg leading-relaxed text-muted">
+        Compose documents from typed, reusable nodes. Preview them in the
+        browser, pack a real <code class="font-mono text-[0.9em] text-accent">.docx</code>
+        locally, and hand the rest to the engine when you need one.
+      </p>
+
+      <div class="flex flex-wrap items-center justify-center gap-3">
+        <a
+          href="/docs/start-here/"
+          class="rounded bg-accent-solid px-5 py-2.5 text-sm font-medium text-on-accent no-underline transition-colors hover:bg-accent-deep"
+          >Get started →</a
+        >
+        <a
+          href="/docs/essentials/static-and-dynamic/"
+          class="rounded border border-border-firm px-5 py-2.5 text-sm font-medium text-accent no-underline transition-colors hover:bg-accent-tint"
+          >How it works</a
+        >
+      </div>
+
+      <div
+        class="mt-1 flex items-center gap-3 rounded border border-border bg-surface px-4 py-2 font-mono text-sm"
+      >
+        <span class="select-none text-muted">$</span>
+        <code id="install-cmd">{INSTALL_COMMAND}</code>
+        <button
+          type="button"
+          id="copy-install"
+          class="ml-1 rounded px-1.5 py-0.5 text-xs text-muted transition-colors hover:text-accent"
+          aria-label="Copy install command">Copy</button
+        >
+      </div>
+
+      <p
+        class="m-0 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-mono text-[0.68rem] text-muted"
+      >
+        <span>v{release.version}</span>
+        <span aria-hidden="true">·</span>
+        <button
+          type="button"
+          id="copy-integrity"
+          data-integrity={release.integrity}
+          class="max-w-full truncate rounded px-1 text-left tabular-nums transition-colors hover:text-accent"
+          title={`${release.integrity} — click to copy`}
+        >
+          {shortIntegrity}
+        </button>
+      </p>
+    </div>
+
+  </section>
+
+  <!-- The demo runs wider than the prose above it — it's the argument, not an
+       illustration of one. -->
+  <section class="mx-auto max-w-7xl px-5 pb-16 sm:px-8">
+    <HeroDemo />
+  </section>
+
+  <!-- Positioning. Top margin only — the quote below owns the gap after it, so
+       the two don't stack margin and padding into a hole. -->
+  <section class="mt-20 border-y border-border bg-surface sm:mt-28">
+    <div class="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24">
+      <div class="grid gap-16 md:grid-cols-3 md:gap-0">
+        {
+          POINTS.map((point, index) => (
+            <div
+              class:list={[
+                "flex flex-col",
+                // Hairlines between columns rather than boxes around them —
+                // the points are peers, not cards.
+                index > 0 && "md:border-l md:border-border md:pl-12",
+                index < POINTS.length - 1 && "md:pr-12",
+              ]}
+            >
+              <span class="mb-4 font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent">
+                {point.label}
+              </span>
+              <h2 class="m-0 mb-4 text-[1.75rem] leading-[1.15] font-semibold">{point.title}</h2>
+              <p class="m-0 text-[0.975rem] leading-[1.75] text-pretty text-muted">
+                {point.body}
+              </p>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- The thesis. The one place on the page that spends the accent at full
+       strength — everything around it stays quiet. -->
+  <section class="bg-accent-solid text-on-accent">
+    <div class="mx-auto max-w-6xl px-5 py-32 sm:px-8 sm:py-44">
+      <div class="mx-auto max-w-3xl text-center">
+        <p class="pull-quote">
+          Docxcelerate treats a document the way a UI framework treats a screen:
+          small components, composed into a tree, rendered by something that
+          knows about paper. You get the ergonomics of a component model, and
+          the recipient gets a Word document.
+        </p>
+        <span class="quote-rule" aria-hidden="true"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- The engine -->
+  <section class="mx-auto max-w-6xl px-5 py-24 sm:px-8">
+    <div class="grid gap-12 md:grid-cols-2 md:gap-16">
+      <div class="flex max-w-xl flex-col gap-5">
+        <h2 class="m-0 text-3xl font-semibold sm:text-4xl">The engine</h2>
+        <p class="m-0 leading-relaxed text-muted">
+          The engine is where documents are actually written. It fills in your
+          data, runs the AI, and returns the finished document. Any kind of node
+          can use AI, not only paragraphs. The model's answer either becomes the
+          text, written from the information you give it, or makes a decision
+          the document depends on.
+        </p>
+        <p class="m-0 leading-relaxed text-muted">
+          You publish a template to the engine once. After that, any system can
+          call its API with a set of data and get a document back. A free engine
+          is available to self-host. The managed cloud runs the complete one,
+          with a lot the free version does not have, and is coming soon.
+        </p>
+        <div class="mt-2 flex flex-wrap gap-3">
+          <a
+            href="/docs/generation/endpoint/"
+            class="rounded bg-accent-solid px-5 py-2.5 text-sm font-medium text-on-accent no-underline transition-colors hover:bg-accent-deep"
+            >How the engine works →</a
+          >
+          <a
+            href={CLOUD_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-2 rounded border border-border-firm px-5 py-2.5 text-sm font-medium text-muted no-underline transition-colors hover:text-accent"
+            >Managed cloud
+            <span
+              class="rounded-full border border-border-firm px-1.5 py-px font-mono text-[0.6rem] uppercase tracking-[0.08em]"
+              >soon</span
+            ></a
+          >
+        </div>
+      </div>
+
+      <!-- A real sequence, so it's numbered. The first step is the only one
+           the framework is responsible for. -->
+      <!-- Full height and spread, so the first step's text starts level with
+           the heading and the last ends level with the buttons. -->
+      <ol class="m-0 flex list-none flex-col p-0 md:h-full md:justify-between">
+        {
+          [
+            [
+              "Build",
+              "The framework turns your document into a package. This step runs on your machine.",
+            ],
+            [
+              "Publish",
+              "You send the package to an engine. The engine stores it and gives it a name.",
+            ],
+            [
+              "Write",
+              "Your application sends a set of data. The engine returns the finished document.",
+            ],
+          ].map(([step, detail], index) => (
+            <li
+              class:list={[
+                "m-0 flex gap-5 py-5",
+                index > 0 && "border-t border-border",
+                index === 0 && "md:pt-0",
+                index === 2 && "md:pb-0",
+              ]}
+            >
+              <span class="pt-0.5 font-mono text-sm text-muted tabular-nums">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <span class="flex flex-col gap-1">
+                <span class="font-semibold text-ink">{step}</span>
+                <span class="text-sm leading-relaxed text-muted">{detail}</span>
+              </span>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+
+  <!-- The docs -->
+  <section class="border-t border-border bg-surface">
+    <div class="mx-auto max-w-6xl px-5 py-24 sm:px-8 sm:py-28">
+      <div class="mb-10 flex max-w-2xl flex-col gap-4">
+        <span
+          class="font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent"
+          >Documentation</span
+        >
+        <h2 class="m-0 text-3xl font-semibold sm:text-4xl">Read the whole thing</h2>
+        <p class="m-0 leading-relaxed text-muted">
+          Every node type, every CLI flag, and every file a build writes — with
+          previews rendered by the real renderer, so nothing on the page can
+          describe a helper that no longer exists.
+        </p>
+      </div>
+
+      <div class="grid gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
+        {
+          [
+            ["Start here", "Scaffold a workspace and open your first document.", "/docs/start-here/"],
+            ["Letters and nodes", "The component model a document is built from.", "/docs/essentials/letters-and-nodes/"],
+            ["The node model", "Every node type, with a preview of each.", "/docs/nodes/overview/"],
+            ["Static and dynamic", "What runs locally, and what needs the engine.", "/docs/essentials/static-and-dynamic/"],
+            ["CLI commands", "dxcl init, letter new, letter node.", "/docs/cli/commands/"],
+            ["Package entrypoints", "Everything importable, and what it exports.", "/docs/reference/entrypoints/"],
+          ].map(([title, blurb, href]) => (
+            <a
+              href={href}
+              class="group flex flex-col gap-1.5 bg-paper p-6 no-underline transition-colors hover:bg-accent-tint"
+            >
+              <span class="font-semibold text-ink transition-colors group-hover:text-accent">
+                {title}
+                <span class="ml-1 inline-block transition-transform group-hover:translate-x-0.5" aria-hidden="true">→</span>
+              </span>
+              <span class="text-sm leading-relaxed text-muted">{blurb}</span>
+            </a>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+</Base>
+
+<script>
+  function wireCopy(button: HTMLElement | null, value: () => string | undefined, idle: string) {
+    button?.addEventListener("click", async () => {
+      const text = value();
+      if (!text) return;
+      const restore = () => setTimeout(() => (button.textContent = idle), 1600);
+      try {
+        await navigator.clipboard.writeText(text);
+        button.textContent = "Copied";
+        restore();
+      } catch {
+        button.textContent = "Press ⌘C";
+        restore();
+      }
+    });
+  }
+
+  const command = document.getElementById("install-cmd");
+  wireCopy(document.getElementById("copy-install"), () => command?.textContent ?? "", "Copy");
+
+  const integrity = document.getElementById("copy-integrity");
+  wireCopy(integrity, () => integrity?.dataset.integrity, integrity?.textContent?.trim() ?? "");
+</script>
+
+<style>
+  .pull-quote {
+    margin: 0;
+    font-family: var(--font-serif);
+    font-size: clamp(1.5rem, 2.9vw, 2.15rem);
+    line-height: 1.45;
+    letter-spacing: -0.012em;
+    /* Balanced rather than pretty: on a centred block of four or five lines,
+       even line lengths matter more than avoiding a single short last line. */
+    text-wrap: balance;
+    /* Inherits from the band, so it stays legible on the accent in both
+       themes rather than pinning itself to the page ink colour. */
+    color: inherit;
+  }
+
+  /* Closes the block so it doesn't trail off, and gives the centred text an
+     axis to sit on. */
+  .quote-rule {
+    display: block;
+    width: 3.5rem;
+    height: 2px;
+    margin: 2.25rem auto 0;
+    border-radius: 1px;
+    background: currentColor;
+    opacity: 0.45;
+  }
+</style>

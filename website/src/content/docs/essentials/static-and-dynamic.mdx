@@ -1,0 +1,109 @@
+---
+title: Static and dynamic
+description: What resolves on your machine, what needs the engine, and why the line sits where it does.
+group: Essentials
+order: 2
+---
+
+Every content node is either **static** or **dynamic**. The distinction decides
+where its text comes from and what it costs.
+
+You never declare it. There is one helper per kind, and the mode follows from
+the options you give it.
+
+## Static nodes
+
+Give a paragraph a `render` and it can be produced from your data, so it
+resolves locally:
+
+```ts
+paragraph<OfferData>({
+  id: "offer",
+  render: (data) =>
+    `Your place starts on ${data.startDate}, at ${data.college}.`,
+});
+```
+
+It runs in the preview, in tests, and in a build — offline, instantly, free. If
+every node in a document is static, you never need the engine at all.
+
+## Dynamic nodes
+
+Give it **prompts** instead, plus a placeholder so the preview stays readable,
+and it becomes dynamic:
+
+```ts
+paragraph<OfferData>({
+  id: "tutor-note",
+  placeholder: (data) => `A note from ${data.interviewer}.`,
+  generalPrompt: (data) =>
+    `Write two warm sentences about ${data.applicantName}'s interview.`,
+});
+```
+
+Same helper, different obligations. `image` and `graph` work the same way —
+`src` and `data` are their local-resolution members.
+
+## Why it's inferred
+
+A node that has `render` can always be produced locally; a node that has only
+prompts never can. Declaring the mode alongside those options would be a second
+source of truth that could disagree with them — a `staticParagraph` carrying a
+`generalPrompt`, or the reverse, with some precedence rule deciding which wins.
+
+Instead the options are the truth and `mode` is derived from them. Supplying
+both a `render` and a `generalPrompt` is a **compile error**, not a runtime
+coin-toss.
+
+`mode` still exists in the built `DocumentModel` and in `letter.json` — the
+engine needs to know which nodes to resolve. It is output, not input.
+
+Four prompt slots are available. Only `generalPrompt` is required:
+
+| Slot | Purpose |
+| --- | --- |
+| `generalPrompt` | What the node should say |
+| `infoPrompt` | Context the model should have but not restate |
+| `negativePrompt` | What to avoid |
+| `systemPrompt` | Role and tone instructions |
+
+## What you see locally
+
+Building for preview resolves dynamic nodes to their **placeholders**, not to
+generated prose:
+
+```ts
+const letter = await buildProjectPreviewDocument(project);
+// dynamic nodes -> placeholder text
+```
+
+This is deliberate. Preview stays deterministic and free, so you can iterate on
+structure and styling without a single request leaving your machine. The
+placeholder is also a useful discipline: if a document is unreadable with
+placeholders in place, its structure is doing too little work.
+
+## What happens at request time
+
+The upload artifact keeps request-time values as tokens like
+`{{data.residentName}}` so they can be resolved later. Sending it to [the
+engine](/docs/generation/endpoint/) returns the finished document with dynamic
+nodes filled in.
+
+The engine is a separate, free service you host yourself — it is deliberately
+not part of the npm package, so installing the framework never pulls in
+anything that wants API keys or a network. Point a workspace at yours:
+
+```sh
+dxcl init my-letters --api-endpoint https://letters.example.com/api/letters
+dxcl init my-letters --no-api-endpoint
+```
+
+You can change `upload.endpoint` in `docxcelerate.config.json` at any time.
+
+## Why the line sits here
+
+Splitting on the node rather than the document keeps the free half of the toolkit
+genuinely useful. A document that is entirely static is a complete, working
+document with no service behind it. You opt into the hosted half only for the
+specific paragraphs that need generated prose — and you can see exactly which
+ones those are by reading the template.

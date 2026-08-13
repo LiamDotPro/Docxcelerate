@@ -1,0 +1,907 @@
+---
+import { Code } from "astro:components";
+import configRaw from "../demo/docxcelerate.config.json?raw";
+
+/**
+ * The hero shows a whole workspace: several letter projects under letters/,
+ * with the preview following whichever letter you're reading. Every file is
+ * globbed from src/demo/letters, so adding a letter to that directory adds it
+ * here and to the preview build with no edits to this component.
+ */
+const sources = import.meta.glob("../demo/letters/**/*.{ts,tsx}", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+
+// Ids must match the directory names — scripts/build-demo-letter.mjs enforces
+// that, because previews are addressed as /demo/<dir>.html.
+const LETTERS = [
+  { id: "offer-of-admission", name: "Offer of Admission", sector: "Education" },
+  { id: "repairs-appointment", name: "Repair Appointment", sector: "Housing" },
+  { id: "policy-renewal", name: "Policy Renewal", sector: "Insurance" },
+] as const;
+
+interface DemoFile {
+  key: string;
+  owner: string;
+  label: string;
+  depth: number;
+  lang: "ts" | "tsx";
+  code: string;
+}
+
+const strip = (source: string) => source.replace(/^\/\*\*[^\n]*\*\/\n/, "").trimEnd();
+
+function filesFor(letterId: string): DemoFile[] {
+  const prefix = `../demo/letters/${letterId}/`;
+  const entries = Object.entries(sources)
+    .filter(([path]) => path.startsWith(prefix))
+    .map(([path, code]) => ({ rel: path.slice(prefix.length), code }));
+
+  // nodes/ first, then the project files at the letter root — the order an
+  // editor would show, and the order you'd read them in.
+  const inNodes = entries.filter((entry) => entry.rel.startsWith("nodes/"));
+  const atRoot = entries.filter((entry) => !entry.rel.startsWith("nodes/"));
+  const byRel = (a: { rel: string }, b: { rel: string }) => a.rel.localeCompare(b.rel);
+
+  return [...inNodes.sort(byRel), ...atRoot.sort(byRel)].map((entry) => ({
+    key: `${letterId}/${entry.rel}`,
+    owner: letterId,
+    label: entry.rel.split("/").at(-1)!,
+    depth: entry.rel.includes("/") ? 4 : 3,
+    lang: entry.rel.endsWith(".tsx") ? "tsx" : "ts",
+    code: strip(entry.code),
+  }));
+}
+
+const CONFIG_FILE: DemoFile = {
+  key: "docxcelerate.config.json",
+  owner: "root",
+  label: "docxcelerate.config.json",
+  depth: 1,
+  lang: "ts",
+  code: configRaw.trimEnd(),
+};
+
+const letterFiles = LETTERS.map((letter) => ({ ...letter, files: filesFor(letter.id) }));
+// Flat list drives the panels; the tree only decides what's visible.
+const FILES: DemoFile[] = [CONFIG_FILE, ...letterFiles.flatMap((letter) => letter.files)];
+const indexOf = (key: string) => FILES.findIndex((entry) => entry.key === key);
+
+const OPEN_LETTER = LETTERS[0];
+const INITIAL = indexOf(`${OPEN_LETTER.id}/letter.tsx`);
+const totalFiles = FILES.length;
+---
+
+<div class="demo-shell" data-shell>
+  <!-- Left side: the workspace -->
+  <section class="demo-side" data-project-side>
+    <header class="demo-bar">
+      <button
+        type="button"
+        data-tree-toggle
+        class="tree-toggle"
+        aria-expanded="false"
+        aria-controls="workspace-tree"
+        aria-label="Show workspace files"
+      >
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" fill="none" stroke="currentColor" />
+          <line x1="6" y1="2.5" x2="6" y2="13.5" stroke="currentColor" />
+        </svg>
+      </button>
+      <span class="demo-path">my-letters/</span>
+      <span class="demo-hint">{LETTERS.length} letters · {totalFiles} files</span>
+    </header>
+
+    <div class="demo-split">
+      <nav
+        id="workspace-tree"
+        class="demo-tree"
+        role="tablist"
+        aria-orientation="vertical"
+        aria-label="Workspace files"
+      >
+        <span class="tree-dir" style="--depth:0">my-letters/</span>
+
+        <button
+          type="button"
+          role="tab"
+          id={`file-${indexOf(CONFIG_FILE.key)}`}
+          aria-controls={`panel-${indexOf(CONFIG_FILE.key)}`}
+          aria-selected="false"
+          tabindex="-1"
+          data-file={indexOf(CONFIG_FILE.key)}
+          data-owner="root"
+          class="tree-file"
+          style="--depth:1"
+        >
+          {CONFIG_FILE.label}
+        </button>
+
+        <span class="tree-dir" style="--depth:1">letters/</span>
+
+        {
+          letterFiles.map((letter) => (
+            <>
+              <button
+                type="button"
+                data-letter-row={letter.id}
+                data-letter-name={letter.name}
+                aria-expanded={letter.id === OPEN_LETTER.id ? "true" : "false"}
+                class="tree-letter"
+                style="--depth:2"
+              >
+                <span class="tree-caret" aria-hidden="true">▸</span>
+                <span class="tree-letter-name">{letter.id}/</span>
+                <span class="tree-letter-sector">{letter.sector}</span>
+              </button>
+
+              {letter.files.map((entry) => {
+                const index = indexOf(entry.key);
+                const inNodes = entry.depth === 4;
+                const firstInNodes = inNodes && letter.files[0]?.key === entry.key;
+                return (
+                  <>
+                    {firstInNodes && (
+                      <span
+                        class="tree-dir tree-nested"
+                        data-owner={letter.id}
+                        hidden={letter.id !== OPEN_LETTER.id}
+                        style="--depth:3"
+                      >
+                        nodes/
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      role="tab"
+                      id={`file-${index}`}
+                      aria-controls={`panel-${index}`}
+                      aria-selected={index === INITIAL ? "true" : "false"}
+                      tabindex={index === INITIAL ? 0 : -1}
+                      data-file={index}
+                      data-owner={letter.id}
+                      hidden={letter.id !== OPEN_LETTER.id}
+                      class="tree-file tree-nested"
+                      style={`--depth:${entry.depth}`}
+                    >
+                      {entry.label}
+                    </button>
+                  </>
+                );
+              })}
+            </>
+          ))
+        }
+      </nav>
+
+      <div class="demo-code">
+        {
+          FILES.map((entry, index) => (
+            <div
+              role="tabpanel"
+              id={`panel-${index}`}
+              aria-labelledby={`file-${index}`}
+              data-panel={index}
+              hidden={index !== INITIAL}
+              class="code-panel"
+            >
+              <div class="code-scroll">
+                <Code
+                  code={entry.code}
+                  lang={entry.key.endsWith(".json") ? "json" : entry.lang}
+                  themes={{ light: "github-light", dark: "github-dark-dimmed" }}
+                />
+              </div>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <div
+    class="demo-divider"
+    data-divider
+    role="separator"
+    aria-orientation="vertical"
+    aria-label="Resize workspace and preview"
+    aria-valuenow="50"
+    aria-valuemin="25"
+    aria-valuemax="75"
+    tabindex="0"
+    title="Drag to resize · double-click to reset"
+  >
+  </div>
+
+  <!-- Right side: the page that letter produces -->
+  <section class="demo-side">
+    <header class="demo-bar">
+      <span class="demo-path" data-preview-title>{OPEN_LETTER.name} · A4</span>
+      <span class="zoom-controls" role="group" aria-label="Preview zoom">
+        <button type="button" data-zoom-fit aria-pressed="true" class="zoom-btn">Fit</button>
+        <button type="button" data-zoom-out class="zoom-btn zoom-step" aria-label="Zoom out">
+          <span aria-hidden="true">−</span>
+        </button>
+        <output data-zoom-value class="zoom-value" aria-live="polite">100%</output>
+        <button type="button" data-zoom-in class="zoom-btn zoom-step" aria-label="Zoom in">
+          <span aria-hidden="true">+</span>
+        </button>
+      </span>
+    </header>
+
+    <div data-preview-pane class="preview-pane">
+      <!-- Sized in JS to the scaled dimensions, so scrolling works when zoomed. -->
+      <div data-preview-box class="preview-box">
+        <!-- Natural A4 at 96dpi: 210mm x 297mm. -->
+        <div data-preview-scale class="preview-scale" style="width: 794px; height: 1123px;">
+          <iframe
+            data-preview-frame
+            data-letter={OPEN_LETTER.id}
+            src={`/demo/${OPEN_LETTER.id}.html`}
+            title="The selected letter, rendered by Docxcelerate"
+            class="preview-frame"
+            style="width: 794px; height: 1123px;"></iframe>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<p class="demo-caption">
+  Not screenshots. Every page is rendered at build time by the same renderer
+  the CLI ships, from the files beside it.
+</p>
+
+<script>
+  const files = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-file]"));
+  const panels = Array.from(document.querySelectorAll<HTMLElement>("[data-panel]"));
+  const letterRows = Array.from(
+    document.querySelectorAll<HTMLButtonElement>("[data-letter-row]"),
+  );
+  const nested = Array.from(document.querySelectorAll<HTMLElement>(".tree-nested"));
+
+  const frame = document.querySelector<HTMLIFrameElement>("[data-preview-frame]");
+  const previewTitle = document.querySelector<HTMLElement>("[data-preview-title]");
+
+  // ---- Preview -----------------------------------------------------------
+  function showLetter(id: string) {
+    if (!frame || frame.dataset.letter === id) return;
+    frame.dataset.letter = id;
+    // Reset before navigating; the load handler measures the new page.
+    pageH = 1123;
+    frame.src = `/demo/${id}.html`;
+    const row = letterRows.find((entry) => entry.dataset.letterRow === id);
+    if (previewTitle && row) previewTitle.textContent = `${row.dataset.letterName} · A4`;
+  }
+
+  // ---- Tree --------------------------------------------------------------
+  function expandLetter(id: string) {
+    letterRows.forEach((row) => {
+      row.setAttribute("aria-expanded", String(row.dataset.letterRow === id));
+    });
+    nested.forEach((node) => {
+      node.hidden = node.dataset.owner !== id;
+    });
+  }
+
+  function visibleFiles() {
+    return files.filter((button) => !button.hidden);
+  }
+
+  function selectFile(index: number, focus = true) {
+    files.forEach((button, i) => {
+      const on = i === index;
+      button.setAttribute("aria-selected", String(on));
+      button.tabIndex = on ? 0 : -1;
+      if (on && focus) button.focus();
+    });
+    panels.forEach((panel, i) => {
+      panel.hidden = i !== index;
+    });
+
+    const owner = files[index]?.dataset.owner;
+    // Workspace-level files (the config) leave the preview where it is —
+    // they don't belong to any one letter.
+    if (owner && owner !== "root") showLetter(owner);
+  }
+
+  files.forEach((button, index) => {
+    button.addEventListener("click", () => selectFile(index, false));
+    button.addEventListener("keydown", (event) => {
+      const key = event.key;
+      if (key !== "ArrowUp" && key !== "ArrowDown" && key !== "Home" && key !== "End") return;
+      event.preventDefault();
+      const shown = visibleFiles();
+      const here = shown.indexOf(button);
+      const last = shown.length - 1;
+      const nextButton =
+        key === "Home" ? shown[0]
+        : key === "End" ? shown[last]
+        : key === "ArrowUp" ? shown[here === 0 ? last : here - 1]
+        : shown[here === last ? 0 : here + 1];
+      if (nextButton) selectFile(files.indexOf(nextButton));
+    });
+  });
+
+  letterRows.forEach((row) => {
+    row.addEventListener("click", () => {
+      const id = row.dataset.letterRow;
+      if (!id) return;
+      const alreadyOpen = row.getAttribute("aria-expanded") === "true";
+      expandLetter(id);
+      showLetter(id);
+      if (!alreadyOpen) {
+        // Opening a letter lands you on its template — the clearest view of it.
+        const template = files.find(
+          (button) => button.dataset.owner === id && button.textContent?.trim() === "letter.tsx",
+        );
+        if (template) selectFile(files.indexOf(template), false);
+      }
+    });
+  });
+
+  // ---- Tree panel --------------------------------------------------------
+  const projectSide = document.querySelector<HTMLElement>("[data-project-side]");
+  const treeToggle = document.querySelector<HTMLButtonElement>("[data-tree-toggle]");
+
+  treeToggle?.addEventListener("click", () => {
+    const open = projectSide?.hasAttribute("data-tree-open") ?? false;
+    if (open) {
+      projectSide?.removeAttribute("data-tree-open");
+    } else {
+      projectSide?.setAttribute("data-tree-open", "");
+    }
+    treeToggle.setAttribute("aria-expanded", String(!open));
+    treeToggle.setAttribute("aria-label", open ? "Show workspace files" : "Hide workspace files");
+    // Move focus into the tree when opening, so it's usable from the keyboard.
+    if (!open) {
+      const selected = files.find((button) => button.getAttribute("aria-selected") === "true");
+      selected?.focus();
+    }
+  });
+
+  // ---- Split divider -----------------------------------------------------
+  const shell = document.querySelector<HTMLElement>("[data-shell]");
+  const divider = document.querySelector<HTMLElement>("[data-divider]");
+
+  const MIN_SPLIT = 25;
+  const MAX_SPLIT = 75;
+  const DEFAULT_SPLIT = 50;
+
+  function setSplit(percent: number) {
+    if (!shell || !divider) return;
+    const clamped = Math.min(MAX_SPLIT, Math.max(MIN_SPLIT, percent));
+    shell.style.setProperty("--left", `${clamped}%`);
+    divider.setAttribute("aria-valuenow", String(Math.round(clamped)));
+    // The pane's ResizeObserver refits the page for us.
+  }
+
+  divider?.addEventListener("pointerdown", (event) => {
+    if (!shell) return;
+    divider.setPointerCapture(event.pointerId);
+    shell.setAttribute("data-dragging", "");
+  });
+
+  divider?.addEventListener("pointermove", (event) => {
+    if (!shell || !divider.hasPointerCapture(event.pointerId)) return;
+    const rect = shell.getBoundingClientRect();
+    setSplit(((event.clientX - rect.left) / rect.width) * 100);
+  });
+
+  const endDrag = (event: PointerEvent) => {
+    if (!shell || !divider) return;
+    if (divider.hasPointerCapture(event.pointerId)) {
+      divider.releasePointerCapture(event.pointerId);
+    }
+    shell.removeAttribute("data-dragging");
+  };
+
+  divider?.addEventListener("pointerup", endDrag);
+  divider?.addEventListener("pointercancel", endDrag);
+  divider?.addEventListener("dblclick", () => setSplit(DEFAULT_SPLIT));
+
+  // Keyboard equivalent — a separator that only responds to a mouse isn't one.
+  divider?.addEventListener("keydown", (event) => {
+    const current = Number(divider.getAttribute("aria-valuenow") ?? DEFAULT_SPLIT);
+    const step = event.shiftKey ? 10 : 2;
+    switch (event.key) {
+      case "ArrowLeft":
+        setSplit(current - step);
+        break;
+      case "ArrowRight":
+        setSplit(current + step);
+        break;
+      case "Home":
+        setSplit(MIN_SPLIT);
+        break;
+      case "End":
+        setSplit(MAX_SPLIT);
+        break;
+      case "Enter":
+      case " ":
+        setSplit(DEFAULT_SPLIT);
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+  });
+
+  // ---- Preview zoom ------------------------------------------------------
+  // Natural A4 at 96dpi. The height is a starting point only — each page is
+  // measured on load, so a letter that runs past one page still shows whole
+  // rather than being silently clipped.
+  const PAGE_W = 794;
+  const PANE_PADDING = 32;
+  const STEP = 1.25;
+  const MIN_SCALE = 0.1;
+  const MAX_SCALE = 3;
+
+  let pageH = 1123;
+
+  const pane = document.querySelector<HTMLElement>("[data-preview-pane]");
+  const box = document.querySelector<HTMLElement>("[data-preview-box]");
+  const scaler = document.querySelector<HTMLElement>("[data-preview-scale]");
+  const fitButton = document.querySelector<HTMLButtonElement>("[data-zoom-fit]");
+  const outButton = document.querySelector<HTMLButtonElement>("[data-zoom-out]");
+  const inButton = document.querySelector<HTMLButtonElement>("[data-zoom-in]");
+  const readout = document.querySelector<HTMLElement>("[data-zoom-value]");
+
+  // `fitting` tracks intent, not a scale value: while true the page re-fits on
+  // resize; any manual zoom hands control to the user until they press Fit.
+  let fitting = true;
+  let scale = 1;
+
+  function fitScale(): number {
+    if (!pane) return 1;
+    return Math.min(
+      (pane.clientWidth - PANE_PADDING) / PAGE_W,
+      (pane.clientHeight - PANE_PADDING) / pageH,
+      1,
+    );
+  }
+
+  function render() {
+    if (!pane || !box || !scaler) return;
+    if (fitting) scale = fitScale();
+    scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale));
+
+    scaler.style.transform = `scale(${scale})`;
+    box.style.width = `${PAGE_W * scale}px`;
+    box.style.height = `${pageH * scale}px`;
+
+    if (readout) readout.textContent = `${Math.round(scale * 100)}%`;
+    fitButton?.setAttribute("aria-pressed", String(fitting));
+    if (outButton) outButton.disabled = scale <= MIN_SCALE + 0.001;
+    if (inButton) inButton.disabled = scale >= MAX_SCALE - 0.001;
+  }
+
+  function zoomBy(factor: number) {
+    fitting = false;
+    scale = scale * factor;
+    render();
+  }
+
+  fitButton?.addEventListener("click", () => {
+    fitting = true;
+    render();
+    pane?.scrollTo({ top: 0, left: 0 });
+  });
+  inButton?.addEventListener("click", () => zoomBy(STEP));
+  outButton?.addEventListener("click", () => zoomBy(1 / STEP));
+
+  // Same origin, so the real rendered height is readable.
+  frame?.addEventListener("load", () => {
+    const page = frame.contentDocument?.querySelector(".a4-page");
+    if (!page) return;
+    const measured = Math.ceil(page.getBoundingClientRect().height);
+    if (measured > 0) {
+      pageH = Math.max(1123, measured);
+      frame.style.height = `${pageH}px`;
+      if (scaler) scaler.style.height = `${pageH}px`;
+      render();
+    }
+  });
+
+  if (pane) {
+    render();
+    // The pane's height comes from the shell, not its contents, so this only
+    // fires on viewport resize — no feedback loop with the box inside it.
+    new ResizeObserver(render).observe(pane);
+  }
+</script>
+
+<style>
+  /* One block, two sides, with a draggable gutter between them.
+     --left is set by the divider; the right side takes what's left. */
+  .demo-shell {
+    display: grid;
+    grid-template-columns: var(--left, 50%) 0.25rem minmax(0, 1fr);
+    /* Tall as the viewport allows, so the whole block is visible once scrolled
+       to — rather than a fixed height whose bottom edge sits below the fold. */
+    height: clamp(32rem, calc(100vh - 7rem), 48rem);
+    border: 1px solid var(--border-firm);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--surface-2);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 4%), 0 18px 40px -24px rgb(0 0 0 / 28%);
+  }
+
+  .demo-side {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .demo-divider {
+    position: relative;
+    border: 0;
+    padding: 0;
+    background: var(--border);
+    cursor: col-resize;
+    touch-action: none;
+    transition: background-color 0.15s ease;
+  }
+
+  /* Widen the grab area beyond the visible hairline without moving anything. */
+  .demo-divider::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline: -5px;
+  }
+
+  /* The three dots read as "this is a handle" without adding chrome. */
+  .demo-divider::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 2px;
+    height: 1.1rem;
+    transform: translate(-50%, -50%);
+    border-radius: 1px;
+    background: var(--border-firm);
+  }
+
+  .demo-divider:hover,
+  .demo-divider:focus-visible,
+  .demo-shell[data-dragging] .demo-divider {
+    background: var(--accent-solid);
+  }
+
+  .demo-divider:hover::before,
+  .demo-divider:focus-visible::before,
+  .demo-shell[data-dragging] .demo-divider::before {
+    background: var(--on-accent);
+  }
+
+  /* While dragging, don't let the iframe or text selection fight the pointer. */
+  .demo-shell[data-dragging] {
+    user-select: none;
+  }
+
+  .demo-shell[data-dragging] .preview-frame {
+    pointer-events: none;
+  }
+
+  .demo-bar {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    height: 2.5rem;
+    padding: 0 0.75rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .demo-path,
+  .demo-hint {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tree-toggle {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-left: -0.25rem;
+    padding: 0;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .tree-toggle svg {
+    width: 0.95rem;
+    height: 0.95rem;
+    stroke-width: 1.3;
+  }
+
+  .tree-toggle:hover {
+    color: var(--accent);
+    background: var(--surface-2);
+  }
+
+  .tree-toggle[aria-expanded="true"] {
+    color: var(--accent);
+  }
+
+  /* Tree beside code. Collapsed by default — the code is the subject, and the
+     tree slides in when you want to move around the workspace. */
+  .demo-split {
+    display: grid;
+    grid-template-columns: 0 minmax(0, 1fr);
+    flex: 1;
+    min-height: 0;
+    transition: grid-template-columns 0.18s ease;
+  }
+
+  .demo-side[data-tree-open] .demo-split {
+    grid-template-columns: 14rem minmax(0, 1fr);
+  }
+
+  .demo-tree {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 0.5rem 0;
+    overflow: auto;
+    background: var(--surface);
+    border-right: 0;
+    /* Not just clipped — hidden, so the file buttons leave the tab order and
+       the accessibility tree while the panel is closed. */
+    visibility: hidden;
+  }
+
+  .demo-side[data-tree-open] .demo-tree {
+    visibility: visible;
+    border-right: 1px solid var(--border);
+  }
+
+  .tree-dir,
+  .tree-file,
+  .tree-letter {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    line-height: 1.6;
+    text-align: left;
+    white-space: nowrap;
+    padding-block: 0.15rem;
+    padding-right: 0.6rem;
+    /* Indentation encodes real directory depth. */
+    padding-left: calc(0.6rem + var(--depth, 0) * 0.7rem);
+  }
+
+  .tree-dir {
+    color: var(--muted);
+    opacity: 0.75;
+  }
+
+  .tree-file,
+  .tree-letter {
+    border: 0;
+    border-left: 2px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.12s ease, background-color 0.12s ease;
+  }
+
+  .tree-file:hover,
+  .tree-letter:hover {
+    color: var(--ink);
+    background: var(--surface-2);
+  }
+
+  .tree-file[aria-selected="true"] {
+    color: var(--accent);
+    background: var(--accent-tint);
+    border-left-color: var(--accent-solid);
+    font-weight: 600;
+  }
+
+  .tree-letter {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    color: var(--ink);
+  }
+
+  .tree-letter[aria-expanded="true"] {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .tree-caret {
+    flex: none;
+    font-size: 0.6rem;
+    transition: transform 0.15s ease;
+  }
+
+  .tree-letter[aria-expanded="true"] .tree-caret {
+    transform: rotate(90deg);
+  }
+
+  .tree-letter-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tree-letter-sector {
+    margin-left: auto;
+    flex: none;
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    opacity: 0.75;
+    font-weight: 400;
+  }
+
+  .demo-code {
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .code-panel {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .code-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .code-scroll :global(pre) {
+    margin: 0;
+    padding: 1rem 1.1rem;
+    font-size: 0.76rem;
+    line-height: 1.65;
+    /* Fill the panel so the code background runs to the bottom rather than
+       stopping at the last line and exposing the shell behind it. */
+    min-height: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Preview side. */
+  .preview-pane {
+    flex: 1;
+    min-height: 0;
+    padding: 1rem;
+    overflow: auto;
+    display: grid;
+    /* `safe` keeps the top-left of an oversized page reachable; plain `center`
+       centres it and clips the overflow past the scroll origin. */
+    place-content: safe center;
+  }
+
+  .preview-box {
+    box-shadow: 0 2px 6px rgb(0 0 0 / 10%), 0 14px 34px -18px rgb(0 0 0 / 40%);
+  }
+
+  .preview-scale {
+    transform-origin: top left;
+  }
+
+  .preview-frame {
+    display: block;
+    border: 0;
+    background: #ffffff;
+  }
+
+  .demo-caption {
+    margin: 3rem 0 0;
+    text-align: center;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+
+  .zoom-controls {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .zoom-btn {
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.1rem 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    line-height: 1.5;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: transparent;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .zoom-btn:hover:not(:disabled) {
+    color: var(--accent);
+    border-color: var(--border-firm);
+  }
+
+  .zoom-btn[aria-pressed="true"] {
+    color: var(--accent);
+    border-color: var(--accent-solid);
+  }
+
+  .zoom-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .zoom-step {
+    min-width: 1.6rem;
+    padding-inline: 0.35rem;
+    font-size: 0.8rem;
+    letter-spacing: 0;
+  }
+
+  .zoom-value {
+    min-width: 3.1rem;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+
+  /* Stack below the two-side breakpoint; the tree keeps its shape but shortens. */
+  @media (max-width: 1023px) {
+    .demo-shell {
+      grid-template-columns: minmax(0, 1fr);
+      height: auto;
+    }
+
+    /* Stacked, so there's nothing horizontal to drag. */
+    .demo-divider {
+      display: none;
+    }
+
+    .demo-side + .demo-side {
+      border-top: 1px solid var(--border);
+    }
+
+    .demo-split {
+      grid-template-columns: 0 minmax(0, 1fr);
+      height: 24rem;
+    }
+
+    .demo-side[data-tree-open] .demo-split {
+      grid-template-columns: 11rem minmax(0, 1fr);
+    }
+
+    .preview-pane {
+      height: 30rem;
+      flex: none;
+    }
+  }
+</style>

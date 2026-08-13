@@ -1,0 +1,121 @@
+---
+/**
+ * A node as the renderer draws it — written at build time by the same renderer
+ * the CLI serves, so this is the node rather than a picture of one.
+ *
+ * Framed rather than inlined because the renderer ships its own stylesheet: an
+ * iframe keeps the letter's typography off the site and the site's off the
+ * letter.
+ */
+interface Props {
+  src: string;
+  /** Describes the frame to a screen reader; also the fallback link text. */
+  title: string;
+  /** Small caption under the paper. */
+  label?: string;
+}
+
+const { src, title, label } = Astro.props;
+---
+
+<figure class="node-preview">
+  <div class="paper">
+    <iframe
+      data-node-frame
+      src={src}
+      title={title}
+      loading="lazy"
+      scrolling="no"
+      class="frame"></iframe>
+  </div>
+  <figcaption>
+    <span>{label ?? "Rendered by Docxcelerate at build time"}</span>
+    <a href={src} target="_blank" rel="noopener noreferrer">Open ↗</a>
+  </figcaption>
+</figure>
+
+<script>
+  // One handler for every preview on the page — Astro hoists this module once
+  // however many times the component is used.
+  const frames = Array.from(document.querySelectorAll<HTMLIFrameElement>("[data-node-frame]"));
+
+  /** Same origin, so the rendered height is readable rather than guessed. */
+  function fit(frame: HTMLIFrameElement) {
+    const page = frame.contentDocument?.querySelector(".a4-page");
+    if (!page) return;
+    const height = Math.ceil(page.getBoundingClientRect().height);
+    if (height > 0) frame.style.height = `${height}px`;
+  }
+
+  // Width changes rewrap the text and so change the height. Tracking the last
+  // width means our own height write doesn't feed back into the observer.
+  const widths = new WeakMap<Element, number>();
+  const observer = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const width = entry.contentRect.width;
+      if (widths.get(entry.target) === width) continue;
+      widths.set(entry.target, width);
+      fit(entry.target as HTMLIFrameElement);
+    }
+  });
+
+  for (const frame of frames) {
+    frame.addEventListener("load", () => {
+      fit(frame);
+      // Measured again once the letter's own fonts have settled — a swap after
+      // the first measurement changes the line count and leaves a gap.
+      frame.contentDocument?.fonts?.ready.then(() => fit(frame));
+    });
+    // Lazy frames load later; eager ones may already be done by now.
+    if (frame.contentDocument?.readyState === "complete") fit(frame);
+    observer.observe(frame);
+  }
+</script>
+
+<style>
+  .node-preview {
+    margin: 0 0 1.35rem;
+  }
+
+  /* Paper is white in both themes. A letter preview that dims at night stops
+     reading as paper, and the claim of the toolkit is that this IS the page. */
+  .paper {
+    background: #ffffff;
+    border: 1px solid var(--border-firm);
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 5%), 0 10px 24px -18px rgb(0 0 0 / 35%);
+  }
+
+  .frame {
+    display: block;
+    width: 100%;
+    /* Replaced on load with the real rendered height; this is only what an
+       unloaded or blocked frame occupies. */
+    height: 7rem;
+    border: 0;
+    background: #ffffff;
+    color-scheme: light;
+  }
+
+  figcaption {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  figcaption a {
+    flex: none;
+    color: var(--muted);
+    text-decoration: none;
+    border-bottom: 1px solid var(--border-firm);
+  }
+
+  figcaption a:hover {
+    color: var(--accent);
+  }
+</style>

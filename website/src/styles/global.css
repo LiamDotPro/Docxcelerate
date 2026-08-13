@@ -1,0 +1,182 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Ledger Green — Docxcelerate site palette.
+
+   The accent is a deep pine pulled slightly toward blue so it sits correctly
+   beside the cool greys the DOCX renderer emits (#e6e8ed, #657287). Every
+   pairing below clears WCAG AA; figures in comments are against the ground
+   the token is used on.
+
+   The accent splits across themes: on paper one value does both text and
+   fills, but on a dark ground text must go lighter while fills stay dark
+   enough to carry light text. Hence --accent vs --accent-solid.
+--------------------------------------------------------------------------- */
+
+@theme {
+  --color-ledger-50: #f0f7f4;
+  --color-ledger-100: #dbeee5;
+  --color-ledger-200: #b9ddce;
+  --color-ledger-300: #8ac5ae;
+  --color-ledger-400: #55a689;
+  --color-ledger-500: #2f8a6b;
+  --color-ledger-600: #1d7357;
+  --color-ledger-700: #17624a;
+  --color-ledger-800: #124e3b;
+  --color-ledger-900: #0e3b2d;
+  --color-ledger-950: #071f18;
+
+  --font-sans: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua",
+    Georgia, serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Cascadia Mono", Consolas,
+    "SF Mono", Menlo, monospace;
+  /* Matches the renderer's own stack, for anything representing letter content. */
+  --font-letter: "Aptos", "Segoe UI", Arial, sans-serif;
+}
+
+/* Light — also the un-stamped default when the OS is light or unset. */
+:root {
+  --paper: #ffffff;
+  --surface: #f7f9f8;
+  --surface-2: #eef2f0;
+  --border: #dfe5e2;
+  --border-firm: #c8d3ce;
+  --ink: #16211c; /* 16.56 on paper */
+  --muted: #5c6b64; /*  5.61 on paper */
+  --accent: #17624a; /*  7.29 on paper */
+  --accent-deep: #124e3b; /*  9.64 on paper */
+  --accent-solid: #17624a;
+  --accent-tint: #f0f7f4; /* accent on tint: 6.70 */
+  --on-accent: #ffffff; /*  7.29 on accent-solid */
+  --selection: #dbeee5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f1a15;
+    --surface: #16211c;
+    --surface-2: #1c2a24;
+    --border: #253530;
+    --border-firm: #33453d;
+    --ink: #d7e0da; /* 13.20 on paper */
+    --muted: #93a29a; /*  6.68 on paper */
+    --accent: #8ac5ae; /*  9.06 on paper */
+    --accent-deep: #b9ddce;
+    --accent-solid: #1d7357;
+    --accent-tint: #16281f;
+    --on-accent: #f0f7f4; /*  5.77 on accent-solid */
+    --selection: #1d7357;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #0f1a15;
+  --surface: #16211c;
+  --surface-2: #1c2a24;
+  --border: #253530;
+  --border-firm: #33453d;
+  --ink: #d7e0da;
+  --muted: #93a29a;
+  --accent: #8ac5ae;
+  --accent-deep: #b9ddce;
+  --accent-solid: #1d7357;
+  --accent-tint: #16281f;
+  --on-accent: #f0f7f4;
+  --selection: #1d7357;
+}
+
+/* Expose the semantic tokens to Tailwind utilities (bg-paper, text-accent, …). */
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-firm: var(--border-firm);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-deep: var(--accent-deep);
+  --color-accent-solid: var(--accent-solid);
+  --color-accent-tint: var(--accent-tint);
+  --color-on-accent: var(--on-accent);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--selection);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif);
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  code,
+  pre,
+  kbd {
+    font-family: var(--font-mono);
+  }
+}
+
+/* Shiki emits both themes as custom properties and paints the light one by
+   default. Swap to the dark values with the active ground — site-wide, so the
+   homepage and the docs behave the same. */
+:root[data-theme="dark"] .astro-code,
+:root[data-theme="dark"] .astro-code span {
+  color: var(--shiki-dark) !important;
+  background-color: var(--shiki-dark-bg) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .astro-code,
+  :root:not([data-theme="light"]) .astro-code span {
+    color: var(--shiki-dark) !important;
+    background-color: var(--shiki-dark-bg) !important;
+  }
+}
+
+@layer components {
+  /* Paper is #ffffff in BOTH themes. A letter preview that dims at night
+     stops reading as paper, and the product's claim is that the preview is
+     the document. */
+  .paper-surface {
+    background: #ffffff;
+    color: #1f2933;
+    border: 1px solid #c7ccd6;
+  }
+}

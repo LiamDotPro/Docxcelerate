@@ -1,0 +1,231 @@
+---
+/**
+ * The header block on a node type's page: what it is, what it may hold, and
+ * every option its helpers take. All of it comes from the generated catalog,
+ * so an option that changes shape in the toolkit changes here too.
+ */
+import { nodeType, STATUS_LABELS } from "../node-catalog";
+
+interface Props {
+  type: string;
+}
+
+const type = nodeType(Astro.props.type);
+
+/**
+ * Option summaries are written in the catalog with markdown backticks, since
+ * that is what they look like in the source they describe. Nothing else in
+ * them is markup, so this is the whole of the formatting they need.
+ */
+function inlineCode(text: string): string {
+  return escapeHtml(text).replaceAll(/`([^`]+)`/g, "<code>$1</code>");
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+const FACTS: { label: string; value: string }[] = [
+  {
+    label: "Helpers",
+    value: type.helpers.length > 0 ? type.helpers.join(", ") : "None — written by hand",
+  },
+  { label: "Node kind", value: type.kind },
+  { label: "Category", value: type.category },
+  { label: "Resolves", value: type.resolves },
+  { label: "Children", value: type.children },
+];
+---
+
+<div class="summary">
+  <p class="lead">
+    {type.detail}
+    {
+      type.status !== "stable" && (
+        <span class="badge">
+          {STATUS_LABELS[type.status]}
+        </span>
+      )
+    }
+  </p>
+
+  {
+    type.renderNote && (
+      <aside class="render-note">
+        <p class="note-label">What the renderers do today</p>
+        <p set:html={inlineCode(type.renderNote)} />
+      </aside>
+    )
+  }
+
+  <dl class="facts">
+    {
+      FACTS.map((fact) => (
+        <div class="fact">
+          <dt>{fact.label}</dt>
+          <dd>{fact.value}</dd>
+        </div>
+      ))
+    }
+  </dl>
+
+  {
+    type.options.length > 0 && (
+      <table class="options">
+        <thead>
+          <tr>
+            <th scope="col">Option</th>
+            <th scope="col">Type</th>
+            <th scope="col">What it does</th>
+          </tr>
+        </thead>
+        <tbody>
+          {type.options.map((option) => (
+            <tr>
+              <th scope="row">
+                <code>{option.name}</code>
+                {option.required && <span class="required">required</span>}
+              </th>
+              <td>
+                <code class="type">{option.type}</code>
+              </td>
+              <td set:html={inlineCode(option.summary)} />
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )
+  }
+</div>
+
+<style>
+  .summary {
+    margin-bottom: 2rem;
+  }
+
+  .lead {
+    margin: 0 0 1.25rem;
+    line-height: 1.7;
+  }
+
+  .badge {
+    display: inline-block;
+    margin-left: 0.4rem;
+    padding: 0.05rem 0.45rem;
+    border: 1px solid var(--border-firm);
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    vertical-align: 0.15em;
+  }
+
+  /* Deliberately not the accent blockquote the prose uses for asides: this is a
+     limitation, not an aside, and it should not read as a highlight. */
+  .render-note {
+    margin: 0 0 1.5rem;
+    padding: 0.85rem 1.05rem;
+    border: 1px solid var(--border-firm);
+    border-radius: 6px;
+    background: var(--surface-2);
+  }
+
+  .render-note p {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.65;
+  }
+
+  .note-label {
+    margin-bottom: 0.35rem !important;
+    font-family: var(--font-mono);
+    font-size: 0.62rem !important;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .facts {
+    display: grid;
+    gap: 0;
+    margin: 0 0 1.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .fact {
+    display: grid;
+    grid-template-columns: 8rem minmax(0, 1fr);
+    gap: 1rem;
+    padding: 0.55rem 0.9rem;
+    background: var(--surface);
+  }
+
+  .fact + .fact {
+    border-top: 1px solid var(--border);
+  }
+
+  dt {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    line-height: 1.9;
+  }
+
+  dd {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .options {
+    font-size: 0.85rem;
+  }
+
+  .options th[scope="row"] {
+    /* The prose stylesheet uppercases header cells; a row header here is an
+       option name, which must read exactly as it is typed. */
+    font-family: var(--font-mono);
+    font-size: inherit;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--ink);
+    background: transparent;
+    white-space: nowrap;
+    vertical-align: top;
+  }
+
+  .options td {
+    vertical-align: top;
+  }
+
+  .required {
+    display: block;
+    margin-top: 0.15rem;
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .type {
+    white-space: nowrap;
+  }
+
+  @media (max-width: 40rem) {
+    .fact {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.1rem;
+    }
+  }
+</style>

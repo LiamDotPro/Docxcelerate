@@ -1,0 +1,92 @@
+---
+title: The engine
+description: What the engine does, how you publish a template to it, and the two editions.
+group: Generation
+order: 1
+---
+
+The framework's job ends at the package. It renders your document and packages it;
+the package is a template with the recipient's details still missing. The
+**engine** is where that package goes, and what turns it into documents.
+
+## The three steps
+
+1. **Build.** The framework renders the document and packages it. This is the only
+   step that runs on your machine.
+2. **Publish.** The package is sent to an engine, which stores it and gives it
+   an address.
+3. **Write.** Your application calls the API with a set of data. The engine
+   writes the document and returns it.
+
+The important consequence is that publishing and writing are separate. You
+publish a package when the document's wording changes — a deploy-shaped event.
+You call the API every time somebody needs a document, which may be constantly,
+and which involves no build step and no workspace.
+
+## Why it isn't in the package
+
+The engine is a service, not a library, and it is not part of the npm package.
+Authoring, preview and packing are local work with nothing behind them, so
+installing the framework pulls in nothing that wants API keys or a network, and
+the two version independently.
+
+## Pointing a workspace at it
+
+```sh
+dxcl init my-letters --api-endpoint https://letters.example.com/api/letters
+```
+
+Or set up without one and decide later:
+
+```sh
+dxcl init my-letters --no-api-endpoint
+```
+
+`upload.endpoint` in `docxcelerate.config.json` is editable at any time, and
+[config presets](/docs/projects/workspace/) let you keep local, staging and
+production engines side by side.
+
+## What you publish
+
+The `letter.json` artifact. Static nodes arrive with their text already
+resolved but request-time values left as tokens, which is what makes one stored
+package serve every recipient:
+
+```json
+{ "kind": "paragraph", "mode": "static", "id": "greeting",
+  "text": "Dear {{data.applicantName}}," }
+```
+
+Dynamic nodes arrive with prompts instead of text:
+
+```json
+{ "kind": "paragraph", "mode": "dynamic", "id": "tutor-note",
+  "prompts": [
+    { "kind": "general", "text": "Write two warm, specific sentences…" },
+    { "kind": "negative", "text": "Do not restate the offer…" },
+    { "kind": "system", "text": "You are an admissions tutor…" }
+  ] }
+```
+
+## Two editions
+
+**Self-hosted (free).** A stripped-down engine you can run yourself. It covers
+the core of the pipeline — store a package, write documents from it — with a
+reduced feature set.
+
+**Managed cloud.** The full engine, hosted. It is not open yet; when it opens it
+will have a free tier that needs only a sign-up, with no card and no
+infrastructure to stand up.
+
+The two are not the same build, so choose on features rather than on hosting
+preference alone.
+
+## Working without one
+
+You can go a long way before you need an engine. Authoring, preview and packing
+to `.docx` all run locally, so a document can be written, reviewed and produced on
+your machine without publishing anything.
+
+An engine is what you add when documents need to be produced by something other
+than a person at a keyboard — on a schedule, from a queue, or in response to
+something happening in your own system.

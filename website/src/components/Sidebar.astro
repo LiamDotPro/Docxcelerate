@@ -1,0 +1,103 @@
+---
+import { getCollection } from "astro:content";
+import { DOC_GROUPS } from "../site";
+
+interface Props {
+  currentId: string;
+}
+
+const { currentId } = Astro.props;
+
+const pages = await getCollection("docs");
+
+// Group order is declared in site.ts; within a group, `order` then title.
+const byOrder = (
+  a: { data: { order: number; title: string } },
+  b: { data: { order: number; title: string } },
+) => a.data.order - b.data.order || a.data.title.localeCompare(b.data.title);
+
+type Page = (typeof pages)[number];
+
+/**
+ * A group splits into its own pages and any subgroups beneath it. Subgroups
+ * keep the order their first page gives them, so the sidebar's shape is set by
+ * the same `order` field as everything else rather than a second list here.
+ */
+const grouped = DOC_GROUPS.map((group) => {
+  const groupPages = pages.filter((page) => page.data.group === group).sort(byOrder);
+  const subgroups: { title: string; pages: Page[] }[] = [];
+
+  for (const page of groupPages) {
+    const title = page.data.subgroup;
+    if (!title) continue;
+
+    const existing = subgroups.find((entry) => entry.title === title);
+    if (existing) {
+      existing.pages.push(page);
+    } else {
+      subgroups.push({ title, pages: [page] });
+    }
+  }
+
+  return {
+    group,
+    pages: groupPages.filter((page) => !page.data.subgroup),
+    subgroups,
+  };
+}).filter((entry) => entry.pages.length > 0 || entry.subgroups.length > 0);
+
+const linkClass = (current: boolean) => [
+  "block rounded px-3 py-1.5 no-underline transition-colors",
+  current ? "bg-accent-tint font-semibold text-accent" : "text-muted hover:bg-surface hover:text-ink",
+];
+---
+
+<nav aria-label="Documentation" class="flex flex-col gap-7 text-sm">
+  {
+    grouped.map(({ group, pages: groupPages, subgroups }) => (
+      <div class="flex flex-col gap-2">
+        <h2 class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted">
+          {group}
+        </h2>
+
+        {groupPages.length > 0 && (
+          <ul class="m-0 -ml-3 flex list-none flex-col gap-0.5 p-0">
+            {groupPages.map((page) => (
+              <li class="m-0">
+                <a
+                  href={`/docs/${page.id}/`}
+                  class:list={linkClass(page.id === currentId)}
+                  aria-current={page.id === currentId ? "page" : undefined}
+                >
+                  {page.data.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {subgroups.map((subgroup) => (
+          <div class="flex flex-col gap-0.5">
+            <h3 class="m-0 mt-1 px-0 text-[0.7rem] font-medium uppercase tracking-[0.08em] text-muted opacity-70">
+              {subgroup.title}
+            </h3>
+            {/* Indented and ruled: one glance says these belong to the line above. */}
+            <ul class="m-0 flex list-none flex-col gap-0.5 border-l border-border p-0 pl-2">
+              {subgroup.pages.map((page) => (
+                <li class="m-0">
+                  <a
+                    href={`/docs/${page.id}/`}
+                    class:list={linkClass(page.id === currentId)}
+                    aria-current={page.id === currentId ? "page" : undefined}
+                  >
+                    {page.data.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    ))
+  }
+</nav>
