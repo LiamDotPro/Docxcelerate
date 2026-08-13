@@ -1,7 +1,11 @@
 build/
 dist/
 node_modules/
-website/.docusaurus/
-website/build/
 test-letters/
 dist-tests/
+
+# Marketing site (website/)
+website/.astro/
+website/.demo-build/
+website/public/demo/
+website/src/generated/

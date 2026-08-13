@@ -1,0 +1,258 @@
+---
+/**
+ * Every variant of one node type: the source, the page it produces, and what
+ * it resolved to — all from the same build. Source is read off disk with ?raw;
+ * the preview and the JSON come from the catalog build, which ran that exact
+ * file through the framework.
+ */
+import { Code } from "astro:components";
+import NodePreview from "./NodePreview.astro";
+import { nodeType } from "../node-catalog";
+
+interface Props {
+  type: string;
+  /** Renders headings at this level; variants sit under an h2 by default. */
+  headingLevel?: 2 | 3;
+}
+
+const { headingLevel = 3 } = Astro.props;
+const type = nodeType(Astro.props.type);
+const Heading = `h${headingLevel}` as "h2" | "h3";
+
+// Same glob shape as the hero: the file shown is the file that ran.
+const sources = import.meta.glob("../nodes/**/*.node.ts", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+
+function sourceFor(sourceFile: string): string {
+  const source = sources[`../nodes/${sourceFile}`];
+
+  if (source === undefined) {
+    throw new Error(`No source at src/nodes/${sourceFile} for a catalogued variant.`);
+  }
+
+  return source.trimEnd();
+}
+
+const PROMPT_ORDER = ["system", "general", "info", "negative"];
+---
+
+<div class="variants">
+  {
+    type.variants.map((variant) => (
+      <article class="variant" id={`variant-${variant.id}`}>
+        <header class="variant-head">
+          <Heading class="variant-title">{variant.title}</Heading>
+          <code class="variant-file">src/nodes/{variant.sourceFile}</code>
+        </header>
+
+        <p class="variant-summary">{variant.summary}</p>
+
+        <div class="code">
+          <Code
+            code={sourceFor(variant.sourceFile)}
+            lang="ts"
+            themes={{ light: "github-light", dark: "github-dark-dimmed" }}
+          />
+        </div>
+
+        <NodePreview
+          src={variant.previewUrl}
+          title={`${type.title}: ${variant.title}, rendered`}
+          label={`${type.title.toLowerCase()} · ${variant.title.toLowerCase()}`}
+        />
+
+        <details class="drawer">
+          <summary>What it resolves to</summary>
+          <div class="drawer-body">
+            <p>
+              The node as it appears in the <code>DocumentModel</code>: the JSON a
+              renderer is handed. No styling, no layout.
+            </p>
+            <div class="code">
+              <Code
+                code={JSON.stringify(variant.resolved, null, 2)}
+                lang="json"
+                themes={{ light: "github-light", dark: "github-dark-dimmed" }}
+              />
+            </div>
+          </div>
+        </details>
+
+        {variant.prompts && (
+          <details class="drawer">
+            <summary>What the endpoint is asked</summary>
+            <div class="drawer-body">
+              <p>
+                Resolved against the same sample data. A preview build stops at the
+                placeholder; a request-time build sends these.
+              </p>
+              <dl class="prompts">
+                {[...variant.prompts]
+                  .sort(
+                    (a, b) => PROMPT_ORDER.indexOf(a.kind) - PROMPT_ORDER.indexOf(b.kind),
+                  )
+                  .map((prompt) => (
+                    <div class="prompt">
+                      <dt>{prompt.kind}</dt>
+                      <dd>{prompt.text}</dd>
+                    </div>
+                  ))}
+              </dl>
+            </div>
+          </details>
+        )}
+      </article>
+    ))
+  }
+</div>
+
+<style>
+  .variants {
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+    margin: 1.5rem 0 0;
+  }
+
+  .variant {
+    scroll-margin-top: 5rem;
+  }
+
+  .variant-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Set here rather than left to the prose stylesheet: these headings sit on a
+     rule, and the prose margins would float them off it. */
+  .variant-title {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 600;
+  }
+
+  .variant-file {
+    flex: none;
+    font-size: 0.68rem;
+    color: var(--muted);
+    background: none;
+    padding: 0;
+  }
+
+  .variant-summary {
+    margin: 0.7rem 0 0.9rem;
+    color: var(--muted);
+    line-height: 1.65;
+  }
+
+  .code :global(pre) {
+    margin: 0 0 1.35rem;
+    padding: 0.9rem 1.05rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 0.78rem;
+    line-height: 1.6;
+  }
+
+  .drawer {
+    border-top: 1px solid var(--border);
+  }
+
+  .drawer summary {
+    padding: 0.6rem 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .drawer summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .drawer summary::before {
+    content: "+";
+    display: inline-block;
+    width: 1rem;
+    color: var(--accent);
+    transition: transform 0.15s ease;
+  }
+
+  .drawer[open] summary::before {
+    transform: rotate(45deg);
+  }
+
+  .drawer summary:hover {
+    color: var(--ink);
+  }
+
+  .drawer-body {
+    padding-bottom: 0.5rem;
+  }
+
+  .drawer-body p {
+    margin: 0 0 0.8rem;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+
+  .prompts {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .prompt {
+    display: grid;
+    grid-template-columns: 6rem minmax(0, 1fr);
+    gap: 1rem;
+    padding: 0.65rem 0.9rem;
+    background: var(--surface);
+  }
+
+  .prompt + .prompt {
+    border-top: 1px solid var(--border);
+  }
+
+  .prompt dt {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    line-height: 1.9;
+  }
+
+  .prompt dd {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 40rem) {
+    .variant-head {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.2rem;
+    }
+
+    .prompt {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.15rem;
+    }
+  }
+</style>

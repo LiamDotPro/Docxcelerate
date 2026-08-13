@@ -1,0 +1,61 @@
+---
+title: Commands
+description: Every dxcl command, with the flags that matter.
+group: CLI
+order: 1
+---
+
+The CLI is `dxcl`, and it ships inside the `docxcelerate` package. Run it
+one-off with `npx docxcelerate <command>`, or install the package and call
+`dxcl` directly — see [Start Here](/docs/start-here/).
+
+## dxcl init
+
+Creates a workspace and installs its dependencies.
+
+```sh
+dxcl init my-letters
+dxcl init my-letters --dir workspaces
+dxcl init my-letters --blank
+```
+
+Run it with no arguments for a guided setup that asks for the template and the
+API endpoint.
+
+| Flag | Effect |
+| --- | --- |
+| `--dir <path>` | Create the workspace inside `<path>` |
+| `--blank` | Skip the example document |
+| `--official-server` | Point `upload.endpoint` at the official engine |
+| `--api-endpoint <url>` | Point `upload.endpoint` at your own service |
+| `--no-api-endpoint` | Leave `upload.endpoint` empty |
+
+## dxcl document new
+
+Creates a document project inside a workspace.
+
+```sh
+dxcl letter new tenancy-renewal --title "Tenancy Renewal"
+```
+
+Writes `letters/tenancy-renewal/` with `letter.project.ts`, `letter.tsx`,
+`letter-style.ts`, `preview-data.ts`, `types.ts` and a `nodes/` directory.
+
+## dxcl document node
+
+Generates a node component and registers it.
+
+```sh
+dxcl letter node letters/tenancy-renewal next-steps --type paragraph --mode dynamic
+dxcl letter node letters/tenancy-renewal signature   --type image     --mode static
+dxcl letter node letters/tenancy-renewal rent-trend  --type graph     --mode static
+```
+
+| Flag | Values |
+| --- | --- |
+| `--type` | [`paragraph`](/docs/nodes/paragraph/), [`image`](/docs/nodes/image/), [`graph`](/docs/nodes/graph/) |
+| `--mode` | `static`, `dynamic` |
+
+The generator writes `nodes/<name>.node.ts` and updates `nodes/index.ts`. It
+does **not** place the node in your template — add it to `letter.tsx` at the
+point in the document where it belongs.

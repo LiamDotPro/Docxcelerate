@@ -1,0 +1,53 @@
+---
+import "../styles/global.css";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+import { SITE } from "../site";
+
+interface Props {
+  title?: string;
+  description?: string;
+  /** Docs pages manage their own width; the homepage runs full-bleed. */
+  bare?: boolean;
+}
+
+const { title, description = SITE.description, bare = false } = Astro.props;
+const fullTitle = title ? `${title} — ${SITE.name}` : `${SITE.name} — ${SITE.tagline}`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
+    <!-- Set the theme before first paint so there's no flash of the wrong ground. -->
+    <script is:inline>
+      (() => {
+        const stored = localStorage.getItem("dxcl-theme");
+        if (stored === "dark" || stored === "light") {
+          document.documentElement.setAttribute("data-theme", stored);
+        }
+      })();
+    </script>
+  </head>
+  <body class="min-h-screen flex flex-col">
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded focus:bg-accent-solid focus:px-3 focus:py-2 focus:text-on-accent"
+      >Skip to content</a
+    >
+    <Nav />
+    <main id="main" class={bare ? "flex-1" : "flex-1 w-full"}>
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>

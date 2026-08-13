@@ -1,0 +1,76 @@
+---
+import type { MarkdownHeading } from "astro";
+
+interface Props {
+  headings: MarkdownHeading[];
+}
+
+// h2 and h3 only. Deeper levels make the rail noisier than the page.
+const headings = Astro.props.headings.filter(
+  (heading) => heading.depth === 2 || heading.depth === 3,
+);
+---
+
+{
+  headings.length > 0 && (
+    <nav aria-label="On this page" class="flex flex-col gap-2 text-sm">
+      <h2
+        class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
+      >
+        On this page
+      </h2>
+      <ul class="m-0 flex list-none flex-col gap-0.5 p-0">
+        {headings.map((heading) => (
+          <li class="m-0">
+            <a
+              href={`#${heading.slug}`}
+              data-toc-link={heading.slug}
+              class:list={[
+                "block border-l border-border py-1 leading-snug text-muted no-underline transition-colors hover:border-border-firm hover:text-ink",
+                heading.depth === 2 ? "pl-3" : "pl-6",
+              ]}
+            >
+              {heading.text}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )
+}
+
+<script>
+  const links = new Map<string, HTMLAnchorElement>();
+  document.querySelectorAll<HTMLAnchorElement>("[data-toc-link]").forEach((link) => {
+    links.set(link.dataset.tocLink!, link);
+  });
+
+  if (links.size > 0) {
+    const active = (slug: string | null) => {
+      links.forEach((link, key) => {
+        const on = key === slug;
+        link.classList.toggle("text-accent", on);
+        link.classList.toggle("border-accent", on);
+        link.classList.toggle("font-medium", on);
+        link.classList.toggle("text-muted", !on);
+      });
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (visible) active(visible.target.id);
+      },
+      // Bias the band toward the top of the viewport so the highlighted
+      // heading is the one you're actually reading, not the one at the fold.
+      { rootMargin: "-72px 0px -65% 0px", threshold: 0 },
+    );
+
+    links.forEach((_, slug) => {
+      const heading = document.getElementById(slug);
+      if (heading) observer.observe(heading);
+    });
+  }
+</script>

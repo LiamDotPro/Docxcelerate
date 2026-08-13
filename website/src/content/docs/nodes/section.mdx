@@ -1,0 +1,67 @@
+---
+title: Section
+description: The one node that holds other nodes, and the heading its title becomes.
+group: Nodes
+subgroup: Node types
+order: 11
+---
+
+import NodeSummary from "../../../components/NodeSummary.astro";
+import NodeVariants from "../../../components/NodeVariants.astro";
+
+<NodeSummary type="section" />
+
+## Writing one
+
+A section takes its options and its children — node components, the same values
+you would place at the top level of a document:
+
+```ts
+import { section } from "docxcelerate";
+
+export const Opening = section<MemberData>({ id: "opening", title: "Your renewal" }, [
+  Greeting,
+  PriceChange,
+]);
+```
+
+In TSX the same call reads as markup:
+
+```tsx
+<Section id="opening" title="Your renewal">
+  <Greeting />
+  <PriceChange />
+</Section>
+```
+
+Both produce the same tree. [Templates](/docs/essentials/templates/) covers when
+each form earns its keep.
+
+## Children can be anything
+
+Paragraphs, images, graphs, a contents marker, or further sections. No other
+node has children, so the depth of a document is the depth of its sections.
+
+Nothing about a node changes because it moved inside one: it resolves the same
+way at any depth, and its id gains no prefix.
+
+## Titles carry into the outline
+
+`title` is required, and it is not decoration — it becomes the heading above the
+children and the entry a contents list is built from. A group that wants no
+heading wants no section; put the nodes in the document directly.
+
+## Variants
+
+<NodeVariants type="section" />
+
+## Notes
+
+- **Depth is in the tree, not in the headings.** Both shipped renderers print
+  every section title at one level — `<h2>` in the browser, Heading 1 in the
+  DOCX — however deeply it nests. The JSON nests correctly, so this is a
+  renderer limitation, but a three-deep document will not look three-deep yet.
+- There is no dynamic section. An endpoint fills nodes in; it does not decide
+  what the document contains.
+- An empty section renders as a lone heading. If the children come from a filter
+  that can empty out, check that upstream.

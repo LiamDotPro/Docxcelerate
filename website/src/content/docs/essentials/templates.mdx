@@ -1,0 +1,103 @@
+---
+title: Templates
+description: Compose a document tree with TSX, or with plain function calls — both produce the same document.
+group: Essentials
+order: 3
+---
+
+Templates come in two forms. They are equivalent; pick by taste and by how much
+structure the document has.
+
+## TSX
+
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { Document, Section, template } from "docxcelerate/template";
+import { Greeting, NextSteps } from "./nodes/index.ts";
+import type { LetterData } from "./types.ts";
+
+export const letterTemplate = template<LetterData>(
+  <Document id="tenancy-renewal" title="Tenancy Renewal">
+    <Section id="opening" title="Opening">
+      <Greeting />
+    </Section>
+    <Section id="closing" title="Closing">
+      <NextSteps />
+    </Section>
+  </Document>,
+);
+```
+
+The pragma on line one is what wires JSX to Docxcelerate rather than to React.
+Set `jsxImportSource` in `tsconfig.json` instead and you can drop it:
+
+```json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "docxcelerate/template"
+  }
+}
+```
+
+Scaffolded workspaces already have this configured.
+
+## Plain functions
+
+```ts
+import { letter, section } from "docxcelerate";
+
+export const letterTemplate = doc<LetterData>({
+  id: "tenancy-renewal",
+  title: "Tenancy Renewal",
+  nodes: [
+    section({ id: "opening", title: "Opening" }, [Greeting]),
+    section({ id: "closing", title: "Closing" }, [NextSteps]),
+  ],
+});
+```
+
+Useful when a document's structure is computed — building sections from a list, for
+instance, where JSX would need a `map` and a fragment anyway.
+
+## Reusable components
+
+`defineDocumentComponent` and `defineSectionComponent` let you build your own
+wrappers around the primitives — a house-style letterhead, a standard closing
+block — and reuse them across documents:
+
+```tsx
+import { defineSectionComponent } from "docxcelerate/template";
+
+export const Closing = defineSectionComponent<LetterData>({
+  id: "closing",
+  title: "Closing",
+});
+```
+
+## Document projects
+
+A document project ties a template to its style and preview data through one
+entrypoint, `letter.project.ts`:
+
+```tsx
+import { defineDocumentProject } from "docxcelerate/document";
+import { letterTemplate } from "./letter.tsx";
+import { letterStyle } from "./letter-style.ts";
+import type { LetterData } from "./types.ts";
+
+export default defineDocumentProject<LetterData>({
+  id: "tenancy-renewal",
+  name: "Tenancy Renewal",
+  version: "1.0.0",
+  template: letterTemplate,
+  style: letterStyle,
+  previewData: {
+    residentName: "Avery Mitchell",
+    propertyRef: "Flat 4, Ashcroft House",
+  },
+});
+```
+
+`previewData` is what the preview app resolves against. Keep it realistic —
+short names and placeholder cities hide layout problems that real data exposes.

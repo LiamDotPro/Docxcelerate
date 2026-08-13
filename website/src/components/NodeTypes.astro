@@ -1,0 +1,124 @@
+---
+/**
+ * The whole catalog, grouped by category — an expandable list of every node
+ * type the toolkit has, and the ones it is going to have.
+ *
+ * Both the homepage and the docs overview render this. The metadata comes from
+ * the generated catalog and the snippet under each type is the first variant's
+ * real source file, so the list cannot describe a helper that no longer exists
+ * or show a call that no longer compiles.
+ *
+ * Native <details> so it works without JS and keyboard-navigates for free.
+ */
+import { Code } from "astro:components";
+import { byCategory, nodeTypeHref, STATUS_LABELS } from "../node-catalog";
+
+const groups = byCategory();
+
+const sources = import.meta.glob("../nodes/**/*.node.ts", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+
+/**
+ * The first variant, with its explanatory comment stripped: in a list this
+ * dense the call itself is the point, and the prose beside it has already
+ * done the explaining.
+ */
+function snippetFor(sourceFile: string | undefined): string | undefined {
+  if (!sourceFile) return undefined;
+
+  const source = sources[`../nodes/${sourceFile}`];
+  if (source === undefined) return undefined;
+
+  return source
+    .replaceAll(/^\/\*\*[\s\S]*?\*\/\n/gm, "")
+    .replaceAll(/^import .*\n/gm, "")
+    .trim();
+}
+---
+
+<div class="flex flex-col gap-8">
+  {
+    groups.map(({ category, types }) => (
+      <div class="flex flex-col gap-3">
+        <h3 class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted">
+          {category}
+        </h3>
+        <div class="overflow-hidden rounded-md border border-border">
+          {types.map((type, index) => {
+            const href = nodeTypeHref(type);
+            const snippet = snippetFor(type.variants[0]?.sourceFile);
+
+            return (
+              <details
+                class:list={[
+                  "group bg-paper open:bg-surface",
+                  index > 0 && "border-t border-border",
+                ]}
+              >
+                <summary class="flex cursor-pointer list-none items-baseline gap-3 px-4 py-3 transition-colors hover:bg-surface [&::-webkit-details-marker]:hidden">
+                  <span class="font-mono text-sm font-semibold text-accent">
+                    {type.helpers[0] ?? type.kind}
+                  </span>
+                  <span class="text-sm text-muted">{type.summary}</span>
+                  {type.status !== "stable" && (
+                    <span class="shrink-0 rounded-full border border-border-firm px-2 py-px font-mono text-[0.6rem] uppercase tracking-[0.1em] text-muted">
+                      {STATUS_LABELS[type.status]}
+                    </span>
+                  )}
+                  <span
+                    class="ml-auto shrink-0 text-muted transition-transform group-open:rotate-45"
+                    aria-hidden="true"
+                  >
+                    +
+                  </span>
+                </summary>
+                <div class="flex flex-col gap-3 border-t border-border px-4 py-4">
+                  <p class="m-0 max-w-2xl text-sm leading-relaxed text-muted">{type.detail}</p>
+
+                  {type.helpers.length > 1 && (
+                    <p class="m-0 font-mono text-xs text-muted">
+                      Helpers: {type.helpers.join(", ")}
+                    </p>
+                  )}
+
+                  {snippet && (
+                    <div class="snippet">
+                      <Code
+                        code={snippet}
+                        lang="ts"
+                        themes={{ light: "github-light", dark: "github-dark-dimmed" }}
+                      />
+                    </div>
+                  )}
+
+                  {href && (
+                    <p class="m-0">
+                      <a href={href} class="text-sm text-accent no-underline hover:underline">
+                        {type.title} reference, with previews →
+                      </a>
+                    </p>
+                  )}
+                </div>
+              </details>
+            );
+          })}
+        </div>
+      </div>
+    ))
+  }
+</div>
+
+<style>
+  .snippet :global(pre) {
+    margin: 0;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow-x: auto;
+    font-size: 0.76rem;
+    line-height: 1.6;
+  }
+</style>

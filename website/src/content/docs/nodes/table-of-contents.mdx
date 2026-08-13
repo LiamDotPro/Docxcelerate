@@ -1,0 +1,50 @@
+---
+title: Table of contents
+description: A schema kind with no helper yet — how to place one, and what it does today.
+group: Nodes
+subgroup: Node types
+order: 14
+---
+
+import NodeSummary from "../../../components/NodeSummary.astro";
+import NodeVariants from "../../../components/NodeVariants.astro";
+
+<NodeSummary type="table-of-contents" />
+
+## Writing one without a helper
+
+The helpers are conveniences, not a gate. A node component is a function that
+takes your data and returns a definition, so any kind in the schema is reachable
+by writing that function:
+
+```ts
+import type { NodeComponent } from "docxcelerate";
+
+export const Contents: NodeComponent<MemberData> = () => ({
+  kind: "tableOfContents",
+  id: "contents",
+  title: "What is in this letter",
+});
+```
+
+It composes like any other node, and resolves in preview builds, engine builds
+and tests the same way.
+
+## Why place one now
+
+It costs one line, and it starts printing entries the day the renderers build
+them. The alternative — a hand-maintained list of section titles in a paragraph
+— will be wrong within two releases.
+
+If you would rather not ship a node that prints only a heading, leave it out.
+Adding it later is equally cheap.
+
+## Variants
+
+<NodeVariants type="table-of-contents" />
+
+## Notes
+
+- Expect a `tableOfContents` helper eventually, taking the same `{ id, title }`
+  it takes here. Written as above, adopting it is a one-line change.
+- The node holds no children and reads nothing at build time.
