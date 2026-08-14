@@ -60,6 +60,9 @@ export const es: UiStrings = {
     copied: "Copiado",
     copyFallback: "Pulsa ⌘C",
     integrityTitle: "{hash} — haz clic para copiar",
+    /** Accessible name for the registry marks beside the version. */
+    onNpm: "Docxcelerate en npm",
+    onJsr: "Docxcelerate en JSR",
 
     points: {
       authoring: {

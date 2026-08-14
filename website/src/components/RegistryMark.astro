@@ -1,0 +1,68 @@
+---
+/**
+ * A registry wordmark, small enough to sit in the version line.
+ *
+ * Both npm and JSR are wordmarks — four or fewer letters in a coloured box —
+ * so this draws them as type in a box rather than as vector letterforms. At
+ * this size that renders more crisply than a traced path would, and the letters
+ * stay real text: selectable, scalable with the reader's settings, and never a
+ * blurred image on a high-density screen.
+ *
+ * The word itself is decorative — the link's accessible name comes from the
+ * translated label, so a screen reader says "Docxcelerate on npm" rather than
+ * spelling out "npm" twice.
+ */
+interface Props {
+  registry: "npm" | "jsr";
+  href: string;
+  /** Translated. The only thing assistive technology reads here. */
+  label: string;
+}
+
+const { registry, href, label } = Astro.props;
+---
+
+<a
+  href={href}
+  target="_blank"
+  rel="noopener noreferrer"
+  aria-label={label}
+  title={label}
+  class:list={["registry-mark", registry]}
+>
+  <span aria-hidden="true">{registry === "npm" ? "npm" : "JSR"}</span>
+</a>
+
+<style>
+  .registry-mark {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15em 0.35em;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    text-decoration: none;
+    /* Slightly recessed until wanted, so two coloured chips do not outshout the
+       version they annotate. */
+    opacity: 0.85;
+    transition: opacity 0.15s;
+  }
+
+  .registry-mark:hover,
+  .registry-mark:focus-visible {
+    opacity: 1;
+  }
+
+  .registry-mark.npm {
+    background: #cb3837;
+    color: #fff;
+  }
+
+  .registry-mark.jsr {
+    background: #f7df1e;
+    color: #083344;
+  }
+</style>

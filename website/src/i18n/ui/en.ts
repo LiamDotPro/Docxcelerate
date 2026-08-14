@@ -67,6 +67,9 @@ export const en = {
     copyFallback: "Press ⌘C",
     /** {hash} is the full integrity hash. */
     integrityTitle: "{hash} — click to copy",
+    /** Accessible name for the registry marks beside the version. */
+    onNpm: "Docxcelerate on npm",
+    onJsr: "Docxcelerate on JSR",
 
     points: {
       authoring: {

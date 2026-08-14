@@ -8,7 +8,16 @@
  */
 import Base from "../layouts/Base.astro";
 import HeroDemo from "./HeroDemo.astro";
-import { CLOUD_URL, GITHUB_URL, INSTALL_COMMAND, NPM_URL, SITE } from "../site";
+import RegistryMark from "./RegistryMark.astro";
+import {
+  CLOUD_URL,
+  GITHUB_URL,
+  INSTALL_COMMAND,
+  JSR_URL,
+  NPM_LATEST_URL,
+  NPM_URL,
+  SITE,
+} from "../site";
 import release from "../generated/release.json";
 import { asLocale, fill, localizePath, ui } from "../i18n";
 
@@ -108,7 +117,9 @@ const CARDS = [
       <p
         class="m-0 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-mono text-[0.68rem] text-muted"
       >
-        <span>v{release.version}</span>
+        <span id="release-version" data-latest={NPM_LATEST_URL}>v{release.version}</span>
+        <RegistryMark registry="npm" href={NPM_URL} label={t.home.onNpm} />
+        <RegistryMark registry="jsr" href={JSR_URL} label={t.home.onJsr} />
         <span aria-hidden="true">·</span>
         <button
           type="button"
@@ -276,13 +287,16 @@ const CARDS = [
   function wireCopy(button: HTMLElement | null, value: () => string | undefined) {
     if (!button) return;
 
-    const idle = button.dataset.idle ?? button.textContent?.trim() ?? "";
-    const copied = button.dataset.copied ?? idle;
-    const fallback = button.dataset.fallback ?? idle;
-
     button.addEventListener("click", async () => {
       const text = value();
       if (!text) return;
+
+      // Read at click time, not at wire time: the checksum button's label is
+      // rewritten when the registry answers, and a label captured before that
+      // would restore the previous release's hash after the copied flash.
+      const idle = button.dataset.idle ?? button.textContent?.trim() ?? "";
+      const copied = button.dataset.copied ?? idle;
+      const fallback = button.dataset.fallback ?? idle;
       const restore = () => setTimeout(() => (button.textContent = idle), 1600);
       try {
         await navigator.clipboard.writeText(text);
@@ -300,6 +314,41 @@ const CARDS = [
 
   const integrity = document.getElementById("copy-integrity");
   wireCopy(integrity, () => integrity?.dataset.integrity);
+
+  /**
+   * The version and checksum are baked at build time, so they are right the
+   * moment the site is built and stale the moment a release goes out without
+   * one. This asks the registry what it is actually serving and corrects them
+   * in place — the page never has to be rebuilt to stop lying.
+   *
+   * Failure is silence: no network, an offline reader or a registry hiccup all
+   * leave the built-in values on screen, which are a real release either way.
+   */
+  async function refreshRelease() {
+    const version = document.getElementById("release-version");
+    if (!version?.dataset.latest || !integrity) return;
+
+    const response = await fetch(version.dataset.latest, {
+      headers: { accept: "application/vnd.npm.install-v1+json, application/json" },
+    });
+    if (!response.ok) return;
+
+    const latest = await response.json();
+    if (typeof latest?.version !== "string" || typeof latest?.dist?.integrity !== "string") return;
+
+    version.textContent = `v${latest.version}`;
+
+    // The button holds the full hash and shows a shortened one; both have to
+    // move together or copying gives you the checksum of a different release.
+    const title = integrity.getAttribute("title");
+    if (title && integrity.dataset.integrity) {
+      integrity.setAttribute("title", title.replace(integrity.dataset.integrity, latest.dist.integrity));
+    }
+    integrity.dataset.integrity = latest.dist.integrity;
+    integrity.textContent = `${latest.dist.integrity.slice(0, 24)}…`;
+  }
+
+  refreshRelease().catch(() => {});
 </script>
 
 <style>
