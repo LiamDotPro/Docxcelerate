@@ -56,6 +56,9 @@ export const nl: UiStrings = {
     copied: "Gekopieerd",
     copyFallback: "Druk op ⌘C",
     integrityTitle: "{hash} — klik om te kopiëren",
+    /** Accessible name for the registry marks beside the version. */
+    onNpm: "Docxcelerate op npm",
+    onJsr: "Docxcelerate op JSR",
 
     points: {
       authoring: {

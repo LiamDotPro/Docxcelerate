@@ -49,6 +49,19 @@ export const ENGINE_URL: string | null = null;
 
 export const GITHUB_URL = "https://github.com/LiamDotPro/Docxcelerate";
 export const NPM_URL = "https://www.npmjs.com/package/docxcelerate";
+export const JSR_URL = "https://jsr.io/@docxcelerate/docxcelerate";
+
+/**
+ * Where the homepage reads the published version and checksum from, in the
+ * browser. The registry serves it with `access-control-allow-origin: *` and a
+ * five-minute cache, so the page can ask it directly — no proxy, no key.
+ *
+ * The build bakes the same values in; this only corrects them when a release
+ * went out after the site was last built. See PACKAGE_NAME for what it asks
+ * about.
+ */
+export const PACKAGE_NAME = "docxcelerate";
+export const NPM_LATEST_URL = `https://registry.npmjs.org/${PACKAGE_NAME}/latest`;
 
 export interface NavLink {
   /** Key into `nav` in the UI dictionaries — the label is per-language. */

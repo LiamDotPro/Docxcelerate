@@ -59,6 +59,9 @@ export const ru: UiStrings = {
     copied: "Скопировано",
     copyFallback: "Нажмите ⌘C",
     integrityTitle: "{hash} — нажмите, чтобы скопировать",
+    /** Accessible name for the registry marks beside the version. */
+    onNpm: "Docxcelerate на npm",
+    onJsr: "Docxcelerate на JSR",
 
     points: {
       authoring: {
