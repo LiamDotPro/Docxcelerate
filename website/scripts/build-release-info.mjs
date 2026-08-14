@@ -1,18 +1,21 @@
 /**
  * Captures what a publish of the parent package contains.
  *
- * `npm pack --dry-run --json` computes the tarball's shasum and subresource
- * integrity without writing a file — the same values npm puts in the registry
- * as `dist.shasum` and `dist.integrity`. So the checksum the site prints is
- * one a reader can verify for themselves:
+ * The homepage prints this checksum beside `npm i docxcelerate`, so it has to
+ * be the one a reader gets back from:
  *
  *   npm view docxcelerate dist.integrity
  *
- * On Deno Deploy `npm` is a shim over Deno, and only the everyday subcommands
- * go through it; `npm pack` is not one of them. There the registry answers the
- * same question directly — it is where those values end up, and where the
- * reader checks them — so a failed pack falls back to asking it. Local builds
- * still pack, which is what makes an unpublished change visible before it ships.
+ * That makes the registry the source whenever the version in package.json is
+ * published — and it must be, because publishing rebuilds the tarball, so a
+ * local `npm pack` of the same version hashes differently. Only a version the
+ * registry has never seen falls to `npm pack --dry-run --json`, which computes
+ * the same fields locally and keeps an unreleased change visible on the site
+ * before it ships.
+ *
+ * Last of all comes whatever `latest` points at: on Deno Deploy `npm` is a
+ * shim over Deno, and if `pack` ever stops working through it, a published
+ * release is a better answer than a failed build.
  *
  * Output: src/generated/release.json (gitignored — it's derived, not authored).
  */
@@ -114,25 +117,11 @@ function matchingBracket(text, start) {
   return -1;
 }
 
-/**
- * The published release, from the registry.
- *
- * Asks for the version in package.json first. A version that has been bumped
- * but not yet published is not there, so fall back to whatever `latest` points
- * at — the site would rather show a release a reader can actually install than
- * fail the build over one that does not exist yet.
- */
-async function fromRegistry() {
-  const manifest = JSON.parse(await readFile(resolve(PACKAGE_ROOT, "package.json"), "utf8"));
-  const { name, version } = manifest;
-
-  let packument = await fetchVersion(name, version);
+/** A release as the registry has it, or null if that spec is not published. */
+async function fromRegistry(name, spec) {
+  const packument = await fetchVersion(name, spec);
   if (!packument) {
-    console.log(`release: ${name}@${version} is not published — falling back to latest`);
-    packument = await fetchVersion(name, "latest");
-  }
-  if (!packument) {
-    throw new Error(`The registry has no published release of ${name}.`);
+    return null;
   }
 
   const dist = packument.dist ?? {};
@@ -164,15 +153,27 @@ async function fetchVersion(name, spec) {
   return await response.json();
 }
 
-let release;
-let source = "npm pack";
+const { name, version } = JSON.parse(
+  await readFile(resolve(PACKAGE_ROOT, "package.json"), "utf8"),
+);
 
-try {
-  release = pack();
-} catch (error) {
-  console.log(`release: npm pack is unavailable (${error.message.trim()}) — asking the registry`);
-  release = await fromRegistry();
-  source = "registry";
+let source = "the registry";
+let release = await fromRegistry(name, version);
+
+if (!release) {
+  console.log(`release: ${name}@${version} is not published — packing it instead`);
+  try {
+    release = pack();
+    source = "npm pack";
+  } catch (error) {
+    console.log(`release: npm pack is unavailable (${error.message.trim()})`);
+    release = await fromRegistry(name, "latest");
+    source = "the registry, at latest";
+  }
+}
+
+if (!release) {
+  throw new Error(`Found no release of ${name}: not at ${version}, not packable, none published.`);
 }
 
 await mkdir(dirname(OUT_FILE), { recursive: true });
