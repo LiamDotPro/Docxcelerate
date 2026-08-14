@@ -80,6 +80,11 @@ export function extractPage(html, { title, style: extraStyle }) {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Embedded in an iframe by the page that explains it. On its own it is
+         that page's content without its context, so it stays out of the index
+         rather than competing with it. Crawling is still allowed, so the frame
+         is not empty when the parent page is rendered. -->
+    <meta name="robots" content="noindex">
     <title>${escapeHtml(title)}</title>
     <style>${rendererStyle}</style>
     <style id="page-only">${extraStyle}

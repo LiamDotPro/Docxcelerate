@@ -8,7 +8,7 @@
  */
 import Base from "../layouts/Base.astro";
 import HeroDemo from "./HeroDemo.astro";
-import { CLOUD_URL, INSTALL_COMMAND } from "../site";
+import { CLOUD_URL, GITHUB_URL, INSTALL_COMMAND, NPM_URL, SITE } from "../site";
 import release from "../generated/release.json";
 import { asLocale, fill, localizePath, ui } from "../i18n";
 
@@ -27,6 +27,32 @@ const POINTS = [t.home.points.authoring, t.home.points.ai, t.home.points.changeC
 // framework is responsible for.
 const STEPS = [t.home.engine.steps.build, t.home.engine.steps.publish, t.home.engine.steps.write];
 
+// What the package is, in the vocabulary a search engine already has. The
+// version and licence come from the release the site was built against, so this
+// cannot drift from the install command printed above it.
+const structuredData = [
+  {
+    "@type": "SoftwareApplication",
+    name: SITE.name,
+    description: t.meta.description,
+    applicationCategory: "DeveloperApplication",
+    operatingSystem: "Node.js 20+",
+    softwareVersion: release.version,
+    inLanguage: locale,
+    url: new URL(localizePath("/", locale), Astro.site).href,
+    codeRepository: GITHUB_URL,
+    downloadUrl: NPM_URL,
+    license: "https://opensource.org/licenses/MIT",
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  },
+  {
+    "@type": "WebSite",
+    name: SITE.name,
+    url: new URL(localizePath("/", locale), Astro.site).href,
+    inLanguage: locale,
+  },
+];
+
 const CARDS = [
   { ...t.home.docs.cards.startHere, href: "/docs/start-here/" },
   { ...t.home.docs.cards.documentsAndNodes, href: "/docs/essentials/documents-and-nodes/" },
@@ -37,7 +63,7 @@ const CARDS = [
 ];
 ---
 
-<Base bare>
+<Base bare structuredData={structuredData}>
   <!-- Hero -->
   <section class="mx-auto max-w-6xl px-5 pt-12 pb-10 sm:px-8 sm:pt-16">
     <div class="flex flex-col items-center gap-6 text-center">

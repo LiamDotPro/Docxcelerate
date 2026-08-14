@@ -2,14 +2,20 @@
 import "../styles/global.css";
 import Nav from "../components/Nav.astro";
 import Footer from "../components/Footer.astro";
+import Seo from "../components/Seo.astro";
 import { SITE } from "../site";
-import { alternates, asLocale, localizePath, stripLocale, ui, DEFAULT_LOCALE } from "../i18n";
+import { asLocale, ui } from "../i18n";
+import type { Locale } from "../i18n";
 
 interface Props {
   title?: string;
   description?: string;
   /** Docs pages manage their own width; the homepage runs full-bleed. */
   bare?: boolean;
+  /** Passed through to Seo — see there for what each one decides. */
+  hreflangLocales?: readonly Locale[];
+  noindex?: boolean;
+  structuredData?: Record<string, unknown>[];
 }
 
 // Derived from the URL by Astro's i18n routing: /de/... is German, everything
@@ -17,15 +23,15 @@ interface Props {
 const locale = asLocale(Astro.currentLocale);
 const t = ui(locale);
 
-const { title, description = t.meta.description, bare = false } = Astro.props;
+const {
+  title,
+  description = t.meta.description,
+  bare = false,
+  hreflangLocales,
+  noindex,
+  structuredData,
+} = Astro.props;
 const fullTitle = title ? `${title} — ${SITE.name}` : `${SITE.name} — ${t.meta.tagline}`;
-
-// Every language publishes this page at the same slug under its own prefix, so
-// the alternates are the canonical path re-addressed five times. x-default is
-// English: it is where a reader with no matching language should land.
-const canonicalPath = stripLocale(Astro.url.pathname);
-const languages = alternates(canonicalPath);
-const href = (path: string) => new URL(path, Astro.site).href;
 ---
 
 <!doctype html>
@@ -34,24 +40,15 @@ const href = (path: string) => new URL(path, Astro.site).href;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <title>{fullTitle}</title>
-    <meta name="description" content={description} />
-    <meta property="og:title" content={fullTitle} />
-    <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
-    <meta property="og:locale" content={locale} />
-    <meta property="og:url" content={href(Astro.url.pathname)} />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)" />
     <meta name="generator" content={Astro.generator} />
-    <link rel="canonical" href={href(Astro.url.pathname)} />
-    {
-      languages.map((alternate) => (
-        <link rel="alternate" hreflang={alternate.locale} href={href(alternate.path)} />
-      ))
-    }
-    <link
-      rel="alternate"
-      hreflang="x-default"
-      href={href(localizePath(canonicalPath, DEFAULT_LOCALE))}
+    <Seo
+      title={fullTitle}
+      description={description}
+      hreflangLocales={hreflangLocales}
+      noindex={noindex}
+      structuredData={structuredData}
     />
     <!-- Set the theme before first paint so there's no flash of the wrong ground. -->
     <script is:inline>

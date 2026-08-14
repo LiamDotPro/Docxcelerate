@@ -1,0 +1,12 @@
+# Everything is crawlable.
+#
+# The baked previews under /demo/ are kept out of the index by a noindex tag in
+# the pages themselves rather than blocked here. They are iframed by the docs
+# pages that explain them, and a crawler that cannot fetch them sees those pages
+# with an empty frame — blocking the crawl would hide the previews from the
+# rendering of the page they belong to, while a noindex keeps them out of the
+# index and still lets them be fetched.
+User-agent: *
+Allow: /
+
+Sitemap: https://docxcelerate.com/sitemap.xml

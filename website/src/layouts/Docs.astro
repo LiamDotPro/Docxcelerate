@@ -3,8 +3,9 @@ import type { MarkdownHeading } from "astro";
 import Base from "./Base.astro";
 import Sidebar from "../components/Sidebar.astro";
 import Toc from "../components/Toc.astro";
-import { DOC_GROUPS, GITHUB_URL } from "../site";
-import { asLocale, ui } from "../i18n";
+import { DOC_GROUPS, GITHUB_URL, SITE } from "../site";
+import { asLocale, localizePath, ui } from "../i18n";
+import { localesForDocsSlug } from "../seo";
 
 interface Props {
   title: string;
@@ -27,9 +28,42 @@ const t = ui(locale);
 // Points at the file on screen, so a reader fixing a German typo edits the
 // German source rather than the English original.
 const editUrl = `${GITHUB_URL}/edit/main/website/src/content/docs/${entryId}.mdx`;
+
+// Only the languages that have this page are offered as translations of it.
+// Where English is standing in, the page serves but stays out of the index —
+// otherwise the same English prose competes with itself at five addresses.
+const hreflangLocales = await localesForDocsSlug(slug);
+const url = (path: string) => new URL(localizePath(path, locale), Astro.site).href;
+
+const structuredData = [
+  {
+    "@type": "TechArticle",
+    headline: title,
+    description,
+    inLanguage: locale,
+    url: url(`/docs/${slug}/`),
+    isPartOf: { "@type": "WebSite", name: SITE.name, url: url("/") },
+  },
+  {
+    "@type": "BreadcrumbList",
+    // Only the last item may omit a URL, and groups have no page of their own,
+    // so the trail is site, docs, page — with the group named on the page item.
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: SITE.name, item: url("/") },
+      { "@type": "ListItem", position: 2, name: t.nav.docs, item: url("/docs/start-here/") },
+      { "@type": "ListItem", position: 3, name: `${t.docs.groups[group]}: ${title}` },
+    ],
+  },
+];
 ---
 
-<Base title={title} description={description}>
+<Base
+  title={title}
+  description={description}
+  hreflangLocales={hreflangLocales}
+  noindex={!translated}
+  structuredData={structuredData}
+>
   <div
     class="mx-auto flex w-full max-w-6xl gap-10 px-5 py-10 sm:px-8 lg:gap-12"
   >

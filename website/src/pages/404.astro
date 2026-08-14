@@ -14,7 +14,7 @@ import { DEFAULT_LOCALE, LOCALES, localizePath, ui } from "../i18n";
 // The nav and footer around it stay English. Swapping the whole chrome from a
 // script would mean shipping every string on every page; the links this page
 // offers do point at the right language, which is what a reader needs from it.
-const t = ui(DEFAULT_LOCALE);
+const t = ui(DEFAULT_LOCALE).notFound;
 
 const TRANSLATIONS = Object.fromEntries(
   LOCALES.map((locale) => {
@@ -35,7 +35,9 @@ const TRANSLATIONS = Object.fromEntries(
 );
 ---
 
-<Base title={t.title} description={t.description}>
+{/* One file answers every missed address in every language, so it has no
+    canonical language of its own and nothing to offer an index. */}
+<Base title={t.title} description={t.description} noindex>
   <section class="mx-auto flex max-w-2xl flex-col items-start gap-5 px-5 py-32 sm:px-8">
     <p class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent">
       404

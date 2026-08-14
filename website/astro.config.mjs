@@ -9,6 +9,10 @@ import { DEFAULT_LOCALE, LOCALES, PREFIXED_LOCALES } from "./src/i18n/config.ts"
  * Redirects that exist in English at the root also have to exist under every
  * language prefix — a German reader following an old link should land on the
  * German page, not be bounced back to English.
+ *
+ * @param {string} from Canonical path being redirected.
+ * @param {string} to Canonical path to land on.
+ * @returns {Record<string, string>}
  */
 const localised = (from, to) =>
   Object.fromEntries([
@@ -44,7 +48,11 @@ export default defineConfig({
     ),
   },
   vite: {
-    plugins: [tailwindcss()],
+    // Two copies of Vite are installed: Astro pins 6, @tailwindcss/vite is
+    // built against 8. The plugin shape is the same at runtime — the build
+    // works — but the two Plugin types are nominally different, so the cast is
+    // about the duplicate install rather than about this plugin.
+    plugins: [/** @type {any} */ (tailwindcss())],
   },
   markdown: {
     shikiConfig: {
