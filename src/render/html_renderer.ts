@@ -4,8 +4,8 @@ import type { DocumentModel } from "../domain/types.ts";
 export type HtmlRenderOptions = WebRenderOptions;
 
 export function renderDocumentHtml(
-  letter: DocumentModel,
+  doc: DocumentModel,
   options: HtmlRenderOptions = {},
 ): string {
-  return renderDocumentWebsite(letter, options);
+  return renderDocumentWebsite(doc, options);
 }

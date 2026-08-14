@@ -1,25 +1,47 @@
 ---
 import { Code } from "astro:components";
 import configRaw from "../demo/docxcelerate.config.json?raw";
+import { asLocale, fill, ui } from "../i18n";
+
+const locale = asLocale(Astro.currentLocale);
+const t = ui(locale);
 
 /**
- * The hero shows a whole workspace: several letter projects under letters/,
- * with the preview following whichever letter you're reading. Every file is
- * globbed from src/demo/letters, so adding a letter to that directory adds it
+ * The hero shows a whole workspace: several document projects under documents/,
+ * with the preview following whichever document you're reading. Every file is
+ * globbed from src/demo/documents, so adding a document to that directory adds it
  * here and to the preview build with no edits to this component.
  */
-const sources = import.meta.glob("../demo/letters/**/*.{ts,tsx}", {
+const sources = import.meta.glob("../demo/documents/**/*.{ts,tsx}", {
   query: "?raw",
   import: "default",
   eager: true,
 }) as Record<string, string>;
 
-// Ids must match the directory names — scripts/build-demo-letter.mjs enforces
-// that, because previews are addressed as /demo/<dir>.html.
-const LETTERS = [
-  { id: "offer-of-admission", name: "Offer of Admission", sector: "Education" },
-  { id: "repairs-appointment", name: "Repair Appointment", sector: "Housing" },
-  { id: "policy-renewal", name: "Policy Renewal", sector: "Insurance" },
+// Ids must match the directory names — scripts/build-demo-document.mjs enforces
+// that, because previews are addressed as /demo/<dir>.html. The ids and the
+// file names under them are paths on disk and stay as they are in every
+// language; only what is printed beside them is translated.
+//
+// The documents inside the preview frames are themselves still English: they
+// are built from src/demo/documents by the real renderer, and translating them
+// would mean maintaining five copies of the demo sources.
+const DOCUMENTS = [
+  {
+    id: "offer-of-admission",
+    name: t.demo.documents["offer-of-admission"],
+    sector: t.demo.sectors.education,
+  },
+  {
+    id: "repairs-appointment",
+    name: t.demo.documents["repairs-appointment"],
+    sector: t.demo.sectors.housing,
+  },
+  {
+    id: "policy-renewal",
+    name: t.demo.documents["policy-renewal"],
+    sector: t.demo.sectors.insurance,
+  },
 ] as const;
 
 interface DemoFile {
@@ -33,21 +55,21 @@ interface DemoFile {
 
 const strip = (source: string) => source.replace(/^\/\*\*[^\n]*\*\/\n/, "").trimEnd();
 
-function filesFor(letterId: string): DemoFile[] {
-  const prefix = `../demo/letters/${letterId}/`;
+function filesFor(documentId: string): DemoFile[] {
+  const prefix = `../demo/documents/${documentId}/`;
   const entries = Object.entries(sources)
     .filter(([path]) => path.startsWith(prefix))
     .map(([path, code]) => ({ rel: path.slice(prefix.length), code }));
 
-  // nodes/ first, then the project files at the letter root — the order an
+  // nodes/ first, then the project files at the document root — the order an
   // editor would show, and the order you'd read them in.
   const inNodes = entries.filter((entry) => entry.rel.startsWith("nodes/"));
   const atRoot = entries.filter((entry) => !entry.rel.startsWith("nodes/"));
   const byRel = (a: { rel: string }, b: { rel: string }) => a.rel.localeCompare(b.rel);
 
   return [...inNodes.sort(byRel), ...atRoot.sort(byRel)].map((entry) => ({
-    key: `${letterId}/${entry.rel}`,
-    owner: letterId,
+    key: `${documentId}/${entry.rel}`,
+    owner: documentId,
     label: entry.rel.split("/").at(-1)!,
     depth: entry.rel.includes("/") ? 4 : 3,
     lang: entry.rel.endsWith(".tsx") ? "tsx" : "ts",
@@ -64,13 +86,13 @@ const CONFIG_FILE: DemoFile = {
   code: configRaw.trimEnd(),
 };
 
-const letterFiles = LETTERS.map((letter) => ({ ...letter, files: filesFor(letter.id) }));
+const documentFiles = DOCUMENTS.map((doc) => ({ ...doc, files: filesFor(doc.id) }));
 // Flat list drives the panels; the tree only decides what's visible.
-const FILES: DemoFile[] = [CONFIG_FILE, ...letterFiles.flatMap((letter) => letter.files)];
+const FILES: DemoFile[] = [CONFIG_FILE, ...documentFiles.flatMap((doc) => doc.files)];
 const indexOf = (key: string) => FILES.findIndex((entry) => entry.key === key);
 
-const OPEN_LETTER = LETTERS[0];
-const INITIAL = indexOf(`${OPEN_LETTER.id}/letter.tsx`);
+const OPEN_DOCUMENT = DOCUMENTS[0];
+const INITIAL = indexOf(`${OPEN_DOCUMENT.id}/document.tsx`);
 const totalFiles = FILES.length;
 ---
 
@@ -84,7 +106,9 @@ const totalFiles = FILES.length;
         class="tree-toggle"
         aria-expanded="false"
         aria-controls="workspace-tree"
-        aria-label="Show workspace files"
+        aria-label={t.demo.showFiles}
+        data-label-show={t.demo.showFiles}
+        data-label-hide={t.demo.hideFiles}
       >
         <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
           <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" fill="none" stroke="currentColor" />
@@ -92,7 +116,9 @@ const totalFiles = FILES.length;
         </svg>
       </button>
       <span class="demo-path">my-documents/</span>
-      <span class="demo-hint">{LETTERS.length} documents · {totalFiles} files</span>
+      <span class="demo-hint">
+        {fill(t.demo.counts, { documents: DOCUMENTS.length, files: totalFiles })}
+      </span>
     </header>
 
     <div class="demo-split">
@@ -101,7 +127,7 @@ const totalFiles = FILES.length;
         class="demo-tree"
         role="tablist"
         aria-orientation="vertical"
-        aria-label="Workspace files"
+        aria-label={t.demo.workspaceFiles}
       >
         <span class="tree-dir" style="--depth:0">my-documents/</span>
 
@@ -120,35 +146,35 @@ const totalFiles = FILES.length;
           {CONFIG_FILE.label}
         </button>
 
-        <span class="tree-dir" style="--depth:1">letters/</span>
+        <span class="tree-dir" style="--depth:1">documents/</span>
 
         {
-          letterFiles.map((letter) => (
+          documentFiles.map((doc) => (
             <>
               <button
                 type="button"
-                data-letter-row={letter.id}
-                data-letter-name={letter.name}
-                aria-expanded={letter.id === OPEN_LETTER.id ? "true" : "false"}
-                class="tree-letter"
+                data-document-row={doc.id}
+                data-document-name={doc.name}
+                aria-expanded={doc.id === OPEN_DOCUMENT.id ? "true" : "false"}
+                class="tree-document"
                 style="--depth:2"
               >
                 <span class="tree-caret" aria-hidden="true">▸</span>
-                <span class="tree-letter-name">{letter.id}/</span>
-                <span class="tree-letter-sector">{letter.sector}</span>
+                <span class="tree-document-name">{doc.id}/</span>
+                <span class="tree-document-sector">{doc.sector}</span>
               </button>
 
-              {letter.files.map((entry) => {
+              {doc.files.map((entry) => {
                 const index = indexOf(entry.key);
                 const inNodes = entry.depth === 4;
-                const firstInNodes = inNodes && letter.files[0]?.key === entry.key;
+                const firstInNodes = inNodes && doc.files[0]?.key === entry.key;
                 return (
                   <>
                     {firstInNodes && (
                       <span
                         class="tree-dir tree-nested"
-                        data-owner={letter.id}
-                        hidden={letter.id !== OPEN_LETTER.id}
+                        data-owner={doc.id}
+                        hidden={doc.id !== OPEN_DOCUMENT.id}
                         style="--depth:3"
                       >
                         nodes/
@@ -162,8 +188,8 @@ const totalFiles = FILES.length;
                       aria-selected={index === INITIAL ? "true" : "false"}
                       tabindex={index === INITIAL ? 0 : -1}
                       data-file={index}
-                      data-owner={letter.id}
-                      hidden={letter.id !== OPEN_LETTER.id}
+                      data-owner={doc.id}
+                      hidden={doc.id !== OPEN_DOCUMENT.id}
                       class="tree-file tree-nested"
                       style={`--depth:${entry.depth}`}
                     >
@@ -207,26 +233,26 @@ const totalFiles = FILES.length;
     data-divider
     role="separator"
     aria-orientation="vertical"
-    aria-label="Resize workspace and preview"
+    aria-label={t.demo.resize}
     aria-valuenow="50"
     aria-valuemin="25"
     aria-valuemax="75"
     tabindex="0"
-    title="Drag to resize · double-click to reset"
+    title={t.demo.resizeHint}
   >
   </div>
 
-  <!-- Right side: the page that letter produces -->
+  <!-- Right side: the page that document produces -->
   <section class="demo-side">
     <header class="demo-bar">
-      <span class="demo-path" data-preview-title>{OPEN_LETTER.name} · A4</span>
-      <span class="zoom-controls" role="group" aria-label="Preview zoom">
-        <button type="button" data-zoom-fit aria-pressed="true" class="zoom-btn">Fit</button>
-        <button type="button" data-zoom-out class="zoom-btn zoom-step" aria-label="Zoom out">
+      <span class="demo-path" data-preview-title>{OPEN_DOCUMENT.name} · A4</span>
+      <span class="zoom-controls" role="group" aria-label={t.demo.zoom}>
+        <button type="button" data-zoom-fit aria-pressed="true" class="zoom-btn">{t.demo.fit}</button>
+        <button type="button" data-zoom-out class="zoom-btn zoom-step" aria-label={t.demo.zoomOut}>
           <span aria-hidden="true">−</span>
         </button>
         <output data-zoom-value class="zoom-value" aria-live="polite">100%</output>
-        <button type="button" data-zoom-in class="zoom-btn zoom-step" aria-label="Zoom in">
+        <button type="button" data-zoom-in class="zoom-btn zoom-step" aria-label={t.demo.zoomIn}>
           <span aria-hidden="true">+</span>
         </button>
       </span>
@@ -239,9 +265,9 @@ const totalFiles = FILES.length;
         <div data-preview-scale class="preview-scale" style="width: 794px; height: 1123px;">
           <iframe
             data-preview-frame
-            data-letter={OPEN_LETTER.id}
-            src={`/demo/${OPEN_LETTER.id}.html`}
-            title="The selected document, rendered by Docxcelerate"
+            data-document={OPEN_DOCUMENT.id}
+            src={`/demo/${OPEN_DOCUMENT.id}.html`}
+            title={t.demo.frameTitle}
             class="preview-frame"
             style="width: 794px; height: 1123px;"></iframe>
         </div>
@@ -251,14 +277,14 @@ const totalFiles = FILES.length;
 </div>
 
 <p class="demo-caption">
-  Real document preview being rendered, no screenshots and no hidden tricks.
+  {t.demo.caption}
 </p>
 
 <script>
   const files = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-file]"));
   const panels = Array.from(document.querySelectorAll<HTMLElement>("[data-panel]"));
-  const letterRows = Array.from(
-    document.querySelectorAll<HTMLButtonElement>("[data-letter-row]"),
+  const documentRows = Array.from(
+    document.querySelectorAll<HTMLButtonElement>("[data-document-row]"),
   );
   const nested = Array.from(document.querySelectorAll<HTMLElement>(".tree-nested"));
 
@@ -266,20 +292,20 @@ const totalFiles = FILES.length;
   const previewTitle = document.querySelector<HTMLElement>("[data-preview-title]");
 
   // ---- Preview -----------------------------------------------------------
-  function showLetter(id: string) {
-    if (!frame || frame.dataset.letter === id) return;
-    frame.dataset.letter = id;
+  function showDocument(id: string) {
+    if (!frame || frame.dataset.document === id) return;
+    frame.dataset.document = id;
     // Reset before navigating; the load handler measures the new page.
     pageH = 1123;
     frame.src = `/demo/${id}.html`;
-    const row = letterRows.find((entry) => entry.dataset.letterRow === id);
-    if (previewTitle && row) previewTitle.textContent = `${row.dataset.letterName} · A4`;
+    const row = documentRows.find((entry) => entry.dataset.documentRow === id);
+    if (previewTitle && row) previewTitle.textContent = `${row.dataset.documentName} · A4`;
   }
 
   // ---- Tree --------------------------------------------------------------
-  function expandLetter(id: string) {
-    letterRows.forEach((row) => {
-      row.setAttribute("aria-expanded", String(row.dataset.letterRow === id));
+  function expandDocument(id: string) {
+    documentRows.forEach((row) => {
+      row.setAttribute("aria-expanded", String(row.dataset.documentRow === id));
     });
     nested.forEach((node) => {
       node.hidden = node.dataset.owner !== id;
@@ -303,8 +329,8 @@ const totalFiles = FILES.length;
 
     const owner = files[index]?.dataset.owner;
     // Workspace-level files (the config) leave the preview where it is —
-    // they don't belong to any one letter.
-    if (owner && owner !== "root") showLetter(owner);
+    // they don't belong to any one document.
+    if (owner && owner !== "root") showDocument(owner);
   }
 
   files.forEach((button, index) => {
@@ -325,17 +351,17 @@ const totalFiles = FILES.length;
     });
   });
 
-  letterRows.forEach((row) => {
+  documentRows.forEach((row) => {
     row.addEventListener("click", () => {
-      const id = row.dataset.letterRow;
+      const id = row.dataset.documentRow;
       if (!id) return;
       const alreadyOpen = row.getAttribute("aria-expanded") === "true";
-      expandLetter(id);
-      showLetter(id);
+      expandDocument(id);
+      showDocument(id);
       if (!alreadyOpen) {
-        // Opening a letter lands you on its template — the clearest view of it.
+        // Opening a document lands you on its template — the clearest view of it.
         const template = files.find(
-          (button) => button.dataset.owner === id && button.textContent?.trim() === "letter.tsx",
+          (button) => button.dataset.owner === id && button.textContent?.trim() === "document.tsx",
         );
         if (template) selectFile(files.indexOf(template), false);
       }
@@ -354,7 +380,9 @@ const totalFiles = FILES.length;
       projectSide?.setAttribute("data-tree-open", "");
     }
     treeToggle.setAttribute("aria-expanded", String(!open));
-    treeToggle.setAttribute("aria-label", open ? "Show workspace files" : "Hide workspace files");
+    // Both labels ride on the button, so this script carries no English.
+    const label = open ? treeToggle.dataset.labelShow : treeToggle.dataset.labelHide;
+    if (label) treeToggle.setAttribute("aria-label", label);
     // Move focus into the tree when opening, so it's usable from the keyboard.
     if (!open) {
       const selected = files.find((button) => button.getAttribute("aria-selected") === "true");
@@ -431,7 +459,7 @@ const totalFiles = FILES.length;
 
   // ---- Preview zoom ------------------------------------------------------
   // Natural A4 at 96dpi. The height is a starting point only — each page is
-  // measured on load, so a letter that runs past one page still shows whole
+  // measured on load, so a document that runs past one page still shows whole
   // rather than being silently clipped.
   const PAGE_W = 794;
   const PANE_PADDING = 32;
@@ -604,7 +632,7 @@ const totalFiles = FILES.length;
   .demo-hint {
     font-family: var(--font-mono);
     font-size: 0.65rem;
-    letter-spacing: 0.12em;
+    document-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--muted);
     white-space: nowrap;
@@ -677,7 +705,7 @@ const totalFiles = FILES.length;
 
   .tree-dir,
   .tree-file,
-  .tree-letter {
+  .tree-document {
     font-family: var(--font-mono);
     font-size: 0.7rem;
     line-height: 1.6;
@@ -695,7 +723,7 @@ const totalFiles = FILES.length;
   }
 
   .tree-file,
-  .tree-letter {
+  .tree-document {
     border: 0;
     border-left: 2px solid transparent;
     background: transparent;
@@ -705,7 +733,7 @@ const totalFiles = FILES.length;
   }
 
   .tree-file:hover,
-  .tree-letter:hover {
+  .tree-document:hover {
     color: var(--ink);
     background: var(--surface-2);
   }
@@ -717,14 +745,14 @@ const totalFiles = FILES.length;
     font-weight: 600;
   }
 
-  .tree-letter {
+  .tree-document {
     display: flex;
     align-items: baseline;
     gap: 0.4rem;
     color: var(--ink);
   }
 
-  .tree-letter[aria-expanded="true"] {
+  .tree-document[aria-expanded="true"] {
     color: var(--accent);
     font-weight: 600;
   }
@@ -735,20 +763,20 @@ const totalFiles = FILES.length;
     transition: transform 0.15s ease;
   }
 
-  .tree-letter[aria-expanded="true"] .tree-caret {
+  .tree-document[aria-expanded="true"] .tree-caret {
     transform: rotate(90deg);
   }
 
-  .tree-letter-name {
+  .tree-document-name {
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  .tree-letter-sector {
+  .tree-document-sector {
     margin-left: auto;
     flex: none;
     font-size: 0.6rem;
-    letter-spacing: 0.08em;
+    document-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--muted);
     opacity: 0.75;
@@ -833,7 +861,7 @@ const totalFiles = FILES.length;
     font-family: var(--font-mono);
     font-size: 0.65rem;
     line-height: 1.5;
-    letter-spacing: 0.1em;
+    document-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--muted);
     background: transparent;
@@ -860,7 +888,7 @@ const totalFiles = FILES.length;
     min-width: 1.6rem;
     padding-inline: 0.35rem;
     font-size: 0.8rem;
-    letter-spacing: 0;
+    document-spacing: 0;
   }
 
   .zoom-value {
@@ -869,7 +897,7 @@ const totalFiles = FILES.length;
     font-family: var(--font-mono);
     font-size: 0.65rem;
     font-variant-numeric: tabular-nums;
-    letter-spacing: 0.08em;
+    document-spacing: 0.08em;
     color: var(--muted);
   }
 

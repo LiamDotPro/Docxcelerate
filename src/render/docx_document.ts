@@ -2,8 +2,8 @@ import { Document, HeadingLevel, Packer, PageOrientation, Paragraph, TextRun } f
 import type { DocumentModel, DocumentNode, DocumentStyle } from "../domain/types.ts";
 import { cleanMinimalDocumentStyle } from "../project/style.ts";
 
-export function createDocxDocument(letter: DocumentModel): Document {
-  const style = letter.style ?? cleanMinimalDocumentStyle;
+export function createDocxDocument(doc: DocumentModel): Document {
+  const style = doc.style ?? cleanMinimalDocumentStyle;
 
   return new Document({
     styles: createDocxStyles(style),
@@ -28,18 +28,18 @@ export function createDocxDocument(letter: DocumentModel): Document {
         },
         children: [
           new Paragraph({
-            text: letter.title,
+            text: doc.title,
             heading: HeadingLevel.TITLE,
           }),
-          ...letter.nodes.flatMap((node) => renderNode(node, style)),
+          ...doc.nodes.flatMap((node) => renderNode(node, style)),
         ],
       },
     ],
   });
 }
 
-export async function createDocxBlob(letter: DocumentModel): Promise<Blob> {
-  return await Packer.toBlob(createDocxDocument(letter));
+export async function createDocxBlob(doc: DocumentModel): Promise<Blob> {
+  return await Packer.toBlob(createDocxDocument(doc));
 }
 
 function renderNode(node: DocumentNode, style: DocumentStyle): Paragraph[] {

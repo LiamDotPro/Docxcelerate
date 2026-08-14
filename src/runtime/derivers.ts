@@ -105,7 +105,7 @@ export async function createDeriverRegistryFromBundle(
     return createDefaultDeriverRegistry();
   }
 
-  if (definitions instanceof DeriverRegistry || !isLetterDeriverBundle(definitions)) {
+  if (definitions instanceof DeriverRegistry || !isDocumentDeriverBundle(definitions)) {
     return createDeriverRegistry(definitions);
   }
 
@@ -162,9 +162,9 @@ export function createDeriverBundle(
   };
 }
 
-export function collectDocumentDeriverNames(letter: DocumentModel): string[] {
+export function collectDocumentDeriverNames(doc: DocumentModel): string[] {
   const names = new Set<string>();
-  collectNodeDeriverNames(letter.nodes, names);
+  collectNodeDeriverNames(doc.nodes, names);
   return [...names].sort((left, right) => left.localeCompare(right));
 }
 
@@ -293,7 +293,7 @@ function ref(scope: DataReference["scope"], path: string): ValueExpression {
   };
 }
 
-function isLetterDeriverBundle(value: unknown): value is DocumentDeriverBundle {
+function isDocumentDeriverBundle(value: unknown): value is DocumentDeriverBundle {
   return Boolean(
     value &&
       typeof value === "object" &&

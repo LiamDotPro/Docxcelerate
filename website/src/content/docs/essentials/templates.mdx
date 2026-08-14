@@ -14,9 +14,9 @@ structure the document has.
 /** @jsxImportSource docxcelerate/template */
 import { Document, Section, template } from "docxcelerate/template";
 import { Greeting, NextSteps } from "./nodes/index.ts";
-import type { LetterData } from "./types.ts";
+import type { DocumentData } from "./types.ts";
 
-export const letterTemplate = template<LetterData>(
+export const documentTemplate = template<DocumentData>(
   <Document id="tenancy-renewal" title="Tenancy Renewal">
     <Section id="opening" title="Opening">
       <Greeting />
@@ -45,9 +45,9 @@ Scaffolded workspaces already have this configured.
 ## Plain functions
 
 ```ts
-import { letter, section } from "docxcelerate";
+import { document, section } from "docxcelerate";
 
-export const letterTemplate = doc<LetterData>({
+export const documentTemplate = doc<DocumentData>({
   id: "tenancy-renewal",
   title: "Tenancy Renewal",
   nodes: [
@@ -69,7 +69,7 @@ block — and reuse them across documents:
 ```tsx
 import { defineSectionComponent } from "docxcelerate/template";
 
-export const Closing = defineSectionComponent<LetterData>({
+export const Closing = defineSectionComponent<DocumentData>({
   id: "closing",
   title: "Closing",
 });
@@ -78,20 +78,20 @@ export const Closing = defineSectionComponent<LetterData>({
 ## Document projects
 
 A document project ties a template to its style and preview data through one
-entrypoint, `letter.project.ts`:
+entrypoint, `document.project.ts`:
 
 ```tsx
 import { defineDocumentProject } from "docxcelerate/document";
-import { letterTemplate } from "./letter.tsx";
-import { letterStyle } from "./letter-style.ts";
-import type { LetterData } from "./types.ts";
+import { documentTemplate } from "./document.tsx";
+import { documentStyle } from "./document-style.ts";
+import type { DocumentData } from "./types.ts";
 
-export default defineDocumentProject<LetterData>({
+export default defineDocumentProject<DocumentData>({
   id: "tenancy-renewal",
   name: "Tenancy Renewal",
   version: "1.0.0",
-  template: letterTemplate,
-  style: letterStyle,
+  template: documentTemplate,
+  style: documentStyle,
   previewData: {
     residentName: "Avery Mitchell",
     propertyRef: "Flat 4, Ashcroft House",

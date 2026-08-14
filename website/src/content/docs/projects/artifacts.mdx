@@ -6,14 +6,14 @@ order: 2
 ---
 
 Building a document writes plain JSON into `build.outDir` inside the document's own
-directory — `letters/offer-of-admission/build/` with the default config.
+directory — `documents/offer-of-admission/build/` with the default config.
 
 ```text
-letters/offer-of-admission/build/
+documents/offer-of-admission/build/
   manifest.json
   preview.json
-  letter.json
-  derivers.js      (only when the letter uses derivers)
+  document.json
+  derivers.js      (only when the document uses derivers)
 ```
 
 ## manifest.json
@@ -27,10 +27,10 @@ The index. It records what was built, when, and where the other files are:
   "name": "Offer of Admission",
   "version": "1.0.0",
   "title": "Offer of Admission",
-  "entrypoint": "letter.project.ts",
+  "entrypoint": "document.project.ts",
   "builtAt": "2026-08-13T09:15:00.000Z",
-  "previewLetter": "preview.json",
-  "engineLetter": "letter.json",
+  "previewDocument": "preview.json",
+  "engineDocument": "document.json",
   "style": { "...": "the project's DocumentStyle" }
 }
 ```
@@ -43,7 +43,7 @@ The document resolved against `previewData`, with dynamic nodes rendered to thei
 **placeholders**. This is the local development artifact — it is what the
 preview app shows, and it never needs a service.
 
-## letter.json
+## document.json
 
 The upload artifact. It is the same tree, but request-time values are kept as
 tokens rather than baked in:
@@ -62,7 +62,7 @@ Dynamic nodes carry their prompts instead of text. This is the file you send to
 resolves the prompts.
 
 > The distinction matters when you are debugging. If a document looks right in
-> preview but wrong in production, compare `preview.json` and `letter.json` —
+> preview but wrong in production, compare `preview.json` and `document.json` —
 > the difference is exactly the set of values that are resolved elsewhere.
 
 ## derivers.js
@@ -79,5 +79,5 @@ renders — a currency format, a date difference, a lookup. A node declares them
 ```
 
 Because the endpoint resolves nodes remotely, the functions have to travel with
-the letter. `derivers.js` is that bundle, containing only the derivers the
+the document. `derivers.js` is that bundle, containing only the derivers the
 document actually references. Documents that use none don't get the file.

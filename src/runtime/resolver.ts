@@ -17,15 +17,15 @@ export interface ResolveOptions {
 }
 
 export async function resolveDocument(
-  letter: DocumentModel,
+  doc: DocumentModel,
   state: RuntimeState,
   options: ResolveOptions = {},
 ): Promise<DocumentModel> {
   const derivers = options.derivers ?? createDefaultDeriverRegistry();
-  const nodes = await resolveNodes(letter.nodes, state, derivers);
+  const nodes = await resolveNodes(doc.nodes, state, derivers);
 
   return {
-    ...letter,
+    ...doc,
     nodes,
   };
 }

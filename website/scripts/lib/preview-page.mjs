@@ -50,9 +50,9 @@ export const NODE_ONLY_STYLE = `
          hidden title is still the first child, so the first VISIBLE block is
          addressed through it. */
       .a4-page > .document-title + * { margin-top: 0; }
-      .letter-section > h2:first-child { margin-top: 0; }
+      .document-section > h2:first-child { margin-top: 0; }
       .a4-page > :last-child { margin-bottom: 0; }
-      .letter-section > :last-child { margin-bottom: 0; }`;
+      .document-section > :last-child { margin-bottom: 0; }`;
 
 /**
  * @param {string} html Output of renderDocumentWebsite.

@@ -96,11 +96,11 @@ export function Node<TData = unknown>(
 export function template<TData>(element: TemplateElement<TData>): DocumentTemplate<TData> {
   const values = flattenTemplate(element).filter((value) => value !== undefined);
 
-  if (values.length === 1 && isLetterTemplate(values[0])) {
+  if (values.length === 1 && isDocumentTemplate(values[0])) {
     return values[0];
   }
 
-  throw new Error("Expected a single Letter element");
+  throw new Error("Expected a single Document element");
 }
 
 function resolveTemplateOptions<TProps, TOptions>(
@@ -120,8 +120,8 @@ function nodeChildrenFromTemplate<TData>(
       continue;
     }
 
-    if (isLetterTemplate(value)) {
-      throw new Error("Letter elements cannot be nested inside node children");
+    if (isDocumentTemplate(value)) {
+      throw new Error("Document elements cannot be nested inside node children");
     }
 
     children.push(value);
@@ -144,7 +144,7 @@ function flattenTemplate<TData>(
   return [element];
 }
 
-function isLetterTemplate<TData>(
+function isDocumentTemplate<TData>(
   value: DocumentTemplate<TData> | NodeComponent<TData> | TemplateNodeComponent<TData> | undefined,
 ): value is DocumentTemplate<TData> {
   return Boolean(

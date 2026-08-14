@@ -55,7 +55,7 @@ Instead the options are the truth and `mode` is derived from them. Supplying
 both a `render` and a `generalPrompt` is a **compile error**, not a runtime
 coin-toss.
 
-`mode` still exists in the built `DocumentModel` and in `letter.json` — the
+`mode` still exists in the built `DocumentModel` and in `document.json` — the
 engine needs to know which nodes to resolve. It is output, not input.
 
 Four prompt slots are available. Only `generalPrompt` is required:
@@ -73,7 +73,7 @@ Building for preview resolves dynamic nodes to their **placeholders**, not to
 generated prose:
 
 ```ts
-const letter = await buildProjectPreviewDocument(project);
+const document = await buildProjectPreviewDocument(project);
 // dynamic nodes -> placeholder text
 ```
 

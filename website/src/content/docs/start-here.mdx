@@ -56,7 +56,7 @@ my-documents/
     styles.css
   vite.config.ts
   tsconfig.json
-  letters/
+  documents/
 ```
 
 `docxcelerate.config.json` holds named presets for build and upload behaviour.
@@ -66,17 +66,17 @@ it will behave like one.
 ## Create a document
 
 ```sh
-dxcl letter new tenancy-renewal --title "Tenancy Renewal"
+dxcl document new tenancy-renewal --title "Tenancy Renewal"
 ```
 
-That writes a document project under `letters/tenancy-renewal/`, with the template,
+That writes a document project under `documents/tenancy-renewal/`, with the template,
 preview data, styles and types kept in separate files:
 
 ```text
-letters/tenancy-renewal/
-  letter.project.ts
-  letter-style.ts
-  letter.tsx
+documents/tenancy-renewal/
+  document.project.ts
+  document-style.ts
+  document.tsx
   preview-data.ts
   types.ts
   nodes/
@@ -86,20 +86,20 @@ letters/tenancy-renewal/
 ## Add a node
 
 ```sh
-dxcl letter node letters/tenancy-renewal next-steps --type paragraph --mode dynamic
+dxcl document node documents/tenancy-renewal next-steps --type paragraph --mode dynamic
 ```
 
 The generator writes `nodes/next-steps.node.ts` and updates `nodes/index.ts`.
 Placement is left to you on purpose — add the generated component to
-`letter.tsx` at the point in the document where it belongs.
+`document.tsx` at the point in the document where it belongs.
 
 ```tsx
 /** @jsxImportSource docxcelerate/template */
 import { Document, Section, template } from "docxcelerate/template";
 import { Greeting, NextSteps } from "./nodes/index.ts";
-import type { LetterData } from "./types.ts";
+import type { DocumentData } from "./types.ts";
 
-export const letterTemplate = template<LetterData>(
+export const documentTemplate = template<DocumentData>(
   <Document id="tenancy-renewal" title="Tenancy Renewal">
     <Section id="opening" title="Opening">
       <Greeting />

@@ -17,8 +17,19 @@ export interface DocumentProjectManifest {
   title: string;
   entrypoint: string;
   builtAt: string;
-  previewLetter: string;
-  engineLetter: string;
+  previewDocument: string;
+  engineDocument: string;
+  /**
+   * The names these fields had before the vocabulary settled on documents.
+   * Still written, because a generation engine reading an artifact is not
+   * upgraded at the same moment the toolkit that wrote it is. Read
+   * `previewDocument` and `engineDocument`; these go away in a later version.
+   *
+   * @deprecated
+   */
+  previewLetter?: string;
+  /** @deprecated See {@link DocumentProjectManifest.previewLetter}. */
+  engineLetter?: string;
   derivers?: string;
   deriverNames?: string[];
   style?: DocumentModel["style"];
@@ -35,8 +46,12 @@ export interface CreateDocumentProjectArtifactOptions {
 
 export interface DocumentProjectArtifact {
   manifest: DocumentProjectManifest;
-  previewLetter: DocumentModel;
-  engineLetter: DocumentModel;
+  previewDocument: DocumentModel;
+  engineDocument: DocumentModel;
+  /** @deprecated See {@link DocumentProjectManifest.previewLetter}. */
+  previewLetter?: DocumentModel;
+  /** @deprecated See {@link DocumentProjectManifest.previewLetter}. */
+  engineLetter?: DocumentModel;
   derivers?: DocumentDeriverBundle;
 }
 
@@ -50,12 +65,12 @@ export async function createDocumentProjectArtifact<TData>(
   options: CreateDocumentProjectArtifactOptions = {},
 ): Promise<DocumentProjectArtifact> {
   const previewFileName = options.previewFileName ?? "preview.json";
-  const engineFileName = options.engineFileName ?? "letter.json";
+  const engineFileName = options.engineFileName ?? "document.json";
   const deriversFileName = options.deriversFileName ?? "derivers.js";
   const builtAt = options.builtAt ?? new Date().toISOString();
-  const previewLetter = await buildProjectPreviewDocument(project);
-  const engineLetter = await buildProjectEngineDocument(project);
-  const deriverNames = collectDocumentDeriverNames(engineLetter);
+  const previewDocument = await buildProjectPreviewDocument(project);
+  const engineDocument = await buildProjectEngineDocument(project);
+  const deriverNames = collectDocumentDeriverNames(engineDocument);
   assertReferencedDeriversAreAvailable(project, deriverNames);
   const derivers = createDeriverBundle(project.derivers, {
     names: deriverNames,
@@ -64,8 +79,12 @@ export async function createDocumentProjectArtifact<TData>(
   });
 
   return {
-    previewLetter,
-    engineLetter,
+    previewDocument,
+    engineDocument,
+    // Written under both names so an engine that has not been updated still
+    // finds what it is looking for.
+    previewLetter: previewDocument,
+    engineLetter: engineDocument,
     derivers,
     manifest: {
       schemaVersion: "docxcelerate.project-manifest/v0",
@@ -75,6 +94,8 @@ export async function createDocumentProjectArtifact<TData>(
       title: project.template.title,
       entrypoint: options.entrypoint ?? "",
       builtAt,
+      previewDocument: previewFileName,
+      engineDocument: engineFileName,
       previewLetter: previewFileName,
       engineLetter: engineFileName,
       derivers: derivers ? deriversFileName : undefined,
@@ -95,7 +116,7 @@ function assertReferencedDeriversAreAvailable<TData>(
 
   if (missing.length > 0) {
     throw new Error(
-      `Letter project "${project.id}" references derivers that are not registered: ${
+      `Document project "${project.id}" references derivers that are not registered: ${
         missing.join(", ")
       }`,
     );
@@ -106,7 +127,7 @@ export async function buildProjectPreviewDocument<TData>(
   project: DocumentProject<TData>,
   options: ComponentRuntimeOptions = {},
 ): Promise<DocumentModel> {
-  const letter = await buildDocument(project.template, project.previewData, {
+  const doc = await buildDocument(project.template, project.previewData, {
     ...project.previewOptions,
     ...options,
     derivers: project.derivers,
@@ -115,9 +136,9 @@ export async function buildProjectPreviewDocument<TData>(
   });
 
   return {
-    ...letter,
+    ...doc,
     style: project.style,
-    metadata: project.metadata ? { ...project.metadata, ...letter.metadata } : letter.metadata,
+    metadata: project.metadata ? { ...project.metadata, ...doc.metadata } : doc.metadata,
   };
 }
 
@@ -126,7 +147,7 @@ export async function buildProjectEngineDocument<TData>(
   options: ComponentRuntimeOptions = {},
 ): Promise<DocumentModel> {
   const data = createEngineArtifactData(project.previewData) as TData;
-  const letter = await buildDocument(project.template, data, {
+  const doc = await buildDocument(project.template, data, {
     ...project.buildOptions,
     ...options,
     availableTokens: "{{ctx.availableTokens}}" as unknown as number,
@@ -137,15 +158,15 @@ export async function buildProjectEngineDocument<TData>(
   });
 
   return {
-    ...letter,
-    nodes: removeEmptyDynamicText(letter.nodes),
+    ...doc,
+    nodes: removeEmptyDynamicText(doc.nodes),
     style: project.style,
-    metadata: project.metadata ? { ...project.metadata, ...letter.metadata } : letter.metadata,
+    metadata: project.metadata ? { ...project.metadata, ...doc.metadata } : doc.metadata,
   };
 }
 
 /**
- * Resolves a project into its final letter, running dynamic nodes through the
+ * Resolves a project into its final document, running dynamic nodes through the
  * AI client. This is what a generation service calls with request-time data.
  */
 export async function buildProjectFinalDocument<TData>(
@@ -153,7 +174,7 @@ export async function buildProjectFinalDocument<TData>(
   options: BuildProjectFinalDocumentOptions<TData> = {},
 ): Promise<DocumentModel> {
   const { data = project.previewData, ...runtimeOptions } = options;
-  const letter = await buildDocument(project.template, data, {
+  const doc = await buildDocument(project.template, data, {
     ...project.buildOptions,
     ...runtimeOptions,
     derivers: project.derivers,
@@ -162,9 +183,9 @@ export async function buildProjectFinalDocument<TData>(
   });
 
   return {
-    ...letter,
+    ...doc,
     style: project.style,
-    metadata: project.metadata ? { ...project.metadata, ...letter.metadata } : letter.metadata,
+    metadata: project.metadata ? { ...project.metadata, ...doc.metadata } : doc.metadata,
   };
 }
 

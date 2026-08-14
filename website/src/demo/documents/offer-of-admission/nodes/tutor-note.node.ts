@@ -2,7 +2,7 @@ import { paragraph } from "docxcelerate";
 import type { OfferData } from "../types.ts";
 
 /**
- * The one paragraph worth generating. Everything else in this letter is
+ * The one paragraph worth generating. Everything else in this document is
  * deterministic, so this is the only node that needs an endpoint at all.
  */
 export const TutorNote = paragraph<OfferData>({

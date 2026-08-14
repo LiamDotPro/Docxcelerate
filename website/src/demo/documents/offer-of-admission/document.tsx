@@ -11,7 +11,7 @@ import {
 } from "./nodes/index.ts";
 import type { OfferData } from "./types.ts";
 
-export const letterTemplate = template<OfferData>(
+export const documentTemplate = template<OfferData>(
   <Document id="offer-of-admission" title="Offer of Admission">
     <Section id="your-offer" title="Your offer">
       <Greeting />

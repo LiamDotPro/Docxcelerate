@@ -25,9 +25,9 @@ how build artifacts stay diffable between runs. Keep them stable.
 
 ```ts
 import { paragraph } from "docxcelerate";
-import type { LetterData } from "../types.ts";
+import type { DocumentData } from "../types.ts";
 
-export const Greeting = paragraph<LetterData>({
+export const Greeting = paragraph<DocumentData>({
   id: "greeting",
   render: (data) => `Dear ${data.residentName},`,
 });
