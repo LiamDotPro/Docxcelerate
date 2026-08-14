@@ -91,8 +91,8 @@ const totalFiles = FILES.length;
           <line x1="6" y1="2.5" x2="6" y2="13.5" stroke="currentColor" />
         </svg>
       </button>
-      <span class="demo-path">my-letters/</span>
-      <span class="demo-hint">{LETTERS.length} letters · {totalFiles} files</span>
+      <span class="demo-path">my-documents/</span>
+      <span class="demo-hint">{LETTERS.length} documents · {totalFiles} files</span>
     </header>
 
     <div class="demo-split">
@@ -103,7 +103,7 @@ const totalFiles = FILES.length;
         aria-orientation="vertical"
         aria-label="Workspace files"
       >
-        <span class="tree-dir" style="--depth:0">my-letters/</span>
+        <span class="tree-dir" style="--depth:0">my-documents/</span>
 
         <button
           type="button"
@@ -241,7 +241,7 @@ const totalFiles = FILES.length;
             data-preview-frame
             data-letter={OPEN_LETTER.id}
             src={`/demo/${OPEN_LETTER.id}.html`}
-            title="The selected letter, rendered by Docxcelerate"
+            title="The selected document, rendered by Docxcelerate"
             class="preview-frame"
             style="width: 794px; height: 1123px;"></iframe>
         </div>
