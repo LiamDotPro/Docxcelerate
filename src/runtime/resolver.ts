@@ -6,6 +6,7 @@ import type {
   DocumentNode,
   ParagraphNode,
   PromptSpec,
+  RepeatNode,
   RuntimeState,
 } from "../domain/types.ts";
 import { evaluateCondition } from "./conditions.ts";
@@ -40,7 +41,7 @@ async function resolveNodes(
   for (const node of nodes) {
     const resolved = await resolveNode(node, state, derivers);
     if (resolved) {
-      resolvedNodes.push(resolved);
+      resolvedNodes.push(...[resolved].flat());
     }
   }
 
@@ -51,7 +52,7 @@ async function resolveNode(
   node: DocumentNode,
   state: RuntimeState,
   derivers: DeriverRegistry,
-): Promise<DocumentNode | undefined> {
+): Promise<DocumentNode | DocumentNode[] | undefined> {
   await runDerivers(node.derivers, state, derivers);
 
   const conditionMatches = await evaluateCondition(node.when, state);
@@ -67,6 +68,10 @@ async function resolveNode(
     };
   }
 
+  if (node.kind === "repeat") {
+    return await resolveRepeat(node, state, derivers);
+  }
+
   if (node.kind === "paragraph") {
     return await resolveParagraph(node, state);
   }
@@ -80,6 +85,58 @@ async function resolveNode(
   }
 
   return node;
+}
+
+/**
+ * Walks a published loop, now that the request has said how long it is.
+ *
+ * Each pass binds the entry and its position into `ctx`, so the body reads them
+ * the way it reads anything else, and suffixes ids with the index so the nodes
+ * of one pass stay distinguishable from the next. The passes are spliced in
+ * where the loop stood rather than wrapped in anything, because a wrapper would
+ * be a section, and a section is a heading nobody asked for.
+ */
+async function resolveRepeat(
+  node: RepeatNode,
+  state: RuntimeState,
+  derivers: DeriverRegistry,
+): Promise<DocumentNode[]> {
+  const entries = await state.dataProvider.get(node.source.path);
+  const previousEntry = state.ctx[node.as];
+  const previousIndex = state.ctx[node.indexAs];
+  const children: DocumentNode[] = [];
+
+  for (const [index, entry] of (Array.isArray(entries) ? entries : []).entries()) {
+    state.ctx[node.as] = entry;
+    state.ctx[node.indexAs] = index;
+
+    for (const child of node.children) {
+      const resolved = await resolveNode(suffixIds(child, index), state, derivers);
+
+      if (resolved) {
+        children.push(...[resolved].flat());
+      }
+    }
+  }
+
+  state.ctx[node.as] = previousEntry;
+  state.ctx[node.indexAs] = previousIndex;
+
+  return children;
+}
+
+function suffixIds(node: DocumentNode, index: number): DocumentNode {
+  const suffixed = { ...node, id: `${node.id}-${index}` };
+
+  if (suffixed.kind === "section") {
+    return { ...suffixed, children: suffixed.children.map((child) => suffixIds(child, index)) };
+  }
+
+  if (suffixed.kind === "repeat") {
+    return { ...suffixed, children: suffixed.children.map((child) => suffixIds(child, index)) };
+  }
+
+  return suffixed;
 }
 
 async function resolveParagraph(

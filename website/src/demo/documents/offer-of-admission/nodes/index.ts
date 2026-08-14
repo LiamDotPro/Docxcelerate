@@ -1,7 +1,7 @@
-export { Conditions } from "./conditions.node.ts";
-export { Fees } from "./fees.node.ts";
-export { Greeting } from "./greeting.node.ts";
-export { NextSteps } from "./next-steps.node.ts";
-export { Offer } from "./offer.node.ts";
-export { SignOff } from "./signoff.node.ts";
-export { TutorNote } from "./tutor-note.node.ts";
+export { Conditions } from "./conditions.node.tsx";
+export { Fees } from "./fees.node.tsx";
+export { Greeting } from "./greeting.node.tsx";
+export { NextSteps } from "./next-steps.node.tsx";
+export { Offer } from "./offer.node.tsx";
+export { SignOff } from "./signoff.node.tsx";
+export { TutorNote } from "./tutor-note.node.tsx";

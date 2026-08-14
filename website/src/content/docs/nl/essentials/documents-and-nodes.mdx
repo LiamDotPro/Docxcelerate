@@ -1,55 +1,97 @@
 ---
 title: Documenten en nodes
-description: Een document is een boom van getypeerde componenten, opgelost tegen jouw data.
+description: Een document is een boom van componenten, die elk hun data als state aannemen en de nodes teruggeven die ze willen.
 group: Essentials
 order: 1
 ---
 
 Een document is een template plus een datatype. Het template is een boom van
-**nodes**; het oplossen daarvan tegen data levert een `DocumentModel` op — pure
-JSON, zonder dat daarmee iets over rendering gezegd is.
+**componenten**; elk geeft **nodes** terug, en de boom oplossen tegen data levert
+een `DocumentModel` op — pure JSON, zonder dat daarmee iets over rendering gezegd
+is.
 
-## De node-helpers
+## Een component neemt zijn data als state
 
-Elke helper krijgt een `id` en ofwel een renderfunctie ofwel een set prompts, en
-geeft een component terug die je in een template kunt plaatsen. Er zijn helpers
-voor alinea's, afbeeldingen, grafieken en secties, in statische en dynamische
-paren.
-
-[Nodes](/nl/docs/nodes/overview/) documenteert elk type, met de bijbehorende
-opties en previews. De rest van deze pagina gaat over wat ze gemeen hebben.
-
-Ids doen ertoe: zo adresseert een generatie-endpoint afzonderlijke nodes, en zo
-blijven buildartefacten tussen runs vergelijkbaar. Houd ze stabiel.
-
-## Een node is een functie van je data
-
-```ts
-import { paragraph } from "docxcelerate";
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { Paragraph, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 
-export const Greeting = paragraph<DocumentData>({
-  id: "greeting",
-  render: (data) => `Dear ${data.residentName},`,
-});
+export const Greeting: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    name: data.residentName,
+  }));
+
+  return <Paragraph id="greeting">Dear {state.name},</Paragraph>;
+};
 ```
 
-`render` krijgt je getypeerde data en een `availableTokens`-budget, en geeft een
-string terug. Er is geen templatetaal — alles wat je in TypeScript kunt
-uitdrukken is beschikbaar, inclusief conditionals, formatteerhelpers en imports.
+`useState` is waar data een component binnenkomt, en de enige plek. Alles daarna
+leest state. Dat is een regel met een reden: doordat elke afhankelijkheid door
+één declaratie loopt, staat opgeschreven wat een component nodig heeft in plaats
+van verspreid door de code die het gebruikt.
 
-## Secties nestelen, nodes niet
+De initializer is gewoon TypeScript. Er is geen templatetaal, dus condities,
+formattering en imports zijn simpelweg beschikbaar.
 
-`section` is de enige nestelconstructie. Hij draagt een titel de
-documentstructuur in:
+`Paragraph` benoemt zowel het element als het componenttype — een waarde en een
+type mogen een naam delen — dus `const Greeting: Paragraph` zegt wat dit
+oplevert, en er een `<Section>` uit teruggeven is een compileerfout.
 
-```ts
-import { section } from "docxcelerate";
+## Data kan ook als props binnenkomen
 
-section({ id: "opening", title: "Opening" }, [Greeting, Offer]);
+Een component die krijgt wat hij nodig heeft, hoeft er niet zelf naar te grijpen:
+
+```tsx
+export const Arrears: Paragraph<{ amount: number }> = ({ amount }) => {
+  const { currency } = useFormat();
+
+  return <Paragraph id="arrears">You owe {currency(amount)}.</Paragraph>;
+};
 ```
 
-In TSX leest hetzelfde als markup:
+Iemand moet de data eerst lezen, dus een component met alleen props zit onder een
+ouder die ze als state heeft aangenomen. Gebruik props voor componenten die je
+tegen verschillende waarden wilt hergebruiken, en state voor componenten die
+weten bij welk document ze horen.
+
+## Beslissingen zijn een gewone `if`
+
+```tsx
+export const Balance: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    settled: data.balanceDue === 0,
+  }));
+
+  if (state.settled) {
+    return <Paragraph id="settled">Nothing outstanding.</Paragraph>;
+  }
+
+  return <Paragraph id="arrears">A balance remains.</Paragraph>;
+};
+```
+
+Geef elke tak zijn eigen id. Het opgeloste document legt dan vast welke deze
+ontvanger kreeg, en dat is het verschil tussen een document dat je kunt
+controleren en een dat je alleen kunt bekijken.
+
+Er is één ding om te weten over vertakken voordat je naar een engine publiceert:
+zie [Statisch en dynamisch](/nl/docs/essentials/static-and-dynamic/).
+
+## Ids
+
+Een id is hoe een engine een node adresseert en hoe buildartefacten tussen runs
+diffbaar blijven, dus behandel een hernoeming als een breaking change.
+
+Je mag hem weglaten. Een node zonder id krijgt er een van waar hij staat, en dat
+voorkomt dat takken en lussen je dwingen namen te verzinnen. Wat niet kan, is er
+een twee keer gebruiken: twee nodes die één id claimen is een fout, gemeld met
+beide posities, en geen race die de laatste wint.
+
+## Secties nesten, nodes niet
+
+`Section` is de enige constructie die nest. De titel gaat mee in de
+documentstructuur:
 
 ```tsx
 <Section id="opening" title="Opening">
@@ -58,9 +100,28 @@ In TSX leest hetzelfde als markup:
 </Section>
 ```
 
-Beide leveren dezelfde boom op. Zie [Templates](/nl/docs/essentials/templates/)
-voor wanneer welke vorm de moeite waard is, en [Section](/nl/docs/nodes/section/)
-voor wat een sectie mag bevatten en hoe diep.
+Zie [Section](/nl/docs/nodes/section/) voor wat een sectie mag bevatten en hoe
+diep.
+
+## Hooks
+
+Hooks zijn hoe een component de build om zich heen bereikt:
+
+| Hook | Wat het je geeft |
+| --- | --- |
+| `useState` | Data, één keer aangenomen en bewaard |
+| `useShared` | Een waarde achtergelaten voor de componenten die daarna renderen |
+| `useSetPrompts` | Prompts voor de node die dit oplevert — wat hem dynamisch maakt |
+| `useSetPlaceholders` | Wat previews tonen in plaats van gegenereerde inhoud |
+| `usePlaceholderData` | Vervangende namen, datums en cijfers voor previews |
+| `useFormat` | Landinstellingbewuste valuta, datums, lijsten en meervouden |
+| `useAvailableTokens` | Het tokenbudget dat deze build heeft toegewezen |
+| `useDeriver` | Voert nu een geregistreerde deriver uit |
+
+Ze lopen in aanroepvolgorde, dus elke hook moet bereikt zijn vóór de eerste
+`await` en vóór elke vertakking — dezelfde regel die React hanteert, om dezelfde
+reden. Er een aanroepen na een `await` is een fout die dat ook zegt, in plaats
+van zich stilletjes vast te haken aan de volgende component die rendert.
 
 ## Het document bouwen
 
@@ -71,12 +132,12 @@ const doc = await buildDocument(documentTemplate, data);
 ```
 
 Het resultaat is een `DocumentModel`: een `schemaVersion`, een `id`, een `title`
-en een `nodes`-array. Het bevat geen opmaak en geen lay-out — die worden later
+en een `nodes`-array. Het bevat geen styling en geen lay-out — die worden later
 toegepast door de renderer die het verwerkt.
 
-Voor een documentproject dat met `defineDocumentProject` is gedefinieerd, kun je
-beter `buildProjectPreviewDocument` gebruiken: die past de stijl van het project
-toe en lost dynamische nodes op naar hun placeholders:
+Voor een documentproject gedefinieerd met `defineDocumentProject` gebruik je
+liever `buildProjectPreviewDocument`, dat de stijl van het project toepast en
+dynamische nodes naar hun placeholders oplost:
 
 ```ts
 import { buildProjectPreviewDocument } from "docxcelerate";

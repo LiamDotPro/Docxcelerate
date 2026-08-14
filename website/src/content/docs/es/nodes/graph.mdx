@@ -15,16 +15,22 @@ import NodeVariants from "../../../../components/NodeVariants.astro";
 
 Un nodo de gráfico contiene números y una forma, nunca una imagen:
 
-```ts
-graph<MemberData>({
-  id: "visits-by-month",
-  graphType: "bar",
-  data: (data) => ({
+```tsx
+export const VisitsByMonth: Graph = () => {
+  const [state] = useState((data: MemberData) => ({
     labels: data.visitsByMonth.map((entry) => entry.month),
-    series: [{ name: "Visits", values: data.visitsByMonth.map((entry) => entry.visits) }],
-  }),
-  caption: () => "Your visits, last six months",
-});
+    visits: data.visitsByMonth.map((entry) => entry.visits),
+  }));
+
+  return (
+    <Graph
+      id="visits-by-month"
+      graphType="bar"
+      data={{ labels: state.labels, series: [{ name: "Visits", values: state.visits }] }}
+      caption="Your visits, last six months"
+    />
+  );
+};
 ```
 
 Llevar cifras en lugar de una imagen significa que una sola declaración sirve a
@@ -41,7 +47,7 @@ Una cosa sí le ocurre al payload: los valores de tipo cadena pasan por el
 renderizador de plantillas, igual que la prosa. Una etiqueta que contenga
 `{{derived.total}}` se resuelve.
 
-## Derivar dentro de `data`
+## Derivar en el estado
 
 Los acumulados, los porcentajes y los rebasados van en la función `data`, no
 aguas arriba. Así el gráfico y el texto que lo acompaña se calculan desde una

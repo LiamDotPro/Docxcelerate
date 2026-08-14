@@ -277,7 +277,10 @@ function collectNodeDeriverNames(nodes: DocumentNode[], names: Set<string>): voi
       names.add(invocation.name);
     }
 
-    if (node.kind === "section") {
+    // Both kinds that hold children. Missing one here is not a missing name in
+    // a list — it is a deriver left out of the published bundle, and an engine
+    // that fails on the document rather than on the build.
+    if (node.kind === "section" || node.kind === "repeat") {
       collectNodeDeriverNames(node.children, names);
     }
   }

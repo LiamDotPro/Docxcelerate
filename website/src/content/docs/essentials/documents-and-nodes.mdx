@@ -1,54 +1,96 @@
 ---
 title: Documents and nodes
-description: A document is a tree of typed components resolved against your data.
+description: A document is a tree of components, each taking its data as state and returning the nodes it wants.
 group: Essentials
 order: 1
 ---
 
-A document is a template plus a data type. The template is a tree of **nodes**;
-resolving it against data produces a `DocumentModel` — plain JSON, no rendering
-implied.
+A document is a template plus a data type. The template is a tree of
+**components**; each one returns **nodes**, and resolving the tree against data
+produces a `DocumentModel` — plain JSON, no rendering implied.
 
-## The node helpers
+## A component takes its data as state
 
-Each helper takes an `id` and either a render function or a set of prompts, and
-returns a component you can place in a template. There are helpers for
-paragraphs, images, graphs and sections, in static and dynamic pairs.
-
-[Nodes](/docs/nodes/overview/) documents each type, with its options and
-previews. The rest of this page is what they have in common.
-
-Ids matter: they are how a generation endpoint addresses individual nodes, and
-how build artifacts stay diffable between runs. Keep them stable.
-
-## A node is a function of your data
-
-```ts
-import { paragraph } from "docxcelerate";
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { Paragraph, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 
-export const Greeting = paragraph<DocumentData>({
-  id: "greeting",
-  render: (data) => `Dear ${data.residentName},`,
-});
+export const Greeting: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    name: data.residentName,
+  }));
+
+  return <Paragraph id="greeting">Dear {state.name},</Paragraph>;
+};
 ```
 
-`render` receives your typed data and an `availableTokens` budget, and returns a
-string. There is no template language — anything you can express in TypeScript
-is available, including conditionals, formatting helpers and imports.
+`useState` is where data enters a component, and the only place it does.
+Everything after it reads state. That is a rule with a reason: because every
+dependency passes through one declaration, what a component needs is written
+down rather than scattered through the code that uses it.
+
+The initializer is ordinary TypeScript. There is no template language, so
+conditionals, formatting and imports are all just available.
+
+`Paragraph` names both the element and the component type — a value and a type
+may share a name — so `const Greeting: Paragraph` says what this yields, and
+returning a `<Section>` from it is a compile error.
+
+## Data can also arrive as props
+
+A component that is given what it needs does not have to reach for it:
+
+```tsx
+export const Arrears: Paragraph<{ amount: number }> = ({ amount }) => {
+  const { currency } = useFormat();
+
+  return <Paragraph id="arrears">You owe {currency(amount)}.</Paragraph>;
+};
+```
+
+Something has to read the data first, so a props-only component sits under a
+parent that took it into state. Use props for components you want to reuse
+against different values, and state for components that know which document
+they belong to.
+
+## Decisions are ordinary `if`
+
+```tsx
+export const Balance: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    settled: data.balanceDue === 0,
+  }));
+
+  if (state.settled) {
+    return <Paragraph id="settled">Nothing outstanding.</Paragraph>;
+  }
+
+  return <Paragraph id="arrears">A balance remains.</Paragraph>;
+};
+```
+
+Give each arm its own id. The resolved document then records which one this
+recipient got, which is the difference between a document you can audit and one
+you can only look at.
+
+There is one thing to know about branching before you publish to an engine:
+see [Static and dynamic](/docs/essentials/static-and-dynamic/).
+
+## Ids
+
+An id is how an engine addresses a node and how build artifacts stay diffable
+between runs, so treat a rename as a breaking change.
+
+You can leave it out. A node without an id takes one from where it sits, which
+is what keeps branches and loops from forcing you to invent names. What you
+cannot do is use one twice: two nodes claiming one id is an error, reported with
+both positions, rather than a race the later one wins.
 
 ## Sections nest, nodes don't
 
-`section` is the only nesting construct. It carries a title into the document
+`Section` is the only nesting construct. It carries a title into the document
 outline:
-
-```ts
-import { section } from "docxcelerate";
-
-section({ id: "opening", title: "Opening" }, [Greeting, Offer]);
-```
-
-In TSX the same thing reads as markup:
 
 ```tsx
 <Section id="opening" title="Opening">
@@ -57,9 +99,27 @@ In TSX the same thing reads as markup:
 </Section>
 ```
 
-Both produce the same tree. See [Templates](/docs/essentials/templates/) for when
-each form is worth using, and [Section](/docs/nodes/section/) for what a section
-may hold and how deeply.
+See [Section](/docs/nodes/section/) for what a section may hold and how deeply.
+
+## Hooks
+
+Hooks are how a component reaches the build around it:
+
+| Hook | What it gives you |
+| --- | --- |
+| `useState` | Data, taken in once and kept |
+| `useShared` | A value left for the components rendered after this one |
+| `useSetPrompts` | Prompts for the node this yields — what makes it dynamic |
+| `useSetPlaceholders` | What previews show in place of generated content |
+| `usePlaceholderData` | Stand-in names, dates and figures for previews |
+| `useFormat` | Locale-aware currency, dates, lists and plurals |
+| `useAvailableTokens` | The token budget this build allotted |
+| `useDeriver` | Runs a registered deriver now |
+
+They run in call order, so every hook must be reached before the first `await`
+and before any branch — the same rule React uses, for the same reason. Calling
+one after an `await` is an error that says so rather than quietly attaching to
+whichever component renders next.
 
 ## Building the document
 

@@ -15,16 +15,22 @@ import NodeVariants from "../../../../components/NodeVariants.astro";
 
 Узел графика содержит числа и форму, но никогда — изображение:
 
-```ts
-graph<MemberData>({
-  id: "visits-by-month",
-  graphType: "bar",
-  data: (data) => ({
+```tsx
+export const VisitsByMonth: Graph = () => {
+  const [state] = useState((data: MemberData) => ({
     labels: data.visitsByMonth.map((entry) => entry.month),
-    series: [{ name: "Visits", values: data.visitsByMonth.map((entry) => entry.visits) }],
-  }),
-  caption: () => "Your visits, last six months",
-});
+    visits: data.visitsByMonth.map((entry) => entry.visits),
+  }));
+
+  return (
+    <Graph
+      id="visits-by-month"
+      graphType="bar"
+      data={{ labels: state.labels, series: [{ name: "Visits", values: state.visits }] }}
+      caption="Your visits, last six months"
+    />
+  );
+};
 ```
 
 Нести цифры, а не картинку, означает, что одно объявление обслуживает любой
@@ -41,7 +47,7 @@ graph<MemberData>({
 через рендерер шаблонов, как и проза. Подпись, содержащая `{{derived.total}}`,
 будет разрешена.
 
-## Вычисления внутри `data`
+## Вычисления в состоянии
 
 Нарастающие итоги, проценты и пересчёт базы — дело функции `data`, а не того,
 что выше по течению. Тогда график и текст рядом с ним считаются из одного

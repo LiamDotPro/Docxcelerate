@@ -11,7 +11,7 @@ bundlers zonder diepe imports in `dist/`.
 
 ## docxcelerate
 
-Het hoofdoppervlak: node-helpers, de documentbuilder, artefacthelpers,
+Het hoofdoppervlak: de documentbuilder, artefacthelpers, derivers,
 runtimetypes en elk type in het documentdomein.
 
 ```ts
@@ -19,11 +19,8 @@ import {
   buildDocument,
   buildProjectPreviewDocument,
   cleanMinimalDocumentStyle,
-  graph,
-  image,
-  document,
-  paragraph,
-  section,
+  dataRef,
+  derive,
   type DocumentModel,
   type ParagraphNode,
 } from "docxcelerate";
@@ -41,17 +38,32 @@ import { defineDocumentProject } from "docxcelerate/document";
 
 ## docxcelerate/template
 
-Het TSX-componentoppervlak.
+Het auteursoppervlak: de elementen, de hooks en `template` zelf. Dit is wat een
+componentbestand importeert.
 
 ```ts
 import {
-  defineDocumentComponent,
-  defineSectionComponent,
   Document,
+  Graph,
+  Image,
+  Paragraph,
+  Repeat,
   Section,
+  TableOfContents,
   template,
+  useAvailableTokens,
+  useFormat,
+  usePlaceholderData,
+  useSetPlaceholders,
+  useSetPrompts,
+  useShared,
+  useState,
 } from "docxcelerate/template";
 ```
+
+Elke elementnaam is ook een componenttype, zodat `const Greeting: Paragraph =
+() => <Paragraph … />` benoemt wat een component oplevert en het teruggeven van
+de verkeerde soort afwijst.
 
 De bijbehorende JSX-runtime staat op `docxcelerate/template/jsx-runtime` (en
 `.../jsx-dev-runtime`), en dat is waar `jsxImportSource` naartoe oplost.

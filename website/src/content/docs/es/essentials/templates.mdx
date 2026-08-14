@@ -1,14 +1,16 @@
 ---
-title: Plantillas
-description: Compón un árbol de documento con TSX o con llamadas a funciones corrientes — ambas producen el mismo documento.
+title: Templates
+description: Compón un árbol de documento con TSX, y calcula la estructura con el mismo JavaScript que escribes en todas partes.
 group: Essentials
 order: 3
 ---
 
-Las plantillas vienen en dos formas. Son equivalentes; elige por gusto y según
-cuánta estructura tenga el documento.
+Una plantilla nombra un árbol de documento para que un proyecto pueda apuntar a
+él. Nada de lo que hay en ella se renderiza cuando se escribe — evaluar el JSX
+solo construye elementos, y eso es lo que permite a un componente decidir qué es
+más tarde, con los datos en la mano.
 
-## TSX
+## La forma
 
 ```tsx
 /** @jsxImportSource docxcelerate/template */
@@ -43,39 +45,60 @@ ella:
 
 Los workspaces generados ya vienen configurados así.
 
-## Funciones corrientes
+## Estructura calculada
 
-```ts
-import { document, section } from "docxcelerate";
-
-export const documentTemplate = doc<DocumentData>({
-  id: "tenancy-renewal",
-  title: "Tenancy Renewal",
-  nodes: [
-    section({ id: "opening", title: "Opening" }, [Greeting]),
-    section({ id: "closing", title: "Closing" }, [NextSteps]),
-  ],
-});
-```
-
-Útil cuando la estructura de un documento se calcula — por ejemplo, al construir
-secciones a partir de una lista, donde JSX necesitaría igualmente un `map` y un
-fragmento.
-
-## Componentes reutilizables
-
-`defineDocumentComponent` y `defineSectionComponent` te permiten construir tus
-propias envolturas sobre las primitivas — un membrete corporativo, un bloque de
-cierre estándar — y reutilizarlas entre documentos:
+Una plantilla se escribe en el ámbito del módulo, donde todavía no hay datos, así
+que la estructura que depende de los datos va en un componente, no en la
+plantilla:
 
 ```tsx
-import { defineSectionComponent } from "docxcelerate/template";
+export const Enclosures: Section = () => {
+  const [state] = useState((data: DocumentData) => ({ items: data.enclosures }));
 
-export const Closing = defineSectionComponent<DocumentData>({
-  id: "closing",
-  title: "Closing",
-});
+  return (
+    <Section id="enclosures" title="Enclosed">
+      {state.items.map((item) => <Paragraph key={item.id}>{item.label}</Paragraph>)}
+    </Section>
+  );
+};
 ```
+
+Cualquier hijo falsy se omite, así que `{condition && <Node />}` se lee como en
+cualquier otro sitio. Los nodos sin id toman uno de donde están, y eso impide que
+un `map` exija nombres que no tienes.
+
+Esto funciona porque la lista se conoce al compilar el documento. Una lista que
+solo se conoce por petición es otro problema — mira [Estático y
+dinámico](/es/docs/essentials/static-and-dynamic/) para `Repeat`.
+
+## Piezas reutilizables
+
+Un componente es una función corriente, así que una envoltura de estilo de la
+casa también lo es. Los componentes aceptan hijos como cualquier otra cosa:
+
+```tsx
+export const Letterhead: Section<{ children?: Yield }> = ({ children }) => (
+  <Section id="letterhead" title="">
+    <Image id="logo" src="assets/logo.png" alt="Ashcroft Housing" />
+    {children}
+  </Section>
+);
+```
+
+Un hook compartido es la otra mitad de esto. Como `useSetPrompts` fija prompts en
+lo que produzca el componente que lo llama, el estilo de la casa puede aplicarse
+a un nodo que el hook ni siquiera posee:
+
+```tsx
+export function useHouseVoice() {
+  useSetPrompts({
+    systemPrompt: "You write for a housing association. Plain English, second person.",
+  });
+}
+```
+
+Cualquier componente que llame a `useHouseVoice()` recibe ese prompt de sistema
+en el nodo que devuelve, y aún puede sobrescribirlo con una prop.
 
 ## Proyectos de documento
 
@@ -101,6 +124,6 @@ export default defineDocumentProject<DocumentData>({
 });
 ```
 
-`previewData` es aquello con lo que resuelve la aplicación de vista previa.
-Mantenlo realista — los nombres cortos y las ciudades inventadas esconden
-problemas de maquetación que los datos reales sí destapan.
+`previewData` es contra lo que resuelve la app de vista previa. Manténlo
+realista — los nombres cortos y las ciudades de relleno ocultan problemas de
+maquetación que los datos reales sí exponen.

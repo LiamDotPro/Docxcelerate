@@ -1,6 +1,6 @@
 ---
 title: Table of contents
-description: Een schemasoort zonder helper — hoe je er een plaatst en wat hij vandaag doet.
+description: Een markering voor een inhoudsopgave, vooruitlopend op de renderers die er een bouwen.
 group: Nodes
 subgroup: Node types
 order: 14
@@ -11,24 +11,27 @@ import NodeVariants from "../../../../components/NodeVariants.astro";
 
 <NodeSummary type="table-of-contents" />
 
-## Er een schrijven zonder helper
+## Er een schrijven
 
-De helpers zijn gemakken, geen poort. Een nodecomponent is een functie die jouw
-data aanneemt en een definitie teruggeeft, dus elke soort in het schema is
-bereikbaar door die functie te schrijven:
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { TableOfContents } from "docxcelerate/template";
 
-```ts
-import type { NodeComponent } from "docxcelerate";
-
-export const Contents: NodeComponent<MemberData> = () => ({
-  kind: "tableOfContents",
-  id: "contents",
-  title: "What is in this document",
-});
+export const Contents: TableOfContents = () => (
+  <TableOfContents id="contents" title="What is in this document" />
+);
 ```
 
 Hij composeert als elke andere node, en lost in previewbuilds, enginebuilds en
-tests op dezelfde manier op.
+tests op dezelfde manier op. Rechtstreeks in een template geplaatst heeft hij
+geen eigen component nodig — `<TableOfContents id="contents" title="…" />` is
+het hele ding.
+
+## Wat ontbreekt zit verderop
+
+Het element plaatst de markering en draagt zijn titel. De ingangen bouwen uit de
+omringende sectietitels is werk van een renderer, en noch de browserpreview noch
+de DOCX-packer doet dat al — beide drukken de titel af en stoppen.
 
 ## Waarom je er nu al een plaatst
 
@@ -45,7 +48,5 @@ later toevoegen is even goedkoop.
 
 ## Aantekeningen
 
-- Verwacht uiteindelijk een `tableOfContents`-helper, die dezelfde
-  `{ id, title }` aanneemt als hier. Geschreven zoals hierboven is overstappen
-  een wijziging van één regel.
+- `title` is optioneel; renderers vallen terug op hun eigen bewoording.
 - De node bevat geen kinderen en leest tijdens de build niets.

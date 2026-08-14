@@ -1,14 +1,16 @@
 ---
 title: Templates
-description: Stel een documentboom samen met TSX of met gewone functieaanroepen — beide leveren hetzelfde document op.
+description: Stel een documentboom samen met TSX, en bereken structuur met dezelfde JavaScript die je overal schrijft.
 group: Essentials
 order: 3
 ---
 
-Templates komen in twee vormen. Ze zijn gelijkwaardig; kies op smaak en op hoeveel
-structuur het document heeft.
+Een template benoemt een documentboom zodat een project ernaar kan wijzen. Niets
+ervan wordt gerenderd wanneer het geschreven wordt — het evalueren van de JSX
+bouwt alleen elementen, en dat is wat een component toelaat later te beslissen
+wat hij is, met data in de hand.
 
-## TSX
+## De vorm
 
 ```tsx
 /** @jsxImportSource docxcelerate/template */
@@ -29,8 +31,7 @@ export const documentTemplate = template<DocumentData>(
 ```
 
 De pragma op regel één is wat JSX aan Docxcelerate koppelt in plaats van aan
-React. Stel in plaats daarvan `jsxImportSource` in `tsconfig.json` in en je kunt
-hem weglaten:
+React. Zet je `jsxImportSource` in `tsconfig.json`, dan kun je hem weglaten:
 
 ```json
 {
@@ -41,46 +42,66 @@ hem weglaten:
 }
 ```
 
-In opgezette workspaces is dit al geconfigureerd.
+In aangemaakte workspaces is dit al geconfigureerd.
 
-## Gewone functies
+## Berekende structuur
 
-```ts
-import { document, section } from "docxcelerate";
-
-export const documentTemplate = doc<DocumentData>({
-  id: "tenancy-renewal",
-  title: "Tenancy Renewal",
-  nodes: [
-    section({ id: "opening", title: "Opening" }, [Greeting]),
-    section({ id: "closing", title: "Closing" }, [NextSteps]),
-  ],
-});
-```
-
-Handig wanneer de structuur van een document wordt berekend — secties uit een
-lijst opbouwen bijvoorbeeld, waar JSX toch een `map` en een fragment nodig zou
-hebben.
-
-## Herbruikbare componenten
-
-Met `defineDocumentComponent` en `defineSectionComponent` bouw je je eigen
-wrappers rond de primitieven — een briefhoofd in huisstijl, een standaard
-afsluitblok — en hergebruik je die over documenten heen:
+Een template staat op modulescope, waar nog geen data bestaat, dus structuur die
+van data afhangt hoort in een component en niet in het template:
 
 ```tsx
-import { defineSectionComponent } from "docxcelerate/template";
+export const Enclosures: Section = () => {
+  const [state] = useState((data: DocumentData) => ({ items: data.enclosures }));
 
-export const Closing = defineSectionComponent<DocumentData>({
-  id: "closing",
-  title: "Closing",
-});
+  return (
+    <Section id="enclosures" title="Enclosed">
+      {state.items.map((item) => <Paragraph key={item.id}>{item.label}</Paragraph>)}
+    </Section>
+  );
+};
 ```
+
+Alles wat falsy is bij de children wordt overgeslagen, dus `{condition && <Node
+/>}` leest zoals overal elders. Nodes zonder id krijgen er een van waar ze staan,
+en dat weerhoudt een `map` ervan namen te eisen die je niet hebt.
+
+Dit werkt omdat de lijst bekend is wanneer het document gebouwd wordt. Een lijst
+die pas per verzoek bekend is, is een ander probleem — zie [Statisch en
+dynamisch](/nl/docs/essentials/static-and-dynamic/) voor `Repeat`.
+
+## Herbruikbare onderdelen
+
+Een component is een gewone functie, dus een omhulsel in huisstijl ook.
+Componenten accepteren children net als al het andere:
+
+```tsx
+export const Letterhead: Section<{ children?: Yield }> = ({ children }) => (
+  <Section id="letterhead" title="">
+    <Image id="logo" src="assets/logo.png" alt="Ashcroft Housing" />
+    {children}
+  </Section>
+);
+```
+
+Een gedeelde hook is de andere helft hiervan. Doordat `useSetPrompts` prompts zet
+op wat de aanroepende component oplevert, kan huisstijl worden toegepast op een
+node die de hook niet eens bezit:
+
+```tsx
+export function useHouseVoice() {
+  useSetPrompts({
+    systemPrompt: "You write for a housing association. Plain English, second person.",
+  });
+}
+```
+
+Elke component die `useHouseVoice()` aanroept, krijgt die systeemprompt op de
+node die hij teruggeeft, en kan hem nog steeds met een prop overschrijven.
 
 ## Documentprojecten
 
-Een documentproject bindt een template aan zijn stijl en previewdata via één
-entrypoint, `document.project.ts`:
+Een documentproject bindt een template via één ingang, `document.project.ts`, aan
+zijn stijl en previewdata:
 
 ```tsx
 import { defineDocumentProject } from "docxcelerate/document";
@@ -103,4 +124,4 @@ export default defineDocumentProject<DocumentData>({
 
 `previewData` is waartegen de preview-app oplost. Houd het realistisch — korte
 namen en verzonnen plaatsnamen verbergen lay-outproblemen die echte data juist
-blootlegt.
+blootleggen.

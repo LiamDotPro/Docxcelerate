@@ -1,14 +1,16 @@
 ---
 title: Templates
-description: Einen Dokumentbaum mit TSX zusammensetzen oder mit gewöhnlichen Funktionsaufrufen — beides ergibt dasselbe Dokument.
+description: Einen Dokumentbaum mit TSX zusammensetzen — und Struktur mit demselben JavaScript berechnen, das Sie überall sonst schreiben.
 group: Essentials
 order: 3
 ---
 
-Templates gibt es in zwei Formen. Sie sind gleichwertig; wählen Sie nach Geschmack
-und danach, wie viel Struktur das Dokument hat.
+Ein Template benennt einen Dokumentbaum, damit ein Projekt darauf zeigen kann.
+Beim Schreiben wird nichts davon gerendert — das Auswerten des JSX baut nur
+Elemente, und genau das erlaubt es einer Komponente, später zu entscheiden, was
+sie ist, mit Daten in der Hand.
 
-## TSX
+## Die Form
 
 ```tsx
 /** @jsxImportSource docxcelerate/template */
@@ -43,38 +45,59 @@ weglassen:
 
 In angelegten Workspaces ist das bereits konfiguriert.
 
-## Gewöhnliche Funktionen
+## Berechnete Struktur
 
-```ts
-import { document, section } from "docxcelerate";
-
-export const documentTemplate = doc<DocumentData>({
-  id: "tenancy-renewal",
-  title: "Tenancy Renewal",
-  nodes: [
-    section({ id: "opening", title: "Opening" }, [Greeting]),
-    section({ id: "closing", title: "Closing" }, [NextSteps]),
-  ],
-});
-```
-
-Nützlich, wenn die Struktur eines Dokuments berechnet wird — etwa wenn Abschnitte
-aus einer Liste entstehen, wo JSX ohnehin ein `map` und ein Fragment bräuchte.
-
-## Wiederverwendbare Komponenten
-
-Mit `defineDocumentComponent` und `defineSectionComponent` bauen Sie eigene
-Hüllen um die Primitive — einen Briefkopf im Hausstil, einen
-Standard-Schlussblock — und verwenden sie dokumentübergreifend wieder:
+Ein Template steht auf Modulebene, wo es noch keine Daten gibt. Struktur, die
+von Daten abhängt, gehört deshalb in eine Komponente, nicht in das Template:
 
 ```tsx
-import { defineSectionComponent } from "docxcelerate/template";
+export const Enclosures: Section = () => {
+  const [state] = useState((data: DocumentData) => ({ items: data.enclosures }));
 
-export const Closing = defineSectionComponent<DocumentData>({
-  id: "closing",
-  title: "Closing",
-});
+  return (
+    <Section id="enclosures" title="Enclosed">
+      {state.items.map((item) => <Paragraph key={item.id}>{item.label}</Paragraph>)}
+    </Section>
+  );
+};
 ```
+
+Alles Falsy unter den Kindern wird übersprungen, `{condition && <Node />}` liest
+sich also wie überall sonst. Nodes ohne id bekommen eine aus ihrer Position, und
+das hindert ein `map` daran, Namen zu verlangen, die Sie nicht haben.
+
+Das funktioniert, weil die Liste beim Bauen des Dokuments bekannt ist. Eine
+Liste, die erst je Anfrage feststeht, ist ein anderes Problem — siehe [Statisch
+und dynamisch](/de/docs/essentials/static-and-dynamic/) für `Repeat`.
+
+## Wiederverwendbare Teile
+
+Eine Komponente ist eine gewöhnliche Funktion, eine Hülle im Hausstil also
+ebenso. Komponenten nehmen Kinder wie alles andere:
+
+```tsx
+export const Letterhead: Section<{ children?: Yield }> = ({ children }) => (
+  <Section id="letterhead" title="">
+    <Image id="logo" src="assets/logo.png" alt="Ashcroft Housing" />
+    {children}
+  </Section>
+);
+```
+
+Ein geteilter Hook ist die andere Hälfte davon. Weil `useSetPrompts` Prompts an
+dem Node setzt, den die aufrufende Komponente liefert, lässt sich Hausstil auf
+einen Node anwenden, der dem Hook gar nicht gehört:
+
+```tsx
+export function useHouseVoice() {
+  useSetPrompts({
+    systemPrompt: "You write for a housing association. Plain English, second person.",
+  });
+}
+```
+
+Jede Komponente, die `useHouseVoice()` aufruft, bekommt diesen System-Prompt an
+dem Node, den sie zurückgibt — und kann ihn per Prop weiterhin überschreiben.
 
 ## Dokumentprojekte
 

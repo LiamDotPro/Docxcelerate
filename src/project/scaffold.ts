@@ -84,11 +84,11 @@ export async function scaffoldDocumentProject(
       contents: deriversIndexTemplate(),
     },
     {
-      path: joinPath(projectDir, "nodes", "greeting.node.ts"),
+      path: joinPath(projectDir, "nodes", "greeting.node.tsx"),
       contents: greetingNodeTemplate(),
     },
     {
-      path: joinPath(projectDir, "nodes", "intro.node.ts"),
+      path: joinPath(projectDir, "nodes", "intro.node.tsx"),
       contents: introNodeTemplate(),
     },
     {
@@ -188,7 +188,7 @@ export async function generateNodeDefinition(
   const type = options.type ?? "paragraph";
   const mode = options.mode ?? options.kind ?? "static";
   const nodesDir = joinPath(options.projectDir, "nodes");
-  const filePath = joinPath(nodesDir, `${nodeId}.node.ts`);
+  const filePath = joinPath(nodesDir, `${nodeId}.node.tsx`);
   const exportPath = joinPath(nodesDir, "index.ts");
 
   assertGeneratedNodeType(type);
@@ -283,7 +283,7 @@ async function appendNodeExport(
   componentName: string,
   nodeId: string,
 ): Promise<void> {
-  const exportLine = `export { ${componentName} } from "./${nodeId}.node.ts";`;
+  const exportLine = `export { ${componentName} } from "./${nodeId}.node.tsx";`;
   const current = await exists(indexPath) ? await readTextFile(indexPath) : "";
   const lines = current.split(/\r?\n/).filter((line) => line.trim() !== "");
 
@@ -562,11 +562,11 @@ function workspaceDocumentFiles(
       contents: sampleDeriversIndexTemplate(),
     },
     {
-      path: joinPath(documentDir, "nodes", "greeting.node.ts"),
+      path: joinPath(documentDir, "nodes", "greeting.node.tsx"),
       contents: greetingNodeTemplate(),
     },
     {
-      path: joinPath(documentDir, "nodes", "balance-summary.node.ts"),
+      path: joinPath(documentDir, "nodes", "balance-summary.node.tsx"),
       contents: sampleBalanceSummaryNodeTemplate(),
     },
     {
@@ -1995,53 +1995,77 @@ select {
 }
 
 function greetingNodeTemplate(): string {
-  return `import { paragraph } from "docxcelerate/document";
+  return `/** @jsxImportSource docxcelerate/template */
+import { Paragraph, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 
-export const Greeting = paragraph<DocumentData>({
-  id: "greeting",
-  render(data) {
-    return \`Hello \${data.recipientName},\`;
-  },
-});
+export const Greeting: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    name: data.recipientName,
+  }));
+
+  return <Paragraph id="greeting">Hello {state.name},</Paragraph>;
+};
 `;
 }
 
 function introNodeTemplate(): string {
-  return `import { paragraph } from "docxcelerate/document";
+  return `/** @jsxImportSource docxcelerate/template */
+import { Paragraph, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 
-export const Intro = paragraph<DocumentData>({
-  id: "intro",
-  render(data) {
-    return \`We are writing to share an update for \${data.city}.\`;
-  },
-});
+export const Intro: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    city: data.city,
+  }));
+
+  return (
+    <Paragraph id="intro">
+      We are writing to share an update for {state.city}.
+    </Paragraph>
+  );
+};
 `;
 }
 
 function sampleBalanceSummaryNodeTemplate(): string {
-  return `import { dataRef, derive, paragraph } from "docxcelerate/document";
+  return `/** @jsxImportSource docxcelerate/template */
+import { dataRef, derive, Paragraph, useState } from "docxcelerate/document";
 import type { DocumentData } from "../types.ts";
 
-export const BalanceSummary = paragraph<DocumentData>({
-  id: "balance-summary",
-  derivers: [
-    derive("currencyLabel", {
-      output: "balanceDueLabel",
-      inputs: [dataRef("balanceDue")],
-    }),
-  ],
-  render(data) {
-    return \`Your current balance for \${data.city} is {{derived.balanceDueLabel}}.\`;
-  },
-});
+/**
+ * A figure formatted per recipient rather than per build.
+ *
+ * \`useFormat\` would format it here, which is right whenever the value is known
+ * now. This one is not: a published document is written for people whose
+ * balances nobody has looked up yet. So the formatting is a deriver the engine
+ * runs per document, and the text refers to what it produced.
+ */
+export const BalanceSummary: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    city: data.city,
+  }));
+
+  return (
+    <Paragraph
+      id="balance-summary"
+      derivers={[
+        derive("currencyLabel", {
+          output: "balanceDueLabel",
+          inputs: [dataRef("balanceDue")],
+        }),
+      ]}
+    >
+      Your current balance for {state.city} is {"{{derived.balanceDueLabel}}"}.
+    </Paragraph>
+  );
+};
 `;
 }
 
 function nodesIndexTemplate(): string {
-  return `export { Greeting } from "./greeting.node.ts";
-export { Intro } from "./intro.node.ts";
+  return `export { Greeting } from "./greeting.node.tsx";
+export { Intro } from "./intro.node.tsx";
 `;
 }
 
@@ -2128,123 +2152,169 @@ export default defineDocumentProject<DocumentData>({
 }
 
 function sampleNodesIndexTemplate(): string {
-  return `export { BalanceSummary } from "./balance-summary.node.ts";
-export { Greeting } from "./greeting.node.ts";
+  return `export { BalanceSummary } from "./balance-summary.node.tsx";
+export { Greeting } from "./greeting.node.tsx";
 `;
 }
 
 function staticParagraphNodeTemplate(options: { componentName: string; nodeId: string }): string {
-  return `import { paragraph } from "docxcelerate/document";
+  return `/** @jsxImportSource docxcelerate/template */
+import { Paragraph, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 
-export const ${options.componentName} = paragraph<DocumentData>({
-  id: "${options.nodeId}",
-  render(data) {
-    return \`Add ${
-    titleFromSlug(options.nodeId).toLowerCase()
-  } content for \${data.recipientName}.\`;
-  },
-});
+export const ${options.componentName}: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    name: data.recipientName,
+  }));
+
+  return (
+    <Paragraph id="${options.nodeId}">
+      Add ${titleFromSlug(options.nodeId).toLowerCase()} content for {state.name}.
+    </Paragraph>
+  );
+};
 `;
 }
 
 function dynamicParagraphNodeTemplate(options: { componentName: string; nodeId: string }): string {
-  return `import { paragraph } from "docxcelerate/document";
+  return `/** @jsxImportSource docxcelerate/template */
+import {
+  Paragraph,
+  useAvailableTokens,
+  useSetPlaceholders,
+  useSetPrompts,
+  useState,
+} from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 
-export const ${options.componentName} = paragraph<DocumentData>({
-  id: "${options.nodeId}",
-  placeholder(data) {
-    return \`Placeholder ${
-    titleFromSlug(options.nodeId).toLowerCase()
-  } content for \${data.recipientName}.\`;
-  },
-  generalPrompt(data, availableTokens) {
-    return \`Write a concise paragraph for \${data.recipientName}. Stay within \${availableTokens} tokens.\`;
-  },
-  negativePrompt() {
-    return "Do not invent facts or mention internal implementation details.";
-  },
-});
+export const ${options.componentName}: Paragraph = () => {
+  const availableTokens = useAvailableTokens();
+  const [state] = useState((data: DocumentData) => ({
+    name: data.recipientName,
+  }));
+
+  useSetPrompts({
+    generalPrompt:
+      \`Write a concise paragraph for \${state.name}. Stay within \${availableTokens} tokens.\`,
+    negativePrompt: "Do not invent facts or mention internal implementation details.",
+  });
+
+  useSetPlaceholders(
+    \`Placeholder ${titleFromSlug(options.nodeId).toLowerCase()} content for \${state.name}.\`,
+  );
+
+  return <Paragraph id="${options.nodeId}" />;
+};
 `;
 }
 
 function staticImageNodeTemplate(options: { componentName: string; nodeId: string }): string {
-  return `import { image } from "docxcelerate/document";
+  return `/** @jsxImportSource docxcelerate/template */
+import { Image, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 
-export const ${options.componentName} = image<DocumentData>({
-  id: "${options.nodeId}",
-  src() {
-    return "assets/${options.nodeId}.png";
-  },
-  alt(data) {
-    return \`${titleFromSlug(options.nodeId)} image for \${data.recipientName}.\`;
-  },
-});
+export const ${options.componentName}: Image = () => {
+  const [state] = useState((data: DocumentData) => ({
+    name: data.recipientName,
+  }));
+
+  return (
+    <Image
+      id="${options.nodeId}"
+      src="assets/${options.nodeId}.png"
+      alt={\`${titleFromSlug(options.nodeId)} image for \${state.name}.\`}
+    />
+  );
+};
 `;
 }
 
 function dynamicImageNodeTemplate(options: { componentName: string; nodeId: string }): string {
-  return `import { image } from "docxcelerate/document";
+  return `/** @jsxImportSource docxcelerate/template */
+import {
+  Image,
+  useAvailableTokens,
+  useSetPlaceholders,
+  useSetPrompts,
+  useState,
+} from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 
-export const ${options.componentName} = image<DocumentData>({
-  id: "${options.nodeId}",
-  placeholder(data) {
-    return \`Placeholder ${
-    titleFromSlug(options.nodeId).toLowerCase()
-  } image for \${data.recipientName}.\`;
-  },
-  generalPrompt(data, availableTokens) {
-    return \`Describe the image needed for \${data.recipientName}. Stay within \${availableTokens} tokens.\`;
-  },
-  negativePrompt() {
-    return "Do not invent facts or include private implementation details.";
-  },
-});
+export const ${options.componentName}: Image = () => {
+  const availableTokens = useAvailableTokens();
+  const [state] = useState((data: DocumentData) => ({
+    name: data.recipientName,
+  }));
+
+  useSetPrompts({
+    generalPrompt:
+      \`Describe the image needed for \${state.name}. Stay within \${availableTokens} tokens.\`,
+    negativePrompt: "Do not invent facts or include private implementation details.",
+  });
+
+  useSetPlaceholders(
+    \`Placeholder ${titleFromSlug(options.nodeId).toLowerCase()} image for \${state.name}.\`,
+  );
+
+  return <Image id="${options.nodeId}" />;
+};
 `;
 }
 
 function staticGraphNodeTemplate(options: { componentName: string; nodeId: string }): string {
-  return `import { graph } from "docxcelerate/document";
+  return `/** @jsxImportSource docxcelerate/template */
+import { Graph, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 
-export const ${options.componentName} = graph<DocumentData>({
-  id: "${options.nodeId}",
-  graphType: "bar",
-  data(data) {
-    return {
-      labels: ["Current"],
-      series: [{ label: data.recipientName, values: [1] }],
-    };
-  },
-  caption(data) {
-    return \`${titleFromSlug(options.nodeId)} for \${data.recipientName}.\`;
-  },
-});
+export const ${options.componentName}: Graph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    name: data.recipientName,
+  }));
+
+  return (
+    <Graph
+      id="${options.nodeId}"
+      graphType="bar"
+      data={{
+        labels: ["Current"],
+        series: [{ label: state.name, values: [1] }],
+      }}
+      caption={\`${titleFromSlug(options.nodeId)} for \${state.name}.\`}
+    />
+  );
+};
 `;
 }
 
 function dynamicGraphNodeTemplate(options: { componentName: string; nodeId: string }): string {
-  return `import { graph } from "docxcelerate/document";
+  return `/** @jsxImportSource docxcelerate/template */
+import {
+  Graph,
+  useAvailableTokens,
+  useSetPlaceholders,
+  useSetPrompts,
+  useState,
+} from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 
-export const ${options.componentName} = graph<DocumentData>({
-  id: "${options.nodeId}",
-  graphType: "bar",
-  placeholder(data) {
-    return \`Placeholder ${
-    titleFromSlug(options.nodeId).toLowerCase()
-  } graph for \${data.recipientName}.\`;
-  },
-  generalPrompt(data, availableTokens) {
-    return \`Prepare graph data for \${data.recipientName}. Stay within \${availableTokens} tokens.\`;
-  },
-  negativePrompt() {
-    return "Do not invent facts or include unsupported data points.";
-  },
-});
+export const ${options.componentName}: Graph = () => {
+  const availableTokens = useAvailableTokens();
+  const [state] = useState((data: DocumentData) => ({
+    name: data.recipientName,
+  }));
+
+  useSetPrompts({
+    generalPrompt:
+      \`Prepare graph data for \${state.name}. Stay within \${availableTokens} tokens.\`,
+    negativePrompt: "Do not invent facts or include unsupported data points.",
+  });
+
+  useSetPlaceholders(
+    \`Placeholder ${titleFromSlug(options.nodeId).toLowerCase()} graph for \${state.name}.\`,
+  );
+
+  return <Graph id="${options.nodeId}" graphType="bar" />;
+};
 `;
 }
 

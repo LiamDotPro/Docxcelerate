@@ -40,8 +40,9 @@ async function main() {
   await mkdir(dirname(MANIFEST), { recursive: true });
 
   const { NODE_CATEGORIES, NODE_TYPES, sampleData } = await loadCatalog();
-  const { doc, buildDocument } = await import("docxcelerate");
+  const { buildDocument } = await import("docxcelerate");
   const { renderDocumentWebsite } = await import("docxcelerate/renderer");
+  const one = await singleNodeTemplate();
 
   const types = [];
   let previews = 0;
@@ -50,14 +51,14 @@ async function main() {
     const variants = [];
 
     for (const variant of type.variants) {
-      const sourceFile = `${type.id}/${variant.id}.node.ts`;
+      const sourceFile = `${type.id}/${variant.id}.node.tsx`;
       await assertSourceExists(sourceFile, type.id, variant.id);
 
-      // One node, resolved exactly as a letter would resolve it. Placeholder
+      // One node, resolved exactly as a document would resolve it. Placeholder
       // mode is what preview builds use, so a dynamic node shows what an
-      // author sees rather than requiring a generation endpoint to render docs.
+      // author sees rather than requiring an engine to render docs.
       const document = await buildDocument(
-        doc({ id: `${type.id}-${variant.id}`, title: variant.title }, [variant.component]),
+        one(`${type.id}-${variant.id}`, variant.title, variant.component),
         sampleData,
         { dynamicMode: "placeholder" },
       );
@@ -85,7 +86,7 @@ async function main() {
         // shape a renderer or endpoint receives is visible rather than
         // described.
         resolved: document.nodes[0],
-        prompts: await resolvePrompts(variant, { doc, buildDocument, sampleData }),
+        prompts: await resolvePrompts(variant, { one, buildDocument, sampleData }),
       });
     }
 
@@ -135,9 +136,9 @@ async function main() {
  * worth reading on a docs page. Static nodes have none, and neither do
  * sections; both return null and the page shows no prompt panel.
  */
-async function resolvePrompts(variant, { doc, buildDocument, sampleData }) {
+async function resolvePrompts(variant, { one, buildDocument, sampleData }) {
   const document = await buildDocument(
-    doc({ id: "prompts", title: variant.title }, [variant.component]),
+    one("prompts", variant.title, variant.component),
     sampleData,
     { dynamicMode: "resolve", aiClient: EMPTY_AI_CLIENT },
   );
@@ -145,6 +146,22 @@ async function resolvePrompts(variant, { doc, buildDocument, sampleData }) {
   const node = document.nodes[0];
 
   return node?.prompts?.length ? node.prompts : null;
+}
+
+/**
+ * Wraps one component in a document, without JSX.
+ *
+ * This script is plain JavaScript, so it reaches for the same jsx() call a
+ * compiled `<Document>` would make. Building the element by hand rather than
+ * adding a build step keeps the gallery resolving through the real framework,
+ * which is the whole point of generating it.
+ */
+async function singleNodeTemplate() {
+  const { jsx } = await import("docxcelerate/template/jsx-runtime");
+  const { Document, template } = await import("docxcelerate/template");
+
+  return (id, title, component) =>
+    template(jsx(Document, { id, title, children: jsx(component, {}) }));
 }
 
 /** Answers nothing, so only the prompts survive the round trip. */

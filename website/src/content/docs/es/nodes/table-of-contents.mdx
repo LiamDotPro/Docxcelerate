@@ -1,6 +1,6 @@
 ---
 title: Table of contents
-description: Una clase del esquema que aún no tiene helper — cómo colocar una y qué hace hoy.
+description: Un marcador para un índice, por delante de los renderizadores que lo construyan.
 group: Nodes
 subgroup: Node types
 order: 14
@@ -11,24 +11,28 @@ import NodeVariants from "../../../../components/NodeVariants.astro";
 
 <NodeSummary type="table-of-contents" />
 
-## Escribir una sin helper
+## Escribir uno
 
-Los helpers son comodidades, no una barrera. Un componente de nodo es una función
-que toma tus datos y devuelve una definición, así que cualquier clase del esquema
-está a tu alcance sin más que escribir esa función:
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { TableOfContents } from "docxcelerate/template";
 
-```ts
-import type { NodeComponent } from "docxcelerate";
-
-export const Contents: NodeComponent<MemberData> = () => ({
-  kind: "tableOfContents",
-  id: "contents",
-  title: "What is in this document",
-});
+export const Contents: TableOfContents = () => (
+  <TableOfContents id="contents" title="What is in this document" />
+);
 ```
 
 Se compone como cualquier otro nodo, y se resuelve igual en compilaciones de
-vista previa, en compilaciones del motor y en pruebas.
+vista previa, en compilaciones del motor y en pruebas. Colocado directamente en
+una plantilla no necesita componente propio — `<TableOfContents id="contents"
+title="…" />` es todo.
+
+## Lo que falta está aguas abajo
+
+El elemento coloca el marcador y lleva su título. Construir las entradas a partir
+de los títulos de sección que lo rodean es tarea de un renderizador, y ni la
+vista previa del navegador ni el empaquetador DOCX lo hacen todavía: ambos
+imprimen el título y paran.
 
 ## Por qué colocar una ya
 
@@ -45,7 +49,5 @@ Añadirlo más adelante es igual de barato.
 
 ## Notas
 
-- Cuenta con que acabe habiendo un helper `tableOfContents`, que tomará el mismo
-  `{ id, title }` que toma aquí. Escrito como arriba, adoptarlo es un cambio de
-  una línea.
+- `title` es opcional; los renderizadores recurren a su propia redacción.
 - El nodo no contiene hijos y no lee nada en tiempo de compilación.

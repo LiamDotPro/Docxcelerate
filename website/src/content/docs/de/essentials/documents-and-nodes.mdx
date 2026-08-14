@@ -1,57 +1,102 @@
 ---
 title: Dokumente und Nodes
-description: Ein Dokument ist ein Baum typisierter Komponenten, aufgelöst gegen Ihre Daten.
+description: Ein Dokument ist ein Baum aus Komponenten, von denen jede ihre Daten als State nimmt und die Nodes zurückgibt, die sie will.
 group: Essentials
 order: 1
 ---
 
 Ein Dokument ist ein Template plus ein Datentyp. Das Template ist ein Baum aus
-**Nodes**; löst man ihn gegen Daten auf, entsteht ein `DocumentModel` — reines
-JSON, ohne dass damit etwas über das Rendern gesagt wäre.
+**Komponenten**; jede gibt **Nodes** zurück, und den Baum gegen Daten aufzulösen
+ergibt ein `DocumentModel` — reines JSON, ohne dass damit ein Rendering gemeint
+wäre.
 
-## Die Node-Helper
+## Eine Komponente nimmt ihre Daten als State
 
-Jeder Helper nimmt eine `id` und entweder eine Render-Funktion oder eine Menge
-von Prompts und gibt eine Komponente zurück, die Sie in ein Template setzen
-können. Es gibt Helper für Absätze, Bilder, Diagramme und Abschnitte, jeweils als
-statisches und dynamisches Paar.
-
-[Nodes](/de/docs/nodes/overview/) dokumentiert jeden Typ mit seinen Optionen und
-Vorschauen. Der Rest dieser Seite handelt davon, was sie gemeinsam haben.
-
-Ids sind wichtig: Über sie adressiert ein Generierungs-Endpoint einzelne Nodes,
-und über sie bleiben Build-Artefakte zwischen Läufen vergleichbar. Halten Sie sie
-stabil.
-
-## Ein Node ist eine Funktion Ihrer Daten
-
-```ts
-import { paragraph } from "docxcelerate";
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { Paragraph, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 
-export const Greeting = paragraph<DocumentData>({
-  id: "greeting",
-  render: (data) => `Dear ${data.residentName},`,
-});
+export const Greeting: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    name: data.residentName,
+  }));
+
+  return <Paragraph id="greeting">Dear {state.name},</Paragraph>;
+};
 ```
 
-`render` bekommt Ihre typisierten Daten und ein `availableTokens`-Budget und gibt
-einen String zurück. Es gibt keine Templatesprache — alles, was sich in
-TypeScript ausdrücken lässt, steht zur Verfügung: Bedingungen, Formatierhelfer,
-Importe.
+`useState` ist die Stelle, an der Daten in eine Komponente kommen — und die
+einzige. Alles danach liest State. Das ist eine Regel mit einem Grund: Weil jede
+Abhängigkeit durch eine einzige Deklaration läuft, steht aufgeschrieben, was
+eine Komponente braucht, statt sich über den Code zu verteilen, der es benutzt.
 
-## Abschnitte verschachteln, Nodes nicht
+Der Initializer ist gewöhnliches TypeScript. Es gibt keine Template-Sprache,
+Bedingungen, Formatierung und Importe stehen also einfach zur Verfügung.
 
-`section` ist das einzige verschachtelnde Konstrukt. Es trägt einen Titel in die
-Dokumentgliederung:
+`Paragraph` benennt zugleich das Element und den Komponententyp — ein Wert und
+ein Typ dürfen sich einen Namen teilen. `const Greeting: Paragraph` sagt also,
+was hier geliefert wird, und ein `<Section>` daraus zurückzugeben ist ein
+Compile-Fehler.
 
-```ts
-import { section } from "docxcelerate";
+## Daten können auch als Props ankommen
 
-section({ id: "opening", title: "Opening" }, [Greeting, Offer]);
+Eine Komponente, der man gibt, was sie braucht, muss nicht selbst danach
+greifen:
+
+```tsx
+export const Arrears: Paragraph<{ amount: number }> = ({ amount }) => {
+  const { currency } = useFormat();
+
+  return <Paragraph id="arrears">You owe {currency(amount)}.</Paragraph>;
+};
 ```
 
-In TSX liest sich dasselbe wie Markup:
+Irgendwer muss die Daten zuerst lesen, eine reine Props-Komponente sitzt also
+unter einer Eltern-Komponente, die sie in State genommen hat. Nehmen Sie Props
+für Komponenten, die Sie gegen verschiedene Werte wiederverwenden wollen, und
+State für Komponenten, die wissen, zu welchem Dokument sie gehören.
+
+## Entscheidungen sind ein gewöhnliches `if`
+
+```tsx
+export const Balance: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    settled: data.balanceDue === 0,
+  }));
+
+  if (state.settled) {
+    return <Paragraph id="settled">Nothing outstanding.</Paragraph>;
+  }
+
+  return <Paragraph id="arrears">A balance remains.</Paragraph>;
+};
+```
+
+Geben Sie jedem Zweig eine eigene id. Das aufgelöste Dokument hält dann fest,
+welchen dieser Empfänger bekommen hat — und das ist der Unterschied zwischen
+einem Dokument, das Sie prüfen können, und einem, das Sie nur ansehen können.
+
+Zum Verzweigen gibt es eine Sache zu wissen, bevor Sie an eine Engine
+veröffentlichen: siehe [Statisch und
+dynamisch](/de/docs/essentials/static-and-dynamic/).
+
+## Ids
+
+Eine id ist die Adresse, unter der eine Engine einen Node anspricht und unter
+der Build-Artefakte zwischen Läufen diffbar bleiben. Behandeln Sie eine
+Umbenennung als Breaking Change.
+
+Sie dürfen sie weglassen. Ein Node ohne id bekommt eine aus seiner Position, und
+genau das verhindert, dass Verzweigungen und Schleifen Sie zwingen, Namen zu
+erfinden. Was nicht geht, ist dieselbe zweimal: Zwei Nodes, die eine id
+beanspruchen, sind ein Fehler — gemeldet mit beiden Positionen — und kein
+Wettlauf, den der spätere gewinnt.
+
+## Sections verschachteln, Nodes nicht
+
+`Section` ist die einzige verschachtelnde Konstruktion. Ihr Titel trägt in die
+Gliederung des Dokuments:
 
 ```tsx
 <Section id="opening" title="Opening">
@@ -60,9 +105,28 @@ In TSX liest sich dasselbe wie Markup:
 </Section>
 ```
 
-Beides ergibt denselben Baum. Siehe [Templates](/de/docs/essentials/templates/)
-dazu, wann welche Form sich lohnt, und [Section](/de/docs/nodes/section/) dazu,
-was ein Abschnitt enthalten darf und wie tief.
+Siehe [Section](/de/docs/nodes/section/) dafür, was eine Section enthalten darf
+und wie tief.
+
+## Hooks
+
+Hooks sind der Weg, auf dem eine Komponente den Build um sich herum erreicht:
+
+| Hook | Was er Ihnen gibt |
+| --- | --- |
+| `useState` | Daten, einmal hereingenommen und behalten |
+| `useShared` | Ein Wert für die Komponenten, die danach gerendert werden |
+| `useSetPrompts` | Prompts für den gelieferten Node — was ihn dynamisch macht |
+| `useSetPlaceholders` | Was Vorschauen statt erzeugter Inhalte zeigen |
+| `usePlaceholderData` | Ersatz-Namen, -Daten und -Zahlen für Vorschauen |
+| `useFormat` | Sprachraumgerechte Währungen, Daten, Listen und Pluralformen |
+| `useAvailableTokens` | Das Token-Budget, das dieser Build zugeteilt hat |
+| `useDeriver` | Führt einen registrierten Deriver jetzt aus |
+
+Sie laufen in Aufrufreihenfolge, jeder Hook muss also vor dem ersten `await` und
+vor jeder Verzweigung erreicht werden — dieselbe Regel wie in React, aus
+demselben Grund. Einen nach einem `await` aufzurufen ist ein Fehler, der das
+auch sagt, statt sich still an die nächste gerenderte Komponente zu hängen.
 
 ## Das Dokument bauen
 
@@ -73,11 +137,11 @@ const doc = await buildDocument(documentTemplate, data);
 ```
 
 Das Ergebnis ist ein `DocumentModel`: eine `schemaVersion`, eine `id`, ein
-`title` und ein `nodes`-Array. Es enthält kein Styling und kein Layout — das legt
-später der Renderer an, der es verarbeitet.
+`title` und ein `nodes`-Array. Es enthält kein Styling und kein Layout — die
+kommen später von dem Renderer, der es konsumiert.
 
-Für ein Dokumentprojekt, das mit `defineDocumentProject` definiert wurde, nehmen
-Sie besser `buildProjectPreviewDocument`: das wendet den Stil des Projekts an und
+Für ein mit `defineDocumentProject` definiertes Dokumentprojekt nehmen Sie
+besser `buildProjectPreviewDocument`: Es wendet den Stil des Projekts an und
 löst dynamische Nodes zu ihren Platzhaltern auf:
 
 ```ts
@@ -86,5 +150,5 @@ import { buildProjectPreviewDocument } from "docxcelerate";
 const doc = await buildProjectPreviewDocument(project);
 ```
 
-Genau das ruft die Vorschau-App auf — was Sie im Code bauen, entspricht also dem,
+Genau das ruft die Vorschau-App auf, was Sie im Code bauen entspricht also dem,
 was Sie im Browser gesehen haben.

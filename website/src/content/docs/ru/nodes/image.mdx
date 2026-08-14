@@ -11,20 +11,24 @@ import NodeVariants from "../../../../components/NodeVariants.astro";
 
 <NodeSummary type="image" />
 
-## Каждое поле принимает функцию
+## Каждое поле — это проп
 
 `src`, `alt`, `width` и `height` принимают либо обычное значение, либо функцию от
 ваших данных. Подпись, различающаяся по офисам, логотип для каждого бренда,
 фотография по номеру дела — всё это остаётся внутри узла, а не превращается в
 ветвление в шаблоне:
 
-```ts
-image<MemberData>({
-  id: "signature",
-  src: (data) => data.signatureUrl,
-  alt: (data) => `Signed by ${data.managerName}`,
-  width: 180,
-});
+```tsx
+export const Signature: Image = () => {
+  const [state] = useState((data: MemberData) => ({
+    src: data.signatureUrl,
+    manager: data.managerName,
+  }));
+
+  return (
+    <Image id="signature" src={state.src} alt={`Signed by ${state.manager}`} width={180} />
+  );
+};
 ```
 
 ## src становится path

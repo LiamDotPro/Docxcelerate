@@ -19,7 +19,7 @@ const t = ui(locale);
 
 const groups = byCategory();
 
-const sources = import.meta.glob("../nodes/**/*.node.ts", {
+const sources = import.meta.glob("../nodes/**/*.node.tsx", {
   query: "?raw",
   import: "default",
   eager: true,

@@ -1,0 +1,247 @@
+import type { ValueExpression } from "../domain/types.ts";
+import {
+  type ComponentInstance,
+  nextCell,
+  type PromptDraft,
+  requireContext,
+  requireInstance,
+} from "./context.ts";
+
+export type StateInitializer<TState, TData> = TState | ((data: TData) => TState);
+
+/**
+ * State the component keeps, seeded from the document data once.
+ *
+ * The initializer is where data enters a component; nothing else reaches for
+ * it. Everything after reads state, which is what lets the branch compiler see
+ * a component's dependencies instead of guessing at scattered reads.
+ *
+ * A build is a single pass, so the setter is not a re-render request. It
+ * updates the value that this component reads later on, and that anything
+ * sharing it through `useShared` will read.
+ */
+export function useState<TState, TData = unknown>(
+  initial: StateInitializer<TState, TData>,
+): [TState, (next: TState | ((previous: TState) => TState)) => void] {
+  const instance = requireInstance("useState");
+  const context = requireContext("useState");
+  const cell = nextCell(instance, () =>
+    typeof initial === "function"
+      ? (initial as (data: TData) => TState)(context.data as TData)
+      : initial);
+
+  return [
+    cell.value,
+    (next) => {
+      cell.value = typeof next === "function"
+        ? (next as (previous: TState) => TState)(cell.value)
+        : next;
+    },
+  ];
+}
+
+/**
+ * State shared by everything in one build, keyed by name.
+ *
+ * Reads see whatever the components rendered before this one left behind —
+ * a running total, the facts already stated, the budget already spent. Order is
+ * document order, so a later section can react to an earlier one.
+ */
+export function useShared<TValue>(
+  key: string,
+  initial: TValue | (() => TValue),
+): [TValue, (next: TValue | ((previous: TValue) => TValue)) => void] {
+  const context = requireContext("useShared");
+  requireInstance("useShared");
+
+  if (!context.shared.has(key)) {
+    context.shared.set(key, typeof initial === "function" ? (initial as () => TValue)() : initial);
+  }
+
+  return [
+    context.shared.get(key) as TValue,
+    (next) => {
+      const previous = context.shared.get(key) as TValue;
+      context.shared.set(
+        key,
+        typeof next === "function" ? (next as (previous: TValue) => TValue)(previous) : next,
+      );
+    },
+  ];
+}
+
+/**
+ * There is deliberately no `useMemo`.
+ *
+ * A build renders each component once and keeps no instances between builds, so
+ * a memo could never return a cached value — and caching across builds would be
+ * wrong anyway, because each build has different data. Compute in the `useState`
+ * initializer instead, which is the one place that runs once by construction.
+ */
+
+/** The token budget this build was given, for prompts that need to size themselves. */
+export function useAvailableTokens(): number {
+  return requireContext("useAvailableTokens").availableTokens;
+}
+
+/**
+ * Sets the prompts for whatever node this component yields.
+ *
+ * Calling this is what makes the node dynamic. The returned draft can be spread
+ * onto the element instead, when saying so at the element reads better; both
+ * routes end in the same place, and props win over the hook so a caller can
+ * override what a shared hook set.
+ */
+export function useSetPrompts(prompts: PromptDraft): PromptDraft {
+  const instance = requireInstance("useSetPrompts");
+  assign(instance.prompts, prompts);
+
+  return { ...instance.prompts };
+}
+
+/**
+ * Sets the stand-in text shown wherever a document is previewed rather than
+ * written — before an AI client has produced anything.
+ */
+export function useSetPlaceholders(placeholder: string | { placeholder?: string }): PromptDraft {
+  const instance = requireInstance("useSetPlaceholders");
+
+  assign(
+    instance.prompts,
+    typeof placeholder === "string" ? { placeholder } : placeholder,
+  );
+
+  return { ...instance.prompts };
+}
+
+export interface PlaceholderData {
+  name(): string;
+  city(): string;
+  date(offsetDays?: number): string;
+  currency(amount?: number): string;
+  sentence(words?: number): string;
+  paragraph(sentences?: number): string;
+  pick<TValue>(values: readonly TValue[]): TValue;
+}
+
+/**
+ * Stand-in values for a preview.
+ *
+ * Seeded from where the component sits, so the same node shows the same name
+ * and the same figures every time it is previewed. A preview that reshuffles
+ * itself on each build is one nobody can proofread.
+ */
+export function usePlaceholderData(): PlaceholderData {
+  const instance = requireInstance("usePlaceholderData");
+  const context = requireContext("usePlaceholderData");
+  const random = seededRandom(instance.path);
+
+  const pick = <TValue>(values: readonly TValue[]): TValue =>
+    values[Math.floor(random() * values.length)];
+
+  return {
+    pick,
+    name: () => `${pick(firstNames)} ${pick(lastNames)}`,
+    city: () => pick(cities),
+    date: (offsetDays = 0) => {
+      const base = new Date(Date.UTC(2024, 0, 15));
+      base.setUTCDate(base.getUTCDate() + offsetDays);
+      return new Intl.DateTimeFormat(context.locale, { dateStyle: "long", timeZone: "UTC" })
+        .format(base);
+    },
+    currency: (amount) =>
+      new Intl.NumberFormat(context.locale, { style: "currency", currency: "GBP" })
+        .format(amount ?? Math.round(random() * 100_000) / 100),
+    sentence: (words = 12) =>
+      capitalize(Array.from({ length: words }, () => pick(lorem)).join(" ")) + ".",
+    paragraph: (sentences = 3) =>
+      Array.from({ length: sentences }, () =>
+        capitalize(
+          Array.from({ length: 8 + Math.floor(random() * 8) }, () => pick(lorem)).join(" "),
+        ) + ".").join(" "),
+  };
+}
+
+export interface Formatters {
+  currency(amount: number, currency?: string): string;
+  number(value: number, options?: Intl.NumberFormatOptions): string;
+  date(value: Date | string | number, options?: Intl.DateTimeFormatOptions): string;
+  list(values: readonly string[], type?: "conjunction" | "disjunction"): string;
+  plural(count: number, singular: string, plural?: string): string;
+}
+
+/** Locale-aware formatting, so a component does not hand-roll it. */
+export function useFormat(locale?: string): Formatters {
+  const context = requireContext("useFormat");
+  const resolved = locale ?? context.locale;
+
+  return {
+    currency: (amount, currency = "GBP") =>
+      new Intl.NumberFormat(resolved, { style: "currency", currency }).format(amount),
+    number: (value, options) => new Intl.NumberFormat(resolved, options).format(value),
+    date: (value, options = { dateStyle: "long" }) =>
+      new Intl.DateTimeFormat(resolved, options).format(
+        value instanceof Date ? value : new Date(value),
+      ),
+    list: (values, type = "conjunction") =>
+      new Intl.ListFormat(resolved, { style: "long", type }).format(values),
+    plural: (count, singular, plural) =>
+      count === 1 ? singular : plural ?? `${singular}s`,
+  };
+}
+
+/**
+ * Runs a registered deriver now and hands back what it produced.
+ *
+ * The result also lands in `derived`, so `{{derived.<output>}}` in any text
+ * resolves to it. A deriver is async, so this returns a promise — the component
+ * that awaits it becomes async, and its hooks must all have been called first.
+ */
+export function useDeriver(
+  name: string,
+): (output: string, ...inputs: ValueExpression[]) => Promise<unknown> {
+  const context = requireContext("useDeriver");
+  requireInstance("useDeriver");
+
+  return (output, ...inputs) =>
+    context.derivers.run({ name, output, inputs }, context.state);
+}
+
+function assign(target: PromptDraft, source: PromptDraft): void {
+  for (const [key, value] of Object.entries(source)) {
+    if (value !== undefined) {
+      target[key as keyof PromptDraft] = value as string;
+    }
+  }
+}
+
+function seededRandom(seed: string): () => number {
+  let hash = 2166136261;
+
+  for (let index = 0; index < seed.length; index += 1) {
+    hash ^= seed.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return () => {
+    hash += 0x6d2b79f5;
+    let value = hash;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+const firstNames = ["Avery", "Rowan", "Imani", "Tomas", "Neela", "Fintan", "Marta", "Osei"];
+const lastNames = ["Whitfield", "Okonkwo", "Lindqvist", "Bassey", "Moreau", "Ferreira", "Nolan"];
+const cities = ["Leeds", "Cork", "Antwerp", "Porto", "Malmo", "Bristol", "Ghent"];
+const lorem = [
+  "tenancy", "notice", "balance", "review", "account", "period", "statement",
+  "renewal", "property", "schedule", "payment", "reference", "agreement",
+];
+
+export type { PromptDraft };
