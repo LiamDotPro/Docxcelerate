@@ -73,7 +73,7 @@
     "build": "tsc -p tsconfig.build.json",
     "test": "npm run build && tsc -p tsconfig.test.json && node --test \"dist-tests/**/*.test.js\"",
     "clean": "node -e \"for (const d of ['dist','dist-tests']) require('node:fs').rmSync(d,{recursive:true,force:true})\"",
-    "prepare": "npm run build",
+    "prepare": "node scripts/prepare.mjs",
     "prepublishOnly": "npm run clean && npm run build",
     "typecheck": "npm run build && tsc -p tsconfig.json",
     "dxcl": "node ./bin/dxcl.mjs"

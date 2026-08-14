@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "lib": "node scripts/build-lib.mjs",
     "demo": "node scripts/build-demo-letter.mjs",
     "nodes": "node scripts/build-node-previews.mjs",
     "release-info": "node scripts/build-release-info.mjs",
-    "prep": "npm run demo && npm run nodes && npm run release-info",
+    "prep": "npm run lib && npm run demo && npm run nodes && npm run release-info",
     "dev": "npm run prep && astro dev",
     "build": "npm run prep && astro build",
     "preview": "astro preview",
@@ -18,6 +19,7 @@
   },
   "devDependencies": {
     "@astrojs/mdx": "^4.3.2",
+    "@deno/astro-adapter": "^0.3.2",
     "@tailwindcss/vite": "^4.1.14",
     "astro": "^5.14.1",
     "esbuild": "^0.28.2",
