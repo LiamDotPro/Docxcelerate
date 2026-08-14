@@ -1,0 +1,32 @@
+---
+import Base from "../layouts/Base.astro";
+
+// Static hosts serve dist/404.html for unmatched paths, so this needs to exist
+// as a real page rather than relying on SPA fallback — a docs site that answers
+// 200 with the homepage for every typo is worse than one that says "not found".
+---
+
+<Base title="Page not found" description="That page does not exist.">
+  <section class="mx-auto flex max-w-2xl flex-col items-start gap-5 px-5 py-32 sm:px-8">
+    <p class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent">
+      404
+    </p>
+    <h1 class="m-0 text-4xl font-semibold">That page does not exist</h1>
+    <p class="m-0 leading-relaxed text-muted">
+      The link may be out of date, or the page may have moved. The documentation
+      is the best place to pick the thread back up.
+    </p>
+    <div class="mt-2 flex flex-wrap gap-3">
+      <a
+        href="/docs/start-here/"
+        class="rounded bg-accent-solid px-5 py-2.5 text-sm font-medium text-on-accent no-underline transition-colors hover:bg-accent-deep"
+        >Read the docs →</a
+      >
+      <a
+        href="/"
+        class="rounded border border-border-firm px-5 py-2.5 text-sm font-medium text-accent no-underline transition-colors hover:bg-accent-tint"
+        >Back to the homepage</a
+      >
+    </div>
+  </section>
+</Base>
