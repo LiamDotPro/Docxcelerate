@@ -1,0 +1,137 @@
+# Publishes the framework to npm when it changes on main.
+#
+# Authentication is npm trusted publishing: the job asks GitHub for a
+# short-lived OIDC token and npm exchanges it for publish rights. There is no
+# npm token in this repository and nothing to rotate — which is the point, as
+# an interactive OTP cannot reach a CI runner.
+#
+# It needs two things set up outside this file:
+#
+#   1. The package must already exist on npm. A trusted publisher is configured
+#      per package, so the very first publish of a new name is a manual one.
+#   2. On npmjs.com -> the package -> Settings -> Trusted publishers, add this
+#      repository (LiamDotPro/Docxcelerate) and this workflow's filename
+#      (release.yml).
+#
+# Provenance is skipped while the repository is private: npm signs it into a
+# public transparency log and refuses to do so for a private repo. It turns
+# itself on when the repository goes public.
+#
+# Only the framework triggers this. The site lives in website/ and deploys
+# itself, so its changes never cut a release.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "bin/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.build.json"
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Bump to apply if the version in package.json is already published"
+        type: choice
+        default: patch
+        options: [patch, minor, major]
+
+# One release at a time. Two runs bumping versions concurrently would race over
+# the same commit on main.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # The version commit this job pushes must not start another release. A push
+    # made with GITHUB_TOKEN does not trigger workflows and the message carries
+    # [skip ci]; this is the third lock on the same door.
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the version commit, its tag, and the release
+      id-token: write # mint the OIDC token npm trades for publish rights
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # npm version wants the history behind the branch, not a shallow cut.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing landed in npm 11.5.1; the npm bundled with Node may
+      # be older than that.
+      - name: Use an npm that can publish through OIDC
+        run: npm install -g npm@latest
+
+      - run: npm ci
+
+      - run: npm test
+
+      # The version in package.json wins if it has never been published — so a
+      # deliberate bump in a pull request ships exactly as written, and the
+      # first release after this workflow lands is the version already there.
+      # Anything else is a re-push of an existing version, which gets the bump.
+      - name: Settle the version
+        id: version
+        env:
+          MESSAGE: ${{ github.event.head_commit.message }}
+          DISPATCH_BUMP: ${{ inputs.bump }}
+        run: |
+          set -euo pipefail
+
+          name=$(node -p "require('./package.json').name")
+          current=$(node -p "require('./package.json').version")
+
+          # Both the tag and the version commit are made here, so the identity
+          # is needed either way — an annotated tag has an author too, and only
+          # annotated tags travel with `git push --follow-tags`.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Prints nothing for a version that is not published, and fails for a
+          # package that does not exist at all. Both mean "publish as is".
+          published=$(npm view "$name@$current" version 2>/dev/null || true)
+
+          if [ -z "$published" ]; then
+            echo "$name@$current is not published — releasing it as is"
+            git tag -a "v$current" -m "v$current"
+            echo "version=$current" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          level="${DISPATCH_BUMP:-patch}"
+          case "$MESSAGE" in
+            *"#major"*) level=major ;;
+            *"#minor"*) level=minor ;;
+          esac
+
+          echo "$name@$current is already published — bumping the $level version"
+          npm version "$level" -m "chore(release): %s [skip ci]"
+
+          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # Publish before pushing anything: a failure here leaves main untouched
+      # rather than tagging a release that does not exist.
+      - name: Publish to npm
+        env:
+          # Empty unless someone adds the secret. Trusted publishing does not
+          # need it — it is the escape hatch if OIDC ever has to be abandoned
+          # for a granular token with 2FA bypass.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public ${{ github.event.repository.private && '' || '--provenance' }}
+
+      - name: Push the version commit and its tag
+        run: git push --follow-tags
+
+      - name: Write the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "v${{ steps.version.outputs.version }}" --generate-notes
