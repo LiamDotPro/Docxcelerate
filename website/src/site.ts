@@ -5,9 +5,9 @@
 
 export const SITE = {
   name: "Docxcelerate",
-  tagline: "Letters as components. DOCX as output.",
+  tagline: "Documents as components. DOCX as output.",
   description:
-    "A TypeScript toolkit and CLI for building DOCX letter projects. Author letters as typed components, preview them in the browser, and pack real .docx files locally.",
+    "A TypeScript toolkit and CLI for building DOCX document projects. Author documents as typed components, preview them in the browser, and pack real .docx files locally.",
 } as const;
 
 /**
@@ -19,7 +19,7 @@ export const SITE = {
  * would break this command; use `npx --package=docxcelerate dxcl` if that ever
  * happens.
  */
-export const INSTALL_COMMAND = "npx docxcelerate init my-letters";
+export const INSTALL_COMMAND = "npx docxcelerate init my-documents";
 
 /**
  * The managed cloud engine — a hosted generation engine, not a dashboard for
@@ -36,7 +36,7 @@ export const CLOUD_AVAILABLE = false;
 
 /**
  * The free, self-hostable generation engine. It is deliberately not part of the
- * npm package — the framework authors and previews letters, the engine runs the
+ * npm package — the framework authors and previews documents, the engine runs the
  * prompts, builds the documents and exposes an API for generating more.
  *
  * TODO: set this to the engine's repository or download page. While it is null

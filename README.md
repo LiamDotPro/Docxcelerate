@@ -1,137 +1,44 @@
 # Docxcelerate
 
-Docxcelerate is a TypeScript toolkit and CLI for building DOCX letter projects. It scaffolds a
-workspace with a browser preview, lets you compose letters from reusable nodes, and produces plain
-JSON artifacts that a document generation endpoint turns into finished documents.
+Compose DOCX documents from small typed components, using the JSX you already write.
+Author and preview them locally, then generate finished documents through the engine.
 
-Everything in this repository is free and open source, and runs entirely on Node.js. Previewing and
-packing DOCX happens locally in your browser — no server required.
+**[Documentation](https://docxcelerate.com/docs/start-here/)** · [docxcelerate.com](https://docxcelerate.com)
 
 ## Requirements
 
-- Node.js 20 or newer
+Node.js 20 or newer. Nothing else — authoring, preview and DOCX packing all run locally.
 
-## Getting Started
-
-Clone the repository and build the CLI:
+## Quick start
 
 ```sh
-git clone https://github.com/LiamDotPro/Docxcelerate.git
-cd Docxcelerate
-npm install
-npm run build
-```
-
-Create a workspace and open the preview app:
-
-```sh
-node ./bin/dxcl.mjs init housing-letters
-cd housing-letters
+npx docxcelerate init my-documents
+cd my-documents
 npm run dev
 ```
 
-`dxcl init` scaffolds a self-contained Vite workspace and installs its dependencies. `npm run dev`
-opens the preview site, where you can pick a letter, resolve it with preview data, pack it into a
-real `.docx` in the browser, and view it with `docx-preview`.
+This scaffolds a workspace and opens the preview app, where you can pick a document,
+resolve it against preview data, and pack it into a real `.docx` in the browser.
 
-To use `dxcl` from anywhere, link it once:
-
-```sh
-npm link
-dxcl init housing-letters
-```
-
-## Workspace Layout
-
-```text
-housing-letters/
-  docxcelerate.config.json
-  index.html
-  package.json
-  preview/
-    main.ts
-    styles.css
-  vite.config.ts
-  tsconfig.json
-  letters/
-```
-
-## CLI
-
-Create a new workspace:
+To get the `dxcl` binary on your path:
 
 ```sh
-dxcl init my-letters
-dxcl init my-letters --dir workspaces
-dxcl init my-letters --blank
+npm install -g docxcelerate
 ```
 
-Run `dxcl init` with no arguments for a guided setup that asks for the template and API endpoint.
+## What a document looks like
 
-Create a letter inside a workspace:
-
-```sh
-dxcl letter new arrears-notice --title "Arrears Notice"
-```
-
-Add nodes to a letter:
-
-```sh
-dxcl letter node letters/arrears-notice repayment-summary --type paragraph --mode dynamic
-dxcl letter node letters/arrears-notice customer-photo --type image --mode static
-dxcl letter node letters/arrears-notice balance-trend --type graph --mode static
-```
-
-The generator writes `nodes/<name>.node.ts` and updates `nodes/index.ts`. Add the generated
-component to `letter.tsx` where it should appear in the document.
-
-## Letter Projects
-
-A generated letter project has one entrypoint, `letter.project.ts`, and keeps template, preview
-data, styles, types, and reusable nodes separate:
-
-```text
-letters/arrears-notice/
-  letter.project.ts
-  letter-style.ts
-  letter.tsx
-  preview-data.ts
-  types.ts
-  nodes/
-    index.ts
-```
-
-The entrypoint exports `defineDocumentProject(...)`:
-
-```tsx
-import { defineDocumentProject } from "docxcelerate/document";
-import { letterTemplate } from "./letter.tsx";
-import { letterStyle } from "./letter-style.ts";
-import type { LetterData } from "./types.ts";
-
-export default defineDocumentProject<LetterData>({
-  id: "arrears-notice",
-  name: "Arrears Notice",
-  version: "0.1.0",
-  template: letterTemplate,
-  style: letterStyle,
-  previewData: {
-    recipientName: "Avery",
-    city: "Berlin",
-  },
-});
-```
-
-Templates can be written with TSX:
+A document is a tree of typed components. Static nodes render locally; dynamic ones
+carry prompts and a placeholder, and the engine resolves them at request time.
 
 ```tsx
 /** @jsxImportSource docxcelerate/template */
 import { Document, Section, template } from "docxcelerate/template";
-import type { LetterData } from "./types.ts";
+import type { TenancyData } from "./types.ts";
 import { Greeting } from "./nodes/index.ts";
 
-export const letterTemplate = template<LetterData>(
-  <Document id="arrears-notice" title="Arrears Notice">
+export const documentTemplate = template<TenancyData>(
+  <Document id="tenancy-renewal" title="Tenancy Renewal">
     <Section id="opening" title="Opening">
       <Greeting />
     </Section>
@@ -139,102 +46,18 @@ export const letterTemplate = template<LetterData>(
 );
 ```
 
-Static and dynamic nodes live in normal TypeScript modules:
+## Documentation
 
-```ts
-import { paragraph } from "docxcelerate/document";
-import type { LetterData } from "../types.ts";
+Everything is on [docxcelerate.com](https://docxcelerate.com):
 
-export const RepaymentSummary = paragraph<LetterData>({
-  id: "repayment-summary",
-  placeholder(data) {
-    return `${data.recipientName} has an active repayment plan.`;
-  },
-  generalPrompt(data) {
-    return `Write a concise repayment summary for ${data.recipientName}.`;
-  },
-});
-```
-
-There is one helper per node kind — `paragraph`, `image`, `graph` — and the mode is inferred from
-the options. Give a node its local-resolution member (`render`, `src`, `data`) and it renders
-locally; give it prompts instead and it keeps a placeholder for preview while the engine resolves
-it at request time. Supplying both is a compile error, so `mode` in the built document always
-matches the source.
-
-## Project Config
-
-Every workspace includes `docxcelerate.config.json`, storing named presets for build and upload
-behavior:
-
-```json
-{
-  "schemaVersion": "docxcelerate.config/v0",
-  "activePreset": "local",
-  "presets": {
-    "local": {
-      "build": { "outDir": "build" },
-      "upload": {
-        "endpoint": "",
-        "method": "POST",
-        "headers": {},
-        "body": "letter"
-      }
-    }
-  }
-}
-```
-
-Build writes artifacts to `build.outDir` inside the active letter folder, such as
-`letters/arrears-notice/build`. Build & upload is enabled when the active preset has an
-`upload.endpoint`.
-
-## Build Artifacts
-
-The preview UI build action writes:
-
-```text
-letters/<letter-id>/build/
-  manifest.json
-  preview.json
-  letter.json
-```
-
-`preview.json` is for local development and includes preview data. `letter.json` is the upload
-artifact — it keeps request-time values as placeholders such as `{{data.recipientName}}` so the
-endpoint can resolve final data later.
-
-## Document Generation Endpoint
-
-Authoring, previewing, and building are entirely local and free. Turning a `letter.json` artifact
-into a finished document — resolving dynamic nodes, applying request-time data, and returning the
-DOCX — is done by a document generation endpoint.
-
-A hosted service is available at `https://docxcelerate.thoughtup.deno.net/`, and its server
-implementation is not part of this repository. Point a workspace at it during setup:
-
-```sh
-dxcl init my-letters --official-server
-```
-
-Or configure any endpoint of your own:
-
-```sh
-dxcl init my-letters --api-endpoint https://letters.example.com/api/letters
-dxcl init my-letters --no-api-endpoint
-```
-
-You can also edit `upload.endpoint` in `docxcelerate.config.json` at any time.
-
-## Package Entrypoints
-
-```ts
-import { buildDocument, createDocumentProjectArtifact } from "docxcelerate";
-import { createDocxDocument } from "docxcelerate/docx";
-import { defineDocumentProject, paragraph } from "docxcelerate/document";
-import { Document, Section, template } from "docxcelerate/template";
-import { renderDocumentWebsite } from "docxcelerate/renderer";
-```
+- [Start here](https://docxcelerate.com/docs/start-here/) — install, scaffold, first document
+- [Documents and nodes](https://docxcelerate.com/docs/essentials/documents-and-nodes/) — the model
+- [Templates](https://docxcelerate.com/docs/essentials/templates/) — composing with JSX
+- [Static and dynamic](https://docxcelerate.com/docs/essentials/static-and-dynamic/) — where AI fits
+- [The node reference](https://docxcelerate.com/docs/nodes/overview/) — every node type, rendered
+- [CLI commands](https://docxcelerate.com/docs/cli/commands/) — every `dxcl` command
+- [The engine](https://docxcelerate.com/docs/generation/endpoint/) — generating at scale
+- [Package entrypoints](https://docxcelerate.com/docs/reference/entrypoints/) — what each import gives you
 
 ## Development
 
@@ -246,6 +69,7 @@ npm run typecheck # type-check sources and tests
 ```
 
 The published package ships compiled output from `dist/` plus the `dxcl` binary.
+Pushing a change to `src/` on `main` publishes a new version.
 
 ## License
 

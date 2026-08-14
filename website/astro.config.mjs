@@ -15,6 +15,9 @@ export default defineConfig({
   integrations: [mdx()],
   redirects: {
     "/docs": "/docs/start-here/",
+    // The page was called "letters and nodes" until the vocabulary settled on
+    // documents. Anything already linking to the old slug still lands.
+    "/docs/essentials/letters-and-nodes/": "/docs/essentials/documents-and-nodes/",
   },
   vite: {
     plugins: [tailwindcss()],
