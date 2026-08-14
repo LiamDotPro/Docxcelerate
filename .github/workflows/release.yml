@@ -19,6 +19,12 @@
 #
 # Only the framework triggers this. The site lives in website/ and deploys
 # itself, so its changes never cut a release.
+#
+# The version in package.json decides whether anything is released. Bump it in
+# the pull request that earns the bump, and merging it ships exactly that
+# version; leave it alone and the job stops before publishing. Nothing here
+# writes a version or pushes a commit to main, so what ships is always a number
+# somebody chose on purpose and reviewed.
 name: Release
 
 on:
@@ -30,34 +36,25 @@ on:
       - "package.json"
       - "package-lock.json"
       - "tsconfig.build.json"
+  # For re-running a release whose publish failed after the version was merged.
   workflow_dispatch:
-    inputs:
-      bump:
-        description: "Bump to apply if the version in package.json is already published"
-        type: choice
-        default: patch
-        options: [patch, minor, major]
 
-# One release at a time. Two runs bumping versions concurrently would race over
-# the same commit on main.
+# One release at a time, so two runs cannot race to publish the same version.
 concurrency:
   group: release
   cancel-in-progress: false
 
 jobs:
   release:
-    # The version commit this job pushes must not start another release. A push
-    # made with GITHUB_TOKEN does not trigger workflows and the message carries
-    # [skip ci]; this is the third lock on the same door.
-    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write # push the version commit, its tag, and the release
+      contents: write # push the tag and write the release
       id-token: write # mint the OIDC token npm trades for publish rights
     steps:
       - uses: actions/checkout@v7
         with:
-          # npm version wants the history behind the branch, not a shallow cut.
+          # `gh release --generate-notes` writes from the commits and tags since
+          # the last release, and a shallow cut does not have them.
           fetch-depth: 0
 
       - uses: actions/setup-node@v7
@@ -71,67 +68,97 @@ jobs:
       - name: Use an npm that can publish through OIDC
         run: npm install -g npm@latest
 
+      # `registry-url` above writes `//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}`
+      # into .npmrc, unconditionally. With no token — which is the whole point of
+      # trusted publishing — that line expands to an empty string, npm decides
+      # authentication is already configured, and never asks GitHub for the OIDC
+      # token. The publish then fails with ENEEDAUTH while looking like a
+      # credentials problem rather than a config one.
+      #
+      # `registry-url` is still worth keeping: it is what points the registry at
+      # npmjs.org. Only the token line has to go.
+      - name: Clear the empty auth line that would suppress OIDC
+        run: |
+          set -euo pipefail
+          npmrc="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+
+          # An `if` rather than `[ -f ] && sed`, which would exit non-zero and
+          # fail the step on the day the file is not there.
+          if [ -f "$npmrc" ]; then
+            sed -i '/_authToken/d' "$npmrc"
+            echo "Cleared the auth line. $npmrc now reads:"
+            cat "$npmrc"
+          else
+            echo "No $npmrc to clear."
+          fi
+
+      # Ahead of the release decision, and deliberately not skipped when there
+      # is nothing to publish: this is the only workflow in the repository, so
+      # it is also the only thing running the suite against main.
       - run: npm ci
 
       - run: npm test
 
-      # The version in package.json wins if it has never been published — so a
-      # deliberate bump in a pull request ships exactly as written, and the
-      # first release after this workflow lands is the version already there.
-      # Anything else is a re-push of an existing version, which gets the bump.
-      - name: Settle the version
+      # Whether there is anything to release, asked of the registry rather than
+      # of the diff.
+      #
+      # "Has the version changed?" and "is this version unpublished?" agree on
+      # every push that matters, and differ on the one that does: a release
+      # whose publish failed after the bump was merged. The diff would call that
+      # unchanged and never retry; the registry knows the version is still
+      # missing and lets the next push finish the job.
+      - name: Decide whether to release
         id: version
-        env:
-          MESSAGE: ${{ github.event.head_commit.message }}
-          DISPATCH_BUMP: ${{ inputs.bump }}
         run: |
           set -euo pipefail
 
           name=$(node -p "require('./package.json').name")
           current=$(node -p "require('./package.json').version")
 
-          # Both the tag and the version commit are made here, so the identity
-          # is needed either way — an annotated tag has an author too, and only
-          # annotated tags travel with `git push --follow-tags`.
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
           # Prints nothing for a version that is not published, and fails for a
-          # package that does not exist at all. Both mean "publish as is".
+          # package that does not exist at all. Both mean "nothing has shipped
+          # under this number yet".
           published=$(npm view "$name@$current" version 2>/dev/null || true)
 
-          if [ -z "$published" ]; then
-            echo "$name@$current is not published — releasing it as is"
-            git tag -a "v$current" -m "v$current"
-            echo "version=$current" >> "$GITHUB_OUTPUT"
+          if [ -n "$published" ]; then
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "$name@$current is already published — nothing to release."
+            echo "Bump the version in package.json to ship a new build." \
+              >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
-          level="${DISPATCH_BUMP:-patch}"
-          case "$MESSAGE" in
-            *"#major"*) level=major ;;
-            *"#minor"*) level=minor ;;
-          esac
+          echo "release=true" >> "$GITHUB_OUTPUT"
+          echo "version=$current" >> "$GITHUB_OUTPUT"
+          echo "$name@$current is not published — releasing it."
+          echo "Releasing $name@$current." >> "$GITHUB_STEP_SUMMARY"
 
-          echo "$name@$current is already published — bumping the $level version"
-          npm version "$level" -m "chore(release): %s [skip ci]"
-
-          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
-
-      # Publish before pushing anything: a failure here leaves main untouched
-      # rather than tagging a release that does not exist.
+      # Publish before tagging: a failure here leaves no tag pointing at a
+      # release that does not exist.
+      #
+      # No NODE_AUTH_TOKEN here on purpose. Setting it to an unset secret is not
+      # a harmless default: an empty value is what stopped OIDC from running at
+      # all. If a token is ever needed instead, add it back along with removing
+      # the step that clears the auth line.
       - name: Publish to npm
-        env:
-          # Empty unless someone adds the secret. Trusted publishing does not
-          # need it — it is the escape hatch if OIDC ever has to be abandoned
-          # for a granular token with 2FA bypass.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        if: steps.version.outputs.release == 'true'
         run: npm publish --access public ${{ github.event.repository.private && '' || '--provenance' }}
 
-      - name: Push the version commit and its tag
-        run: git push --follow-tags
+      # The tag names the commit that was already on main, so there is nothing
+      # to push but the tag itself.
+      - name: Tag the released commit
+        if: steps.version.outputs.release == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$VERSION" -m "v$VERSION"
+          git push origin "v$VERSION"
 
       - name: Write the GitHub release
+        if: steps.version.outputs.release == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release create "v${{ steps.version.outputs.version }}" --generate-notes

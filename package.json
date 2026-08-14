@@ -1,6 +1,6 @@
 {
   "name": "docxcelerate",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "TypeScript toolkit and CLI for building DOCX letter projects with a browser preview.",
   "license": "MIT",
   "type": "module",
@@ -24,7 +24,7 @@
     "node": ">=20"
   },
   "bin": {
-    "dxcl": "./bin/dxcl.mjs"
+    "dxcl": "bin/dxcl.mjs"
   },
   "files": [
     "bin/dxcl.mjs",
