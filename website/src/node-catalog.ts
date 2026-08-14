@@ -59,11 +59,16 @@ export const NODE_TYPES = generated.types as NodeType[];
 /** Types with a page of their own — everything the toolkit can actually build. */
 export const SHIPPED_NODE_TYPES = NODE_TYPES.filter((type) => type.status !== "planned");
 
-export const STATUS_LABELS: Record<NodeStatus, string> = {
-  "stable": "Stable",
-  "no-helper": "No helper yet",
-  "planned": "Planned",
-};
+/**
+ * Status labels used to live here. They are prose, so they moved to the UI
+ * dictionaries — read them from `ui(locale).nodes.status` instead.
+ *
+ * The rest of the catalog is generated from src/nodes/ by
+ * scripts/build-node-previews.mjs and stays English in every language: a
+ * translation of it could not be regenerated, so it would drift out of step
+ * with the toolkit silently, which is worse for a reference than being in
+ * the wrong language.
+ */
 
 /**
  * Throws rather than returning undefined: a page naming a node type that left
@@ -81,7 +86,11 @@ export function nodeType(id: string): NodeType {
   return found;
 }
 
-/** Where a node type's documentation lives. Planned types have no page yet. */
+/**
+ * Where a node type's documentation lives, canonically. Planned types have no
+ * page yet. Callers pass the result through `localizePath` to address it in the
+ * reader's language.
+ */
 export function nodeTypeHref(type: NodeType): string | undefined {
   return type.status === "planned" ? undefined : `/docs/nodes/${type.id}/`;
 }

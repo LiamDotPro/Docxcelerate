@@ -1,6 +1,13 @@
 export interface ScaffoldDocumentProjectOptions {
   name: string;
   title?: string;
+  documentsDir?: string;
+  /**
+   * What `documentsDir` was called before the vocabulary settled on documents.
+   * Still honoured so an existing script keeps scaffolding where it expects.
+   *
+   * @deprecated Use {@link ScaffoldDocumentProjectOptions.documentsDir}.
+   */
   lettersDir?: string;
   force?: boolean;
 }
@@ -57,8 +64,8 @@ export async function scaffoldDocumentProject(
 ): Promise<ScaffoldDocumentProjectResult> {
   const slug = slugify(options.name);
   const title = options.title ?? titleFromSlug(slug);
-  const projectDir = joinPath(options.lettersDir ?? "letters", slug);
-  const entrypoint = joinPath(projectDir, "letter.project.ts");
+  const projectDir = joinPath(options.documentsDir ?? options.lettersDir ?? "documents", slug);
+  const entrypoint = joinPath(projectDir, "document.project.ts");
   const files = [
     {
       path: joinPath(projectDir, "types.ts"),
@@ -69,8 +76,8 @@ export async function scaffoldDocumentProject(
       contents: previewDataTemplate(),
     },
     {
-      path: joinPath(projectDir, "letter-style.ts"),
-      contents: letterStyleTemplate(),
+      path: joinPath(projectDir, "document-style.ts"),
+      contents: documentStyleTemplate(),
     },
     {
       path: joinPath(projectDir, "derivers", "index.ts"),
@@ -89,8 +96,8 @@ export async function scaffoldDocumentProject(
       contents: nodesIndexTemplate(),
     },
     {
-      path: joinPath(projectDir, "letter.tsx"),
-      contents: letterTemplate({ id: slug, title }),
+      path: joinPath(projectDir, "document.tsx"),
+      contents: documentTemplate({ id: slug, title }),
     },
     {
       path: entrypoint,
@@ -156,7 +163,7 @@ export async function scaffoldWorkspaceProject(
       path: joinPath(projectDir, "README.md"),
       contents: workspaceReadmeTemplate(slug, apiEndpoint, template),
     },
-    ...workspaceLetterFiles(projectDir, template),
+    ...workspaceDocumentFiles(projectDir, template),
   ];
 
   await ensureScaffoldTarget(projectDir, options.force ?? false);
@@ -341,7 +348,7 @@ function isNotFoundError(error: unknown): boolean {
 }
 
 function typesTemplate(): string {
-  return `export interface LetterData {
+  return `export interface DocumentData {
   recipientName: string;
   city: string;
 }
@@ -349,9 +356,9 @@ function typesTemplate(): string {
 }
 
 function previewDataTemplate(): string {
-  return `import type { LetterData } from "./types.ts";
+  return `import type { DocumentData } from "./types.ts";
 
-export const previewData: LetterData = {
+export const previewData: DocumentData = {
   recipientName: "Avery",
   city: "Berlin",
 };
@@ -359,7 +366,7 @@ export const previewData: LetterData = {
 }
 
 function sampleTypesTemplate(): string {
-  return `export interface LetterData {
+  return `export interface DocumentData {
   recipientName: string;
   city: string;
   balanceDue: number;
@@ -368,9 +375,9 @@ function sampleTypesTemplate(): string {
 }
 
 function samplePreviewDataTemplate(): string {
-  return `import type { LetterData } from "./types.ts";
+  return `import type { DocumentData } from "./types.ts";
 
-export const previewData: LetterData = {
+export const previewData: DocumentData = {
   recipientName: "Avery",
   city: "Berlin",
   balanceDue: 128.42,
@@ -378,10 +385,10 @@ export const previewData: LetterData = {
 `;
 }
 
-function letterStyleTemplate(): string {
+function documentStyleTemplate(): string {
   return `import { cleanMinimalDocumentStyle, type DocumentStyle } from "docxcelerate/document";
 
-export const letterStyle: DocumentStyle = {
+export const documentStyle: DocumentStyle = {
   ...cleanMinimalDocumentStyle,
   page: {
     ...cleanMinimalDocumentStyle.page,
@@ -405,9 +412,9 @@ function workspacePackageJsonTemplate(name: string): string {
         type: "module",
         scripts: {
           dev: "vite --host 127.0.0.1 --port 4507",
-          "letter:new": "dxcl letter new",
-          "letter:node": "dxcl letter node",
-          "letters:check": "tsc -p tsconfig.json",
+          "document:new": "dxcl document new",
+          "document:node": "dxcl document node",
+          "documents:check": "tsc -p tsconfig.json",
         },
         dependencies: {
           docxcelerate: "^0.1.3",
@@ -440,7 +447,7 @@ function workspaceConfigTemplate(apiEndpoint: string): string {
               endpoint: apiEndpoint,
               method: "POST",
               headers: {},
-              body: "stored-letter",
+              body: "stored-document",
             },
           },
         },
@@ -465,7 +472,7 @@ function workspaceTsconfigTemplate(): string {
     "skipLibCheck": true,
     "types": ["vite/client"]
   },
-  "include": ["letters/**/*.ts", "letters/**/*.tsx", "preview/**/*.ts"]
+  "include": ["documents/**/*.ts", "documents/**/*.tsx", "preview/**/*.ts"]
 }
 `;
 }
@@ -473,7 +480,7 @@ function workspaceTsconfigTemplate(): string {
 function workspaceGitignoreTemplate(): string {
   return `node_modules/
 build/
-letters/**/build/
+documents/**/build/
 dist/
 `;
 }
@@ -484,12 +491,12 @@ function workspaceReadmeTemplate(
   template: WorkspaceProjectTemplate,
 ): string {
   const sampleText = template === "sample"
-    ? `\nA sample letter is available at \`letters/welcome/letter.project.ts\`.\n`
-    : `\nThis workspace starts blank. Create a letter with \`dxcl letter new\`.\n`;
+    ? `\nA sample document is available at \`documents/welcome/document.project.ts\`.\n`
+    : `\nThis workspace starts blank. Create a document with \`dxcl document new\`.\n`;
 
   return `# ${titleFromSlug(name)}
 
-This is a Docxcelerate letter workspace.
+This is a Docxcelerate document workspace.
 
 Docxcelerate API endpoint: ${apiEndpoint || "not configured"}
 ${sampleText}
@@ -500,78 +507,78 @@ Start the preview:
 npm run dev
 \`\`\`
 
-Create a letter:
+Create a document:
 
 \`\`\`sh
-dxcl letter new
+dxcl document new
 \`\`\`
 
 Generate a node:
 
 \`\`\`sh
-dxcl letter node
+dxcl document node
 \`\`\`
 
-Add shared runtime values for a letter in its \`derivers/index.ts\` file.
+Add shared runtime values for a document in its \`derivers/index.ts\` file.
 
-Type-check letters:
+Type-check documents:
 
 \`\`\`sh
-npm run letters:check
+npm run documents:check
 \`\`\`
 `;
 }
 
-function workspaceLetterFiles(
+function workspaceDocumentFiles(
   projectDir: string,
   template: WorkspaceProjectTemplate,
 ): Array<{ path: string; contents: string }> {
   if (template === "blank") {
     return [
       {
-        path: joinPath(projectDir, "letters", ".gitkeep"),
+        path: joinPath(projectDir, "documents", ".gitkeep"),
         contents: "",
       },
     ];
   }
 
-  const letterDir = joinPath(projectDir, "letters", "welcome");
+  const documentDir = joinPath(projectDir, "documents", "welcome");
 
   return [
     {
-      path: joinPath(letterDir, "types.ts"),
+      path: joinPath(documentDir, "types.ts"),
       contents: sampleTypesTemplate(),
     },
     {
-      path: joinPath(letterDir, "preview-data.ts"),
+      path: joinPath(documentDir, "preview-data.ts"),
       contents: samplePreviewDataTemplate(),
     },
     {
-      path: joinPath(letterDir, "letter-style.ts"),
-      contents: letterStyleTemplate(),
+      path: joinPath(documentDir, "document-style.ts"),
+      contents: documentStyleTemplate(),
     },
     {
-      path: joinPath(letterDir, "derivers", "index.ts"),
+      path: joinPath(documentDir, "derivers", "index.ts"),
       contents: sampleDeriversIndexTemplate(),
     },
     {
-      path: joinPath(letterDir, "nodes", "greeting.node.ts"),
+      path: joinPath(documentDir, "nodes", "greeting.node.ts"),
       contents: greetingNodeTemplate(),
     },
     {
-      path: joinPath(letterDir, "nodes", "balance-summary.node.ts"),
+      path: joinPath(documentDir, "nodes", "balance-summary.node.ts"),
       contents: sampleBalanceSummaryNodeTemplate(),
     },
     {
-      path: joinPath(letterDir, "nodes", "index.ts"),
+      path: joinPath(documentDir, "nodes", "index.ts"),
       contents: sampleNodesIndexTemplate(),
     },
     {
-      path: joinPath(letterDir, "letter.tsx"),
-      contents: sampleLetterTemplate(),
+      path: joinPath(documentDir, "document.tsx"),
+      contents: sampleDocumentTemplate(),
     },
     {
-      path: joinPath(letterDir, "letter.project.ts"),
+      path: joinPath(documentDir, "document.project.ts"),
       contents: projectTemplate({ id: "welcome", title: "Welcome" }),
     },
   ];
@@ -614,12 +621,12 @@ interface DocxceleratePreset {
     endpoint?: string;
     method?: string;
     headers?: Record<string, string>;
-    body?: "letter" | "stored-letter" | "artifact";
+    body?: UploadBodyKind;
   };
 }
 
 interface BuildRequestBody {
-  artifact?: LetterProjectArtifactPayload;
+  artifact?: DocumentProjectArtifactPayload;
   preset?: string;
   upload?: boolean;
 }
@@ -630,24 +637,42 @@ interface PreviewDocxFile {
   createdAt: number;
 }
 
-interface LetterProjectArtifactPayload {
+/**
+ * What the toolkit posts here at build time.
+ *
+ * Both spellings are optional and either may arrive: an artifact built by an
+ * older toolkit carries only the letter names, so every read here falls back
+ * from the document name to the letter one.
+ */
+interface DocumentProjectArtifactPayload {
   manifest: {
     id: string;
     name: string;
     version: string;
     entrypoint?: string;
-    previewLetter: string;
-    engineLetter: string;
+    previewDocument?: string;
+    engineDocument?: string;
+    previewLetter?: string;
+    engineLetter?: string;
     derivers?: string;
     deriverNames?: string[];
     metadata?: Record<string, unknown>;
   };
-  previewLetter: unknown;
-  engineLetter: unknown;
-  derivers?: LetterDeriverBundlePayload;
+  previewDocument?: unknown;
+  engineDocument?: unknown;
+  previewLetter?: unknown;
+  engineLetter?: unknown;
+  derivers?: DocumentDeriverBundlePayload;
 }
 
-interface LetterDeriverBundlePayload {
+type UploadBodyKind =
+  | "document"
+  | "letter"
+  | "stored-document"
+  | "stored-letter"
+  | "artifact";
+
+interface DocumentDeriverBundlePayload {
   schemaVersion: "docxcelerate.deriver-bundle/v0";
   format: "esm";
   names: string[];
@@ -702,14 +727,14 @@ function docxcelerateDevPlugin(): Plugin {
             return;
           }
 
-          if (url.pathname === "/api/docxcelerate/letters" && request.method === "POST") {
+          if (url.pathname === "/api/docxcelerate/documents" && request.method === "POST") {
             const body = await readJson(request) as { name?: string; title?: string };
             if (!body.name || body.name.trim() === "") {
-              json(response, 400, { error: "Letter name is required." });
+              json(response, 400, { error: "Document name is required." });
               return;
             }
 
-            const result = await createLetter(body.name, body.title);
+            const result = await createDocument(body.name, body.title);
 
             json(response, 201, {
               ...result,
@@ -771,12 +796,12 @@ function docxcelerateDevPlugin(): Plugin {
   };
 }
 
-async function createLetter(
+async function createDocument(
   name: string,
   title: string | undefined,
 ): Promise<{ projectDir: string; entrypoint: string; importPath: string }> {
   const slug = slugify(name);
-  const args = ["letter", "new", name, "--dir", "letters"];
+  const args = ["document", "new", name, "--dir", "documents"];
 
   if (title && title.trim() !== "") {
     args.push("--title", title);
@@ -784,8 +809,8 @@ async function createLetter(
 
   await runDxcl(args);
 
-  const projectDir = "letters/" + slug;
-  const entrypoint = projectDir + "/letter.project.ts";
+  const projectDir = "documents/" + slug;
+  const entrypoint = projectDir + "/document.project.ts";
 
   return {
     projectDir,
@@ -850,22 +875,22 @@ function resolvePreset(
 }
 
 async function writeArtifact(
-  artifact: LetterProjectArtifactPayload,
+  artifact: DocumentProjectArtifactPayload,
   preset: DocxceleratePreset,
 ): Promise<{ built: true; outDir: string; files: string[] }> {
   const buildDir = preset.build?.outDir ?? "build";
-  const outDir = join(letterDirFromArtifact(artifact), buildDir);
+  const outDir = join(documentDirFromArtifact(artifact), buildDir);
   const manifestPath = join(outDir, "manifest.json");
-  const previewPath = join(outDir, artifact.manifest.previewLetter);
-  const enginePath = join(outDir, artifact.manifest.engineLetter);
+  const previewPath = join(outDir, artifact.manifest.previewDocument ?? artifact.manifest.previewLetter ?? "preview.json");
+  const enginePath = join(outDir, artifact.manifest.engineDocument ?? artifact.manifest.engineLetter ?? "document.json");
   const deriversPath = artifact.derivers
     ? join(outDir, artifact.manifest.derivers ?? "derivers.js")
     : undefined;
 
   await mkdir(outDir, { recursive: true });
   await writeJson(manifestPath, artifact.manifest);
-  await writeJson(previewPath, artifact.previewLetter);
-  await writeJson(enginePath, artifact.engineLetter);
+  await writeJson(previewPath, artifact.previewDocument ?? artifact.previewLetter);
+  await writeJson(enginePath, artifact.engineDocument ?? artifact.engineLetter);
   if (deriversPath && artifact.derivers) {
     await writeFile(deriversPath, artifact.derivers.source, "utf8");
   }
@@ -879,18 +904,18 @@ async function writeArtifact(
   };
 }
 
-function letterDirFromArtifact(artifact: LetterProjectArtifactPayload): string {
+function documentDirFromArtifact(artifact: DocumentProjectArtifactPayload): string {
   const entrypoint = artifact.manifest.entrypoint?.trim();
 
   if (entrypoint) {
     return dirname(entrypoint.replace(/^[.][\\\\/]+/, ""));
   }
 
-  return join("letters", slugify(artifact.manifest.id));
+  return join("documents", slugify(artifact.manifest.id));
 }
 
 async function uploadArtifact(
-  artifact: LetterProjectArtifactPayload,
+  artifact: DocumentProjectArtifactPayload,
   preset: DocxceleratePreset,
 ): Promise<{ ok: boolean; status: number; statusText: string; text: string }> {
   const upload = preset.upload;
@@ -900,7 +925,7 @@ async function uploadArtifact(
     throw new Error("No upload endpoint configured for this preset.");
   }
 
-  const body = uploadBody(artifact, upload?.body ?? "stored-letter");
+  const body = uploadBody(artifact, upload?.body ?? "stored-document");
   const response = await fetch(endpoint, {
     method: upload?.method ?? "POST",
     headers: {
@@ -919,25 +944,30 @@ async function uploadArtifact(
 }
 
 function uploadBody(
-  artifact: LetterProjectArtifactPayload,
-  bodyType: "letter" | "stored-letter" | "artifact",
+  artifact: DocumentProjectArtifactPayload,
+  bodyType: UploadBodyKind,
 ): unknown {
   if (bodyType === "artifact") {
     return artifact;
   }
 
-  if (bodyType === "stored-letter") {
+  const engine = artifact.engineDocument ?? artifact.engineLetter;
+
+  if (bodyType === "stored-document" || bodyType === "stored-letter") {
     return {
       id: artifact.manifest.id,
       name: artifact.manifest.name,
       version: artifact.manifest.version,
-      letter: artifact.engineLetter,
+      // Sent under both names: the engine that receives this is not upgraded
+      // at the same moment the toolkit that sends it is.
+      document: engine,
+      letter: engine,
       derivers: artifact.derivers,
       metadata: artifact.manifest.metadata,
     };
   }
 
-  return artifact.engineLetter;
+  return engine;
 }
 
 function cleanupPreviewDocxFiles(now = Date.now()): void {
@@ -1010,7 +1040,7 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 
   if (slug === "") {
-    throw new Error("Expected a name containing at least one letter or number.");
+    throw new Error("Expected a name containing at least one document or number.");
   }
 
   return slug;
@@ -1023,10 +1053,10 @@ function workspacePreviewMainTemplate(): string {
 import type { DocumentModel, DocumentProject } from "docxcelerate/document";
 import "./styles.css";
 
-interface LetterProjectModule {
+interface DocumentProjectModule {
   default?: DocumentProject<unknown>;
   project?: DocumentProject<unknown>;
-  letterProject?: DocumentProject<unknown>;
+  documentProject?: DocumentProject<unknown>;
 }
 
 interface DocxcelerateConfig {
@@ -1044,7 +1074,7 @@ interface DocxceleratePreset {
     endpoint?: string;
     method?: string;
     headers?: Record<string, string>;
-    body?: "letter" | "stored-letter" | "artifact";
+    body?: UploadBodyKind;
   };
 }
 
@@ -1055,7 +1085,7 @@ interface PreviewRendererOption {
   label: string;
 }
 
-const projectLoaders = import.meta.glob<LetterProjectModule>("../letters/**/letter.project.ts");
+const projectLoaders = import.meta.glob<DocumentProjectModule>("../documents/**/document.project.ts");
 const appElement = document.querySelector<HTMLDivElement>("#app");
 const previewRendererStorageKey = "docxcelerate.previewRenderer";
 const previewRendererOptions: PreviewRendererOption[] = [
@@ -1104,8 +1134,8 @@ async function renderApp(): Promise<void> {
 
   try {
     const project = await loadProject(route.path);
-    const letter = await buildPreviewLetter(project);
-    await renderPreview(paths, route.path, project, letter);
+    const document = await buildPreviewDocument(project);
+    await renderPreview(paths, route.path, project, document);
   } catch (error) {
     renderError(paths, route.path, error);
   }
@@ -1128,25 +1158,25 @@ async function loadConfig(): Promise<
 
 async function loadProject(path: string): Promise<DocumentProject<unknown>> {
   const module = await projectLoaders[path]();
-  const project = module.letterProject ?? module.project ?? module.default;
+  const project = module.documentProject ?? module.project ?? module.default;
 
   if (!project) {
-    throw new Error("Letter project did not export a project: " + path);
+    throw new Error("Document project did not export a project: " + path);
   }
 
   return project;
 }
 
-async function buildPreviewLetter(project: DocumentProject<unknown>): Promise<DocumentModel> {
-  const letter = await buildDocument(project.template, project.previewData, {
+async function buildPreviewDocument(project: DocumentProject<unknown>): Promise<DocumentModel> {
+  const document = await buildDocument(project.template, project.previewData, {
     ...project.previewOptions,
     dynamicMode: "placeholder",
   });
 
   return {
-    ...letter,
+    ...document,
     style: project.style,
-    metadata: project.metadata ? { ...project.metadata, ...letter.metadata } : letter.metadata,
+    metadata: project.metadata ? { ...project.metadata, ...document.metadata } : document.metadata,
   };
 }
 
@@ -1160,14 +1190,14 @@ function renderHome(paths: string[]): void {
   header.className = "home-header";
 
   const title = document.createElement("h1");
-  title.textContent = "Letters";
+  title.textContent = "Documents";
 
   const preset = document.createElement("p");
   preset.className = "config-line";
   preset.textContent = configLabel();
 
   header.append(title, preset);
-  home.append(header, renderProjectList(paths), renderNewLetterForm());
+  home.append(header, renderProjectList(paths), renderNewDocumentForm());
 
   workspace?.append(home);
   app.replaceChildren(shell);
@@ -1175,19 +1205,19 @@ function renderHome(paths: string[]): void {
 
 function renderProjectList(paths: string[]): HTMLElement {
   const list = document.createElement("div");
-  list.className = "letter-list";
+  list.className = "document-list";
 
   if (paths.length === 0) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
-    empty.textContent = "No letters yet";
+    empty.textContent = "No documents yet";
     list.append(empty);
     return list;
   }
 
   for (const path of paths) {
     const item = document.createElement("article");
-    item.className = "letter-card";
+    item.className = "document-card";
 
     const name = document.createElement("h2");
     name.textContent = labelFromPath(path);
@@ -1208,12 +1238,12 @@ function renderProjectList(paths: string[]): HTMLElement {
   return list;
 }
 
-function renderNewLetterForm(): HTMLFormElement {
+function renderNewDocumentForm(): HTMLFormElement {
   const form = document.createElement("form");
-  form.className = "new-letter-form";
+  form.className = "new-document-form";
 
   const title = document.createElement("h2");
-  title.textContent = "New letter";
+  title.textContent = "New document";
 
   const nameInput = document.createElement("input");
   nameInput.name = "name";
@@ -1229,7 +1259,7 @@ function renderNewLetterForm(): HTMLFormElement {
   const submit = document.createElement("button");
   submit.type = "submit";
   submit.className = "button primary-button";
-  submit.textContent = "Add letter";
+  submit.textContent = "Add document";
 
   const message = document.createElement("p");
   message.className = "form-message";
@@ -1245,7 +1275,7 @@ function renderNewLetterForm(): HTMLFormElement {
         name: nameInput.value,
         title: titleInput.value || undefined,
       };
-      const response = await fetch("/api/docxcelerate/letters", {
+      const response = await fetch("/api/docxcelerate/documents", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
@@ -1253,7 +1283,7 @@ function renderNewLetterForm(): HTMLFormElement {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error ?? "Unable to create letter.");
+        throw new Error(result.error ?? "Unable to create document.");
       }
 
       localStorage.setItem("docxcelerate.nextPath", result.importPath);
@@ -1280,7 +1310,7 @@ function renderLoading(paths: string[], currentPath: string): void {
   const shell = createShell({ currentPath, paths, titleText: "Loading" });
   const loading = document.createElement("div");
   loading.className = "empty-state";
-  loading.textContent = "Loading letter";
+  loading.textContent = "Loading document";
   shell.querySelector(".workspace")?.append(loading);
   app.replaceChildren(shell);
 }
@@ -1298,7 +1328,7 @@ async function renderPreview(
   paths: string[],
   currentPath: string,
   project: DocumentProject<unknown>,
-  letter: DocumentModel,
+  document: DocumentModel,
 ): Promise<void> {
   const shell = createShell({
     currentPath,
@@ -1306,7 +1336,7 @@ async function renderPreview(
     titleText: project.name + " " + previewRendererLabel(previewRenderer),
     project,
   });
-  shell.querySelector(".workspace")?.append(await renderDocumentPreview(letter, previewRenderer));
+  shell.querySelector(".workspace")?.append(await renderDocumentPreview(document, previewRenderer));
   app.replaceChildren(shell);
 }
 
@@ -1330,7 +1360,7 @@ function createShell(options: {
 
   const select = document.createElement("select");
   select.className = "project-select";
-  select.setAttribute("aria-label", "Letter project");
+  select.setAttribute("aria-label", "Document project");
 
   for (const path of options.paths) {
     const option = document.createElement("option");
@@ -1458,27 +1488,27 @@ async function buildProjectFromUi(
 }
 
 async function renderDocumentPreview(
-  letter: DocumentModel,
+  document: DocumentModel,
   renderer: PreviewRenderer,
 ): Promise<HTMLElement> {
   const { createDocxBlob } = await import("docxcelerate/docx");
-  const documentBlob = await createDocxBlob(letter);
+  const documentBlob = await createDocxBlob(document);
 
   if (renderer === "docx-preview") {
-    return await renderClientDocxPreview(letter, documentBlob);
+    return await renderClientDocxPreview(document, documentBlob);
   }
 
-  return await renderHostedDocxPreview(letter, documentBlob, renderer);
+  return await renderHostedDocxPreview(document, documentBlob, renderer);
 }
 
-async function renderClientDocxPreview(letter: DocumentModel, documentBlob: Blob): Promise<HTMLElement> {
+async function renderClientDocxPreview(document: DocumentModel, documentBlob: Blob): Promise<HTMLElement> {
   const docxPreview = await import("docx-preview");
   const stage = document.createElement("div");
   stage.className = "docx-preview-stage";
 
   const frame = document.createElement("iframe");
   frame.className = "docx-preview-frame";
-  frame.title = letter.title + " DOCX preview";
+  frame.title = document.title + " DOCX preview";
 
   const body = document.createElement("body");
   const head = document.createElement("head");
@@ -1502,7 +1532,7 @@ async function renderClientDocxPreview(letter: DocumentModel, documentBlob: Blob
 }
 
 async function renderHostedDocxPreview(
-  letter: DocumentModel,
+  document: DocumentModel,
   documentBlob: Blob,
   renderer: Exclude<PreviewRenderer, "docx-preview">,
 ): Promise<HTMLElement> {
@@ -1514,10 +1544,10 @@ async function renderHostedDocxPreview(
     return stage;
   }
 
-  const documentUrl = await uploadPreviewDocx(letter, documentBlob);
+  const documentUrl = await uploadPreviewDocx(document, documentBlob);
   const frame = document.createElement("iframe");
   frame.className = "docx-preview-frame";
-  frame.title = letter.title + " " + previewRendererLabel(renderer);
+  frame.title = document.title + " " + previewRendererLabel(renderer);
   frame.src = hostedPreviewUrl(renderer, documentUrl);
   stage.append(frame);
 
@@ -1539,9 +1569,9 @@ function renderHostedPreviewNotice(renderer: PreviewRenderer): HTMLElement {
   return panel;
 }
 
-async function uploadPreviewDocx(letter: DocumentModel, documentBlob: Blob): Promise<string> {
+async function uploadPreviewDocx(document: DocumentModel, documentBlob: Blob): Promise<string> {
   const response = await fetch(
-    "/api/docxcelerate/preview-docx?name=" + encodeURIComponent(letter.id + ".docx"),
+    "/api/docxcelerate/preview-docx?name=" + encodeURIComponent(document.id + ".docx"),
     {
       method: "POST",
       headers: {
@@ -1641,7 +1671,7 @@ function navigatePreview(path: string): void {
 }
 
 function labelFromPath(path: string): string {
-  return path.replace("../letters/", "").replace("/letter.project.ts", "");
+  return path.replace("../documents/", "").replace("/document.project.ts", "");
 }
 
 function entrypointFromPath(path: string): string {
@@ -1805,8 +1835,8 @@ select {
 }
 
 .home-header h1,
-.new-letter-form h2,
-.letter-card h2 {
+.new-document-form h2,
+.document-card h2 {
   margin: 0;
   color: #111827;
 }
@@ -1817,21 +1847,21 @@ select {
 }
 
 .config-line,
-.letter-card p,
+.document-card p,
 .form-message {
   margin: 0;
   color: var(--muted);
   font-size: 13px;
 }
 
-.letter-list {
+.document-list {
   display: grid;
   align-content: start;
   gap: 10px;
 }
 
-.letter-card,
-.new-letter-form {
+.document-card,
+.new-document-form {
   display: grid;
   gap: 12px;
   padding: 16px;
@@ -1841,40 +1871,40 @@ select {
   box-shadow: 0 8px 24px rgb(15 23 42 / 8%);
 }
 
-.letter-card {
+.document-card {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
 }
 
-.letter-card h2,
-.letter-card p {
+.document-card h2,
+.document-card p {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.letter-card p {
+.document-card p {
   grid-column: 1;
 }
 
-.letter-card .button {
+.document-card .button {
   grid-column: 2;
   grid-row: 1 / span 2;
 }
 
-.new-letter-form {
+.new-document-form {
   align-content: start;
 }
 
-.new-letter-form label {
+.new-document-form label {
   display: grid;
   gap: 6px;
   color: #384252;
   font-size: 13px;
 }
 
-.new-letter-form input {
+.new-document-form input {
   width: 100%;
   min-width: 0;
   height: 34px;
@@ -1966,9 +1996,9 @@ select {
 
 function greetingNodeTemplate(): string {
   return `import { paragraph } from "docxcelerate/document";
-import type { LetterData } from "../types.ts";
+import type { DocumentData } from "../types.ts";
 
-export const Greeting = paragraph<LetterData>({
+export const Greeting = paragraph<DocumentData>({
   id: "greeting",
   render(data) {
     return \`Hello \${data.recipientName},\`;
@@ -1979,9 +2009,9 @@ export const Greeting = paragraph<LetterData>({
 
 function introNodeTemplate(): string {
   return `import { paragraph } from "docxcelerate/document";
-import type { LetterData } from "../types.ts";
+import type { DocumentData } from "../types.ts";
 
-export const Intro = paragraph<LetterData>({
+export const Intro = paragraph<DocumentData>({
   id: "intro",
   render(data) {
     return \`We are writing to share an update for \${data.city}.\`;
@@ -1992,9 +2022,9 @@ export const Intro = paragraph<LetterData>({
 
 function sampleBalanceSummaryNodeTemplate(): string {
   return `import { dataRef, derive, paragraph } from "docxcelerate/document";
-import type { LetterData } from "../types.ts";
+import type { DocumentData } from "../types.ts";
 
-export const BalanceSummary = paragraph<LetterData>({
+export const BalanceSummary = paragraph<DocumentData>({
   id: "balance-summary",
   derivers: [
     derive("currencyLabel", {
@@ -2040,13 +2070,13 @@ export default derivers;
 `;
 }
 
-function letterTemplate(options: { id: string; title: string }): string {
+function documentTemplate(options: { id: string; title: string }): string {
   return `/** @jsxImportSource docxcelerate/template */
 import { Document, Section, template } from "docxcelerate/template";
 import * as Nodes from "./nodes/index.ts";
-import type { LetterData } from "./types.ts";
+import type { DocumentData } from "./types.ts";
 
-export const letterTemplate = template<LetterData>(
+export const documentTemplate = template<DocumentData>(
   <Document id="${options.id}" title="${options.title}">
     <Section id="opening" title="Opening">
       <Nodes.Greeting />
@@ -2057,13 +2087,13 @@ export const letterTemplate = template<LetterData>(
 `;
 }
 
-function sampleLetterTemplate(): string {
+function sampleDocumentTemplate(): string {
   return `/** @jsxImportSource docxcelerate/template */
 import { Document, Section, template } from "docxcelerate/template";
 import * as Nodes from "./nodes/index.ts";
-import type { LetterData } from "./types.ts";
+import type { DocumentData } from "./types.ts";
 
-export const letterTemplate = template<LetterData>(
+export const documentTemplate = template<DocumentData>(
   <Document id="welcome" title="Welcome">
     <Section id="opening" title="Opening">
       <Nodes.Greeting />
@@ -2077,19 +2107,19 @@ export const letterTemplate = template<LetterData>(
 function projectTemplate(options: { id: string; title: string }): string {
   return `import { defineDocumentProject } from "docxcelerate/document";
 import { derivers } from "./derivers/index.ts";
-import { letterTemplate } from "./letter.tsx";
-import { letterStyle } from "./letter-style.ts";
+import { documentTemplate } from "./document.tsx";
+import { documentStyle } from "./document-style.ts";
 import { previewData } from "./preview-data.ts";
-import type { LetterData } from "./types.ts";
+import type { DocumentData } from "./types.ts";
 
-export default defineDocumentProject<LetterData>({
+export default defineDocumentProject<DocumentData>({
   id: "${options.id}",
   name: "${options.title}",
   version: "0.1.0",
-  template: letterTemplate,
+  template: documentTemplate,
   previewData,
   derivers,
-  style: letterStyle,
+  style: documentStyle,
   previewOptions: {
     availableTokens: 800,
   },
@@ -2105,9 +2135,9 @@ export { Greeting } from "./greeting.node.ts";
 
 function staticParagraphNodeTemplate(options: { componentName: string; nodeId: string }): string {
   return `import { paragraph } from "docxcelerate/document";
-import type { LetterData } from "../types.ts";
+import type { DocumentData } from "../types.ts";
 
-export const ${options.componentName} = paragraph<LetterData>({
+export const ${options.componentName} = paragraph<DocumentData>({
   id: "${options.nodeId}",
   render(data) {
     return \`Add ${
@@ -2120,9 +2150,9 @@ export const ${options.componentName} = paragraph<LetterData>({
 
 function dynamicParagraphNodeTemplate(options: { componentName: string; nodeId: string }): string {
   return `import { paragraph } from "docxcelerate/document";
-import type { LetterData } from "../types.ts";
+import type { DocumentData } from "../types.ts";
 
-export const ${options.componentName} = paragraph<LetterData>({
+export const ${options.componentName} = paragraph<DocumentData>({
   id: "${options.nodeId}",
   placeholder(data) {
     return \`Placeholder ${
@@ -2141,9 +2171,9 @@ export const ${options.componentName} = paragraph<LetterData>({
 
 function staticImageNodeTemplate(options: { componentName: string; nodeId: string }): string {
   return `import { image } from "docxcelerate/document";
-import type { LetterData } from "../types.ts";
+import type { DocumentData } from "../types.ts";
 
-export const ${options.componentName} = image<LetterData>({
+export const ${options.componentName} = image<DocumentData>({
   id: "${options.nodeId}",
   src() {
     return "assets/${options.nodeId}.png";
@@ -2157,9 +2187,9 @@ export const ${options.componentName} = image<LetterData>({
 
 function dynamicImageNodeTemplate(options: { componentName: string; nodeId: string }): string {
   return `import { image } from "docxcelerate/document";
-import type { LetterData } from "../types.ts";
+import type { DocumentData } from "../types.ts";
 
-export const ${options.componentName} = image<LetterData>({
+export const ${options.componentName} = image<DocumentData>({
   id: "${options.nodeId}",
   placeholder(data) {
     return \`Placeholder ${
@@ -2178,9 +2208,9 @@ export const ${options.componentName} = image<LetterData>({
 
 function staticGraphNodeTemplate(options: { componentName: string; nodeId: string }): string {
   return `import { graph } from "docxcelerate/document";
-import type { LetterData } from "../types.ts";
+import type { DocumentData } from "../types.ts";
 
-export const ${options.componentName} = graph<LetterData>({
+export const ${options.componentName} = graph<DocumentData>({
   id: "${options.nodeId}",
   graphType: "bar",
   data(data) {
@@ -2198,9 +2228,9 @@ export const ${options.componentName} = graph<LetterData>({
 
 function dynamicGraphNodeTemplate(options: { componentName: string; nodeId: string }): string {
   return `import { graph } from "docxcelerate/document";
-import type { LetterData } from "../types.ts";
+import type { DocumentData } from "../types.ts";
 
-export const ${options.componentName} = graph<LetterData>({
+export const ${options.componentName} = graph<DocumentData>({
   id: "${options.nodeId}",
   graphType: "bar",
   placeholder(data) {
@@ -2226,7 +2256,7 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 
   if (slug === "") {
-    throw new Error(`Expected a name containing at least one letter or number`);
+    throw new Error(`Expected a name containing at least one document or number`);
   }
 
   return slug;

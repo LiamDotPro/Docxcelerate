@@ -50,9 +50,9 @@ export const NODE_ONLY_STYLE = `
          hidden title is still the first child, so the first VISIBLE block is
          addressed through it. */
       .a4-page > .document-title + * { margin-top: 0; }
-      .letter-section > h2:first-child { margin-top: 0; }
+      .document-section > h2:first-child { margin-top: 0; }
       .a4-page > :last-child { margin-bottom: 0; }
-      .letter-section > :last-child { margin-bottom: 0; }`;
+      .document-section > :last-child { margin-bottom: 0; }`;
 
 /**
  * @param {string} html Output of renderDocumentWebsite.
@@ -80,6 +80,11 @@ export function extractPage(html, { title, style: extraStyle }) {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Embedded in an iframe by the page that explains it. On its own it is
+         that page's content without its context, so it stays out of the index
+         rather than competing with it. Crawling is still allowed, so the frame
+         is not empty when the parent page is rendered. -->
+    <meta name="robots" content="noindex">
     <title>${escapeHtml(title)}</title>
     <style>${rendererStyle}</style>
     <style id="page-only">${extraStyle}

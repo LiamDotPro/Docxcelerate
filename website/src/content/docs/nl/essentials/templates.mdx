@@ -1,0 +1,106 @@
+---
+title: Templates
+description: Stel een documentboom samen met TSX of met gewone functieaanroepen — beide leveren hetzelfde document op.
+group: Essentials
+order: 3
+---
+
+Templates komen in twee vormen. Ze zijn gelijkwaardig; kies op smaak en op hoeveel
+structuur het document heeft.
+
+## TSX
+
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { Document, Section, template } from "docxcelerate/template";
+import { Greeting, NextSteps } from "./nodes/index.ts";
+import type { DocumentData } from "./types.ts";
+
+export const documentTemplate = template<DocumentData>(
+  <Document id="tenancy-renewal" title="Tenancy Renewal">
+    <Section id="opening" title="Opening">
+      <Greeting />
+    </Section>
+    <Section id="closing" title="Closing">
+      <NextSteps />
+    </Section>
+  </Document>,
+);
+```
+
+De pragma op regel één is wat JSX aan Docxcelerate koppelt in plaats van aan
+React. Stel in plaats daarvan `jsxImportSource` in `tsconfig.json` in en je kunt
+hem weglaten:
+
+```json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "docxcelerate/template"
+  }
+}
+```
+
+In opgezette workspaces is dit al geconfigureerd.
+
+## Gewone functies
+
+```ts
+import { document, section } from "docxcelerate";
+
+export const documentTemplate = doc<DocumentData>({
+  id: "tenancy-renewal",
+  title: "Tenancy Renewal",
+  nodes: [
+    section({ id: "opening", title: "Opening" }, [Greeting]),
+    section({ id: "closing", title: "Closing" }, [NextSteps]),
+  ],
+});
+```
+
+Handig wanneer de structuur van een document wordt berekend — secties uit een
+lijst opbouwen bijvoorbeeld, waar JSX toch een `map` en een fragment nodig zou
+hebben.
+
+## Herbruikbare componenten
+
+Met `defineDocumentComponent` en `defineSectionComponent` bouw je je eigen
+wrappers rond de primitieven — een briefhoofd in huisstijl, een standaard
+afsluitblok — en hergebruik je die over documenten heen:
+
+```tsx
+import { defineSectionComponent } from "docxcelerate/template";
+
+export const Closing = defineSectionComponent<DocumentData>({
+  id: "closing",
+  title: "Closing",
+});
+```
+
+## Documentprojecten
+
+Een documentproject bindt een template aan zijn stijl en previewdata via één
+entrypoint, `document.project.ts`:
+
+```tsx
+import { defineDocumentProject } from "docxcelerate/document";
+import { documentTemplate } from "./document.tsx";
+import { documentStyle } from "./document-style.ts";
+import type { DocumentData } from "./types.ts";
+
+export default defineDocumentProject<DocumentData>({
+  id: "tenancy-renewal",
+  name: "Tenancy Renewal",
+  version: "1.0.0",
+  template: documentTemplate,
+  style: documentStyle,
+  previewData: {
+    residentName: "Avery Mitchell",
+    propertyRef: "Flat 4, Ashcroft House",
+  },
+});
+```
+
+`previewData` is waartegen de preview-app oplost. Houd het realistisch — korte
+namen en verzonnen plaatsnamen verbergen lay-outproblemen die echte data juist
+blootlegt.

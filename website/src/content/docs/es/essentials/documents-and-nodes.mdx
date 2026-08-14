@@ -1,0 +1,89 @@
+---
+title: Documentos y nodos
+description: Un documento es un árbol de componentes tipados resuelto con tus datos.
+group: Essentials
+order: 1
+---
+
+Un documento es una plantilla más un tipo de datos. La plantilla es un árbol de
+**nodos**; resolverlo con datos produce un `DocumentModel` — JSON puro, sin que
+eso implique nada sobre el renderizado.
+
+## Los helpers de nodo
+
+Cada helper recibe un `id` y una función de render o un conjunto de prompts, y
+devuelve un componente que puedes colocar en una plantilla. Hay helpers para
+párrafos, imágenes, gráficos y secciones, en parejas estática y dinámica.
+
+[Nodos](/es/docs/nodes/overview/) documenta cada tipo, con sus opciones y sus
+vistas previas. El resto de esta página es lo que tienen en común.
+
+Los ids importan: son la forma en que un endpoint de generación direcciona nodos
+concretos, y la forma en que los artefactos de compilación siguen siendo
+comparables entre ejecuciones. Mantenlos estables.
+
+## Un nodo es una función de tus datos
+
+```ts
+import { paragraph } from "docxcelerate";
+import type { DocumentData } from "../types.ts";
+
+export const Greeting = paragraph<DocumentData>({
+  id: "greeting",
+  render: (data) => `Dear ${data.residentName},`,
+});
+```
+
+`render` recibe tus datos tipados y un presupuesto `availableTokens`, y devuelve
+una cadena. No hay lenguaje de plantillas — dispones de todo lo que puedas
+expresar en TypeScript, incluidos condicionales, helpers de formato e imports.
+
+## Las secciones anidan, los nodos no
+
+`section` es la única construcción que anida. Lleva un título al esquema del
+documento:
+
+```ts
+import { section } from "docxcelerate";
+
+section({ id: "opening", title: "Opening" }, [Greeting, Offer]);
+```
+
+En TSX lo mismo se lee como marcado:
+
+```tsx
+<Section id="opening" title="Opening">
+  <Greeting />
+  <Offer />
+</Section>
+```
+
+Ambos producen el mismo árbol. Consulta
+[Plantillas](/es/docs/essentials/templates/) para saber cuándo merece la pena
+cada forma, y [Sección](/es/docs/nodes/section/) para saber qué puede contener
+una sección y con cuánta profundidad.
+
+## Compilar el documento
+
+```ts
+import { buildDocument } from "docxcelerate";
+
+const doc = await buildDocument(documentTemplate, data);
+```
+
+El resultado es un `DocumentModel`: un `schemaVersion`, un `id`, un `title` y un
+array `nodes`. No contiene estilos ni maquetación — eso lo aplica más tarde el
+renderizador que lo consuma.
+
+Para un proyecto de documento definido con `defineDocumentProject`, es preferible
+`buildProjectPreviewDocument`, que aplica el estilo del proyecto y resuelve los
+nodos dinámicos a sus marcadores de posición:
+
+```ts
+import { buildProjectPreviewDocument } from "docxcelerate";
+
+const doc = await buildProjectPreviewDocument(project);
+```
+
+Eso es exactamente lo que llama la aplicación de vista previa, así que lo que
+compilas en código coincide con lo que viste en el navegador.

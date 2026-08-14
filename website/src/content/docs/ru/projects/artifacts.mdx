@@ -1,0 +1,87 @@
+---
+title: Артефакты сборки
+description: Что сборка пишет на диск и какой файл уходит эндпоинту генерации.
+group: Projects
+order: 2
+---
+
+Сборка документа пишет обычный JSON в `build.outDir` внутри каталога самого
+документа — при настройках по умолчанию это
+`documents/offer-of-admission/build/`.
+
+```text
+documents/offer-of-admission/build/
+  manifest.json
+  preview.json
+  document.json
+  derivers.js      (only when the document uses derivers)
+```
+
+## manifest.json
+
+Указатель. Он фиксирует, что было собрано, когда и где лежат остальные файлы:
+
+```json
+{
+  "schemaVersion": "docxcelerate.project-manifest/v0",
+  "id": "offer-of-admission",
+  "name": "Offer of Admission",
+  "version": "1.0.0",
+  "title": "Offer of Admission",
+  "entrypoint": "document.project.ts",
+  "builtAt": "2026-08-13T09:15:00.000Z",
+  "previewDocument": "preview.json",
+  "engineDocument": "document.json",
+  "style": { "...": "the project's DocumentStyle" }
+}
+```
+
+`deriverNames` и `derivers` появляются только тогда, когда документ обращается к
+дериверам.
+
+## preview.json
+
+Документ, разрешённый на `previewData`, где динамические узлы отрисованы в свои
+**заполнители**. Это артефакт локальной разработки — именно его показывает
+приложение предпросмотра, и ему никогда не нужен никакой сервис.
+
+## document.json
+
+Артефакт выгрузки. Дерево то же самое, но значения времени запроса остаются
+токенами, а не впекаются внутрь:
+
+```json
+{
+  "kind": "paragraph",
+  "mode": "static",
+  "id": "greeting",
+  "text": "Dear {{data.applicantName}},"
+}
+```
+
+Динамические узлы несут промпты вместо текста. Именно этот файл вы отправляете
+[движку](/ru/docs/generation/endpoint/), который подставляет настоящие данные и
+разрешает промпты.
+
+> Различие важно при отладке. Если документ выглядит правильно в предпросмотре и
+> неправильно в бою, сравните `preview.json` и `document.json` — разница ровно в
+> том наборе значений, который разрешается в другом месте.
+
+## derivers.js
+
+Дериверы — это именованные функции, которые узел может вызвать, чтобы вычислить
+значение перед отрисовкой: форматирование валюты, разница дат, поиск по
+справочнику. Узел объявляет их так:
+
+```ts
+{
+  output: "monthsRemaining",
+  name: "monthsBetween",
+  inputs: [dataRef("startDate"), ctxRef("today")]
+}
+```
+
+Поскольку эндпоинт разрешает узлы удалённо, функции должны путешествовать вместе
+с документом. `derivers.js` — это тот самый бандл, и он содержит только те
+дериверы, на которые документ действительно ссылается. Документы, не
+использующие ни одного, этого файла не получают.

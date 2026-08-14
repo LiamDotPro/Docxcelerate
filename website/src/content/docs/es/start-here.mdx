@@ -1,0 +1,122 @@
+---
+title: Empieza aquí
+description: Instala la CLI, crea un workspace y abre tu primer documento en el navegador.
+group: Start Here
+order: 1
+---
+
+Docxcelerate necesita **Node.js 20 o posterior** y nada más. La escritura, la
+vista previa y el empaquetado de DOCX se ejecutan en local — no hay ninguna
+cuenta que crear ni ningún servicio al que llegar antes de ver un documento.
+
+## Crear un workspace
+
+```sh
+npx docxcelerate init my-documents
+cd my-documents
+npm run dev
+```
+
+`dxcl init` crea un workspace de Vite autocontenido e instala sus dependencias.
+`npm run dev` abre el sitio de vista previa, donde puedes elegir un documento,
+resolverlo con datos de vista previa, empaquetarlo en un `.docx` real en el
+navegador y volver a leerlo con `docx-preview`.
+
+Ejecuta `dxcl init` sin argumentos para una configuración guiada que te pregunta
+por la plantilla y por el endpoint de la API.
+
+### Instalarlo como corresponde
+
+El comando es `npx docxcelerate`, no `npx dxcl` — npx resuelve el nombre del
+paquete, y el binario que hay dentro se llama `dxcl`.
+
+Para tener `dxcl` en el PATH y poder usarlo directamente:
+
+```sh
+npm install -g docxcelerate
+dxcl init my-documents
+```
+
+O añádelo a un proyecto existente, donde `npx dxcl` lo resolverá en local:
+
+```sh
+npm install --save-dev docxcelerate
+npx dxcl init my-documents
+```
+
+## Lo que obtienes
+
+```text
+my-documents/
+  docxcelerate.config.json
+  index.html
+  package.json
+  preview/
+    main.ts
+    styles.css
+  vite.config.ts
+  tsconfig.json
+  documents/
+```
+
+`docxcelerate.config.json` contiene presets con nombre para el comportamiento de
+compilación y de subida. Todo lo demás es un proyecto de Vite corriente — puedes
+abrirlo en tu editor y se comportará como tal.
+
+## Crear un documento
+
+```sh
+dxcl document new tenancy-renewal --title "Tenancy Renewal"
+```
+
+Eso escribe un proyecto de documento en `documents/tenancy-renewal/`, con la
+plantilla, los datos de vista previa, los estilos y los tipos en archivos
+separados:
+
+```text
+documents/tenancy-renewal/
+  document.project.ts
+  document-style.ts
+  document.tsx
+  preview-data.ts
+  types.ts
+  nodes/
+    index.ts
+```
+
+## Añadir un nodo
+
+```sh
+dxcl document node documents/tenancy-renewal next-steps --type paragraph --mode dynamic
+```
+
+El generador escribe `nodes/next-steps.node.ts` y actualiza `nodes/index.ts`. La
+colocación se deja en tus manos a propósito — añade el componente generado a
+`document.tsx` en el punto del documento donde le corresponde.
+
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { Document, Section, template } from "docxcelerate/template";
+import { Greeting, NextSteps } from "./nodes/index.ts";
+import type { DocumentData } from "./types.ts";
+
+export const documentTemplate = template<DocumentData>(
+  <Document id="tenancy-renewal" title="Tenancy Renewal">
+    <Section id="opening" title="Opening">
+      <Greeting />
+    </Section>
+    <Section id="closing" title="Closing">
+      <NextSteps />
+    </Section>
+  </Document>,
+);
+```
+
+Guarda, y la vista previa se recarga con el nuevo nodo en su sitio.
+
+## Por dónde seguir
+
+- [Documentos y nodos](/es/docs/essentials/documents-and-nodes/) — el modelo de componentes
+- [El modelo de nodos](/es/docs/nodes/overview/) — cada tipo de nodo, con una vista previa de cada uno
+- [Estático y dinámico](/es/docs/essentials/static-and-dynamic/) — qué se ejecuta en local y qué necesita un endpoint
+- [Puntos de entrada del paquete](/es/docs/reference/entrypoints/) — todo lo importable

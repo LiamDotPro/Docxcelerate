@@ -1,0 +1,76 @@
+---
+title: Das Node-Modell
+description: Was alle Nodes gemeinsam haben, worin sie sich unterscheiden und wo jeder von ihnen dokumentiert ist.
+group: Nodes
+order: 1
+---
+
+import NodeTypes from "../../../../components/NodeTypes.astro";
+
+Ein Dokument ist ein Baum aus Nodes. Jeder Node ist drei Dinge: eine **id**, eine
+**Art** und eine Regel, die Inhalt erzeugt.
+
+```ts
+paragraph<MemberData>({
+  id: "greeting",                                // the address
+  render: (data) => `Dear ${data.memberName},`,  // the rule
+});                                              // the helper is the kind
+```
+
+Gegen Ihre Daten aufgelöst, wird daraus reines JSON:
+
+```json
+{ "id": "greeting", "kind": "paragraph", "mode": "static", "text": "Dear Adaeze Nkemelu," }
+```
+
+Kein Styling, kein Layout. Das gehört dem Renderer.
+
+## Der Katalog
+
+Jeder Typ hat eine eigene Seite, mit jeder Option, die er annimmt, und einer
+Vorschau zu jeder Schreibweise.
+
+<NodeTypes />
+
+## Ids sind Adressen
+
+Über die id eines Nodes spricht ein Generierungs-Endpoint genau diesen Absatz an,
+und über sie liegen zwei Build-Artefakte in einem Diff nebeneinander. Eine
+Umbenennung bricht alles, was von außen darauf zeigt — genau wie das Umbenennen
+einer API-Route.
+
+Halten Sie sie im Dokument eindeutig. Das kostet nichts und macht Logs lesbar.
+
+## Statisch und dynamisch
+
+Ein **statischer** Node berechnet seinen Inhalt lokal aus Ihren Daten. Ein
+**dynamischer** Node trägt Prompts und einen Platzhalter und wird zur
+Anfragezeit ausgefüllt.
+
+Sie deklarieren nie, was Sie wollen. Es gibt einen Helper je Art — `paragraph`,
+`image`, `graph` — und der Modus wird aus den Optionen abgeleitet, die Sie
+angeben: Geben Sie das Mitglied für die lokale Auflösung an (`render`, `src`,
+`data`), ist der Node statisch; geben Sie stattdessen Prompts an, ist er
+dynamisch. Beide lösen zur selben `kind` auf und unterscheiden sich im gebauten
+Dokument durch `mode`.
+
+Beides anzugeben ist ein Compile-Fehler, `mode` hat also genau eine
+Wahrheitsquelle. [Statisch und dynamisch](/de/docs/essentials/static-and-dynamic/)
+behandelt, wo die Grenze verläuft und warum.
+
+## Verschachtelung
+
+[`section`](/de/docs/nodes/section/) ist heute der einzige Node, der Kinder
+aufnimmt, und er akzeptiert jede Art, auch weitere Abschnitte. Ein Tabellen-Node
+mit Nodes in seinen Zellen kommt als Nächstes, nach demselben Prinzip: Container
+nehmen die Komponenten auf, die Sie ohnehin schreiben, statt daneben ein zweites
+Inhaltsmodell zu stellen.
+
+## Zu diesen Vorschauen
+
+Jede Vorschau hier ist ein echter Build. `src/nodes/` im Repository dieser Site
+enthält eine Datei je Variante, geschrieben gegen das veröffentlichte Paket; ein
+Build-Schritt löst jede davon über `buildDocument` auf und rendert sie mit dem
+Renderer, den `dxcl dev` ausliefert. Der gezeigte Quelltext ist die Datei, die
+gelaufen ist, und das JSON ist das, was zurückkam — diese Seiten gehen also laut
+kaputt, statt still zu veralten.

@@ -3,6 +3,22 @@ import { defineConfig } from "astro/config";
 import deno from "@deno/astro-adapter";
 import mdx from "@astrojs/mdx";
 import tailwindcss from "@tailwindcss/vite";
+import { DEFAULT_LOCALE, LOCALES, PREFIXED_LOCALES } from "./src/i18n/config.ts";
+
+/**
+ * Redirects that exist in English at the root also have to exist under every
+ * language prefix — a German reader following an old link should land on the
+ * German page, not be bounced back to English.
+ *
+ * @param {string} from Canonical path being redirected.
+ * @param {string} to Canonical path to land on.
+ * @returns {Record<string, string>}
+ */
+const localised = (from, to) =>
+  Object.fromEntries([
+    [from, to],
+    ...PREFIXED_LOCALES.map((locale) => [`/${locale}${from}`, `/${locale}${to}`]),
+  ]);
 
 export default defineConfig({
   site: "https://docxcelerate.com",
@@ -13,14 +29,30 @@ export default defineConfig({
   // prerendering has somewhere to run.
   adapter: deno(),
   integrations: [mdx()],
+  // English keeps the bare paths it has always had; the other four languages
+  // are served under a prefix. Nothing that was linkable before this became a
+  // multilingual site has moved. The locale list lives in src/i18n/config.ts
+  // so the routing and the strings cannot disagree about which languages exist.
+  i18n: {
+    defaultLocale: DEFAULT_LOCALE,
+    locales: [...LOCALES],
+    routing: { prefixDefaultLocale: false },
+  },
   redirects: {
-    "/docs": "/docs/start-here/",
+    ...localised("/docs", "/docs/start-here/"),
     // The page was called "letters and nodes" until the vocabulary settled on
     // documents. Anything already linking to the old slug still lands.
-    "/docs/essentials/letters-and-nodes/": "/docs/essentials/documents-and-nodes/",
+    ...localised(
+      "/docs/essentials/letters-and-nodes/",
+      "/docs/essentials/documents-and-nodes/",
+    ),
   },
   vite: {
-    plugins: [tailwindcss()],
+    // Two copies of Vite are installed: Astro pins 6, @tailwindcss/vite is
+    // built against 8. The plugin shape is the same at runtime — the build
+    // works — but the two Plugin types are nominally different, so the cast is
+    // about the duplicate install rather than about this plugin.
+    plugins: [/** @type {any} */ (tailwindcss())],
   },
   markdown: {
     shikiConfig: {

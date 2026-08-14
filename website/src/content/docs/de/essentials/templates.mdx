@@ -1,0 +1,105 @@
+---
+title: Templates
+description: Einen Dokumentbaum mit TSX zusammensetzen oder mit gewöhnlichen Funktionsaufrufen — beides ergibt dasselbe Dokument.
+group: Essentials
+order: 3
+---
+
+Templates gibt es in zwei Formen. Sie sind gleichwertig; wählen Sie nach Geschmack
+und danach, wie viel Struktur das Dokument hat.
+
+## TSX
+
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { Document, Section, template } from "docxcelerate/template";
+import { Greeting, NextSteps } from "./nodes/index.ts";
+import type { DocumentData } from "./types.ts";
+
+export const documentTemplate = template<DocumentData>(
+  <Document id="tenancy-renewal" title="Tenancy Renewal">
+    <Section id="opening" title="Opening">
+      <Greeting />
+    </Section>
+    <Section id="closing" title="Closing">
+      <NextSteps />
+    </Section>
+  </Document>,
+);
+```
+
+Das Pragma in Zeile eins verdrahtet JSX mit Docxcelerate statt mit React. Setzen
+Sie stattdessen `jsxImportSource` in der `tsconfig.json`, können Sie es
+weglassen:
+
+```json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "docxcelerate/template"
+  }
+}
+```
+
+In angelegten Workspaces ist das bereits konfiguriert.
+
+## Gewöhnliche Funktionen
+
+```ts
+import { document, section } from "docxcelerate";
+
+export const documentTemplate = doc<DocumentData>({
+  id: "tenancy-renewal",
+  title: "Tenancy Renewal",
+  nodes: [
+    section({ id: "opening", title: "Opening" }, [Greeting]),
+    section({ id: "closing", title: "Closing" }, [NextSteps]),
+  ],
+});
+```
+
+Nützlich, wenn die Struktur eines Dokuments berechnet wird — etwa wenn Abschnitte
+aus einer Liste entstehen, wo JSX ohnehin ein `map` und ein Fragment bräuchte.
+
+## Wiederverwendbare Komponenten
+
+Mit `defineDocumentComponent` und `defineSectionComponent` bauen Sie eigene
+Hüllen um die Primitive — einen Briefkopf im Hausstil, einen
+Standard-Schlussblock — und verwenden sie dokumentübergreifend wieder:
+
+```tsx
+import { defineSectionComponent } from "docxcelerate/template";
+
+export const Closing = defineSectionComponent<DocumentData>({
+  id: "closing",
+  title: "Closing",
+});
+```
+
+## Dokumentprojekte
+
+Ein Dokumentprojekt bindet ein Template über einen einzigen Entrypoint,
+`document.project.ts`, an seinen Stil und seine Vorschaudaten:
+
+```tsx
+import { defineDocumentProject } from "docxcelerate/document";
+import { documentTemplate } from "./document.tsx";
+import { documentStyle } from "./document-style.ts";
+import type { DocumentData } from "./types.ts";
+
+export default defineDocumentProject<DocumentData>({
+  id: "tenancy-renewal",
+  name: "Tenancy Renewal",
+  version: "1.0.0",
+  template: documentTemplate,
+  style: documentStyle,
+  previewData: {
+    residentName: "Avery Mitchell",
+    propertyRef: "Flat 4, Ashcroft House",
+  },
+});
+```
+
+Gegen `previewData` löst die Vorschau-App auf. Halten Sie es realistisch — kurze
+Namen und erfundene Ortsnamen verdecken Layout-Probleme, die echte Daten
+sichtbar machen.

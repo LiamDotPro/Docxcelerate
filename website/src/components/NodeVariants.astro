@@ -8,12 +8,16 @@
 import { Code } from "astro:components";
 import NodePreview from "./NodePreview.astro";
 import { nodeType } from "../node-catalog";
+import { asLocale, fill, ui } from "../i18n";
 
 interface Props {
   type: string;
   /** Renders headings at this level; variants sit under an h2 by default. */
   headingLevel?: 2 | 3;
 }
+
+const locale = asLocale(Astro.currentLocale);
+const t = ui(locale);
 
 const { headingLevel = 3 } = Astro.props;
 const type = nodeType(Astro.props.type);
@@ -60,17 +64,14 @@ const PROMPT_ORDER = ["system", "general", "info", "negative"];
 
         <NodePreview
           src={variant.previewUrl}
-          title={`${type.title}: ${variant.title}, rendered`}
+          title={fill(t.nodes.previewTitle, { type: type.title, variant: variant.title })}
           label={`${type.title.toLowerCase()} · ${variant.title.toLowerCase()}`}
         />
 
         <details class="drawer">
-          <summary>What it resolves to</summary>
+          <summary>{t.nodes.resolvesTo}</summary>
           <div class="drawer-body">
-            <p>
-              The node as it appears in the <code>DocumentModel</code>: the JSON a
-              renderer is handed. No styling, no layout.
-            </p>
+            <p set:html={fill(t.nodes.resolvesToBody, { model: "<code>DocumentModel</code>" })} />
             <div class="code">
               <Code
                 code={JSON.stringify(variant.resolved, null, 2)}
@@ -83,12 +84,9 @@ const PROMPT_ORDER = ["system", "general", "info", "negative"];
 
         {variant.prompts && (
           <details class="drawer">
-            <summary>What the endpoint is asked</summary>
+            <summary>{t.nodes.endpointAsked}</summary>
             <div class="drawer-body">
-              <p>
-                Resolved against the same sample data. A preview build stops at the
-                placeholder; a request-time build sends these.
-              </p>
+              <p>{t.nodes.endpointAskedBody}</p>
               <dl class="prompts">
                 {[...variant.prompts]
                   .sort(

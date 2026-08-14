@@ -1,0 +1,53 @@
+---
+title: Image
+description: Een afbeelding waar jouw data naar wijst, of een die een generatie-endpoint produceert.
+group: Nodes
+subgroup: Node types
+order: 12
+---
+
+import NodeSummary from "../../../../components/NodeSummary.astro";
+import NodeVariants from "../../../../components/NodeVariants.astro";
+
+<NodeSummary type="image" />
+
+## Elk veld accepteert een functie
+
+`src`, `alt`, `width` en `height` accepteren elk een gewone waarde of een functie
+van je data. Een handtekening die per vestiging verschilt, een logo per merk, een
+foto op kenmerk — het blijft allemaal binnen de node in plaats van een vertakking
+in het template te worden:
+
+```ts
+image<MemberData>({
+  id: "signature",
+  src: (data) => data.signatureUrl,
+  alt: (data) => `Signed by ${data.managerName}`,
+  width: 180,
+});
+```
+
+## src wordt path
+
+De optie heet `src`; de opgeloste node noemt het `path`. Klap *Waartoe het wordt
+opgelost* open bij de eerste variant hieronder om het te zien.
+
+## Dynamische afbeeldingen
+
+Een dynamische afbeelding wordt beschreven in plaats van aangeleverd, en gebruikt
+dezelfde vier promptslots als een dynamische alinea.
+
+`negativePrompt` verdient hier meer dan waar ook zijn plek. Gegenereerde beelden
+gaan op voorspelbare manieren mis — ingebakken tekst, verzonnen logo's,
+herkenbare gezichten — en het slot sluit die in één keer uit, in de node.
+
+## Varianten
+
+<NodeVariants type="image" />
+
+## Aantekeningen
+
+- De node bevat een pad, nooit de bytes. Tijdens een build wordt er niets
+  opgehaald of gevalideerd; een kapot pad gaat mis bij het renderen.
+- `alt` is de moeite van het schrijven waard, ook al printen de renderers nu nog
+  kaders, want het kader print `alt`.

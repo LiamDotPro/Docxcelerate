@@ -55,22 +55,22 @@ if (command === "init" || command === "project") {
 if (command === "new" || command === "scaffold") {
   const args = parseArgs(commandArgs);
   const guided = args.positionals.length === 0;
-  const name = args.positionals[0] ?? await askRequired("Letter project name");
+  const name = args.positionals[0] ?? await askRequired("Document project name");
   const title = args.options.title ??
-    (guided ? await askText("Letter title", titleFromName(name)) : undefined);
-  const lettersDir = args.options.dir ??
-    (guided ? await askText("Letters directory", "letters") : undefined);
+    (guided ? await askText("Document title", titleFromName(name)) : undefined);
+  const documentsDir = args.options.dir ??
+    (guided ? await askText("Documents directory", "documents") : undefined);
   const force = args.flags.has("force") ||
     (guided ? await askBoolean("Overwrite existing files if needed?", false) : false);
 
   const result = await scaffoldDocumentProject({
     name,
     title,
-    lettersDir,
+    documentsDir,
     force,
   });
 
-  console.log(`Created letter -> ${result.projectDir}`);
+  console.log(`Created document -> ${result.projectDir}`);
   console.log(`Entrypoint: ${result.entrypoint}`);
   console.log(`Files: ${result.files.length}`);
   process.exit(0);
@@ -80,7 +80,7 @@ if (command === "node" || command === "generate-node") {
   const args = parseArgs(commandArgs);
   const guided = args.positionals.length < 2;
   const projectDir = args.positionals[0] ??
-    await askRequired("Letter project directory", "letters/welcome");
+    await askRequired("Document project directory", "documents/welcome");
   const name = args.positionals[1] ?? await askRequired("Node name");
   const type = args.options.type ??
     (guided
@@ -114,23 +114,31 @@ console.error(`Unknown scaffold command: ${command}`);
 printHelp();
 process.exit(1);
 
+/**
+ * Strips the namespace off `dxcl document new` and friends, leaving the bare
+ * verb the dispatch below matches on.
+ *
+ * `letter` is still accepted as a namespace. It was the only spelling before
+ * the vocabulary settled on documents, and it costs one array entry to keep
+ * every script and habit that already types it working.
+ */
 function normalizeCommand(
   command: string | undefined,
   args: string[],
 ): { command: string | undefined; commandArgs: string[] } {
-  if (command !== "letter") {
+  if (command !== "document" && command !== "letter") {
     return { command, commandArgs: args };
   }
 
-  const [letterCommand, ...letterArgs] = args;
+  const [namespaced, ...rest] = args;
 
-  if (!letterCommand || letterCommand === "help" || letterCommand === "--help") {
-    return { command: "help", commandArgs: letterArgs };
+  if (!namespaced || namespaced === "help" || namespaced === "--help") {
+    return { command: "help", commandArgs: rest };
   }
 
   return {
-    command: letterCommand,
-    commandArgs: letterArgs,
+    command: namespaced,
+    commandArgs: rest,
   };
 }
 
@@ -238,7 +246,7 @@ async function localPackageDependency(projectDir: string): Promise<string | unde
 
     // Only a repo checkout carries TypeScript sources; the published package
     // ships compiled output, so this keeps `file:` links out of installs.
-    await statPath(join(packageRoot, "src", "letter.ts"));
+    await statPath(join(packageRoot, "src", "document.ts"));
   } catch {
     return undefined;
   }
@@ -434,21 +442,22 @@ function printHelp(): void {
 
 Usage:
   dxcl init [project-name] [--dir <parent-dir>] [--sample|--blank] [--official-server|--api-endpoint <url>|--no-api-endpoint]
-  dxcl letter new [name] [--title <title>] [--dir letters]
-  dxcl letter node [project-dir] [name] [--type paragraph|image|graph] [--mode static|dynamic]
+  dxcl document new [name] [--title <title>] [--dir documents]
+  dxcl document node [project-dir] [name] [--type paragraph|image|graph] [--mode static|dynamic]
 
 Examples:
   dxcl init
-  dxcl init housing-letters --blank
-  dxcl init housing-letters --official-server
-  dxcl init housing-letters --api-endpoint ${officialDocxcelerateApiServer}
-  dxcl letter new
-  dxcl letter new arrears-notice --title "Arrears Notice"
-  dxcl letter node
-  dxcl letter node letters/arrears-notice repayment-summary --type paragraph --mode dynamic
+  dxcl init housing-documents --blank
+  dxcl init housing-documents --official-server
+  dxcl init housing-documents --api-endpoint ${officialDocxcelerateApiServer}
+  dxcl document new
+  dxcl document new arrears-notice --title "Arrears Notice"
+  dxcl document node
+  dxcl document node documents/arrears-notice repayment-summary --type paragraph --mode dynamic
 
 Aliases:
-  dxcl new   -> dxcl letter new
-  dxcl node  -> dxcl letter node
+  dxcl new       -> dxcl document new
+  dxcl node      -> dxcl document node
+  dxcl letter .. -> dxcl document ..   (the old spelling, still accepted)
 `);
 }

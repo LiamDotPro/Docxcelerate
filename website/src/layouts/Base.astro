@@ -2,32 +2,54 @@
 import "../styles/global.css";
 import Nav from "../components/Nav.astro";
 import Footer from "../components/Footer.astro";
+import Seo from "../components/Seo.astro";
 import { SITE } from "../site";
+import { asLocale, ui } from "../i18n";
+import type { Locale } from "../i18n";
 
 interface Props {
   title?: string;
   description?: string;
   /** Docs pages manage their own width; the homepage runs full-bleed. */
   bare?: boolean;
+  /** Passed through to Seo — see there for what each one decides. */
+  hreflangLocales?: readonly Locale[];
+  noindex?: boolean;
+  structuredData?: Record<string, unknown>[];
 }
 
-const { title, description = SITE.description, bare = false } = Astro.props;
-const fullTitle = title ? `${title} — ${SITE.name}` : `${SITE.name} — ${SITE.tagline}`;
+// Derived from the URL by Astro's i18n routing: /de/... is German, everything
+// unprefixed is English. Pages never have to pass it down.
+const locale = asLocale(Astro.currentLocale);
+const t = ui(locale);
+
+const {
+  title,
+  description = t.meta.description,
+  bare = false,
+  hreflangLocales,
+  noindex,
+  structuredData,
+} = Astro.props;
+const fullTitle = title ? `${title} — ${SITE.name}` : `${SITE.name} — ${t.meta.tagline}`;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={locale}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <title>{fullTitle}</title>
-    <meta name="description" content={description} />
-    <meta property="og:title" content={fullTitle} />
-    <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)" />
     <meta name="generator" content={Astro.generator} />
-    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
+    <Seo
+      title={fullTitle}
+      description={description}
+      hreflangLocales={hreflangLocales}
+      noindex={noindex}
+      structuredData={structuredData}
+    />
     <!-- Set the theme before first paint so there's no flash of the wrong ground. -->
     <script is:inline>
       (() => {
@@ -42,7 +64,7 @@ const fullTitle = title ? `${title} — ${SITE.name}` : `${SITE.name} — ${SITE
     <a
       href="#main"
       class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded focus:bg-accent-solid focus:px-3 focus:py-2 focus:text-on-accent"
-      >Skip to content</a
+      >{t.common.skipToContent}</a
     >
     <Nav />
     <main id="main" class={bare ? "flex-1" : "flex-1 w-full"}>

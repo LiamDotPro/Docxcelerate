@@ -1,0 +1,13 @@
+---
+// The homepage in every language except English, which sits at the root
+// instead. Home.astro reads the language off the URL, so this route only has
+// to say which prefixes exist.
+import Home from "../../components/Home.astro";
+import { PREFIXED_LOCALES } from "../../i18n";
+
+export function getStaticPaths() {
+  return PREFIXED_LOCALES.map((locale) => ({ params: { locale } }));
+}
+---
+
+<Home />

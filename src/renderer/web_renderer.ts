@@ -6,10 +6,10 @@ export interface WebRenderOptions {
 }
 
 export function renderDocumentWebsite(
-  letter: DocumentModel,
+  doc: DocumentModel,
   options: WebRenderOptions = {},
 ): string {
-  const title = options.title ?? letter.title;
+  const title = options.title ?? doc.title;
 
   return `<!doctype html>
 <html lang="en">
@@ -203,11 +203,11 @@ export function renderDocumentWebsite(
         color: #111827;
       }
 
-      .letter-section {
+      .doc-section {
         margin: 0 0 12pt;
       }
 
-      .letter-section h2 {
+      .doc-section h2 {
         margin: 16pt 0 7pt;
         font-size: 12pt;
         line-height: 1.3;
@@ -215,7 +215,7 @@ export function renderDocumentWebsite(
         color: #111827;
       }
 
-      .letter-paragraph {
+      .doc-paragraph {
         margin: 0 0 10pt;
         font-family: Calibri, "Aptos", "Segoe UI", Arial, sans-serif;
         font-size: 11pt;
@@ -256,7 +256,7 @@ export function renderDocumentWebsite(
   <body>
     <main class="word-shell">
       <header class="titlebar">
-        <strong>${escapeHtml(letter.title)}</strong>
+        <strong>${escapeHtml(doc.title)}</strong>
         <span class="titlebar-meta">${
     options.liveReload ? "Live preview connected" : "Preview"
   }</span>
@@ -289,9 +289,9 @@ export function renderDocumentWebsite(
         <div class="workspace-inner">
           <div class="horizontal-ruler" aria-hidden="true"></div>
           <div class="page-stage">
-            <article class="a4-page" aria-label="${escapeHtml(letter.title)}">
-              <h1 class="document-title">${escapeHtml(letter.title)}</h1>
-              ${letter.nodes.map(renderNode).join("\n")}
+            <article class="a4-page" aria-label="${escapeHtml(doc.title)}">
+              <h1 class="document-title">${escapeHtml(doc.title)}</h1>
+              ${doc.nodes.map(renderNode).join("\n")}
             </article>
           </div>
         </div>
@@ -304,7 +304,7 @@ export function renderDocumentWebsite(
 
 function renderNode(node: DocumentNode): string {
   if (node.kind === "section") {
-    return `<section class="letter-section" data-node-id="${escapeHtml(node.id)}">
+    return `<section class="doc-section" data-node-id="${escapeHtml(node.id)}">
       <h2>${escapeHtml(node.title ?? node.id)}</h2>
       ${node.children.map(renderNode).join("\n")}
     </section>`;
@@ -312,8 +312,8 @@ function renderNode(node: DocumentNode): string {
 
   if (node.kind === "paragraph") {
     const className = node.mode === "dynamic"
-      ? "letter-paragraph paragraph-dynamic"
-      : "letter-paragraph paragraph-static";
+      ? "doc-paragraph paragraph-dynamic"
+      : "doc-paragraph paragraph-static";
 
     return `<p class="${className}" data-node-id="${escapeHtml(node.id)}">
       ${

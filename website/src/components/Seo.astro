@@ -1,0 +1,130 @@
+---
+/**
+ * Everything in <head> that is addressed to a machine.
+ *
+ * It lives in one component because these tags have to agree with each other:
+ * the canonical, the hreflang set, the Open Graph URL and the sitemap all
+ * describe the same page, and a page that contradicts itself is worse than one
+ * that says less. Prose meant for readers — the title and description — is
+ * passed in, already translated.
+ */
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { SITE } from "../site";
+import { alternates, asLocale, localizePath, stripLocale, DEFAULT_LOCALE, LOCALES } from "../i18n";
+import type { Locale } from "../i18n";
+
+interface Props {
+  /** Composed title, as it should appear in the tab and in a share card. */
+  title: string;
+  description: string;
+  /**
+   * Languages this page genuinely exists in. Defaults to all of them, which is
+   * right for the homepage; a docs page passes the languages it is translated
+   * into so the hreflang set never claims a translation that is really English.
+   */
+  hreflangLocales?: readonly Locale[];
+  /**
+   * Keeps the page out of the index while leaving it perfectly usable. Set for
+   * an untranslated page standing in with English, and for 404.
+   */
+  noindex?: boolean;
+  /** JSON-LD nodes for this page. Emitted as one @graph.
+   */
+  structuredData?: Record<string, unknown>[];
+}
+
+const {
+  title,
+  description,
+  hreflangLocales = LOCALES,
+  noindex = false,
+  structuredData = [],
+} = Astro.props;
+
+const locale = asLocale(Astro.currentLocale);
+const canonicalPath = stripLocale(Astro.url.pathname);
+
+const href = (path: string) => new URL(path, Astro.site).href;
+const canonical = href(localizePath(canonicalPath, locale));
+
+// A noindexed page is not a translation of anything: it exists for readers who
+// followed a link, and offering it as this language's version of the page would
+// invite the index to treat English text as German.
+const languages = noindex
+  ? []
+  : alternates(canonicalPath).filter((alternate) => hreflangLocales.includes(alternate.locale));
+
+// og:locale wants the underscored form, and only for languages that have their
+// own copy — the same rule as hreflang.
+const ogLocale = (value: Locale) => (value === "en" ? "en_US" : value);
+
+// A share card is announced only once it exists. Pointing at a missing image is
+// worse than omitting it: the platforms that follow the tag render a blank or
+// broken card rather than falling back to the text one they would have built.
+// Drop a 1200x630 PNG at public/og.png and every page picks it up.
+const socialImage = existsSync(fileURLToPath(new URL("../../public/og.png", import.meta.url)))
+  ? href("/og.png")
+  : undefined;
+
+const graph = structuredData.length > 0
+  ? { "@context": "https://schema.org", "@graph": structuredData }
+  : undefined;
+---
+
+<title>{title}</title>
+<meta name="description" content={description} />
+
+<link rel="canonical" href={canonical} />
+{
+  /* max-image-preview lets Google show the full-size card rather than a thumbnail;
+     follow on a noindexed page still passes the reader's path onward. */
+}
+<meta
+  name="robots"
+  content={noindex ? "noindex, follow" : "index, follow, max-image-preview:large"}
+/>
+
+{
+  languages.map((alternate) => (
+    <link rel="alternate" hreflang={alternate.locale} href={href(alternate.path)} />
+  ))
+}
+{
+  languages.length > 0 && (
+    <link
+      rel="alternate"
+      hreflang="x-default"
+      href={href(localizePath(canonicalPath, DEFAULT_LOCALE))}
+    />
+  )
+}
+
+<meta property="og:site_name" content={SITE.name} />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:type" content="website" />
+<meta property="og:url" content={canonical} />
+<meta property="og:locale" content={ogLocale(locale)} />
+{
+  hreflangLocales
+    .filter((other) => other !== locale)
+    .map((other) => <meta property="og:locale:alternate" content={ogLocale(other)} />)
+}
+{
+  socialImage && (
+    <>
+      <meta property="og:image" content={socialImage} />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
+      <meta property="og:image:alt" content={`${SITE.name}: ${description}`} />
+    </>
+  )
+}
+
+<meta name="twitter:card" content={socialImage ? "summary_large_image" : "summary"} />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+{socialImage && <meta name="twitter:image" content={socialImage} />}
+
+{graph && <script type="application/ld+json" is:inline set:html={JSON.stringify(graph)} />}

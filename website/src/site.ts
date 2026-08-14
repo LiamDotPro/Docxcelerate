@@ -3,11 +3,13 @@
  * Swap a URL here and every link follows.
  */
 
+/**
+ * The name is the same in every language, so it lives here. The tagline and
+ * meta description are not — they are prose, and prose is translated: see
+ * `meta` in src/i18n/ui/.
+ */
 export const SITE = {
   name: "Docxcelerate",
-  tagline: "Documents as components. DOCX as output.",
-  description:
-    "A TypeScript toolkit and CLI for building DOCX document projects. Author documents as typed components, preview them in the browser, and pack real .docx files locally.",
 } as const;
 
 /**
@@ -49,7 +51,12 @@ export const GITHUB_URL = "https://github.com/LiamDotPro/Docxcelerate";
 export const NPM_URL = "https://www.npmjs.com/package/docxcelerate";
 
 export interface NavLink {
-  label: string;
+  /** Key into `nav` in the UI dictionaries — the label is per-language. */
+  key: "docs" | "cloud" | "github";
+  /**
+   * Internal links are written canonically, without a language prefix; the Nav
+   * adds the reader's prefix. External URLs are used as they stand.
+   */
   href: string;
   external?: boolean;
   /** Renders as a mark rather than a word. */
@@ -59,9 +66,9 @@ export interface NavLink {
 }
 
 export const NAV: NavLink[] = [
-  { label: "Docs", href: "/docs/start-here/" },
-  { label: "Cloud", href: CLOUD_URL, external: true, soon: !CLOUD_AVAILABLE },
-  { label: "GitHub", href: GITHUB_URL, external: true, icon: "github" },
+  { key: "docs", href: "/docs/start-here/" },
+  { key: "cloud", href: CLOUD_URL, external: true, soon: !CLOUD_AVAILABLE },
+  { key: "github", href: GITHUB_URL, external: true, icon: "github" },
 ];
 
 /**

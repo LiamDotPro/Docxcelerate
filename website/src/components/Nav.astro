@@ -1,7 +1,17 @@
 ---
 import { NAV, SITE } from "../site";
+import LocaleSwitcher from "./LocaleSwitcher.astro";
+import { asLocale, localizePath, stripLocale, ui } from "../i18n";
 
-const path = Astro.url.pathname;
+const locale = asLocale(Astro.currentLocale);
+const t = ui(locale);
+
+// Compared without the language prefix, so /de/docs/... highlights Docs the
+// same way /docs/... does.
+const path = stripLocale(Astro.url.pathname);
+
+/** The top-level section a canonical path belongs to — "/docs", "/" and so on. */
+const sectionOf = (href: string) => `/${href.split("/")[1] ?? ""}`;
 ---
 
 <header
@@ -11,27 +21,30 @@ const path = Astro.url.pathname;
     class="mx-auto flex h-14 max-w-6xl items-center gap-6 px-5 sm:px-8"
   >
     <a
-      href="/"
+      href={localizePath("/", locale)}
       class="font-serif text-lg font-semibold tracking-tight text-ink no-underline"
+      aria-label={SITE.name}
     >
       Docx<span class="text-accent">celerate</span>
     </a>
 
-    <nav aria-label="Main" class="ml-auto flex items-center gap-5 text-sm">
+    <nav aria-label={t.nav.label} class="ml-auto flex items-center gap-5 text-sm">
       {
         NAV.map((link) => {
-          const current = !link.external && path.startsWith(link.href.split("/").slice(0, 2).join("/"));
+          const label = t.nav[link.key];
+          const current = !link.external && path.startsWith(sectionOf(link.href));
+          const href = link.external ? link.href : localizePath(link.href, locale);
           return (
             <a
-              href={link.href}
+              href={href}
               class:list={[
                 "inline-flex items-center gap-1.5 no-underline transition-colors hover:text-accent",
                 current ? "font-semibold text-accent" : "text-muted",
               ]}
               {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
               aria-current={current ? "page" : undefined}
-              aria-label={link.icon ? link.label : undefined}
-              title={link.icon ? link.label : undefined}
+              aria-label={link.icon ? label : undefined}
+              title={link.icon ? label : undefined}
             >
               {
                 link.icon === "github" ? (
@@ -40,7 +53,7 @@ const path = Astro.url.pathname;
                   </svg>
                 ) : (
                   <>
-                    {link.label}
+                    {label}
                     {link.external && <span aria-hidden="true">↗</span>}
                   </>
                 )
@@ -48,7 +61,7 @@ const path = Astro.url.pathname;
               {
                 link.soon && (
                   <span class="rounded-full border border-border-firm px-1.5 py-px font-mono text-[0.6rem] uppercase tracking-[0.08em] text-muted">
-                    soon
+                    {t.common.soon}
                   </span>
                 )
               }
@@ -57,11 +70,13 @@ const path = Astro.url.pathname;
         })
       }
 
+      <LocaleSwitcher />
+
       <button
         type="button"
         id="theme-toggle"
         class="grid size-8 place-items-center rounded border border-border text-muted transition-colors hover:border-border-firm hover:text-accent"
-        aria-label="Switch theme"
+        aria-label={t.nav.switchTheme}
       >
         <svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
           <path d="M12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1.1 1.1M17.3 17.3l1.1 1.1M18.4 5.6l-1.1 1.1M6.7 17.3l-1.1 1.1" stroke-linecap="round" />

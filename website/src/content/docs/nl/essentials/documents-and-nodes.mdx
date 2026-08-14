@@ -1,0 +1,88 @@
+---
+title: Documenten en nodes
+description: Een document is een boom van getypeerde componenten, opgelost tegen jouw data.
+group: Essentials
+order: 1
+---
+
+Een document is een template plus een datatype. Het template is een boom van
+**nodes**; het oplossen daarvan tegen data levert een `DocumentModel` op — pure
+JSON, zonder dat daarmee iets over rendering gezegd is.
+
+## De node-helpers
+
+Elke helper krijgt een `id` en ofwel een renderfunctie ofwel een set prompts, en
+geeft een component terug die je in een template kunt plaatsen. Er zijn helpers
+voor alinea's, afbeeldingen, grafieken en secties, in statische en dynamische
+paren.
+
+[Nodes](/nl/docs/nodes/overview/) documenteert elk type, met de bijbehorende
+opties en previews. De rest van deze pagina gaat over wat ze gemeen hebben.
+
+Ids doen ertoe: zo adresseert een generatie-endpoint afzonderlijke nodes, en zo
+blijven buildartefacten tussen runs vergelijkbaar. Houd ze stabiel.
+
+## Een node is een functie van je data
+
+```ts
+import { paragraph } from "docxcelerate";
+import type { DocumentData } from "../types.ts";
+
+export const Greeting = paragraph<DocumentData>({
+  id: "greeting",
+  render: (data) => `Dear ${data.residentName},`,
+});
+```
+
+`render` krijgt je getypeerde data en een `availableTokens`-budget, en geeft een
+string terug. Er is geen templatetaal — alles wat je in TypeScript kunt
+uitdrukken is beschikbaar, inclusief conditionals, formatteerhelpers en imports.
+
+## Secties nestelen, nodes niet
+
+`section` is de enige nestelconstructie. Hij draagt een titel de
+documentstructuur in:
+
+```ts
+import { section } from "docxcelerate";
+
+section({ id: "opening", title: "Opening" }, [Greeting, Offer]);
+```
+
+In TSX leest hetzelfde als markup:
+
+```tsx
+<Section id="opening" title="Opening">
+  <Greeting />
+  <Offer />
+</Section>
+```
+
+Beide leveren dezelfde boom op. Zie [Templates](/nl/docs/essentials/templates/)
+voor wanneer welke vorm de moeite waard is, en [Section](/nl/docs/nodes/section/)
+voor wat een sectie mag bevatten en hoe diep.
+
+## Het document bouwen
+
+```ts
+import { buildDocument } from "docxcelerate";
+
+const doc = await buildDocument(documentTemplate, data);
+```
+
+Het resultaat is een `DocumentModel`: een `schemaVersion`, een `id`, een `title`
+en een `nodes`-array. Het bevat geen opmaak en geen lay-out — die worden later
+toegepast door de renderer die het verwerkt.
+
+Voor een documentproject dat met `defineDocumentProject` is gedefinieerd, kun je
+beter `buildProjectPreviewDocument` gebruiken: die past de stijl van het project
+toe en lost dynamische nodes op naar hun placeholders:
+
+```ts
+import { buildProjectPreviewDocument } from "docxcelerate";
+
+const doc = await buildProjectPreviewDocument(project);
+```
+
+Dat is precies wat de preview-app aanroept, dus wat je in code bouwt komt overeen
+met wat je in de browser zag.

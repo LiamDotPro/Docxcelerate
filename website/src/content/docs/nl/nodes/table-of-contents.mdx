@@ -1,0 +1,51 @@
+---
+title: Table of contents
+description: Een schemasoort zonder helper — hoe je er een plaatst en wat hij vandaag doet.
+group: Nodes
+subgroup: Node types
+order: 14
+---
+
+import NodeSummary from "../../../../components/NodeSummary.astro";
+import NodeVariants from "../../../../components/NodeVariants.astro";
+
+<NodeSummary type="table-of-contents" />
+
+## Er een schrijven zonder helper
+
+De helpers zijn gemakken, geen poort. Een nodecomponent is een functie die jouw
+data aanneemt en een definitie teruggeeft, dus elke soort in het schema is
+bereikbaar door die functie te schrijven:
+
+```ts
+import type { NodeComponent } from "docxcelerate";
+
+export const Contents: NodeComponent<MemberData> = () => ({
+  kind: "tableOfContents",
+  id: "contents",
+  title: "What is in this document",
+});
+```
+
+Hij composeert als elke andere node, en lost in previewbuilds, enginebuilds en
+tests op dezelfde manier op.
+
+## Waarom je er nu al een plaatst
+
+Het kost één regel, en hij begint regels te printen op de dag dat de renderers
+ze bouwen. Het alternatief — een met de hand bijgehouden lijst met sectietitels
+in een alinea — is binnen twee releases onjuist.
+
+Als je liever geen node uitlevert die alleen een kop print, laat hem dan weg. Hem
+later toevoegen is even goedkoop.
+
+## Varianten
+
+<NodeVariants type="table-of-contents" />
+
+## Aantekeningen
+
+- Verwacht uiteindelijk een `tableOfContents`-helper, die dezelfde
+  `{ id, title }` aanneemt als hier. Geschreven zoals hierboven is overstappen
+  een wijziging van één regel.
+- De node bevat geen kinderen en leest tijdens de build niets.

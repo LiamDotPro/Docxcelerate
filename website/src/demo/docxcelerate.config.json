@@ -8,16 +8,16 @@
         "endpoint": "",
         "method": "POST",
         "headers": {},
-        "body": "letter"
+        "body": "document"
       }
     },
     "staging": {
       "build": { "outDir": "build" },
       "upload": {
-        "endpoint": "https://letters.staging.example.com/api/letters",
+        "endpoint": "https://documents.staging.example.com/api/letters",
         "method": "POST",
         "headers": { "Authorization": "Bearer ${LETTERS_TOKEN}" },
-        "body": "letter"
+        "body": "document"
       }
     }
   }

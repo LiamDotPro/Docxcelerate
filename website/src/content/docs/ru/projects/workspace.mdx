@@ -1,0 +1,101 @@
+---
+title: Workspace и конфигурация
+description: Как устроен созданный workspace и чем управляют пресеты конфигурации.
+group: Projects
+order: 1
+---
+
+`dxcl init` создаёт обычный проект на Vite. Ничего волшебного в нём нет: его
+можно открыть в редакторе, добавить зависимости и коммитить, как любой другой
+репозиторий.
+
+```text
+my-documents/
+  docxcelerate.config.json
+  index.html
+  package.json
+  preview/
+    main.ts
+    styles.css
+  vite.config.ts
+  tsconfig.json
+  documents/
+```
+
+В `documents/` лежит по каталогу на каждый проект документа. Всё остальное —
+приложение предпросмотра, которое запускается через `npm run dev`.
+
+## Пресеты конфигурации
+
+`docxcelerate.config.json` хранит именованные пресеты поведения сборки и
+выгрузки:
+
+```json
+{
+  "schemaVersion": "docxcelerate.config/v0",
+  "activePreset": "local",
+  "presets": {
+    "local": {
+      "build": { "outDir": "build" },
+      "upload": {
+        "endpoint": "",
+        "method": "POST",
+        "headers": {},
+        "body": "document"
+      }
+    }
+  }
+}
+```
+
+`activePreset` выбирает, какой из них действует. Пресеты — это и есть механизм,
+позволяющий держать локальную настройку рядом с тестовым или боевым эндпоинтом,
+не правя конфигурацию между запусками:
+
+```json
+{
+  "activePreset": "local",
+  "presets": {
+    "local": { "build": { "outDir": "build" }, "upload": { "endpoint": "" } },
+    "staging": {
+      "build": { "outDir": "build" },
+      "upload": {
+        "endpoint": "https://documents.staging.example.com/api/letters",
+        "method": "POST",
+        "headers": { "Authorization": "Bearer ${LETTERS_TOKEN}" },
+        "body": "document"
+      }
+    }
+  }
+}
+```
+
+| Поле | Значение |
+| --- | --- |
+| `build.outDir` | Куда пишутся артефакты, относительно каталога документа |
+| `upload.endpoint` | Эндпоинт генерации; пустое значение отключает выгрузку |
+| `upload.method` | HTTP-метод, обычно `POST` |
+| `upload.headers` | Отправляются вместе с запросом выгрузки |
+| `upload.body` | Какой артефакт отправлять — `document` относится ко времени запроса |
+
+Сборка и выгрузка включаются в интерфейсе предпросмотра, только если у активного
+пресета непустой `upload.endpoint`. Если он пуст, всё равно всё собирается —
+просто вы получаете артефакты на диске, а не готовый документ.
+
+## Устройство проекта документа
+
+```text
+documents/offer-of-admission/
+  document.project.ts
+  document-style.ts
+  document.tsx
+  preview-data.ts
+  types.ts
+  nodes/
+    index.ts
+```
+
+Разделение здесь и есть смысл: `types.ts` — это контракт, `preview-data.ts` —
+один его экземпляр, `document.tsx` — только структура, а каждый узел — маленький
+модуль в `nodes/`. Документы становятся длинными, и шаблон, в который вписана вся
+проза, быстро становится нечитаемым.

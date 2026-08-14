@@ -1,0 +1,88 @@
+---
+title: Build-Artefakte
+description: Was ein Build auf die Platte schreibt, und welche Datei an einen Generierungs-Endpoint geht.
+group: Projects
+order: 2
+---
+
+Ein Dokument zu bauen schreibt reines JSON nach `build.outDir` im Verzeichnis des
+Dokuments selbst — mit der Standardkonfiguration also nach
+`documents/offer-of-admission/build/`.
+
+```text
+documents/offer-of-admission/build/
+  manifest.json
+  preview.json
+  document.json
+  derivers.js      (only when the document uses derivers)
+```
+
+## manifest.json
+
+Der Index. Er hält fest, was gebaut wurde, wann, und wo die anderen Dateien
+liegen:
+
+```json
+{
+  "schemaVersion": "docxcelerate.project-manifest/v0",
+  "id": "offer-of-admission",
+  "name": "Offer of Admission",
+  "version": "1.0.0",
+  "title": "Offer of Admission",
+  "entrypoint": "document.project.ts",
+  "builtAt": "2026-08-13T09:15:00.000Z",
+  "previewDocument": "preview.json",
+  "engineDocument": "document.json",
+  "style": { "...": "the project's DocumentStyle" }
+}
+```
+
+`deriverNames` und `derivers` erscheinen nur, wenn das Dokument Deriver aufruft.
+
+## preview.json
+
+Das gegen `previewData` aufgelöste Dokument, mit dynamischen Nodes, die zu ihren
+**Platzhaltern** gerendert sind. Das ist das Artefakt für die lokale Entwicklung
+— es ist das, was die Vorschau-App zeigt, und es braucht nie einen Dienst.
+
+## document.json
+
+Das Upload-Artefakt. Derselbe Baum, aber Werte zur Anfragezeit bleiben Tokens,
+statt eingebacken zu werden:
+
+```json
+{
+  "kind": "paragraph",
+  "mode": "static",
+  "id": "greeting",
+  "text": "Dear {{data.applicantName}},"
+}
+```
+
+Dynamische Nodes tragen statt Text ihre Prompts. Das ist die Datei, die Sie an
+[die Engine](/de/docs/generation/endpoint/) schicken, die echte Daten einsetzt
+und die Prompts auflöst.
+
+> Der Unterschied zählt beim Debuggen. Sieht ein Dokument in der Vorschau richtig
+> aus und in der Produktion falsch, vergleichen Sie `preview.json` und
+> `document.json` — die Differenz ist genau die Menge der Werte, die anderswo
+> aufgelöst werden.
+
+## derivers.js
+
+Deriver sind benannte Funktionen, die ein Node aufrufen kann, um vor dem Rendern
+einen Wert zu berechnen — eine Währungsformatierung, eine Datumsdifferenz, eine
+Nachschlage-Operation. Ein Node deklariert sie:
+
+```ts
+{
+  output: "monthsRemaining",
+  name: "monthsBetween",
+  inputs: [dataRef("startDate"), ctxRef("today")]
+}
+```
+
+Weil der Endpoint Nodes aus der Ferne auflöst, müssen die Funktionen mit dem
+Dokument reisen. `derivers.js` ist dieses Bündel und enthält nur die Deriver, auf
+die das Dokument tatsächlich verweist. Dokumente, die keine nutzen, bekommen die
+Datei nicht.

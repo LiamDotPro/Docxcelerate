@@ -1,0 +1,87 @@
+---
+title: Package-Entrypoints
+description: Jeder importierbare Pfad und was dahintersteckt.
+group: Reference
+order: 1
+---
+
+Das Paket liefert kompilierte Ausgabe mit Typdeklarationen. Jeder Entrypoint
+unten ist in `exports` deklariert, sie lösen sich also in Node und in Bundlern
+auf, ohne tief nach `dist/` hineinzuimportieren.
+
+## docxcelerate
+
+Die Hauptoberfläche: Node-Helper, der Dokument-Builder, Artefakt-Helper,
+Runtime-Typen und jeder Typ der Dokumentdomäne.
+
+```ts
+import {
+  buildDocument,
+  buildProjectPreviewDocument,
+  cleanMinimalDocumentStyle,
+  graph,
+  image,
+  document,
+  paragraph,
+  section,
+  type DocumentModel,
+  type ParagraphNode,
+} from "docxcelerate";
+```
+
+## docxcelerate/document
+
+Definition eines Dokumentprojekts — der Entrypoint, den eine angelegte
+`document.project.ts` verwendet. Die CLI und die erzeugten Dateinamen sagen
+weiterhin `document`; die API nicht.
+
+```ts
+import { defineDocumentProject } from "docxcelerate/document";
+```
+
+## docxcelerate/template
+
+Die TSX-Komponentenoberfläche.
+
+```ts
+import {
+  defineDocumentComponent,
+  defineSectionComponent,
+  Document,
+  Section,
+  template,
+} from "docxcelerate/template";
+```
+
+Ihre JSX-Runtime liegt unter `docxcelerate/template/jsx-runtime` (und
+`.../jsx-dev-runtime`) — genau dorthin löst `jsxImportSource` auf.
+
+## docxcelerate/renderer
+
+Renderer, die ein `DocumentModel` in etwas Betrachtbares verwandeln.
+
+```ts
+import { renderDocumentWebsite } from "docxcelerate/renderer";
+```
+
+`renderDocumentWebsite` gibt ein **vollständiges, eigenständiges HTML-Dokument**
+zurück — mit eigenem `<html>` und `<style>` — und kein Fragment. Betten Sie es in
+ein iframe ein, wenn Sie es innerhalb einer anderen Seite brauchen; so
+funktioniert die Vorschau auf der Startseite dieser Site.
+
+## docxcelerate/docx
+
+DOCX-Konstruktion.
+
+```ts
+import { createDocxDocument } from "docxcelerate/docx";
+```
+
+## docxcelerate/scaffold und /cli
+
+Der Workspace-Generator und sein Kommandozeilen-Frontend, um eigenes Tooling
+darauf aufzubauen.
+
+```ts
+import { scaffoldWorkspace } from "docxcelerate/scaffold";
+```

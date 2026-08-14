@@ -1,0 +1,70 @@
+---
+title: Section
+description: El único nodo que contiene otros nodos, y el encabezado en que se convierte su título.
+group: Nodes
+subgroup: Node types
+order: 11
+---
+
+import NodeSummary from "../../../../components/NodeSummary.astro";
+import NodeVariants from "../../../../components/NodeVariants.astro";
+
+<NodeSummary type="section" />
+
+## Escribir una
+
+Una sección recibe sus opciones y sus hijos — componentes de nodo, los mismos
+valores que colocarías en el nivel superior de un documento:
+
+```ts
+import { section } from "docxcelerate";
+
+export const Opening = section<MemberData>({ id: "opening", title: "Your renewal" }, [
+  Greeting,
+  PriceChange,
+]);
+```
+
+En TSX la misma llamada se lee como marcado:
+
+```tsx
+<Section id="opening" title="Your renewal">
+  <Greeting />
+  <PriceChange />
+</Section>
+```
+
+Ambas producen el mismo árbol. [Plantillas](/es/docs/essentials/templates/)
+explica cuándo merece la pena cada forma.
+
+## Los hijos pueden ser cualquier cosa
+
+Párrafos, imágenes, gráficos, un marcador de índice o más secciones. Ningún otro
+nodo tiene hijos, así que la profundidad de un documento es la profundidad de sus
+secciones.
+
+Nada cambia en un nodo por haberse metido dentro de una sección: se resuelve
+igual a cualquier profundidad, y su id no gana ningún prefijo.
+
+## Los títulos pasan al esquema
+
+`title` es obligatorio, y no es decoración — se convierte en el encabezado sobre
+los hijos y en la entrada a partir de la cual se construye un índice. Un grupo
+que no quiere encabezado no quiere sección; pon los nodos directamente en el
+documento.
+
+## Variantes
+
+<NodeVariants type="section" />
+
+## Notas
+
+- **La profundidad está en el árbol, no en los encabezados.** Los dos
+  renderizadores incluidos imprimen todos los títulos de sección en un solo nivel
+  — `<h2>` en el navegador, Título 1 en el DOCX — por muy hondo que anide. El
+  JSON sí anida correctamente, así que es una limitación del renderizador, pero
+  un documento de tres niveles todavía no parecerá de tres niveles.
+- No existe la sección dinámica. Un endpoint rellena nodos; no decide qué
+  contiene el documento.
+- Una sección vacía se renderiza como un encabezado suelto. Si los hijos vienen
+  de un filtro que puede quedarse sin nada, compruébalo aguas arriba.

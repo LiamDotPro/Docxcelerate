@@ -1,0 +1,113 @@
+---
+title: Estático y dinámico
+description: Qué se resuelve en tu máquina, qué necesita el motor y por qué la línea está donde está.
+group: Essentials
+order: 2
+---
+
+Todo nodo de contenido es **estático** o **dinámico**. Esa distinción decide de
+dónde sale su texto y cuánto cuesta.
+
+Nunca lo declaras. Hay un helper por cada clase, y el modo se deduce de las
+opciones que le des.
+
+## Nodos estáticos
+
+Dale a un párrafo un `render` y podrá producirse a partir de tus datos, así que
+se resuelve en local:
+
+```ts
+paragraph<OfferData>({
+  id: "offer",
+  render: (data) =>
+    `Your place starts on ${data.startDate}, at ${data.college}.`,
+});
+```
+
+Se ejecuta en la vista previa, en las pruebas y en una compilación — sin
+conexión, al instante y gratis. Si todos los nodos de un documento son estáticos,
+no necesitas el motor en absoluto.
+
+## Nodos dinámicos
+
+Dale en su lugar **prompts**, más un marcador de posición para que la vista
+previa siga siendo legible, y pasa a ser dinámico:
+
+```ts
+paragraph<OfferData>({
+  id: "tutor-note",
+  placeholder: (data) => `A note from ${data.interviewer}.`,
+  generalPrompt: (data) =>
+    `Write two warm sentences about ${data.applicantName}'s interview.`,
+});
+```
+
+El mismo helper, con otras obligaciones. `image` y `graph` funcionan igual —
+`src` y `data` son sus miembros de resolución local.
+
+## Por qué se infiere
+
+Un nodo que tiene `render` siempre puede producirse en local; uno que solo tiene
+prompts, nunca. Declarar el modo junto a esas opciones sería una segunda fuente
+de verdad que podría contradecirlas — un `staticParagraph` con un
+`generalPrompt`, o al revés, con alguna regla de precedencia decidiendo cuál
+gana.
+
+En vez de eso, las opciones son la verdad y `mode` se deriva de ellas. Aportar a
+la vez un `render` y un `generalPrompt` es un **error de compilación**, no un
+cara o cruz en tiempo de ejecución.
+
+`mode` sigue existiendo en el `DocumentModel` compilado y en `document.json` — el
+motor necesita saber qué nodos resolver. Es salida, no entrada.
+
+Hay cuatro ranuras de prompt disponibles. Solo `generalPrompt` es obligatoria:
+
+| Ranura | Propósito |
+| --- | --- |
+| `generalPrompt` | Lo que el nodo debe decir |
+| `infoPrompt` | Contexto que el modelo debe tener pero no repetir |
+| `negativePrompt` | Lo que hay que evitar |
+| `systemPrompt` | Instrucciones de rol y de tono |
+
+## Lo que ves en local
+
+Compilar para la vista previa resuelve los nodos dinámicos a sus **marcadores de
+posición**, no a texto generado:
+
+```ts
+const document = await buildProjectPreviewDocument(project);
+// dynamic nodes -> placeholder text
+```
+
+Esto es deliberado. La vista previa se mantiene determinista y gratuita, de modo
+que puedes iterar sobre la estructura y el estilo sin que salga ni una sola
+petición de tu máquina. El marcador de posición es además una disciplina útil: si
+un documento resulta ilegible con los marcadores puestos, su estructura está
+haciendo demasiado poco trabajo.
+
+## Qué ocurre en el momento de la petición
+
+El artefacto de subida conserva los valores del momento de la petición como
+tokens del tipo `{{data.residentName}}` para poder resolverlos más tarde.
+Enviarlo [al motor](/es/docs/generation/endpoint/) devuelve el documento
+terminado con los nodos dinámicos rellenados.
+
+El motor es un servicio aparte y gratuito que alojas tú — deliberadamente no
+forma parte del paquete de npm, de modo que instalar el framework nunca arrastra
+nada que quiera claves de API ni red. Apunta un workspace al tuyo:
+
+```sh
+dxcl init my-documents --api-endpoint https://documents.example.com/api/letters
+dxcl init my-documents --no-api-endpoint
+```
+
+Puedes cambiar `upload.endpoint` en `docxcelerate.config.json` en cualquier
+momento.
+
+## Por qué la línea está aquí
+
+Separar por nodo en lugar de por documento mantiene genuinamente útil la mitad
+gratuita del toolkit. Un documento enteramente estático es un documento completo
+y funcional sin ningún servicio detrás. Optas por la mitad alojada solo para los
+párrafos concretos que necesitan texto generado — y puedes ver exactamente cuáles
+son leyendo la plantilla.

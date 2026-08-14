@@ -3,21 +3,67 @@ import type { MarkdownHeading } from "astro";
 import Base from "./Base.astro";
 import Sidebar from "../components/Sidebar.astro";
 import Toc from "../components/Toc.astro";
-import { GITHUB_URL } from "../site";
+import { DOC_GROUPS, GITHUB_URL, SITE } from "../site";
+import { asLocale, localizePath, ui } from "../i18n";
+import { localesForDocsSlug } from "../seo";
 
 interface Props {
   title: string;
   description: string;
-  group: string;
-  currentId: string;
+  group: (typeof DOC_GROUPS)[number];
+  /** Language-independent, so the sidebar highlight survives a switch. */
+  slug: string;
+  /** Collection id of the file actually rendered — what Edit opens. */
+  entryId: string;
+  /** False when English is standing in for a missing translation. */
+  translated: boolean;
   headings: MarkdownHeading[];
 }
 
-const { title, description, group, currentId, headings } = Astro.props;
-const editUrl = `${GITHUB_URL}/edit/main/website/src/content/docs/${currentId}.mdx`;
+const { title, description, group, slug, entryId, translated, headings } = Astro.props;
+
+const locale = asLocale(Astro.currentLocale);
+const t = ui(locale);
+
+// Points at the file on screen, so a reader fixing a German typo edits the
+// German source rather than the English original.
+const editUrl = `${GITHUB_URL}/edit/main/website/src/content/docs/${entryId}.mdx`;
+
+// Only the languages that have this page are offered as translations of it.
+// Where English is standing in, the page serves but stays out of the index —
+// otherwise the same English prose competes with itself at five addresses.
+const hreflangLocales = await localesForDocsSlug(slug);
+const url = (path: string) => new URL(localizePath(path, locale), Astro.site).href;
+
+const structuredData = [
+  {
+    "@type": "TechArticle",
+    headline: title,
+    description,
+    inLanguage: locale,
+    url: url(`/docs/${slug}/`),
+    isPartOf: { "@type": "WebSite", name: SITE.name, url: url("/") },
+  },
+  {
+    "@type": "BreadcrumbList",
+    // Only the last item may omit a URL, and groups have no page of their own,
+    // so the trail is site, docs, page — with the group named on the page item.
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: SITE.name, item: url("/") },
+      { "@type": "ListItem", position: 2, name: t.nav.docs, item: url("/docs/start-here/") },
+      { "@type": "ListItem", position: 3, name: `${t.docs.groups[group]}: ${title}` },
+    ],
+  },
+];
 ---
 
-<Base title={title} description={description}>
+<Base
+  title={title}
+  description={description}
+  hreflangLocales={hreflangLocales}
+  noindex={!translated}
+  structuredData={structuredData}
+>
   <div
     class="mx-auto flex w-full max-w-6xl gap-10 px-5 py-10 sm:px-8 lg:gap-12"
   >
@@ -26,7 +72,7 @@ const editUrl = `${GITHUB_URL}/edit/main/website/src/content/docs/${currentId}.m
       class="hidden w-52 shrink-0 lg:block"
     >
       <div class="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pb-8">
-        <Sidebar currentId={currentId} />
+        <Sidebar currentSlug={slug} />
       </div>
     </aside>
 
@@ -35,10 +81,25 @@ const editUrl = `${GITHUB_URL}/edit/main/website/src/content/docs/${currentId}.m
       <p
         class="m-0 mb-2 font-mono text-[0.65rem] uppercase tracking-[0.14em] text-muted"
       >
-        {group}
+        {t.docs.groups[group]}
       </p>
       <h1 class="mt-0 mb-3 text-4xl font-semibold">{title}</h1>
-      <p class="mt-0 mb-10 text-lg leading-relaxed text-muted">{description}</p>
+      <p
+        class:list={[
+          "mt-0 text-lg leading-relaxed text-muted",
+          translated ? "mb-10" : "mb-6",
+        ]}
+      >
+        {description}
+      </p>
+
+      {
+        !translated && (
+          <p class="mb-10 rounded border border-border-firm bg-surface px-4 py-3 text-sm text-muted">
+            {t.docs.untranslatedNote}
+          </p>
+        )
+      }
 
       <slot />
 
@@ -48,7 +109,7 @@ const editUrl = `${GITHUB_URL}/edit/main/website/src/content/docs/${currentId}.m
           href={editUrl}
           target="_blank"
           rel="noopener noreferrer"
-          class="text-accent">Edit this page on GitHub ↗</a
+          class="text-accent">{t.docs.editOnGithub}</a
         >
       </p>
     </article>

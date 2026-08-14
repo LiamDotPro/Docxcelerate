@@ -11,7 +11,11 @@
  * Native <details> so it works without JS and keyboard-navigates for free.
  */
 import { Code } from "astro:components";
-import { byCategory, nodeTypeHref, STATUS_LABELS } from "../node-catalog";
+import { byCategory, nodeTypeHref } from "../node-catalog";
+import { asLocale, fill, localizePath, ui } from "../i18n";
+
+const locale = asLocale(Astro.currentLocale);
+const t = ui(locale);
 
 const groups = byCategory();
 
@@ -44,7 +48,7 @@ function snippetFor(sourceFile: string | undefined): string | undefined {
     groups.map(({ category, types }) => (
       <div class="flex flex-col gap-3">
         <h3 class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted">
-          {category}
+          {t.nodes.categories[category]}
         </h3>
         <div class="overflow-hidden rounded-md border border-border">
           {types.map((type, index) => {
@@ -65,7 +69,7 @@ function snippetFor(sourceFile: string | undefined): string | undefined {
                   <span class="text-sm text-muted">{type.summary}</span>
                   {type.status !== "stable" && (
                     <span class="shrink-0 rounded-full border border-border-firm px-2 py-px font-mono text-[0.6rem] uppercase tracking-[0.1em] text-muted">
-                      {STATUS_LABELS[type.status]}
+                      {t.nodes.status[type.status]}
                     </span>
                   )}
                   <span
@@ -80,7 +84,7 @@ function snippetFor(sourceFile: string | undefined): string | undefined {
 
                   {type.helpers.length > 1 && (
                     <p class="m-0 font-mono text-xs text-muted">
-                      Helpers: {type.helpers.join(", ")}
+                      {t.nodes.helpers}: {type.helpers.join(", ")}
                     </p>
                   )}
 
@@ -96,8 +100,11 @@ function snippetFor(sourceFile: string | undefined): string | undefined {
 
                   {href && (
                     <p class="m-0">
-                      <a href={href} class="text-sm text-accent no-underline hover:underline">
-                        {type.title} reference, with previews →
+                      <a
+                        href={localizePath(href, locale)}
+                        class="text-sm text-accent no-underline hover:underline"
+                      >
+                        {fill(t.nodes.reference, { title: type.title })}
                       </a>
                     </p>
                   )}

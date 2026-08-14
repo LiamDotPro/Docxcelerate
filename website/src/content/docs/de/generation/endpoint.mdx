@@ -1,0 +1,95 @@
+---
+title: Die Engine
+description: Was die Engine tut, wie Sie ein Template dorthin veröffentlichen, und die beiden Editionen.
+group: Generation
+order: 1
+---
+
+Die Aufgabe des Frameworks endet beim Paket. Es rendert Ihr Dokument und
+verpackt es; das Paket ist ein Template, in dem die Angaben zur Empfängerin oder
+zum Empfänger noch fehlen. Die **Engine** ist der Ort, an den dieses Paket geht,
+und das, was Dokumente daraus macht.
+
+## Die drei Schritte
+
+1. **Bauen.** Das Framework rendert das Dokument und verpackt es. Das ist der
+   einzige Schritt, der auf Ihrem Rechner läuft.
+2. **Veröffentlichen.** Das Paket geht an eine Engine, die es speichert und ihm
+   eine Adresse gibt.
+3. **Schreiben.** Ihre Anwendung ruft die API mit einem Datensatz auf. Die Engine
+   schreibt das Dokument und gibt es zurück.
+
+Die wichtige Folge daraus: Veröffentlichen und Schreiben sind getrennt. Ein Paket
+veröffentlichen Sie, wenn sich der Wortlaut des Dokuments ändert — ein Ereignis
+von der Form eines Deploys. Die API rufen Sie jedes Mal auf, wenn jemand ein
+Dokument braucht, was ununterbrochen sein kann und weder Build-Schritt noch
+Workspace erfordert.
+
+## Warum sie nicht im Paket steckt
+
+Die Engine ist ein Dienst, keine Bibliothek, und nicht Teil des npm-Pakets.
+Schreiben, Vorschau und Packen sind lokale Arbeit ohne irgendetwas dahinter — die
+Installation des Frameworks zieht also nichts mit sich, das API-Schlüssel oder
+ein Netzwerk verlangt, und beide werden unabhängig voneinander versioniert.
+
+## Einen Workspace darauf ausrichten
+
+```sh
+dxcl init my-documents --api-endpoint https://documents.example.com/api/letters
+```
+
+Oder ohne einrichten und später entscheiden:
+
+```sh
+dxcl init my-documents --no-api-endpoint
+```
+
+`upload.endpoint` in `docxcelerate.config.json` lässt sich jederzeit ändern, und
+mit [Config-Presets](/de/docs/projects/workspace/) halten Sie lokale, Staging-
+und Produktions-Engines nebeneinander.
+
+## Was Sie veröffentlichen
+
+Das Artefakt `document.json`. Statische Nodes kommen mit bereits aufgelöstem Text
+an, Werte zur Anfragezeit bleiben aber als Tokens stehen — und genau das macht
+ein gespeichertes Paket für jede Empfängerin und jeden Empfänger brauchbar:
+
+```json
+{ "kind": "paragraph", "mode": "static", "id": "greeting",
+  "text": "Dear {{data.applicantName}}," }
+```
+
+Dynamische Nodes kommen mit Prompts statt Text an:
+
+```json
+{ "kind": "paragraph", "mode": "dynamic", "id": "tutor-note",
+  "prompts": [
+    { "kind": "general", "text": "Write two warm, specific sentences…" },
+    { "kind": "negative", "text": "Do not restate the offer…" },
+    { "kind": "system", "text": "You are an admissions tutor…" }
+  ] }
+```
+
+## Zwei Editionen
+
+**Selbst gehostet (kostenlos).** Eine abgespeckte Engine, die Sie selbst
+betreiben können. Sie deckt den Kern der Pipeline ab — ein Paket speichern,
+Dokumente daraus schreiben — mit reduziertem Funktionsumfang.
+
+**Verwaltete Cloud.** Die vollständige Engine, gehostet. Sie ist noch nicht
+offen; wenn sie öffnet, wird es einen kostenlosen Tarif geben, für den nur eine
+Anmeldung nötig ist — ohne Karte und ohne Infrastruktur, die Sie aufsetzen
+müssten.
+
+Die beiden sind nicht derselbe Build, entscheiden Sie also nach Funktionen und
+nicht allein nach Hosting-Vorliebe.
+
+## Ohne Engine arbeiten
+
+Sie kommen weit, bevor Sie eine Engine brauchen. Schreiben, Vorschau und das
+Packen zu `.docx` laufen alle lokal — ein Dokument lässt sich also auf Ihrem
+Rechner schreiben, prüfen und erzeugen, ohne irgendetwas zu veröffentlichen.
+
+Eine Engine kommt dann dazu, wenn Dokumente von etwas anderem erzeugt werden
+müssen als von einem Menschen an der Tastatur: nach Zeitplan, aus einer
+Warteschlange oder als Reaktion auf etwas in Ihrem eigenen System.

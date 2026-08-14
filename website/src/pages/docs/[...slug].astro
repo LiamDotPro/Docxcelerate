@@ -1,24 +1,27 @@
 ---
-import { getCollection, render } from "astro:content";
+// English docs, at the paths they have always had. The other four languages
+// are the same pages under a prefix — see src/pages/[locale]/docs/[...slug].astro.
+import { render } from "astro:content";
 import Docs from "../../layouts/Docs.astro";
+import { docsFor } from "../../docs";
+import { DEFAULT_LOCALE } from "../../i18n";
 
 export async function getStaticPaths() {
-  const pages = await getCollection("docs");
-  return pages.map((page) => ({
-    params: { slug: page.id },
-    props: { page },
-  }));
+  const pages = await docsFor(DEFAULT_LOCALE);
+  return pages.map((page) => ({ params: { slug: page.slug }, props: { page } }));
 }
 
 const { page } = Astro.props;
-const { Content, headings } = await render(page);
+const { Content, headings } = await render(page.entry);
 ---
 
 <Docs
-  title={page.data.title}
-  description={page.data.description}
-  group={page.data.group}
-  currentId={page.id}
+  title={page.entry.data.title}
+  description={page.entry.data.description}
+  group={page.entry.data.group}
+  slug={page.slug}
+  entryId={page.entry.id}
+  translated={page.translated}
   headings={headings}
 >
   <Content />

@@ -19,10 +19,10 @@ my-documents/
     styles.css
   vite.config.ts
   tsconfig.json
-  letters/
+  documents/
 ```
 
-`letters/` holds one directory per document project. Everything else is the
+`documents/` holds one directory per document project. Everything else is the
 preview app that runs on `npm run dev`.
 
 ## Config presets
@@ -40,7 +40,7 @@ preview app that runs on `npm run dev`.
         "endpoint": "",
         "method": "POST",
         "headers": {},
-        "body": "letter"
+        "body": "document"
       }
     }
   }
@@ -59,10 +59,10 @@ configuration between runs:
     "staging": {
       "build": { "outDir": "build" },
       "upload": {
-        "endpoint": "https://letters.staging.example.com/api/letters",
+        "endpoint": "https://documents.staging.example.com/api/letters",
         "method": "POST",
         "headers": { "Authorization": "Bearer ${LETTERS_TOKEN}" },
-        "body": "letter"
+        "body": "document"
       }
     }
   }
@@ -75,7 +75,7 @@ configuration between runs:
 | `upload.endpoint` | The generation endpoint; empty disables upload |
 | `upload.method` | HTTP method, normally `POST` |
 | `upload.headers` | Sent with the upload request |
-| `upload.body` | Which artifact to send — `letter` is the request-time one |
+| `upload.body` | Which artifact to send — `document` is the request-time one |
 
 Build & upload is enabled in the preview UI only when the active preset has a
 non-empty `upload.endpoint`. With it empty, everything still builds — you simply
@@ -84,10 +84,10 @@ get artifacts on disk instead of a finished document.
 ## Document project layout
 
 ```text
-letters/offer-of-admission/
-  letter.project.ts
-  letter-style.ts
-  letter.tsx
+documents/offer-of-admission/
+  document.project.ts
+  document-style.ts
+  document.tsx
   preview-data.ts
   types.ts
   nodes/
@@ -95,6 +95,6 @@ letters/offer-of-admission/
 ```
 
 The split is the point: `types.ts` is the contract, `preview-data.ts` is one
-instance of it, `letter.tsx` is structure only, and each node is a small module
+instance of it, `document.tsx` is structure only, and each node is a small module
 under `nodes/`. Documents get long, and a template that inlines its prose becomes
 unreadable quickly.

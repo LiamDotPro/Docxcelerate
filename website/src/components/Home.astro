@@ -1,0 +1,331 @@
+---
+/**
+ * The homepage, in whatever language the URL asks for.
+ *
+ * Lives here rather than in src/pages so that `/` and `/[locale]/` are two
+ * addresses for one page instead of two copies of it. Everything it says comes
+ * from the dictionaries; the only English left below is markup.
+ */
+import Base from "../layouts/Base.astro";
+import HeroDemo from "./HeroDemo.astro";
+import { CLOUD_URL, GITHUB_URL, INSTALL_COMMAND, NPM_URL, SITE } from "../site";
+import release from "../generated/release.json";
+import { asLocale, fill, localizePath, ui } from "../i18n";
+
+const locale = asLocale(Astro.currentLocale);
+const t = ui(locale);
+
+// Long enough to be recognisable, short enough to sit on one line; the full
+// value is on the element and on the clipboard.
+const shortIntegrity = `${release.integrity.slice(0, 24)}…`;
+
+// The label names the dimension each point argues on, so the three read as a
+// set covering authoring, AI and governance rather than three loose claims.
+const POINTS = [t.home.points.authoring, t.home.points.ai, t.home.points.changeControl];
+
+// A real sequence, so it's numbered. The first step is the only one the
+// framework is responsible for.
+const STEPS = [t.home.engine.steps.build, t.home.engine.steps.publish, t.home.engine.steps.write];
+
+// What the package is, in the vocabulary a search engine already has. The
+// version and licence come from the release the site was built against, so this
+// cannot drift from the install command printed above it.
+const structuredData = [
+  {
+    "@type": "SoftwareApplication",
+    name: SITE.name,
+    description: t.meta.description,
+    applicationCategory: "DeveloperApplication",
+    operatingSystem: "Node.js 20+",
+    softwareVersion: release.version,
+    inLanguage: locale,
+    url: new URL(localizePath("/", locale), Astro.site).href,
+    codeRepository: GITHUB_URL,
+    downloadUrl: NPM_URL,
+    license: "https://opensource.org/licenses/MIT",
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  },
+  {
+    "@type": "WebSite",
+    name: SITE.name,
+    url: new URL(localizePath("/", locale), Astro.site).href,
+    inLanguage: locale,
+  },
+];
+
+const CARDS = [
+  { ...t.home.docs.cards.startHere, href: "/docs/start-here/" },
+  { ...t.home.docs.cards.documentsAndNodes, href: "/docs/essentials/documents-and-nodes/" },
+  { ...t.home.docs.cards.nodeModel, href: "/docs/nodes/overview/" },
+  { ...t.home.docs.cards.staticAndDynamic, href: "/docs/essentials/static-and-dynamic/" },
+  { ...t.home.docs.cards.cli, href: "/docs/cli/commands/" },
+  { ...t.home.docs.cards.entrypoints, href: "/docs/reference/entrypoints/" },
+];
+---
+
+<Base bare structuredData={structuredData}>
+  <!-- Hero -->
+  <section class="mx-auto max-w-6xl px-5 pt-12 pb-10 sm:px-8 sm:pt-16">
+    <div class="flex flex-col items-center gap-6 text-center">
+      <h1
+        class="m-0 max-w-3xl text-[clamp(2.6rem,7vw,4.5rem)] font-semibold leading-[1.02]"
+      >
+        {t.home.headlineLineOne}<br />{t.home.headlineLineTwo}
+      </h1>
+      <p class="m-0 max-w-xl text-lg leading-relaxed text-muted">
+        {t.home.lead}
+      </p>
+
+      <div class="flex flex-wrap items-center justify-center gap-3">
+        <a
+          href={localizePath("/docs/start-here/", locale)}
+          class="rounded bg-accent-solid px-5 py-2.5 text-sm font-medium text-on-accent no-underline transition-colors hover:bg-accent-deep"
+          >{t.home.ctaStart}</a
+        >
+        <a
+          href={localizePath("/docs/essentials/static-and-dynamic/", locale)}
+          class="rounded border border-border-firm px-5 py-2.5 text-sm font-medium text-accent no-underline transition-colors hover:bg-accent-tint"
+          >{t.home.ctaHowItWorks}</a
+        >
+      </div>
+
+      <div
+        class="mt-1 flex items-center gap-3 rounded border border-border bg-surface px-4 py-2 font-mono text-sm"
+      >
+        <span class="select-none text-muted">$</span>
+        <code id="install-cmd">{INSTALL_COMMAND}</code>
+        <button
+          type="button"
+          id="copy-install"
+          class="ml-1 rounded px-1.5 py-0.5 text-xs text-muted transition-colors hover:text-accent"
+          data-idle={t.home.copy}
+          data-copied={t.home.copied}
+          data-fallback={t.home.copyFallback}
+          aria-label={t.home.copyInstall}>{t.home.copy}</button
+        >
+      </div>
+
+      <p
+        class="m-0 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-mono text-[0.68rem] text-muted"
+      >
+        <span>v{release.version}</span>
+        <span aria-hidden="true">·</span>
+        <button
+          type="button"
+          id="copy-integrity"
+          data-integrity={release.integrity}
+          data-copied={t.home.copied}
+          data-fallback={t.home.copyFallback}
+          class="max-w-full truncate rounded px-1 text-left tabular-nums transition-colors hover:text-accent"
+          title={fill(t.home.integrityTitle, { hash: release.integrity })}
+        >
+          {shortIntegrity}
+        </button>
+      </p>
+    </div>
+
+  </section>
+
+  <!-- The demo runs wider than the prose above it — it's the argument, not an
+       illustration of one. -->
+  <section class="mx-auto max-w-7xl px-5 pb-16 sm:px-8">
+    <HeroDemo />
+  </section>
+
+  <!-- Positioning. Top margin only — the quote below owns the gap after it, so
+       the two don't stack margin and padding into a hole. -->
+  <section class="mt-10 border-y border-border bg-surface sm:mt-6">
+    <div class="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24">
+      <div class="grid gap-16 md:grid-cols-3 md:gap-0">
+        {
+          POINTS.map((point, index) => (
+            <div
+              class:list={[
+                "flex flex-col",
+                // Hairlines between columns rather than boxes around them —
+                // the points are peers, not cards.
+                index > 0 && "md:border-l md:border-border md:pl-12",
+                index < POINTS.length - 1 && "md:pr-12",
+              ]}
+            >
+              <span class="mb-4 font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent">
+                {point.label}
+              </span>
+              <h2 class="m-0 mb-4 text-[1.75rem] leading-[1.15] font-semibold">{point.title}</h2>
+              <p class="m-0 text-[0.975rem] leading-[1.75] text-pretty text-muted">
+                {point.body}
+              </p>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- The thesis. The one place on the page that spends the accent at full
+       strength — everything around it stays quiet. -->
+  <section class="bg-accent-solid text-on-accent">
+    <div class="mx-auto max-w-6xl px-5 py-32 sm:px-8 sm:py-44">
+      <div class="mx-auto max-w-3xl text-center">
+        <p class="pull-quote">
+          {t.home.pullQuote}
+        </p>
+        <span class="quote-rule" aria-hidden="true"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- The engine -->
+  <section class="mx-auto max-w-6xl px-5 py-24 sm:px-8">
+    <div class="grid gap-12 md:grid-cols-2 md:gap-16">
+      <div class="flex max-w-xl flex-col gap-5">
+        <h2 class="m-0 text-3xl font-semibold sm:text-4xl">{t.home.engine.title}</h2>
+        <p class="m-0 leading-relaxed text-muted">
+          {t.home.engine.bodyOne}
+        </p>
+        <p class="m-0 leading-relaxed text-muted">
+          {t.home.engine.bodyTwo}
+        </p>
+        <div class="mt-2 flex flex-wrap gap-3">
+          <a
+            href={localizePath("/docs/generation/endpoint/", locale)}
+            class="rounded bg-accent-solid px-5 py-2.5 text-sm font-medium text-on-accent no-underline transition-colors hover:bg-accent-deep"
+            >{t.home.engine.ctaHow}</a
+          >
+          <a
+            href={CLOUD_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-2 rounded border border-border-firm px-5 py-2.5 text-sm font-medium text-muted no-underline transition-colors hover:text-accent"
+            >{t.home.engine.ctaCloud}
+            <span
+              class="rounded-full border border-border-firm px-1.5 py-px font-mono text-[0.6rem] uppercase tracking-[0.08em]"
+              >{t.common.soon}</span
+            ></a
+          >
+        </div>
+      </div>
+
+      <!-- Full height and spread, so the first step's text starts level with
+           the heading and the last ends level with the buttons. -->
+      <ol class="m-0 flex list-none flex-col p-0 md:h-full md:justify-between">
+        {
+          STEPS.map((step, index) => (
+            <li
+              class:list={[
+                "m-0 flex gap-5 py-5",
+                index > 0 && "border-t border-border",
+                index === 0 && "md:pt-0",
+                index === STEPS.length - 1 && "md:pb-0",
+              ]}
+            >
+              <span class="pt-0.5 font-mono text-sm text-muted tabular-nums">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <span class="flex flex-col gap-1">
+                <span class="font-semibold text-ink">{step.title}</span>
+                <span class="text-sm leading-relaxed text-muted">{step.detail}</span>
+              </span>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+
+  <!-- The docs -->
+  <section class="border-t border-border bg-surface">
+    <div class="mx-auto max-w-6xl px-5 py-24 sm:px-8 sm:py-28">
+      <div class="mb-10 flex max-w-2xl flex-col gap-4">
+        <span
+          class="font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent"
+          >{t.home.docs.eyebrow}</span
+        >
+        <h2 class="m-0 text-3xl font-semibold sm:text-4xl">{t.home.docs.title}</h2>
+        <p class="m-0 leading-relaxed text-muted">
+          {t.home.docs.lead}
+        </p>
+      </div>
+
+      <div class="grid gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
+        {
+          CARDS.map((card) => (
+            <a
+              href={localizePath(card.href, locale)}
+              class="group flex flex-col gap-1.5 bg-paper p-6 no-underline transition-colors hover:bg-accent-tint"
+            >
+              <span class="font-semibold text-ink transition-colors group-hover:text-accent">
+                {card.title}
+                <span class="ml-1 inline-block transition-transform group-hover:translate-x-0.5" aria-hidden="true">→</span>
+              </span>
+              <span class="text-sm leading-relaxed text-muted">{card.blurb}</span>
+            </a>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+</Base>
+
+<script>
+  /**
+   * Both copy buttons take their labels from the markup, so the script has no
+   * English in it and works the same in every language.
+   */
+  function wireCopy(button: HTMLElement | null, value: () => string | undefined) {
+    if (!button) return;
+
+    const idle = button.dataset.idle ?? button.textContent?.trim() ?? "";
+    const copied = button.dataset.copied ?? idle;
+    const fallback = button.dataset.fallback ?? idle;
+
+    button.addEventListener("click", async () => {
+      const text = value();
+      if (!text) return;
+      const restore = () => setTimeout(() => (button.textContent = idle), 1600);
+      try {
+        await navigator.clipboard.writeText(text);
+        button.textContent = copied;
+        restore();
+      } catch {
+        button.textContent = fallback;
+        restore();
+      }
+    });
+  }
+
+  const command = document.getElementById("install-cmd");
+  wireCopy(document.getElementById("copy-install"), () => command?.textContent ?? "");
+
+  const integrity = document.getElementById("copy-integrity");
+  wireCopy(integrity, () => integrity?.dataset.integrity);
+</script>
+
+<style>
+  .pull-quote {
+    margin: 0;
+    font-family: var(--font-serif);
+    font-size: clamp(1.5rem, 2.9vw, 2.15rem);
+    line-height: 1.45;
+    letter-spacing: -0.012em;
+    /* Balanced rather than pretty: on a centred block of four or five lines,
+       even line lengths matter more than avoiding a single short last line. */
+    text-wrap: balance;
+    /* Inherits from the band, so it stays legible on the accent in both
+       themes rather than pinning itself to the page ink colour. */
+    color: inherit;
+  }
+
+  /* Closes the block so it doesn't trail off, and gives the centred text an
+     axis to sit on. */
+  .quote-rule {
+    display: block;
+    width: 3.5rem;
+    height: 2px;
+    margin: 2.25rem auto 0;
+    border-radius: 1px;
+    background: currentColor;
+    opacity: 0.45;
+  }
+</style>

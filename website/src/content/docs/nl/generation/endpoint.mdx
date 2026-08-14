@@ -1,0 +1,96 @@
+---
+title: De engine
+description: Wat de engine doet, hoe je er een template naartoe publiceert, en de twee edities.
+group: Generation
+order: 1
+---
+
+De taak van het framework eindigt bij het pakket. Het rendert je document en pakt
+het in; het pakket is een template waarin de gegevens van de ontvanger nog
+ontbreken. De **engine** is waar dat pakket naartoe gaat, en wat er documenten
+van maakt.
+
+## De drie stappen
+
+1. **Bouwen.** Het framework rendert het document en pakt het in. Dit is de enige
+   stap die op je eigen machine draait.
+2. **Publiceren.** Het pakket wordt naar een engine gestuurd, die het opslaat en
+   er een adres aan geeft.
+3. **Schrijven.** Je applicatie roept de API aan met een set gegevens. De engine
+   schrijft het document en geeft het terug.
+
+Het belangrijke gevolg is dat publiceren en schrijven gescheiden zijn. Je
+publiceert een pakket wanneer de formulering van het document verandert — een
+gebeurtenis met de vorm van een deploy. Je roept de API aan telkens als iemand
+een document nodig heeft, wat voortdurend kan zijn, en waar geen buildstap en
+geen workspace bij komen kijken.
+
+## Waarom het niet in het package zit
+
+De engine is een dienst, geen library, en maakt geen deel uit van het
+npm-package. Schrijven, preview en inpakken zijn lokaal werk zonder iets
+erachter, dus het installeren van het framework haalt niets binnen dat
+API-sleutels of een netwerk wil, en de twee krijgen onafhankelijk van elkaar hun
+versies.
+
+## Een workspace ernaartoe laten wijzen
+
+```sh
+dxcl init my-documents --api-endpoint https://documents.example.com/api/letters
+```
+
+Of zet er een op zonder, en beslis later:
+
+```sh
+dxcl init my-documents --no-api-endpoint
+```
+
+`upload.endpoint` in `docxcelerate.config.json` is op elk moment aan te passen, en
+met [configpresets](/nl/docs/projects/workspace/) kun je lokale, staging- en
+productie-engines naast elkaar houden.
+
+## Wat je publiceert
+
+Het `document.json`-artefact. Statische nodes komen aan met hun tekst al
+opgelost, maar met waarden voor het aanvraagmoment nog als tokens — en dat is wat
+één opgeslagen pakket geschikt maakt voor elke ontvanger:
+
+```json
+{ "kind": "paragraph", "mode": "static", "id": "greeting",
+  "text": "Dear {{data.applicantName}}," }
+```
+
+Dynamische nodes komen aan met prompts in plaats van tekst:
+
+```json
+{ "kind": "paragraph", "mode": "dynamic", "id": "tutor-note",
+  "prompts": [
+    { "kind": "general", "text": "Write two warm, specific sentences…" },
+    { "kind": "negative", "text": "Do not restate the offer…" },
+    { "kind": "system", "text": "You are an admissions tutor…" }
+  ] }
+```
+
+## Twee edities
+
+**Zelf gehost (gratis).** Een uitgeklede engine die je zelf kunt draaien. Hij
+dekt de kern van de pijplijn — een pakket opslaan, er documenten uit schrijven —
+met een beperkter aantal functies.
+
+**Managed cloud.** De volledige engine, gehost. Hij is nog niet open; wanneer dat
+gebeurt komt er een gratis laag waarvoor je je alleen hoeft aan te melden, zonder
+kaart en zonder infrastructuur die je moet optuigen.
+
+De twee zijn niet dezelfde build, dus kies op functies en niet alleen op
+hostingvoorkeur.
+
+## Werken zonder engine
+
+Je komt een heel eind voordat je een engine nodig hebt. Schrijven, preview en
+inpakken tot `.docx` draaien allemaal lokaal, dus een document kan op je eigen
+machine worden geschreven, beoordeeld en geproduceerd zonder dat je iets
+publiceert.
+
+Een engine voeg je toe wanneer documenten moeten worden geproduceerd door iets
+anders dan een mens achter een toetsenbord — volgens een schema, uit een wachtrij,
+of als reactie op iets dat in je eigen systeem gebeurt.
