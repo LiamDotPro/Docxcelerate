@@ -1,0 +1,87 @@
+---
+title: Точки входа пакета
+description: Каждый импортируемый путь и то, что за ним стоит.
+group: Reference
+order: 1
+---
+
+Пакет поставляется скомпилированным, с декларациями типов. Все точки входа ниже
+объявлены в `exports`, поэтому они разрешаются и в Node, и в сборщиках без
+глубоких импортов внутрь `dist/`.
+
+## docxcelerate
+
+Основная поверхность: хелперы узлов, сборщик документа, хелперы артефактов,
+типы времени выполнения и все типы предметной области документа.
+
+```ts
+import {
+  buildDocument,
+  buildProjectPreviewDocument,
+  cleanMinimalDocumentStyle,
+  graph,
+  image,
+  document,
+  paragraph,
+  section,
+  type DocumentModel,
+  type ParagraphNode,
+} from "docxcelerate";
+```
+
+## docxcelerate/document
+
+Описание проекта документа — точка входа, которую использует созданный
+`document.project.ts`. CLI и имена создаваемых файлов по-прежнему говорят
+`document`; API — нет.
+
+```ts
+import { defineDocumentProject } from "docxcelerate/document";
+```
+
+## docxcelerate/template
+
+Поверхность TSX-компонентов.
+
+```ts
+import {
+  defineDocumentComponent,
+  defineSectionComponent,
+  Document,
+  Section,
+  template,
+} from "docxcelerate/template";
+```
+
+Её JSX-рантайм доступен по адресу `docxcelerate/template/jsx-runtime` (а также
+`.../jsx-dev-runtime`) — именно туда разрешается `jsxImportSource`.
+
+## docxcelerate/renderer
+
+Рендереры, превращающие `DocumentModel` во что-то, что можно посмотреть.
+
+```ts
+import { renderDocumentWebsite } from "docxcelerate/renderer";
+```
+
+`renderDocumentWebsite` возвращает **целый самостоятельный HTML-документ** — со
+своими `<html>` и `<style>` — а не фрагмент. Вставьте его в iframe, если он нужен
+внутри другой страницы; именно так работает предпросмотр на главной странице
+этого сайта.
+
+## docxcelerate/docx
+
+Построение DOCX.
+
+```ts
+import { createDocxDocument } from "docxcelerate/docx";
+```
+
+## docxcelerate/scaffold и /cli
+
+Генератор workspace и его интерфейс командной строки — чтобы строить поверх них
+собственные инструменты.
+
+```ts
+import { scaffoldWorkspace } from "docxcelerate/scaffold";
+```

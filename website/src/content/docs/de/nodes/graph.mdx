@@ -1,0 +1,59 @@
+---
+title: Graph
+description: Diagramme als Daten deklariert — Balken, Linie oder Kreis — aus Ihren Zahlen oder denen eines Endpoints.
+group: Nodes
+subgroup: Node types
+order: 13
+---
+
+import NodeSummary from "../../../../components/NodeSummary.astro";
+import NodeVariants from "../../../../components/NodeVariants.astro";
+
+<NodeSummary type="graph" />
+
+## Deklariert, nicht gezeichnet
+
+Ein Graph-Node enthält Zahlen und eine Form, nie ein Bild:
+
+```ts
+graph<MemberData>({
+  id: "visits-by-month",
+  graphType: "bar",
+  data: (data) => ({
+    labels: data.visitsByMonth.map((entry) => entry.month),
+    series: [{ name: "Visits", values: data.visitsByMonth.map((entry) => entry.visits) }],
+  }),
+  caption: () => "Your visits, last six months",
+});
+```
+
+Zahlen statt eines Bildes mitzuführen heißt: eine Deklaration bedient jeden
+Renderer, sie diffed zwischen Builds lesbar, und man kann sie in einem Test
+prüfen.
+
+## Die Form der Payload gehört Ihnen
+
+`data` ist ein `JsonObject`, und das Framework schaut nie hinein. Die hier
+verwendete Form `{ labels, series }` ist eine Konvention, kein Schema — nehmen
+Sie, was Ihr Renderer erwartet, und halten Sie es im Projekt einheitlich.
+
+Eines geschieht mit der Payload doch: String-Werte laufen durch den
+Template-Renderer, genau wie Prosa. Ein Label mit `{{derived.total}}` wird
+aufgelöst.
+
+## Ableiten in `data`
+
+Laufende Summen, Prozentwerte und Umbasierungen gehören in die `data`-Funktion,
+nicht weiter stromaufwärts. Diagramm und der Text daneben werden dann aus einer
+Quelle berechnet und können sich nicht widersprechen.
+
+## Varianten
+
+<NodeVariants type="graph" />
+
+## Anmerkungen
+
+- `graphType` steht bei beiden Helpern standardmäßig auf `bar`.
+- Bei einem dynamischen Graph liegt die Form weiterhin lokal fest. Der Endpoint
+  liefert die Zahlen und darf `graphType` und `caption` in seiner Antwort
+  überschreiben.

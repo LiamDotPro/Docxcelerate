@@ -4,11 +4,15 @@
  * every option its helpers take. All of it comes from the generated catalog,
  * so an option that changes shape in the toolkit changes here too.
  */
-import { nodeType, STATUS_LABELS } from "../node-catalog";
+import { nodeType } from "../node-catalog";
+import { asLocale, ui } from "../i18n";
 
 interface Props {
   type: string;
 }
+
+const locale = asLocale(Astro.currentLocale);
+const t = ui(locale);
 
 const type = nodeType(Astro.props.type);
 
@@ -28,15 +32,18 @@ function escapeHtml(value: string): string {
     .replaceAll(">", "&gt;");
 }
 
+// The labels are translated; most of the values are not. `kind`, `resolves`
+// and `children` come from the generated catalog, which stays English — see
+// the note in src/node-catalog.ts.
 const FACTS: { label: string; value: string }[] = [
   {
-    label: "Helpers",
-    value: type.helpers.length > 0 ? type.helpers.join(", ") : "None — written by hand",
+    label: t.nodes.helpers,
+    value: type.helpers.length > 0 ? type.helpers.join(", ") : t.nodes.noHelpers,
   },
-  { label: "Node kind", value: type.kind },
-  { label: "Category", value: type.category },
-  { label: "Resolves", value: type.resolves },
-  { label: "Children", value: type.children },
+  { label: t.nodes.kind, value: type.kind },
+  { label: t.nodes.category, value: t.nodes.categories[type.category] },
+  { label: t.nodes.resolves, value: type.resolves },
+  { label: t.nodes.children, value: type.children },
 ];
 ---
 
@@ -46,7 +53,7 @@ const FACTS: { label: string; value: string }[] = [
     {
       type.status !== "stable" && (
         <span class="badge">
-          {STATUS_LABELS[type.status]}
+          {t.nodes.status[type.status]}
         </span>
       )
     }
@@ -55,7 +62,7 @@ const FACTS: { label: string; value: string }[] = [
   {
     type.renderNote && (
       <aside class="render-note">
-        <p class="note-label">What the renderers do today</p>
+        <p class="note-label">{t.nodes.renderNote}</p>
         <p set:html={inlineCode(type.renderNote)} />
       </aside>
     )
@@ -77,9 +84,9 @@ const FACTS: { label: string; value: string }[] = [
       <table class="options">
         <thead>
           <tr>
-            <th scope="col">Option</th>
-            <th scope="col">Type</th>
-            <th scope="col">What it does</th>
+            <th scope="col">{t.nodes.option}</th>
+            <th scope="col">{t.nodes.type}</th>
+            <th scope="col">{t.nodes.whatItDoes}</th>
           </tr>
         </thead>
         <tbody>
@@ -87,7 +94,7 @@ const FACTS: { label: string; value: string }[] = [
             <tr>
               <th scope="row">
                 <code>{option.name}</code>
-                {option.required && <span class="required">required</span>}
+                {option.required && <span class="required">{t.nodes.required}</span>}
               </th>
               <td>
                 <code class="type">{option.type}</code>

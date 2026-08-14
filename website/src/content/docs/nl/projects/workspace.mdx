@@ -1,0 +1,101 @@
+---
+title: Workspace en config
+description: Hoe een opgezette workspace is ingedeeld, en wat de configpresets aansturen.
+group: Projects
+order: 1
+---
+
+`dxcl init` levert een gewoon Vite-project op. Er is niets magisch aan — je kunt
+het in je editor openen, dependencies toevoegen en het committen als elke andere
+repository.
+
+```text
+my-documents/
+  docxcelerate.config.json
+  index.html
+  package.json
+  preview/
+    main.ts
+    styles.css
+  vite.config.ts
+  tsconfig.json
+  documents/
+```
+
+`documents/` bevat één directory per documentproject. Al het andere is de
+preview-app die met `npm run dev` draait.
+
+## Configpresets
+
+`docxcelerate.config.json` bewaart benoemde presets voor build- en
+uploadgedrag:
+
+```json
+{
+  "schemaVersion": "docxcelerate.config/v0",
+  "activePreset": "local",
+  "presets": {
+    "local": {
+      "build": { "outDir": "build" },
+      "upload": {
+        "endpoint": "",
+        "method": "POST",
+        "headers": {},
+        "body": "document"
+      }
+    }
+  }
+}
+```
+
+`activePreset` bepaalt welke van toepassing is. Presets zijn het mechanisme om
+een lokale opzet en een staging- of productie-endpoint naast elkaar te hebben
+zonder tussen runs configuratie te bewerken:
+
+```json
+{
+  "activePreset": "local",
+  "presets": {
+    "local": { "build": { "outDir": "build" }, "upload": { "endpoint": "" } },
+    "staging": {
+      "build": { "outDir": "build" },
+      "upload": {
+        "endpoint": "https://documents.staging.example.com/api/letters",
+        "method": "POST",
+        "headers": { "Authorization": "Bearer ${LETTERS_TOKEN}" },
+        "body": "document"
+      }
+    }
+  }
+}
+```
+
+| Veld | Betekenis |
+| --- | --- |
+| `build.outDir` | Waar artefacten worden geschreven, relatief aan de documentdirectory |
+| `upload.endpoint` | Het generatie-endpoint; leeg schakelt uploaden uit |
+| `upload.method` | HTTP-methode, normaal gesproken `POST` |
+| `upload.headers` | Meegestuurd met het uploadverzoek |
+| `upload.body` | Welk artefact wordt verstuurd — `document` is dat voor het aanvraagmoment |
+
+Build & upload is in de preview-UI alleen ingeschakeld wanneer de actieve preset
+een niet-lege `upload.endpoint` heeft. Is die leeg, dan bouwt alles nog steeds —
+je krijgt dan simpelweg artefacten op schijf in plaats van een voltooid document.
+
+## Indeling van een documentproject
+
+```text
+documents/offer-of-admission/
+  document.project.ts
+  document-style.ts
+  document.tsx
+  preview-data.ts
+  types.ts
+  nodes/
+    index.ts
+```
+
+De opsplitsing is het punt: `types.ts` is het contract, `preview-data.ts` is één
+instantie daarvan, `document.tsx` is alleen structuur, en elke node is een klein
+module onder `nodes/`. Documenten worden lang, en een template dat zijn proza
+inlijnt wordt snel onleesbaar.

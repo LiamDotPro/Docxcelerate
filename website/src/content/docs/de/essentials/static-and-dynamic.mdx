@@ -1,0 +1,113 @@
+---
+title: Statisch und dynamisch
+description: Was auf Ihrem Rechner aufgelöst wird, was die Engine braucht, und warum die Grenze dort verläuft, wo sie verläuft.
+group: Essentials
+order: 2
+---
+
+Jeder Inhalts-Node ist entweder **statisch** oder **dynamisch**. Diese
+Unterscheidung entscheidet, woher sein Text kommt und was er kostet.
+
+Sie deklarieren das nie. Es gibt einen Helper je Art, und der Modus ergibt sich
+aus den Optionen, die Sie ihm geben.
+
+## Statische Nodes
+
+Geben Sie einem Absatz ein `render`, lässt er sich aus Ihren Daten erzeugen und
+wird deshalb lokal aufgelöst:
+
+```ts
+paragraph<OfferData>({
+  id: "offer",
+  render: (data) =>
+    `Your place starts on ${data.startDate}, at ${data.college}.`,
+});
+```
+
+Er läuft in der Vorschau, in Tests und in einem Build — offline, sofort,
+kostenlos. Sind alle Nodes eines Dokuments statisch, brauchen Sie die Engine
+überhaupt nicht.
+
+## Dynamische Nodes
+
+Geben Sie ihm stattdessen **Prompts**, dazu einen Platzhalter, damit die Vorschau
+lesbar bleibt, und er wird dynamisch:
+
+```ts
+paragraph<OfferData>({
+  id: "tutor-note",
+  placeholder: (data) => `A note from ${data.interviewer}.`,
+  generalPrompt: (data) =>
+    `Write two warm sentences about ${data.applicantName}'s interview.`,
+});
+```
+
+Derselbe Helper, andere Pflichten. `image` und `graph` funktionieren genauso —
+`src` und `data` sind dort die Mitglieder für die lokale Auflösung.
+
+## Warum das abgeleitet wird
+
+Ein Node mit `render` lässt sich immer lokal erzeugen; ein Node mit ausschließlich
+Prompts nie. Den Modus neben diesen Optionen zu deklarieren, wäre eine zweite
+Wahrheitsquelle, die ihnen widersprechen könnte — ein `staticParagraph` mit einem
+`generalPrompt` oder umgekehrt, dazu irgendeine Vorrangregel, die entscheidet,
+wer gewinnt.
+
+Stattdessen sind die Optionen die Wahrheit, und `mode` wird daraus abgeleitet.
+Sowohl ein `render` als auch ein `generalPrompt` anzugeben, ist ein
+**Compile-Fehler**, kein Münzwurf zur Laufzeit.
+
+`mode` existiert weiterhin im gebauten `DocumentModel` und in `document.json` —
+die Engine muss wissen, welche Nodes sie auflösen soll. Es ist Ausgabe, nicht
+Eingabe.
+
+Vier Prompt-Slots stehen zur Verfügung. Nur `generalPrompt` ist erforderlich:
+
+| Slot | Zweck |
+| --- | --- |
+| `generalPrompt` | Was der Node sagen soll |
+| `infoPrompt` | Kontext, den das Modell haben, aber nicht wiedergeben soll |
+| `negativePrompt` | Was zu vermeiden ist |
+| `systemPrompt` | Anweisungen zu Rolle und Tonfall |
+
+## Was Sie lokal sehen
+
+Ein Build für die Vorschau löst dynamische Nodes zu ihren **Platzhaltern** auf,
+nicht zu generiertem Text:
+
+```ts
+const document = await buildProjectPreviewDocument(project);
+// dynamic nodes -> placeholder text
+```
+
+Das ist Absicht. Die Vorschau bleibt deterministisch und kostenlos, sodass Sie an
+Struktur und Gestaltung arbeiten können, ohne dass eine einzige Anfrage Ihren
+Rechner verlässt. Der Platzhalter ist außerdem eine nützliche Disziplin: Ist ein
+Dokument mit Platzhaltern unlesbar, leistet seine Struktur zu wenig.
+
+## Was zur Anfragezeit passiert
+
+Das Upload-Artefakt bewahrt Werte für die Anfragezeit als Tokens wie
+`{{data.residentName}}` auf, damit sie später aufgelöst werden können. Schicken
+Sie es an [die Engine](/de/docs/generation/endpoint/), bekommen Sie das fertige
+Dokument mit ausgefüllten dynamischen Nodes zurück.
+
+Die Engine ist ein eigener, kostenloser Dienst, den Sie selbst hosten — sie ist
+bewusst nicht Teil des npm-Pakets, damit die Installation des Frameworks nie
+etwas mitbringt, das API-Schlüssel oder ein Netzwerk verlangt. Richten Sie einen
+Workspace auf Ihre aus:
+
+```sh
+dxcl init my-documents --api-endpoint https://documents.example.com/api/letters
+dxcl init my-documents --no-api-endpoint
+```
+
+`upload.endpoint` in `docxcelerate.config.json` können Sie jederzeit ändern.
+
+## Warum die Grenze hier verläuft
+
+Am Node zu trennen statt am Dokument hält die kostenlose Hälfte des Toolkits
+wirklich brauchbar. Ein durchgehend statisches Dokument ist ein vollständiges,
+funktionierendes Dokument ohne Dienst dahinter. Sie entscheiden sich nur für
+genau die Absätze für die gehostete Hälfte, die generierten Text brauchen — und
+welche das sind, lesen Sie am Template ab.

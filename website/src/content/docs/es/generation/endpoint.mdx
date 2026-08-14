@@ -1,0 +1,94 @@
+---
+title: El motor
+description: Qué hace el motor, cómo se publica una plantilla en él y las dos ediciones.
+group: Generation
+order: 1
+---
+
+El trabajo del framework termina en el paquete. Renderiza tu documento y lo
+empaqueta; el paquete es una plantilla a la que todavía le faltan los datos de
+quien lo recibe. El **motor** es adonde va ese paquete, y lo que lo convierte en
+documentos.
+
+## Los tres pasos
+
+1. **Compilar.** El framework renderiza el documento y lo empaqueta. Es el único
+   paso que se ejecuta en tu máquina.
+2. **Publicar.** El paquete se envía a un motor, que lo almacena y le da una
+   dirección.
+3. **Escribir.** Tu aplicación llama a la API con un conjunto de datos. El motor
+   escribe el documento y lo devuelve.
+
+La consecuencia importante es que publicar y escribir están separados. Publicas
+un paquete cuando cambia la redacción del documento — un suceso con forma de
+despliegue. Llamas a la API cada vez que alguien necesita un documento, lo que
+puede ser constantemente, y eso no implica ningún paso de compilación ni ningún
+workspace.
+
+## Por qué no está en el paquete
+
+El motor es un servicio, no una biblioteca, y no forma parte del paquete de npm.
+Escribir, previsualizar y empaquetar son trabajo local sin nada detrás, así que
+instalar el framework no arrastra nada que quiera claves de API ni red, y los dos
+se versionan de forma independiente.
+
+## Apuntar un workspace hacia él
+
+```sh
+dxcl init my-documents --api-endpoint https://documents.example.com/api/letters
+```
+
+O configúralo sin ninguno y decide más tarde:
+
+```sh
+dxcl init my-documents --no-api-endpoint
+```
+
+`upload.endpoint` en `docxcelerate.config.json` se puede editar en cualquier
+momento, y los [presets de configuración](/es/docs/projects/workspace/) te
+permiten mantener motores locales, de staging y de producción en paralelo.
+
+## Lo que publicas
+
+El artefacto `document.json`. Los nodos estáticos llegan con su texto ya
+resuelto, pero con los valores del momento de la petición aún como tokens, que es
+lo que hace que un único paquete almacenado sirva para todos los destinatarios:
+
+```json
+{ "kind": "paragraph", "mode": "static", "id": "greeting",
+  "text": "Dear {{data.applicantName}}," }
+```
+
+Los nodos dinámicos llegan con prompts en lugar de texto:
+
+```json
+{ "kind": "paragraph", "mode": "dynamic", "id": "tutor-note",
+  "prompts": [
+    { "kind": "general", "text": "Write two warm, specific sentences…" },
+    { "kind": "negative", "text": "Do not restate the offer…" },
+    { "kind": "system", "text": "You are an admissions tutor…" }
+  ] }
+```
+
+## Dos ediciones
+
+**Autoalojada (gratuita).** Un motor reducido que puedes ejecutar tú. Cubre el
+núcleo de la cadena — almacenar un paquete y escribir documentos a partir de él —
+con un conjunto de funciones menor.
+
+**Nube gestionada.** El motor completo, alojado. Todavía no está abierto; cuando
+lo esté tendrá un plan gratuito que solo requiere registrarse, sin tarjeta y sin
+infraestructura que levantar.
+
+Los dos no son la misma compilación, así que elige por funciones y no solo por
+preferencia de alojamiento.
+
+## Trabajar sin motor
+
+Puedes llegar muy lejos antes de necesitar un motor. Escribir, previsualizar y
+empaquetar a `.docx` se ejecutan en local, así que un documento puede escribirse,
+revisarse y producirse en tu máquina sin publicar nada.
+
+Un motor es lo que añades cuando los documentos tienen que producirlos algo
+distinto de una persona ante un teclado: de forma programada, desde una cola o
+como respuesta a algo que ocurre en tu propio sistema.

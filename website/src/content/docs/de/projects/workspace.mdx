@@ -1,0 +1,101 @@
+---
+title: Workspace und Config
+description: Wie ein angelegter Workspace aufgebaut ist und was die Config-Presets steuern.
+group: Projects
+order: 1
+---
+
+`dxcl init` erzeugt ein gewöhnliches Vite-Projekt. Daran ist nichts magisch — Sie
+können es in Ihrem Editor öffnen, Abhängigkeiten ergänzen und es committen wie
+jedes andere Repository.
+
+```text
+my-documents/
+  docxcelerate.config.json
+  index.html
+  package.json
+  preview/
+    main.ts
+    styles.css
+  vite.config.ts
+  tsconfig.json
+  documents/
+```
+
+`documents/` enthält ein Verzeichnis je Dokumentprojekt. Alles andere ist die
+Vorschau-App, die mit `npm run dev` läuft.
+
+## Config-Presets
+
+`docxcelerate.config.json` speichert benannte Presets für das Build- und
+Upload-Verhalten:
+
+```json
+{
+  "schemaVersion": "docxcelerate.config/v0",
+  "activePreset": "local",
+  "presets": {
+    "local": {
+      "build": { "outDir": "build" },
+      "upload": {
+        "endpoint": "",
+        "method": "POST",
+        "headers": {},
+        "body": "document"
+      }
+    }
+  }
+}
+```
+
+`activePreset` wählt aus, welches gilt. Presets sind der Mechanismus, um eine
+lokale Einrichtung und einen Staging- oder Produktions-Endpoint nebeneinander zu
+haben, ohne zwischen Läufen die Konfiguration zu bearbeiten:
+
+```json
+{
+  "activePreset": "local",
+  "presets": {
+    "local": { "build": { "outDir": "build" }, "upload": { "endpoint": "" } },
+    "staging": {
+      "build": { "outDir": "build" },
+      "upload": {
+        "endpoint": "https://documents.staging.example.com/api/letters",
+        "method": "POST",
+        "headers": { "Authorization": "Bearer ${LETTERS_TOKEN}" },
+        "body": "document"
+      }
+    }
+  }
+}
+```
+
+| Feld | Bedeutung |
+| --- | --- |
+| `build.outDir` | Wohin Artefakte geschrieben werden, relativ zum Dokumentverzeichnis |
+| `upload.endpoint` | Der Generierungs-Endpoint; leer schaltet den Upload ab |
+| `upload.method` | HTTP-Methode, normalerweise `POST` |
+| `upload.headers` | Werden mit der Upload-Anfrage gesendet |
+| `upload.body` | Welches Artefakt gesendet wird — `document` ist das für die Anfragezeit |
+
+Build & Upload ist in der Vorschau-Oberfläche nur aktiv, wenn das aktive Preset
+einen nicht leeren `upload.endpoint` hat. Ist er leer, wird trotzdem alles gebaut
+— Sie bekommen dann eben Artefakte auf der Platte statt eines fertigen Dokuments.
+
+## Aufbau eines Dokumentprojekts
+
+```text
+documents/offer-of-admission/
+  document.project.ts
+  document-style.ts
+  document.tsx
+  preview-data.ts
+  types.ts
+  nodes/
+    index.ts
+```
+
+Die Aufteilung ist der Punkt: `types.ts` ist der Vertrag, `preview-data.ts` eine
+Instanz davon, `document.tsx` ist reine Struktur, und jeder Node ist ein kleines
+Modul unter `nodes/`. Dokumente werden lang, und ein Template, das seine Prosa
+einbettet, wird schnell unlesbar.

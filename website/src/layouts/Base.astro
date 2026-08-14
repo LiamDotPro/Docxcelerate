@@ -3,6 +3,7 @@ import "../styles/global.css";
 import Nav from "../components/Nav.astro";
 import Footer from "../components/Footer.astro";
 import { SITE } from "../site";
+import { alternates, asLocale, localizePath, stripLocale, ui, DEFAULT_LOCALE } from "../i18n";
 
 interface Props {
   title?: string;
@@ -11,12 +12,24 @@ interface Props {
   bare?: boolean;
 }
 
-const { title, description = SITE.description, bare = false } = Astro.props;
-const fullTitle = title ? `${title} — ${SITE.name}` : `${SITE.name} — ${SITE.tagline}`;
+// Derived from the URL by Astro's i18n routing: /de/... is German, everything
+// unprefixed is English. Pages never have to pass it down.
+const locale = asLocale(Astro.currentLocale);
+const t = ui(locale);
+
+const { title, description = t.meta.description, bare = false } = Astro.props;
+const fullTitle = title ? `${title} — ${SITE.name}` : `${SITE.name} — ${t.meta.tagline}`;
+
+// Every language publishes this page at the same slug under its own prefix, so
+// the alternates are the canonical path re-addressed five times. x-default is
+// English: it is where a reader with no matching language should land.
+const canonicalPath = stripLocale(Astro.url.pathname);
+const languages = alternates(canonicalPath);
+const href = (path: string) => new URL(path, Astro.site).href;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={locale}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -26,8 +39,20 @@ const fullTitle = title ? `${title} — ${SITE.name}` : `${SITE.name} — ${SITE
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content={locale} />
+    <meta property="og:url" content={href(Astro.url.pathname)} />
     <meta name="generator" content={Astro.generator} />
-    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
+    <link rel="canonical" href={href(Astro.url.pathname)} />
+    {
+      languages.map((alternate) => (
+        <link rel="alternate" hreflang={alternate.locale} href={href(alternate.path)} />
+      ))
+    }
+    <link
+      rel="alternate"
+      hreflang="x-default"
+      href={href(localizePath(canonicalPath, DEFAULT_LOCALE))}
+    />
     <!-- Set the theme before first paint so there's no flash of the wrong ground. -->
     <script is:inline>
       (() => {
@@ -42,7 +67,7 @@ const fullTitle = title ? `${title} — ${SITE.name}` : `${SITE.name} — ${SITE
     <a
       href="#main"
       class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded focus:bg-accent-solid focus:px-3 focus:py-2 focus:text-on-accent"
-      >Skip to content</a
+      >{t.common.skipToContent}</a
     >
     <Nav />
     <main id="main" class={bare ? "flex-1" : "flex-1 w-full"}>

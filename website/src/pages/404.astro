@@ -1,32 +1,94 @@
 ---
 import Base from "../layouts/Base.astro";
+import { DEFAULT_LOCALE, LOCALES, localizePath, ui } from "../i18n";
 
 // Static hosts serve dist/404.html for unmatched paths, so this needs to exist
 // as a real page rather than relying on SPA fallback — a docs site that answers
 // 200 with the homepage for every typo is worse than one that says "not found".
+//
+// It is also the one page whose language cannot be decided at build time: the
+// same file answers /nonsense and /de/nonsense. So it ships all five languages
+// and picks between them from the URL that missed, keeping the reader's own
+// address bar intact rather than redirecting them somewhere that exists.
+//
+// The nav and footer around it stay English. Swapping the whole chrome from a
+// script would mean shipping every string on every page; the links this page
+// offers do point at the right language, which is what a reader needs from it.
+const t = ui(DEFAULT_LOCALE);
+
+const TRANSLATIONS = Object.fromEntries(
+  LOCALES.map((locale) => {
+    const strings = ui(locale).notFound;
+    return [
+      locale,
+      {
+        documentTitle: `${strings.title} — Docxcelerate`,
+        heading: strings.heading,
+        body: strings.body,
+        ctaDocs: strings.ctaDocs,
+        ctaHome: strings.ctaHome,
+        docsHref: localizePath("/docs/start-here/", locale),
+        homeHref: localizePath("/", locale),
+      },
+    ];
+  }),
+);
 ---
 
-<Base title="Page not found" description="That page does not exist.">
+<Base title={t.title} description={t.description}>
   <section class="mx-auto flex max-w-2xl flex-col items-start gap-5 px-5 py-32 sm:px-8">
     <p class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent">
       404
     </p>
-    <h1 class="m-0 text-4xl font-semibold">That page does not exist</h1>
-    <p class="m-0 leading-relaxed text-muted">
-      The link may be out of date, or the page may have moved. The documentation
-      is the best place to pick the thread back up.
+    <h1 class="m-0 text-4xl font-semibold" data-nf="heading">{t.heading}</h1>
+    <p class="m-0 leading-relaxed text-muted" data-nf="body">
+      {t.body}
     </p>
     <div class="mt-2 flex flex-wrap gap-3">
       <a
-        href="/docs/start-here/"
+        href={localizePath("/docs/start-here/", DEFAULT_LOCALE)}
+        data-nf="docs"
         class="rounded bg-accent-solid px-5 py-2.5 text-sm font-medium text-on-accent no-underline transition-colors hover:bg-accent-deep"
-        >Read the docs →</a
+        >{t.ctaDocs}</a
       >
       <a
-        href="/"
+        href={localizePath("/", DEFAULT_LOCALE)}
+        data-nf="home"
         class="rounded border border-border-firm px-5 py-2.5 text-sm font-medium text-accent no-underline transition-colors hover:bg-accent-tint"
-        >Back to the homepage</a
+        >{t.ctaHome}</a
       >
     </div>
   </section>
 </Base>
+
+<script is:inline define:vars={{ TRANSLATIONS, DEFAULT_LOCALE }}>
+  (() => {
+    const segment = window.location.pathname.split("/")[1];
+    const locale = Object.hasOwn(TRANSLATIONS, segment) ? segment : DEFAULT_LOCALE;
+    if (locale === DEFAULT_LOCALE) return;
+
+    const strings = TRANSLATIONS[locale];
+    const find = (name) => document.querySelector(`[data-nf="${name}"]`);
+
+    document.documentElement.lang = locale;
+    document.title = strings.documentTitle;
+
+    const heading = find("heading");
+    if (heading) heading.textContent = strings.heading;
+
+    const body = find("body");
+    if (body) body.textContent = strings.body;
+
+    const docs = find("docs");
+    if (docs) {
+      docs.textContent = strings.ctaDocs;
+      docs.setAttribute("href", strings.docsHref);
+    }
+
+    const home = find("home");
+    if (home) {
+      home.textContent = strings.ctaHome;
+      home.setAttribute("href", strings.homeHref);
+    }
+  })();
+</script>

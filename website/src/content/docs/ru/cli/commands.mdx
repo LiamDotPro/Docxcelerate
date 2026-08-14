@@ -1,0 +1,62 @@
+---
+title: Команды
+description: Каждая команда dxcl и флаги, которые имеют значение.
+group: CLI
+order: 1
+---
+
+CLI называется `dxcl` и поставляется внутри пакета `docxcelerate`. Запустите её
+разово через `npx docxcelerate <command>` или установите пакет и вызывайте
+`dxcl` напрямую — см. [Начните отсюда](/ru/docs/start-here/).
+
+## dxcl init
+
+Создаёт workspace и устанавливает его зависимости.
+
+```sh
+dxcl init my-documents
+dxcl init my-documents --dir workspaces
+dxcl init my-documents --blank
+```
+
+Запустите без аргументов, чтобы пройти пошаговую настройку, которая спросит
+шаблон и адрес API.
+
+| Флаг | Действие |
+| --- | --- |
+| `--dir <path>` | Создать workspace внутри `<path>` |
+| `--blank` | Пропустить документ-пример |
+| `--official-server` | Направить `upload.endpoint` на официальный движок |
+| `--api-endpoint <url>` | Направить `upload.endpoint` на ваш собственный сервис |
+| `--no-api-endpoint` | Оставить `upload.endpoint` пустым |
+
+## dxcl document new
+
+Создаёт проект документа внутри workspace.
+
+```sh
+dxcl document new tenancy-renewal --title "Tenancy Renewal"
+```
+
+Пишет `documents/tenancy-renewal/` с файлами `document.project.ts`,
+`document.tsx`, `document-style.ts`, `preview-data.ts`, `types.ts` и каталогом
+`nodes/`.
+
+## dxcl document node
+
+Генерирует компонент узла и регистрирует его.
+
+```sh
+dxcl document node documents/tenancy-renewal next-steps --type paragraph --mode dynamic
+dxcl document node documents/tenancy-renewal signature   --type image     --mode static
+dxcl document node documents/tenancy-renewal rent-trend  --type graph     --mode static
+```
+
+| Флаг | Значения |
+| --- | --- |
+| `--type` | [`paragraph`](/ru/docs/nodes/paragraph/), [`image`](/ru/docs/nodes/image/), [`graph`](/ru/docs/nodes/graph/) |
+| `--mode` | `static`, `dynamic` |
+
+Генератор пишет `nodes/<name>.node.ts` и обновляет `nodes/index.ts`. Он **не**
+размещает узел в вашем шаблоне — добавьте его в `document.tsx` в то место
+документа, которому он принадлежит.

@@ -1,0 +1,53 @@
+---
+title: Image
+description: Ein Bild, auf das Ihre Daten zeigen, oder eines, das ein Generierungs-Endpoint erzeugt.
+group: Nodes
+subgroup: Node types
+order: 12
+---
+
+import NodeSummary from "../../../../components/NodeSummary.astro";
+import NodeVariants from "../../../../components/NodeVariants.astro";
+
+<NodeSummary type="image" />
+
+## Jedes Feld nimmt eine Funktion
+
+`src`, `alt`, `width` und `height` nehmen jeweils einen einfachen Wert oder eine
+Funktion Ihrer Daten. Eine Unterschrift, die je Standort abweicht, ein Logo je
+Marke, ein Foto nach Aktenzeichen — all das bleibt im Node, statt zu einer
+Verzweigung im Template zu werden:
+
+```ts
+image<MemberData>({
+  id: "signature",
+  src: (data) => data.signatureUrl,
+  alt: (data) => `Signed by ${data.managerName}`,
+  width: 180,
+});
+```
+
+## Aus src wird path
+
+Die Option heißt `src`; der aufgelöste Node nennt sie `path`. Klappen Sie *Wozu
+es aufgelöst wird* bei der ersten Variante unten auf, um es zu sehen.
+
+## Dynamische Bilder
+
+Ein dynamisches Bild wird beschrieben statt geliefert und nimmt dieselben vier
+Prompt-Slots wie ein dynamischer Absatz.
+
+`negativePrompt` verdient hier seinen Platz mehr als irgendwo sonst. Generierte
+Bilder scheitern auf vorhersehbare Weise — eingebackener Text, erfundene Logos,
+erkennbare Gesichter — und der Slot schließt das einmalig aus, im Node.
+
+## Varianten
+
+<NodeVariants type="image" />
+
+## Anmerkungen
+
+- Der Node hält einen Pfad, nie die Bytes. Während eines Builds wird nichts
+  geladen und nichts geprüft; ein kaputter Pfad scheitert beim Rendern.
+- `alt` lohnt sich auch, solange die Renderer nur Rahmen drucken — denn der
+  Rahmen druckt `alt`.

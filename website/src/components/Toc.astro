@@ -1,9 +1,13 @@
 ---
 import type { MarkdownHeading } from "astro";
+import { asLocale, ui } from "../i18n";
 
 interface Props {
   headings: MarkdownHeading[];
 }
+
+const locale = asLocale(Astro.currentLocale);
+const t = ui(locale);
 
 // h2 and h3 only. Deeper levels make the rail noisier than the page.
 const headings = Astro.props.headings.filter(
@@ -13,11 +17,11 @@ const headings = Astro.props.headings.filter(
 
 {
   headings.length > 0 && (
-    <nav aria-label="On this page" class="flex flex-col gap-2 text-sm">
+    <nav aria-label={t.docs.tocLabel} class="flex flex-col gap-2 text-sm">
       <h2
         class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
       >
-        On this page
+        {t.docs.onThisPage}
       </h2>
       <ul class="m-0 flex list-none flex-col gap-0.5 p-0">
         {headings.map((heading) => (

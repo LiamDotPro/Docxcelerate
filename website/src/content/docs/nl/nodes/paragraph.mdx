@@ -1,0 +1,69 @@
+---
+title: Paragraph
+description: Tekst, gerenderd uit je data of op het aanvraagmoment opgelost uit prompts.
+group: Nodes
+subgroup: Node types
+order: 10
+---
+
+import NodeSummary from "../../../../components/NodeSummary.astro";
+import NodeVariants from "../../../../components/NodeVariants.astro";
+
+<NodeSummary type="paragraph" />
+
+## Er een schrijven
+
+`render` krijgt je getypeerde data en het tokenbudget, en geeft een string terug.
+Er zit geen templatetaal tussen, dus formattering, vertakking en meervoudsvormen
+zijn allemaal gewoon TypeScript:
+
+```ts
+import { paragraph } from "docxcelerate";
+import type { MemberData } from "../types.ts";
+
+export const Greeting = paragraph<MemberData>({
+  id: "greeting",
+  render: (data) => `Dear ${data.memberName},`,
+});
+```
+
+Hij mag `async` zijn — maar een node die iets ophaalt is een node die midden in
+een build kan mislukken, dus zet de waarde liever eerst in je data.
+
+## Het tokenbudget
+
+Het tweede argument van `render`, `placeholder` en elke prompt is
+`availableTokens`: het budget dat aan deze node is toebedeeld, `2000` tenzij je
+`availableTokens` in de buildopties instelt. Statische nodes mogen het negeren.
+Dynamische horen het te gebruiken:
+
+```ts
+generalPrompt: (data, availableTokens) =>
+  `Explain the change. At most ${Math.floor(availableTokens / 4)} words.`,
+```
+
+## Vertakken hoort in de render
+
+Een document dat een van drie dingen zegt, is één node met drie uitkomsten, niet
+drie nodes achter condities. Het id blijft staan, de boom houdt zijn vorm wie de
+ontvanger ook is, en de logica is code die je kunt testen.
+
+## Dynamische alinea's
+
+Een dynamische alinea ruilt `render` in voor prompts en een placeholder.
+Previewbuilds lossen hem op naar de placeholder en labelen hem; builds op het
+aanvraagmoment sturen de prompts. Alleen `generalPrompt` is verplicht — de vierde
+variant hieronder laat zien waar de andere drie voor zijn.
+
+## Varianten
+
+<NodeVariants type="paragraph" />
+
+## Aantekeningen
+
+- Beide modi lossen op naar `kind: "paragraph"`. Een renderer leest `mode` als
+  het hem al iets uitmaakt; hij vertakt nooit op welke helper je hebt aangeroepen.
+- Een lege string levert een lege alinea op, niet géén node. Laat de node uit de
+  boom weg om hem echt te laten vervallen.
+- Renderers escapen de tekst. Een alinea kan geen markup de pagina in smokkelen,
+  en is niet de plek voor opmaak.

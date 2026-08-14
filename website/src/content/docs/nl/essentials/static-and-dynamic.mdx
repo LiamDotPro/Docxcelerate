@@ -1,0 +1,111 @@
+---
+title: Statisch en dynamisch
+description: Wat op je eigen machine wordt opgelost, wat de engine nodig heeft, en waarom de grens ligt waar hij ligt.
+group: Essentials
+order: 2
+---
+
+Elke contentnode is ofwel **statisch** ofwel **dynamisch**. Dat onderscheid
+bepaalt waar zijn tekst vandaan komt en wat hij kost.
+
+Je declareert het nooit zelf. Er is één helper per soort, en de modus volgt uit
+de opties die je meegeeft.
+
+## Statische nodes
+
+Geef een alinea een `render` en hij kan uit je data worden geproduceerd, dus hij
+wordt lokaal opgelost:
+
+```ts
+paragraph<OfferData>({
+  id: "offer",
+  render: (data) =>
+    `Your place starts on ${data.startDate}, at ${data.college}.`,
+});
+```
+
+Hij draait in de preview, in tests en in een build — offline, direct, gratis. Als
+elke node in een document statisch is, heb je de engine helemaal niet nodig.
+
+## Dynamische nodes
+
+Geef hem in plaats daarvan **prompts**, plus een placeholder zodat de preview
+leesbaar blijft, en hij wordt dynamisch:
+
+```ts
+paragraph<OfferData>({
+  id: "tutor-note",
+  placeholder: (data) => `A note from ${data.interviewer}.`,
+  generalPrompt: (data) =>
+    `Write two warm sentences about ${data.applicantName}'s interview.`,
+});
+```
+
+Dezelfde helper, andere verplichtingen. `image` en `graph` werken op dezelfde
+manier — `src` en `data` zijn daar de leden voor lokale oplossing.
+
+## Waarom het wordt afgeleid
+
+Een node met een `render` kan altijd lokaal worden geproduceerd; een node met
+alleen prompts nooit. De modus naast die opties declareren zou een tweede bron
+van waarheid zijn die het met die opties oneens kan zijn — een `staticParagraph`
+met een `generalPrompt`, of andersom, met een of andere voorrangsregel die
+bepaalt wie wint.
+
+In plaats daarvan zijn de opties de waarheid en wordt `mode` daaruit afgeleid.
+Zowel een `render` als een `generalPrompt` meegeven is een **compileerfout**,
+geen kop-of-munt tijdens runtime.
+
+`mode` bestaat nog steeds in het gebouwde `DocumentModel` en in `document.json` —
+de engine moet weten welke nodes hij moet oplossen. Het is uitvoer, geen invoer.
+
+Er zijn vier promptslots beschikbaar. Alleen `generalPrompt` is verplicht:
+
+| Slot | Doel |
+| --- | --- |
+| `generalPrompt` | Wat de node moet zeggen |
+| `infoPrompt` | Context die het model moet hebben maar niet moet herhalen |
+| `negativePrompt` | Wat vermeden moet worden |
+| `systemPrompt` | Instructies over rol en toon |
+
+## Wat je lokaal ziet
+
+Bouwen voor de preview lost dynamische nodes op naar hun **placeholders**, niet
+naar gegenereerde tekst:
+
+```ts
+const document = await buildProjectPreviewDocument(project);
+// dynamic nodes -> placeholder text
+```
+
+Dat is met opzet zo. De preview blijft deterministisch en gratis, zodat je aan
+structuur en opmaak kunt werken zonder dat er ook maar één verzoek je machine
+verlaat. De placeholder is ook een nuttige discipline: als een document met
+placeholders onleesbaar is, doet zijn structuur te weinig werk.
+
+## Wat er op het moment van de aanvraag gebeurt
+
+Het uploadartefact bewaart waarden voor het aanvraagmoment als tokens zoals
+`{{data.residentName}}`, zodat ze later kunnen worden opgelost. Als je het naar
+[de engine](/nl/docs/generation/endpoint/) stuurt, krijg je het voltooide
+document terug met de dynamische nodes ingevuld.
+
+De engine is een aparte, gratis dienst die je zelf host — hij maakt bewust geen
+deel uit van het npm-package, zodat het installeren van het framework nooit iets
+binnenhaalt dat API-sleutels of een netwerk wil. Laat een workspace naar die van
+jou wijzen:
+
+```sh
+dxcl init my-documents --api-endpoint https://documents.example.com/api/letters
+dxcl init my-documents --no-api-endpoint
+```
+
+Je kunt `upload.endpoint` in `docxcelerate.config.json` op elk moment wijzigen.
+
+## Waarom de grens hier ligt
+
+Door op de node te splitsen in plaats van op het document blijft de gratis helft
+van de toolkit echt bruikbaar. Een volledig statisch document is een compleet,
+werkend document zonder dienst erachter. Je kiest alleen voor de gehoste helft
+voor precies die alinea's die gegenereerde tekst nodig hebben — en je kunt aan
+het template aflezen welke dat zijn.

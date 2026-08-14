@@ -1,0 +1,40 @@
+---
+// The docs in every language except English, which sits at the root instead.
+//
+// English decides which pages exist, so a language with no translation of a
+// page still gets a route for it — carrying the English text and a note saying
+// so, rather than a dead link in the sidebar.
+import { render } from "astro:content";
+import Docs from "../../../layouts/Docs.astro";
+import { docsFor } from "../../../docs";
+import { PREFIXED_LOCALES } from "../../../i18n";
+
+export async function getStaticPaths() {
+  const routes = await Promise.all(
+    PREFIXED_LOCALES.map(async (locale) => {
+      const pages = await docsFor(locale);
+      return pages.map((page) => ({
+        params: { locale, slug: page.slug },
+        props: { page },
+      }));
+    }),
+  );
+
+  return routes.flat();
+}
+
+const { page } = Astro.props;
+const { Content, headings } = await render(page.entry);
+---
+
+<Docs
+  title={page.entry.data.title}
+  description={page.entry.data.description}
+  group={page.entry.data.group}
+  slug={page.slug}
+  entryId={page.entry.id}
+  translated={page.translated}
+  headings={headings}
+>
+  <Content />
+</Docs>

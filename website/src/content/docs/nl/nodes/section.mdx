@@ -1,0 +1,69 @@
+---
+title: Section
+description: De enige node die andere nodes bevat, en de kop die zijn titel wordt.
+group: Nodes
+subgroup: Node types
+order: 11
+---
+
+import NodeSummary from "../../../../components/NodeSummary.astro";
+import NodeVariants from "../../../../components/NodeVariants.astro";
+
+<NodeSummary type="section" />
+
+## Er een schrijven
+
+Een sectie krijgt zijn opties en zijn kinderen — nodecomponenten, dezelfde
+waarden die je op het hoogste niveau van een document zou plaatsen:
+
+```ts
+import { section } from "docxcelerate";
+
+export const Opening = section<MemberData>({ id: "opening", title: "Your renewal" }, [
+  Greeting,
+  PriceChange,
+]);
+```
+
+In TSX leest dezelfde aanroep als markup:
+
+```tsx
+<Section id="opening" title="Your renewal">
+  <Greeting />
+  <PriceChange />
+</Section>
+```
+
+Beide leveren dezelfde boom op. [Templates](/nl/docs/essentials/templates/)
+behandelt wanneer welke vorm zijn plek verdient.
+
+## Kinderen kunnen van alles zijn
+
+Alinea's, afbeeldingen, grafieken, een inhoudsopgavemarkering, of verdere
+secties. Geen enkele andere node heeft kinderen, dus de diepte van een document
+is de diepte van zijn secties.
+
+Er verandert niets aan een node doordat hij in een sectie terechtkomt: hij lost
+op elke diepte hetzelfde op, en zijn id krijgt er geen voorvoegsel bij.
+
+## Titels lopen door in de structuur
+
+`title` is verplicht, en het is geen versiering — het wordt de kop boven de
+kinderen en de regel waaruit een inhoudsopgave wordt opgebouwd. Een groep die
+geen kop wil, wil geen sectie; zet de nodes dan rechtstreeks in het document.
+
+## Varianten
+
+<NodeVariants type="section" />
+
+## Aantekeningen
+
+- **De diepte zit in de boom, niet in de koppen.** Beide meegeleverde renderers
+  printen elke sectietitel op één niveau — `<h2>` in de browser, Kop 1 in de
+  DOCX — hoe diep hij ook genesteld is. De JSON nestelt wel correct, dus dit is
+  een beperking van de renderer, maar een document van drie lagen diep ziet er
+  nog niet drie lagen diep uit.
+- Er is geen dynamische sectie. Een endpoint vult nodes in; het bepaalt niet wat
+  het document bevat.
+- Een lege sectie rendert als een losse kop. Als de kinderen uit een filter komen
+  dat leeg kan raken, controleer dat dan stroomopwaarts.

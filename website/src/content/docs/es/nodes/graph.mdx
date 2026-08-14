@@ -1,0 +1,58 @@
+---
+title: Graph
+description: Gráficos declarados como datos — barras, líneas o sectores — a partir de tus cifras o de las de un endpoint.
+group: Nodes
+subgroup: Node types
+order: 13
+---
+
+import NodeSummary from "../../../../components/NodeSummary.astro";
+import NodeVariants from "../../../../components/NodeVariants.astro";
+
+<NodeSummary type="graph" />
+
+## Declarado, no dibujado
+
+Un nodo de gráfico contiene números y una forma, nunca una imagen:
+
+```ts
+graph<MemberData>({
+  id: "visits-by-month",
+  graphType: "bar",
+  data: (data) => ({
+    labels: data.visitsByMonth.map((entry) => entry.month),
+    series: [{ name: "Visits", values: data.visitsByMonth.map((entry) => entry.visits) }],
+  }),
+  caption: () => "Your visits, last six months",
+});
+```
+
+Llevar cifras en lugar de una imagen significa que una sola declaración sirve a
+todos los renderizadores, produce diffs legibles entre compilaciones y puede
+comprobarse en una prueba.
+
+## La forma del payload es tuya
+
+`data` es un `JsonObject` y el framework nunca mira dentro. La forma
+`{ labels, series }` que se usa aquí es una convención, no un esquema — usa lo
+que espere tu renderizador y mantenlo coherente en todo el proyecto.
+
+Una cosa sí le ocurre al payload: los valores de tipo cadena pasan por el
+renderizador de plantillas, igual que la prosa. Una etiqueta que contenga
+`{{derived.total}}` se resuelve.
+
+## Derivar dentro de `data`
+
+Los acumulados, los porcentajes y los rebasados van en la función `data`, no
+aguas arriba. Así el gráfico y el texto que lo acompaña se calculan desde una
+única fuente y no pueden contradecirse.
+
+## Variantes
+
+<NodeVariants type="graph" />
+
+## Notas
+
+- `graphType` vale `bar` por defecto en ambos helpers.
+- En un gráfico dinámico la forma se sigue fijando en local. El endpoint aporta
+  las cifras y puede sobrescribir `graphType` y `caption` en su respuesta.

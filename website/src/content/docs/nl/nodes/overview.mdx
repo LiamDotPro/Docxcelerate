@@ -1,0 +1,75 @@
+---
+title: Het nodemodel
+description: Wat alle nodes gemeen hebben, waarin ze verschillen, en waar elk van hen is gedocumenteerd.
+group: Nodes
+order: 1
+---
+
+import NodeTypes from "../../../../components/NodeTypes.astro";
+
+Een document is een boom van nodes. Elke node is drie dingen: een **id**, een
+**soort**, en een regel om content te produceren.
+
+```ts
+paragraph<MemberData>({
+  id: "greeting",                                // the address
+  render: (data) => `Dear ${data.memberName},`,  // the rule
+});                                              // the helper is the kind
+```
+
+Opgelost tegen jouw data wordt het pure JSON:
+
+```json
+{ "id": "greeting", "kind": "paragraph", "mode": "static", "text": "Dear Adaeze Nkemelu," }
+```
+
+Geen opmaak, geen lay-out. Die horen bij de renderer.
+
+## De catalogus
+
+Elk type heeft een eigen pagina, met elke optie die het aanneemt en een preview
+van elke manier waarop het geschreven kan worden.
+
+<NodeTypes />
+
+## Ids zijn adressen
+
+Het id van een node is hoe een generatie-endpoint die alinea aanwijst, en hoe
+twee buildartefacten in een diff naast elkaar komen te liggen. Een id hernoemen
+breekt wat er van buitenaf naar wijst, net zoals het hernoemen van een API-route
+dat doet.
+
+Houd ze uniek binnen het document. Het kost niets en maakt logs leesbaar.
+
+## Statisch en dynamisch
+
+Een **statische** node berekent zijn content lokaal uit je data. Een
+**dynamische** node draagt prompts en een placeholder, en wordt op het moment van
+de aanvraag ingevuld.
+
+Je declareert nooit welke je wilt. Er is één helper per soort — `paragraph`,
+`image`, `graph` — en de modus wordt afgeleid uit de opties die je meegeeft: geef
+je het lid voor lokale oplossing (`render`, `src`, `data`), dan is de node
+statisch; geef je in plaats daarvan prompts, dan is hij dynamisch. Beide lossen
+op naar dezelfde `kind` en verschillen in het gebouwde document door `mode`.
+
+Beide meegeven is een compileerfout, dus `mode` heeft precies één bron van
+waarheid. [Statisch en dynamisch](/nl/docs/essentials/static-and-dynamic/)
+behandelt waar de grens ligt en waarom.
+
+## Nesteling
+
+[`section`](/nl/docs/nodes/section/) is vandaag de enige node die kinderen
+bevat, en hij accepteert elke soort, ook andere secties. Een tabelnode met nodes
+in zijn cellen is de volgende, volgens hetzelfde principe: containers bevatten de
+componenten die je toch al schrijft, in plaats van een tweede contentmodel
+ernaast.
+
+## Over deze previews
+
+Elke preview hier is een echte build. `src/nodes/` in de repository van deze site
+bevat één bestand per variant, geschreven tegen het gepubliceerde package; een
+buildstap lost elk daarvan op via `buildDocument` en rendert het met de renderer
+die `dxcl dev` serveert. De getoonde broncode is het bestand dat gedraaid heeft,
+en de JSON is wat eruit kwam — zodat deze pagina's luid stukgaan in plaats van
+stilletjes te verouderen.

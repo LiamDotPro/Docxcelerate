@@ -1,0 +1,61 @@
+---
+title: Comandos
+description: Todos los comandos de dxcl, con los flags que importan.
+group: CLI
+order: 1
+---
+
+La CLI es `dxcl` y viene dentro del paquete `docxcelerate`. Ejecútala de forma
+puntual con `npx docxcelerate <command>`, o instala el paquete y llama a `dxcl`
+directamente — consulta [Empieza aquí](/es/docs/start-here/).
+
+## dxcl init
+
+Crea un workspace e instala sus dependencias.
+
+```sh
+dxcl init my-documents
+dxcl init my-documents --dir workspaces
+dxcl init my-documents --blank
+```
+
+Ejecútalo sin argumentos para una configuración guiada que pregunta por la
+plantilla y por el endpoint de la API.
+
+| Flag | Efecto |
+| --- | --- |
+| `--dir <path>` | Crear el workspace dentro de `<path>` |
+| `--blank` | Omitir el documento de ejemplo |
+| `--official-server` | Apuntar `upload.endpoint` al motor oficial |
+| `--api-endpoint <url>` | Apuntar `upload.endpoint` a tu propio servicio |
+| `--no-api-endpoint` | Dejar `upload.endpoint` vacío |
+
+## dxcl document new
+
+Crea un proyecto de documento dentro de un workspace.
+
+```sh
+dxcl document new tenancy-renewal --title "Tenancy Renewal"
+```
+
+Escribe `documents/tenancy-renewal/` con `document.project.ts`, `document.tsx`,
+`document-style.ts`, `preview-data.ts`, `types.ts` y un directorio `nodes/`.
+
+## dxcl document node
+
+Genera un componente de nodo y lo registra.
+
+```sh
+dxcl document node documents/tenancy-renewal next-steps --type paragraph --mode dynamic
+dxcl document node documents/tenancy-renewal signature   --type image     --mode static
+dxcl document node documents/tenancy-renewal rent-trend  --type graph     --mode static
+```
+
+| Flag | Valores |
+| --- | --- |
+| `--type` | [`paragraph`](/es/docs/nodes/paragraph/), [`image`](/es/docs/nodes/image/), [`graph`](/es/docs/nodes/graph/) |
+| `--mode` | `static`, `dynamic` |
+
+El generador escribe `nodes/<name>.node.ts` y actualiza `nodes/index.ts`. **No**
+coloca el nodo en tu plantilla — añádelo a `document.tsx` en el punto del
+documento donde le corresponde.

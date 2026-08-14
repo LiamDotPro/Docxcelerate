@@ -1,0 +1,51 @@
+---
+title: Table of contents
+description: Eine Schema-Art ohne Helper — wie Sie eine platzieren und was sie heute tut.
+group: Nodes
+subgroup: Node types
+order: 14
+---
+
+import NodeSummary from "../../../../components/NodeSummary.astro";
+import NodeVariants from "../../../../components/NodeVariants.astro";
+
+<NodeSummary type="table-of-contents" />
+
+## Eine ohne Helper schreiben
+
+Die Helper sind Bequemlichkeiten, kein Tor. Eine Node-Komponente ist eine
+Funktion, die Ihre Daten nimmt und eine Definition zurückgibt — jede Art im
+Schema ist also erreichbar, indem Sie diese Funktion schreiben:
+
+```ts
+import type { NodeComponent } from "docxcelerate";
+
+export const Contents: NodeComponent<MemberData> = () => ({
+  kind: "tableOfContents",
+  id: "contents",
+  title: "What is in this document",
+});
+```
+
+Sie lässt sich wie jeder andere Node komponieren und löst sich in
+Vorschau-Builds, Engine-Builds und Tests gleich auf.
+
+## Warum jetzt schon eine platzieren
+
+Es kostet eine Zeile, und sie beginnt an dem Tag Einträge zu drucken, an dem die
+Renderer sie bauen. Die Alternative — eine von Hand gepflegte Liste von
+Abschnittstiteln in einem Absatz — ist binnen zweier Releases falsch.
+
+Wenn Sie lieber keinen Node ausliefern wollen, der nur eine Überschrift druckt,
+lassen Sie ihn weg. Ihn später zu ergänzen ist genauso billig.
+
+## Varianten
+
+<NodeVariants type="table-of-contents" />
+
+## Anmerkungen
+
+- Rechnen Sie irgendwann mit einem `tableOfContents`-Helper, der dasselbe
+  `{ id, title }` nimmt wie hier. So geschrieben wie oben, ist die Umstellung
+  eine Änderung von einer Zeile.
+- Der Node hat keine Kinder und liest zur Build-Zeit nichts.

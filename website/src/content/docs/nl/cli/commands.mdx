@@ -1,0 +1,61 @@
+---
+title: Commando's
+description: Elk dxcl-commando, met de vlaggen die ertoe doen.
+group: CLI
+order: 1
+---
+
+De CLI is `dxcl` en zit in het `docxcelerate`-package. Voer hem eenmalig uit met
+`npx docxcelerate <command>`, of installeer het package en roep `dxcl` direct
+aan — zie [Begin hier](/nl/docs/start-here/).
+
+## dxcl init
+
+Maakt een workspace en installeert de dependencies ervan.
+
+```sh
+dxcl init my-documents
+dxcl init my-documents --dir workspaces
+dxcl init my-documents --blank
+```
+
+Voer hem zonder argumenten uit voor een begeleide setup die om het template en
+het API-endpoint vraagt.
+
+| Vlag | Effect |
+| --- | --- |
+| `--dir <path>` | Maak de workspace binnen `<path>` |
+| `--blank` | Sla het voorbeelddocument over |
+| `--official-server` | Laat `upload.endpoint` naar de officiële engine wijzen |
+| `--api-endpoint <url>` | Laat `upload.endpoint` naar je eigen dienst wijzen |
+| `--no-api-endpoint` | Laat `upload.endpoint` leeg |
+
+## dxcl document new
+
+Maakt een documentproject binnen een workspace.
+
+```sh
+dxcl document new tenancy-renewal --title "Tenancy Renewal"
+```
+
+Schrijft `documents/tenancy-renewal/` met `document.project.ts`, `document.tsx`,
+`document-style.ts`, `preview-data.ts`, `types.ts` en een `nodes/`-directory.
+
+## dxcl document node
+
+Genereert een nodecomponent en registreert die.
+
+```sh
+dxcl document node documents/tenancy-renewal next-steps --type paragraph --mode dynamic
+dxcl document node documents/tenancy-renewal signature   --type image     --mode static
+dxcl document node documents/tenancy-renewal rent-trend  --type graph     --mode static
+```
+
+| Vlag | Waarden |
+| --- | --- |
+| `--type` | [`paragraph`](/nl/docs/nodes/paragraph/), [`image`](/nl/docs/nodes/image/), [`graph`](/nl/docs/nodes/graph/) |
+| `--mode` | `static`, `dynamic` |
+
+De generator schrijft `nodes/<name>.node.ts` en werkt `nodes/index.ts` bij. Hij
+plaatst de node **niet** in je template — voeg hem toe aan `document.tsx` op de
+plek in het document waar hij hoort.

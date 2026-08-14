@@ -1,0 +1,87 @@
+---
+title: Artefactos de compilación
+description: Qué escribe una compilación en disco, y qué archivo va a un endpoint de generación.
+group: Projects
+order: 2
+---
+
+Compilar un documento escribe JSON puro en `build.outDir`, dentro del propio
+directorio del documento — `documents/offer-of-admission/build/` con la
+configuración por defecto.
+
+```text
+documents/offer-of-admission/build/
+  manifest.json
+  preview.json
+  document.json
+  derivers.js      (only when the document uses derivers)
+```
+
+## manifest.json
+
+El índice. Registra qué se compiló, cuándo y dónde están los demás archivos:
+
+```json
+{
+  "schemaVersion": "docxcelerate.project-manifest/v0",
+  "id": "offer-of-admission",
+  "name": "Offer of Admission",
+  "version": "1.0.0",
+  "title": "Offer of Admission",
+  "entrypoint": "document.project.ts",
+  "builtAt": "2026-08-13T09:15:00.000Z",
+  "previewDocument": "preview.json",
+  "engineDocument": "document.json",
+  "style": { "...": "the project's DocumentStyle" }
+}
+```
+
+`deriverNames` y `derivers` solo aparecen cuando el documento invoca derivers.
+
+## preview.json
+
+El documento resuelto con `previewData`, con los nodos dinámicos renderizados a
+sus **marcadores de posición**. Es el artefacto de desarrollo local — es lo que
+muestra la aplicación de vista previa, y nunca necesita ningún servicio.
+
+## document.json
+
+El artefacto de subida. Es el mismo árbol, pero los valores del momento de la
+petición se conservan como tokens en vez de quedar incrustados:
+
+```json
+{
+  "kind": "paragraph",
+  "mode": "static",
+  "id": "greeting",
+  "text": "Dear {{data.applicantName}},"
+}
+```
+
+Los nodos dinámicos llevan sus prompts en lugar de texto. Este es el archivo que
+envías [al motor](/es/docs/generation/endpoint/), que sustituye los datos reales
+y resuelve los prompts.
+
+> La distinción importa cuando estás depurando. Si un documento se ve bien en la
+> vista previa pero mal en producción, compara `preview.json` y `document.json`
+> — la diferencia es exactamente el conjunto de valores que se resuelven en otro
+> sitio.
+
+## derivers.js
+
+Los derivers son funciones con nombre que un nodo puede invocar para calcular un
+valor antes de renderizarse — un formato de moneda, una diferencia de fechas, una
+búsqueda. Un nodo los declara:
+
+```ts
+{
+  output: "monthsRemaining",
+  name: "monthsBetween",
+  inputs: [dataRef("startDate"), ctxRef("today")]
+}
+```
+
+Como el endpoint resuelve los nodos en remoto, las funciones tienen que viajar
+con el documento. `derivers.js` es ese paquete, y contiene solo los derivers a
+los que el documento hace referencia realmente. Los documentos que no usan
+ninguno no reciben el archivo.

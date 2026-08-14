@@ -1,0 +1,89 @@
+---
+title: Buildartefacten
+description: Wat een build naar schijf schrijft, en welk bestand naar een generatie-endpoint gaat.
+group: Projects
+order: 2
+---
+
+Een document bouwen schrijft pure JSON naar `build.outDir` binnen de eigen
+directory van het document — `documents/offer-of-admission/build/` met de
+standaardconfiguratie.
+
+```text
+documents/offer-of-admission/build/
+  manifest.json
+  preview.json
+  document.json
+  derivers.js      (only when the document uses derivers)
+```
+
+## manifest.json
+
+De index. Hij legt vast wat er is gebouwd, wanneer, en waar de andere bestanden
+staan:
+
+```json
+{
+  "schemaVersion": "docxcelerate.project-manifest/v0",
+  "id": "offer-of-admission",
+  "name": "Offer of Admission",
+  "version": "1.0.0",
+  "title": "Offer of Admission",
+  "entrypoint": "document.project.ts",
+  "builtAt": "2026-08-13T09:15:00.000Z",
+  "previewDocument": "preview.json",
+  "engineDocument": "document.json",
+  "style": { "...": "the project's DocumentStyle" }
+}
+```
+
+`deriverNames` en `derivers` verschijnen alleen wanneer het document derivers
+aanroept.
+
+## preview.json
+
+Het document opgelost tegen `previewData`, met dynamische nodes gerenderd naar
+hun **placeholders**. Dit is het artefact voor lokale ontwikkeling — het is wat
+de preview-app toont, en het heeft nooit een dienst nodig.
+
+## document.json
+
+Het uploadartefact. Het is dezelfde boom, maar waarden voor het aanvraagmoment
+blijven tokens in plaats van ingebakken te worden:
+
+```json
+{
+  "kind": "paragraph",
+  "mode": "static",
+  "id": "greeting",
+  "text": "Dear {{data.applicantName}},"
+}
+```
+
+Dynamische nodes dragen hun prompts in plaats van tekst. Dit is het bestand dat
+je naar [de engine](/nl/docs/generation/endpoint/) stuurt, die er echte data in
+zet en de prompts oplost.
+
+> Het onderscheid doet ertoe wanneer je aan het debuggen bent. Als een document
+> er in de preview goed uitziet maar in productie fout, vergelijk dan
+> `preview.json` en `document.json` — het verschil is precies de verzameling
+> waarden die elders wordt opgelost.
+
+## derivers.js
+
+Derivers zijn benoemde functies die een node kan aanroepen om een waarde te
+berekenen voordat hij rendert — een valutaformattering, een datumverschil, een
+opzoeking. Een node declareert ze:
+
+```ts
+{
+  output: "monthsRemaining",
+  name: "monthsBetween",
+  inputs: [dataRef("startDate"), ctxRef("today")]
+}
+```
+
+Omdat het endpoint nodes op afstand oplost, moeten de functies met het document
+meereizen. `derivers.js` is die bundel, en bevat alleen de derivers waar het
+document daadwerkelijk naar verwijst. Documenten die er geen gebruiken, krijgen
+het bestand niet.

@@ -1,0 +1,61 @@
+---
+title: Befehle
+description: Jeder dxcl-Befehl, mit den Flags, auf die es ankommt.
+group: CLI
+order: 1
+---
+
+Die CLI heißt `dxcl` und steckt im Paket `docxcelerate`. Rufen Sie sie einmalig
+mit `npx docxcelerate <command>` auf, oder installieren Sie das Paket und rufen
+`dxcl` direkt auf — siehe [Hier anfangen](/de/docs/start-here/).
+
+## dxcl init
+
+Legt einen Workspace an und installiert dessen Abhängigkeiten.
+
+```sh
+dxcl init my-documents
+dxcl init my-documents --dir workspaces
+dxcl init my-documents --blank
+```
+
+Ohne Argumente aufgerufen, führt der Befehl durch eine geführte Einrichtung, die
+nach dem Template und dem API-Endpoint fragt.
+
+| Flag | Wirkung |
+| --- | --- |
+| `--dir <path>` | Den Workspace innerhalb von `<path>` anlegen |
+| `--blank` | Das Beispieldokument auslassen |
+| `--official-server` | `upload.endpoint` auf die offizielle Engine zeigen lassen |
+| `--api-endpoint <url>` | `upload.endpoint` auf Ihren eigenen Dienst zeigen lassen |
+| `--no-api-endpoint` | `upload.endpoint` leer lassen |
+
+## dxcl document new
+
+Legt ein Dokumentprojekt innerhalb eines Workspace an.
+
+```sh
+dxcl document new tenancy-renewal --title "Tenancy Renewal"
+```
+
+Schreibt `documents/tenancy-renewal/` mit `document.project.ts`, `document.tsx`,
+`document-style.ts`, `preview-data.ts`, `types.ts` und einem `nodes/`-Verzeichnis.
+
+## dxcl document node
+
+Erzeugt eine Node-Komponente und registriert sie.
+
+```sh
+dxcl document node documents/tenancy-renewal next-steps --type paragraph --mode dynamic
+dxcl document node documents/tenancy-renewal signature   --type image     --mode static
+dxcl document node documents/tenancy-renewal rent-trend  --type graph     --mode static
+```
+
+| Flag | Werte |
+| --- | --- |
+| `--type` | [`paragraph`](/de/docs/nodes/paragraph/), [`image`](/de/docs/nodes/image/), [`graph`](/de/docs/nodes/graph/) |
+| `--mode` | `static`, `dynamic` |
+
+Der Generator schreibt `nodes/<name>.node.ts` und aktualisiert `nodes/index.ts`.
+Er platziert den Node **nicht** in Ihrem Template — fügen Sie ihn in
+`document.tsx` an der Stelle ein, an die er im Dokument gehört.

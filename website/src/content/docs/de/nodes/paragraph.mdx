@@ -1,0 +1,71 @@
+---
+title: Paragraph
+description: Prosa, aus Ihren Daten gerendert oder zur Anfragezeit aus Prompts aufgelöst.
+group: Nodes
+subgroup: Node types
+order: 10
+---
+
+import NodeSummary from "../../../../components/NodeSummary.astro";
+import NodeVariants from "../../../../components/NodeVariants.astro";
+
+<NodeSummary type="paragraph" />
+
+## Einen schreiben
+
+`render` bekommt Ihre typisierten Daten und das Token-Budget und gibt einen
+String zurück. Dazwischen liegt keine Templatesprache — Formatierung,
+Verzweigung und Pluralbildung sind alle gewöhnliches TypeScript:
+
+```ts
+import { paragraph } from "docxcelerate";
+import type { MemberData } from "../types.ts";
+
+export const Greeting = paragraph<MemberData>({
+  id: "greeting",
+  render: (data) => `Dear ${data.memberName},`,
+});
+```
+
+Er darf `async` sein — aber ein Node, der etwas holt, ist ein Node, der mitten im
+Build scheitern kann; legen Sie den Wert lieber vorher in Ihre Daten.
+
+## Das Token-Budget
+
+Das zweite Argument von `render`, `placeholder` und jedem Prompt ist
+`availableTokens`: das Budget, das diesem Node zugeteilt wurde — `2000`, sofern
+Sie `availableTokens` in den Build-Optionen nicht setzen. Statische Nodes dürfen
+es ignorieren. Dynamische sollten es ausgeben:
+
+```ts
+generalPrompt: (data, availableTokens) =>
+  `Explain the change. At most ${Math.floor(availableTokens / 4)} words.`,
+```
+
+## Verzweigen gehört in das Render
+
+Ein Dokument, das eines von drei Dingen sagt, ist ein Node mit drei Ausgängen,
+nicht drei Nodes hinter Bedingungen. Die id bleibt, wo sie ist, der Baum behält
+seine Form, gleich wer der Empfänger ist, und die Logik ist Code, den Sie testen
+können.
+
+## Dynamische Absätze
+
+Ein dynamischer Absatz tauscht `render` gegen Prompts und einen Platzhalter.
+Vorschau-Builds lösen ihn zum Platzhalter auf und kennzeichnen ihn; Builds zur
+Anfragezeit senden die Prompts. Nur `generalPrompt` ist erforderlich — die vierte
+Variante unten zeigt, wozu die anderen drei da sind.
+
+## Varianten
+
+<NodeVariants type="paragraph" />
+
+## Anmerkungen
+
+- Beide Modi lösen zu `kind: "paragraph"` auf. Ein Renderer liest `mode`, falls
+  es ihn überhaupt kümmert; er verzweigt nie danach, welchen Helper Sie
+  aufgerufen haben.
+- Ein leerer String ergibt einen leeren Absatz, nicht *keinen* Node. Um den Node
+  wegzulassen, lassen Sie ihn aus dem Baum.
+- Renderer escapen den Text. Ein Absatz kann kein Markup in die Seite
+  schmuggeln und ist nicht der Ort für Formatierung.

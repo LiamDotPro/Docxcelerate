@@ -1,0 +1,53 @@
+---
+title: Image
+description: Una imagen a la que apuntan tus datos, o una que produce un endpoint de generación.
+group: Nodes
+subgroup: Node types
+order: 12
+---
+
+import NodeSummary from "../../../../components/NodeSummary.astro";
+import NodeVariants from "../../../../components/NodeVariants.astro";
+
+<NodeSummary type="image" />
+
+## Cada campo acepta una función
+
+`src`, `alt`, `width` y `height` aceptan cada uno un valor simple o una función
+de tus datos. Una firma que cambia según la oficina, un logotipo por marca, una
+fotografía indexada por referencia — todo eso se queda dentro del nodo en lugar
+de convertirse en una bifurcación en la plantilla:
+
+```ts
+image<MemberData>({
+  id: "signature",
+  src: (data) => data.signatureUrl,
+  alt: (data) => `Signed by ${data.managerName}`,
+  width: 180,
+});
+```
+
+## src pasa a ser path
+
+La opción es `src`; el nodo resuelto la llama `path`. Despliega *En qué se
+resuelve* en la primera variante de abajo para verlo.
+
+## Imágenes dinámicas
+
+Una imagen dinámica se describe en lugar de suministrarse, y admite las mismas
+cuatro ranuras de prompt que un párrafo dinámico.
+
+`negativePrompt` se gana su sitio aquí más que en ningún otro lado. Las imágenes
+generadas fallan de formas predecibles — texto incrustado, logotipos inventados,
+caras reconocibles — y la ranura las descarta de una vez, en el nodo.
+
+## Variantes
+
+<NodeVariants type="image" />
+
+## Notas
+
+- El nodo guarda una ruta, nunca los bytes. Durante una compilación no se
+  descarga ni se valida nada; una ruta rota falla en el momento de renderizar.
+- Vale la pena escribir `alt` incluso mientras los renderizadores solo dibujan
+  marcos, porque el marco imprime `alt`.

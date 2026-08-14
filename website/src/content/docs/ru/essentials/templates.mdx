@@ -1,0 +1,104 @@
+---
+title: Шаблоны
+description: Соберите дерево документа на TSX или обычными вызовами функций — результат один и тот же.
+group: Essentials
+order: 3
+---
+
+Шаблоны бывают двух видов. Они равноценны; выбирайте по вкусу и по тому, сколько
+в документе структуры.
+
+## TSX
+
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { Document, Section, template } from "docxcelerate/template";
+import { Greeting, NextSteps } from "./nodes/index.ts";
+import type { DocumentData } from "./types.ts";
+
+export const documentTemplate = template<DocumentData>(
+  <Document id="tenancy-renewal" title="Tenancy Renewal">
+    <Section id="opening" title="Opening">
+      <Greeting />
+    </Section>
+    <Section id="closing" title="Closing">
+      <NextSteps />
+    </Section>
+  </Document>,
+);
+```
+
+Прагма в первой строке — это то, что связывает JSX с Docxcelerate, а не с React.
+Задайте вместо неё `jsxImportSource` в `tsconfig.json`, и её можно опустить:
+
+```json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "docxcelerate/template"
+  }
+}
+```
+
+В создаваемых workspace это уже настроено.
+
+## Обычные функции
+
+```ts
+import { document, section } from "docxcelerate";
+
+export const documentTemplate = doc<DocumentData>({
+  id: "tenancy-renewal",
+  title: "Tenancy Renewal",
+  nodes: [
+    section({ id: "opening", title: "Opening" }, [Greeting]),
+    section({ id: "closing", title: "Closing" }, [NextSteps]),
+  ],
+});
+```
+
+Удобно, когда структура документа вычисляется — например, когда разделы строятся
+из списка и JSX всё равно потребовал бы `map` и фрагмент.
+
+## Переиспользуемые компоненты
+
+`defineDocumentComponent` и `defineSectionComponent` позволяют построить
+собственные обёртки над примитивами — фирменный бланк, стандартный
+заключительный блок — и переиспользовать их в разных документах:
+
+```tsx
+import { defineSectionComponent } from "docxcelerate/template";
+
+export const Closing = defineSectionComponent<DocumentData>({
+  id: "closing",
+  title: "Closing",
+});
+```
+
+## Проекты документов
+
+Проект документа связывает шаблон с его стилем и тестовыми данными через одну
+точку входа — `document.project.ts`:
+
+```tsx
+import { defineDocumentProject } from "docxcelerate/document";
+import { documentTemplate } from "./document.tsx";
+import { documentStyle } from "./document-style.ts";
+import type { DocumentData } from "./types.ts";
+
+export default defineDocumentProject<DocumentData>({
+  id: "tenancy-renewal",
+  name: "Tenancy Renewal",
+  version: "1.0.0",
+  template: documentTemplate,
+  style: documentStyle,
+  previewData: {
+    residentName: "Avery Mitchell",
+    propertyRef: "Flat 4, Ashcroft House",
+  },
+});
+```
+
+Именно на `previewData` разрешает документ приложение предпросмотра. Держите их
+правдоподобными: короткие имена и выдуманные города скрывают проблемы вёрстки,
+которые реальные данные обязательно вскроют.

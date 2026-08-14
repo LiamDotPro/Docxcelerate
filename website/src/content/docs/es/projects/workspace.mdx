@@ -1,0 +1,102 @@
+---
+title: Workspace y configuración
+description: Cómo está organizado un workspace generado y qué controlan los presets de configuración.
+group: Projects
+order: 1
+---
+
+`dxcl init` produce un proyecto de Vite corriente. No tiene nada de mágico —
+puedes abrirlo en tu editor, añadir dependencias y versionarlo como cualquier
+otro repositorio.
+
+```text
+my-documents/
+  docxcelerate.config.json
+  index.html
+  package.json
+  preview/
+    main.ts
+    styles.css
+  vite.config.ts
+  tsconfig.json
+  documents/
+```
+
+`documents/` contiene un directorio por cada proyecto de documento. Todo lo demás
+es la aplicación de vista previa que se ejecuta con `npm run dev`.
+
+## Presets de configuración
+
+`docxcelerate.config.json` guarda presets con nombre para el comportamiento de
+compilación y de subida:
+
+```json
+{
+  "schemaVersion": "docxcelerate.config/v0",
+  "activePreset": "local",
+  "presets": {
+    "local": {
+      "build": { "outDir": "build" },
+      "upload": {
+        "endpoint": "",
+        "method": "POST",
+        "headers": {},
+        "body": "document"
+      }
+    }
+  }
+}
+```
+
+`activePreset` decide cuál se aplica. Los presets son el mecanismo para tener una
+configuración local y un endpoint de staging o de producción en paralelo sin
+editar la configuración entre ejecuciones:
+
+```json
+{
+  "activePreset": "local",
+  "presets": {
+    "local": { "build": { "outDir": "build" }, "upload": { "endpoint": "" } },
+    "staging": {
+      "build": { "outDir": "build" },
+      "upload": {
+        "endpoint": "https://documents.staging.example.com/api/letters",
+        "method": "POST",
+        "headers": { "Authorization": "Bearer ${LETTERS_TOKEN}" },
+        "body": "document"
+      }
+    }
+  }
+}
+```
+
+| Campo | Significado |
+| --- | --- |
+| `build.outDir` | Dónde se escriben los artefactos, relativo al directorio del documento |
+| `upload.endpoint` | El endpoint de generación; vacío desactiva la subida |
+| `upload.method` | Método HTTP, normalmente `POST` |
+| `upload.headers` | Se envían con la petición de subida |
+| `upload.body` | Qué artefacto enviar — `document` es el del momento de la petición |
+
+Compilar y subir solo se habilita en la interfaz de vista previa cuando el preset
+activo tiene un `upload.endpoint` no vacío. Con él vacío, todo se sigue
+compilando — simplemente obtienes artefactos en disco en lugar de un documento
+terminado.
+
+## Organización de un proyecto de documento
+
+```text
+documents/offer-of-admission/
+  document.project.ts
+  document-style.ts
+  document.tsx
+  preview-data.ts
+  types.ts
+  nodes/
+    index.ts
+```
+
+La separación es justamente el objetivo: `types.ts` es el contrato,
+`preview-data.ts` es una instancia suya, `document.tsx` es solo estructura, y
+cada nodo es un módulo pequeño bajo `nodes/`. Los documentos se hacen largos, y
+una plantilla que incrusta su prosa se vuelve ilegible enseguida.

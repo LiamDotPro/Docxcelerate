@@ -1,0 +1,51 @@
+---
+title: Table of contents
+description: Una clase del esquema que aún no tiene helper — cómo colocar una y qué hace hoy.
+group: Nodes
+subgroup: Node types
+order: 14
+---
+
+import NodeSummary from "../../../../components/NodeSummary.astro";
+import NodeVariants from "../../../../components/NodeVariants.astro";
+
+<NodeSummary type="table-of-contents" />
+
+## Escribir una sin helper
+
+Los helpers son comodidades, no una barrera. Un componente de nodo es una función
+que toma tus datos y devuelve una definición, así que cualquier clase del esquema
+está a tu alcance sin más que escribir esa función:
+
+```ts
+import type { NodeComponent } from "docxcelerate";
+
+export const Contents: NodeComponent<MemberData> = () => ({
+  kind: "tableOfContents",
+  id: "contents",
+  title: "What is in this document",
+});
+```
+
+Se compone como cualquier otro nodo, y se resuelve igual en compilaciones de
+vista previa, en compilaciones del motor y en pruebas.
+
+## Por qué colocar una ya
+
+Cuesta una línea, y empieza a imprimir entradas el día en que los renderizadores
+las construyan. La alternativa — una lista de títulos de sección mantenida a mano
+dentro de un párrafo — estará equivocada en dos versiones.
+
+Si prefieres no publicar un nodo que solo imprime un encabezado, déjalo fuera.
+Añadirlo más adelante es igual de barato.
+
+## Variantes
+
+<NodeVariants type="table-of-contents" />
+
+## Notas
+
+- Cuenta con que acabe habiendo un helper `tableOfContents`, que tomará el mismo
+  `{ id, title }` que toma aquí. Escrito como arriba, adoptarlo es un cambio de
+  una línea.
+- El nodo no contiene hijos y no lee nada en tiempo de compilación.

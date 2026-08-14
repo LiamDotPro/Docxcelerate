@@ -1,0 +1,87 @@
+---
+title: Package-entrypoints
+description: Elk importeerbaar pad en wat erachter zit.
+group: Reference
+order: 1
+---
+
+Het package levert gecompileerde output met typedeclaraties. Elk entrypoint
+hieronder is gedeclareerd in `exports`, dus ze worden opgelost in Node en in
+bundlers zonder diepe imports in `dist/`.
+
+## docxcelerate
+
+Het hoofdoppervlak: node-helpers, de documentbuilder, artefacthelpers,
+runtimetypes en elk type in het documentdomein.
+
+```ts
+import {
+  buildDocument,
+  buildProjectPreviewDocument,
+  cleanMinimalDocumentStyle,
+  graph,
+  image,
+  document,
+  paragraph,
+  section,
+  type DocumentModel,
+  type ParagraphNode,
+} from "docxcelerate";
+```
+
+## docxcelerate/document
+
+Definitie van een documentproject — het entrypoint dat een opgezette
+`document.project.ts` gebruikt. De CLI en de gegenereerde bestandsnamen zeggen
+nog steeds `document`; de API niet.
+
+```ts
+import { defineDocumentProject } from "docxcelerate/document";
+```
+
+## docxcelerate/template
+
+Het TSX-componentoppervlak.
+
+```ts
+import {
+  defineDocumentComponent,
+  defineSectionComponent,
+  Document,
+  Section,
+  template,
+} from "docxcelerate/template";
+```
+
+De bijbehorende JSX-runtime staat op `docxcelerate/template/jsx-runtime` (en
+`.../jsx-dev-runtime`), en dat is waar `jsxImportSource` naartoe oplost.
+
+## docxcelerate/renderer
+
+Renderers die een `DocumentModel` omzetten in iets wat je kunt bekijken.
+
+```ts
+import { renderDocumentWebsite } from "docxcelerate/renderer";
+```
+
+`renderDocumentWebsite` geeft een **compleet, op zichzelf staand HTML-document**
+terug — met een eigen `<html>` en `<style>` — en niet een fragment. Zet het in een
+iframe als je het binnen een andere pagina nodig hebt; zo werkt de preview op de
+homepage van deze site.
+
+## docxcelerate/docx
+
+DOCX-constructie.
+
+```ts
+import { createDocxDocument } from "docxcelerate/docx";
+```
+
+## docxcelerate/scaffold en /cli
+
+De workspacegenerator en zijn commandoregel-voorkant, om er je eigen tooling
+bovenop te bouwen.
+
+```ts
+import { scaffoldWorkspace } from "docxcelerate/scaffold";
+```

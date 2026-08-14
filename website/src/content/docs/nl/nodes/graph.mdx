@@ -1,0 +1,58 @@
+---
+title: Graph
+description: Grafieken als data gedeclareerd — staaf, lijn of taart — uit jouw cijfers of die van een endpoint.
+group: Nodes
+subgroup: Node types
+order: 13
+---
+
+import NodeSummary from "../../../../components/NodeSummary.astro";
+import NodeVariants from "../../../../components/NodeVariants.astro";
+
+<NodeSummary type="graph" />
+
+## Gedeclareerd, niet getekend
+
+Een graph-node bevat getallen en een vorm, nooit een afbeelding:
+
+```ts
+graph<MemberData>({
+  id: "visits-by-month",
+  graphType: "bar",
+  data: (data) => ({
+    labels: data.visitsByMonth.map((entry) => entry.month),
+    series: [{ name: "Visits", values: data.visitsByMonth.map((entry) => entry.visits) }],
+  }),
+  caption: () => "Your visits, last six months",
+});
+```
+
+Cijfers meedragen in plaats van een plaatje betekent dat één declaratie elke
+renderer bedient, leesbaar diff't tussen builds, en in een test kan worden
+vastgelegd.
+
+## De vorm van de payload is van jou
+
+`data` is een `JsonObject` en het framework kijkt er nooit in. De hier gebruikte
+vorm `{ labels, series }` is een conventie, geen schema — gebruik wat jouw
+renderer verwacht, en houd het consistent binnen een project.
+
+Eén ding gebeurt er wel met de payload: stringwaarden gaan door de
+templaterenderer heen, net als proza. Een label met `{{derived.total}}` erin
+wordt opgelost.
+
+## Afleiden in `data`
+
+Lopende totalen, percentages en herbasering horen in de `data`-functie thuis en
+niet stroomopwaarts. De grafiek en de tekst ernaast worden dan uit één bron
+berekend, zodat ze het niet oneens kunnen zijn.
+
+## Varianten
+
+<NodeVariants type="graph" />
+
+## Aantekeningen
+
+- `graphType` staat op beide helpers standaard op `bar`.
+- Bij een dynamische graph ligt de vorm nog steeds lokaal vast. Het endpoint
+  levert de cijfers en mag `graphType` en `caption` in zijn antwoord overschrijven.

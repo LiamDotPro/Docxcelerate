@@ -1,0 +1,76 @@
+---
+/**
+ * Language picker for the nav.
+ *
+ * Every language is listed in its own words and tagged with `lang`, so a
+ * reader who cannot read the page they are on can still recognise their own
+ * language, and a screen reader pronounces each name in the right voice.
+ *
+ * Because slugs are shared across locales, switching is a prefix swap on the
+ * current path — you land on the same page, not back at the homepage.
+ *
+ * Built on <details> so it opens, closes and keyboard-navigates without any
+ * JavaScript; the script only adds click-outside and Escape.
+ */
+import { LOCALES, LOCALE_META, asLocale, localizePath, stripLocale, ui } from "../i18n";
+
+const locale = asLocale(Astro.currentLocale);
+const t = ui(locale);
+const canonical = stripLocale(Astro.url.pathname);
+---
+
+<details class="locale-switcher relative" data-locale-switcher>
+  <summary
+    class="flex h-8 cursor-pointer list-none items-center gap-1.5 rounded border border-border px-2 text-muted transition-colors hover:border-border-firm hover:text-accent [&::-webkit-details-marker]:hidden"
+    title={t.nav.language}
+    aria-label={t.nav.language}
+  >
+    <svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18M12 3c2.4 2.6 3.6 5.6 3.6 9s-1.2 6.4-3.6 9c-2.4-2.6-3.6-5.6-3.6-9S9.6 5.6 12 3Z" />
+    </svg>
+    <span class="text-xs font-medium">{LOCALE_META[locale].native}</span>
+  </summary>
+
+  <ul
+    class="absolute right-0 top-full z-50 mt-1.5 m-0 flex min-w-40 list-none flex-col gap-0.5 rounded-md border border-border bg-paper p-1 shadow-lg"
+  >
+    {
+      LOCALES.map((option) => (
+        <li class="m-0">
+          <a
+            href={localizePath(canonical, option)}
+            lang={option}
+            hreflang={option}
+            aria-current={option === locale ? "true" : undefined}
+            class:list={[
+              "block rounded px-3 py-1.5 text-sm no-underline transition-colors",
+              option === locale
+                ? "bg-accent-tint font-semibold text-accent"
+                : "text-muted hover:bg-surface hover:text-ink",
+            ]}
+          >
+            {LOCALE_META[option].native}
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</details>
+
+<script>
+  const switcher = document.querySelector<HTMLDetailsElement>("[data-locale-switcher]");
+
+  if (switcher) {
+    document.addEventListener("click", (event) => {
+      if (!switcher.open) return;
+      if (!switcher.contains(event.target as Node)) switcher.open = false;
+    });
+
+    switcher.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || !switcher.open) return;
+      switcher.open = false;
+      switcher.querySelector("summary")?.focus();
+    });
+  }
+</script>

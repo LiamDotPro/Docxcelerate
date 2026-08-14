@@ -1,0 +1,71 @@
+---
+title: Section
+description: Der einzige Node, der andere Nodes aufnimmt, und die Überschrift, zu der sein Titel wird.
+group: Nodes
+subgroup: Node types
+order: 11
+---
+
+import NodeSummary from "../../../../components/NodeSummary.astro";
+import NodeVariants from "../../../../components/NodeVariants.astro";
+
+<NodeSummary type="section" />
+
+## Einen schreiben
+
+Ein Abschnitt bekommt seine Optionen und seine Kinder — Node-Komponenten,
+dieselben Werte, die Sie auch auf der obersten Ebene eines Dokuments platzieren
+würden:
+
+```ts
+import { section } from "docxcelerate";
+
+export const Opening = section<MemberData>({ id: "opening", title: "Your renewal" }, [
+  Greeting,
+  PriceChange,
+]);
+```
+
+In TSX liest sich derselbe Aufruf wie Markup:
+
+```tsx
+<Section id="opening" title="Your renewal">
+  <Greeting />
+  <PriceChange />
+</Section>
+```
+
+Beides ergibt denselben Baum. [Templates](/de/docs/essentials/templates/)
+behandelt, wann welche Form sich lohnt.
+
+## Kinder können alles sein
+
+Absätze, Bilder, Diagramme, eine Inhaltsverzeichnis-Markierung oder weitere
+Abschnitte. Kein anderer Node hat Kinder, also ist die Tiefe eines Dokuments die
+Tiefe seiner Abschnitte.
+
+An einem Node ändert sich nichts dadurch, dass er in einen Abschnitt wandert: Er
+löst sich in jeder Tiefe gleich auf, und seine id bekommt kein Präfix.
+
+## Titel wandern in die Gliederung
+
+`title` ist erforderlich und keine Verzierung — daraus wird die Überschrift über
+den Kindern und der Eintrag, aus dem ein Inhaltsverzeichnis entsteht. Eine
+Gruppe, die keine Überschrift will, will keinen Abschnitt; setzen Sie die Nodes
+dann direkt ins Dokument.
+
+## Varianten
+
+<NodeVariants type="section" />
+
+## Anmerkungen
+
+- **Die Tiefe steckt im Baum, nicht in den Überschriften.** Beide mitgelieferten
+  Renderer drucken jeden Abschnittstitel auf einer Ebene — `<h2>` im Browser,
+  Überschrift 1 im DOCX — wie tief er auch verschachtelt ist. Das JSON
+  verschachtelt korrekt, das ist also eine Beschränkung der Renderer; ein drei
+  Ebenen tiefes Dokument sieht aber noch nicht drei Ebenen tief aus.
+- Einen dynamischen Abschnitt gibt es nicht. Ein Endpoint füllt Nodes aus; er
+  entscheidet nicht, was das Dokument enthält.
+- Ein leerer Abschnitt rendert als einzelne Überschrift. Kommen die Kinder aus
+  einem Filter, der leer laufen kann, prüfen Sie das weiter oben.

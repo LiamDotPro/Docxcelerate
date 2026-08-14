@@ -1,47 +1,53 @@
 ---
-import { getCollection } from "astro:content";
 import { DOC_GROUPS } from "../site";
+import { byOrder, docsFor, type LocalisedDoc } from "../docs";
+import { asLocale, localizePath, ui } from "../i18n";
 
 interface Props {
-  currentId: string;
+  /** Language-independent, so the highlight survives a language switch. */
+  currentSlug: string;
 }
 
-const { currentId } = Astro.props;
+const { currentSlug } = Astro.props;
 
-const pages = await getCollection("docs");
+const locale = asLocale(Astro.currentLocale);
+const t = ui(locale);
 
-// Group order is declared in site.ts; within a group, `order` then title.
-const byOrder = (
-  a: { data: { order: number; title: string } },
-  b: { data: { order: number; title: string } },
-) => a.data.order - b.data.order || a.data.title.localeCompare(b.data.title);
-
-type Page = (typeof pages)[number];
+const pages = await docsFor(locale);
 
 /**
  * A group splits into its own pages and any subgroups beneath it. Subgroups
  * keep the order their first page gives them, so the sidebar's shape is set by
  * the same `order` field as everything else rather than a second list here.
+ *
+ * `group` and `subgroup` stay English in every translation — they are keys,
+ * not copy. What a reader sees comes from the dictionary; an unrecognised
+ * subgroup falls back to whatever the frontmatter said.
  */
 const grouped = DOC_GROUPS.map((group) => {
-  const groupPages = pages.filter((page) => page.data.group === group).sort(byOrder);
-  const subgroups: { title: string; pages: Page[] }[] = [];
+  const groupPages = pages.filter((page) => page.entry.data.group === group).sort(byOrder);
+  const subgroups: { title: string; label: string; pages: LocalisedDoc[] }[] = [];
 
   for (const page of groupPages) {
-    const title = page.data.subgroup;
+    const title = page.entry.data.subgroup;
     if (!title) continue;
 
     const existing = subgroups.find((entry) => entry.title === title);
     if (existing) {
       existing.pages.push(page);
     } else {
-      subgroups.push({ title, pages: [page] });
+      subgroups.push({
+        title,
+        label: t.docs.subgroups[title as keyof typeof t.docs.subgroups] ?? title,
+        pages: [page],
+      });
     }
   }
 
   return {
     group,
-    pages: groupPages.filter((page) => !page.data.subgroup),
+    label: t.docs.groups[group],
+    pages: groupPages.filter((page) => !page.entry.data.subgroup),
     subgroups,
   };
 }).filter((entry) => entry.pages.length > 0 || entry.subgroups.length > 0);
@@ -50,14 +56,16 @@ const linkClass = (current: boolean) => [
   "block rounded px-3 py-1.5 no-underline transition-colors",
   current ? "bg-accent-tint font-semibold text-accent" : "text-muted hover:bg-surface hover:text-ink",
 ];
+
+const hrefFor = (page: LocalisedDoc) => localizePath(`/docs/${page.slug}/`, locale);
 ---
 
-<nav aria-label="Documentation" class="flex flex-col gap-7 text-sm">
+<nav aria-label={t.docs.sidebarLabel} class="flex flex-col gap-7 text-sm">
   {
-    grouped.map(({ group, pages: groupPages, subgroups }) => (
+    grouped.map(({ label, pages: groupPages, subgroups }) => (
       <div class="flex flex-col gap-2">
         <h2 class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted">
-          {group}
+          {label}
         </h2>
 
         {groupPages.length > 0 && (
@@ -65,11 +73,11 @@ const linkClass = (current: boolean) => [
             {groupPages.map((page) => (
               <li class="m-0">
                 <a
-                  href={`/docs/${page.id}/`}
-                  class:list={linkClass(page.id === currentId)}
-                  aria-current={page.id === currentId ? "page" : undefined}
+                  href={hrefFor(page)}
+                  class:list={linkClass(page.slug === currentSlug)}
+                  aria-current={page.slug === currentSlug ? "page" : undefined}
                 >
-                  {page.data.title}
+                  {page.entry.data.title}
                 </a>
               </li>
             ))}
@@ -79,18 +87,18 @@ const linkClass = (current: boolean) => [
         {subgroups.map((subgroup) => (
           <div class="flex flex-col gap-0.5">
             <h3 class="m-0 mt-1 px-0 text-[0.7rem] font-medium uppercase tracking-[0.08em] text-muted opacity-70">
-              {subgroup.title}
+              {subgroup.label}
             </h3>
             {/* Indented and ruled: one glance says these belong to the line above. */}
             <ul class="m-0 flex list-none flex-col gap-0.5 border-l border-border p-0 pl-2">
               {subgroup.pages.map((page) => (
                 <li class="m-0">
                   <a
-                    href={`/docs/${page.id}/`}
-                    class:list={linkClass(page.id === currentId)}
-                    aria-current={page.id === currentId ? "page" : undefined}
+                    href={hrefFor(page)}
+                    class:list={linkClass(page.slug === currentSlug)}
+                    aria-current={page.slug === currentSlug ? "page" : undefined}
                   >
-                    {page.data.title}
+                    {page.entry.data.title}
                   </a>
                 </li>
               ))}

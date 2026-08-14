@@ -1,0 +1,76 @@
+---
+title: El modelo de nodos
+description: Qué tienen en común todos los nodos, en qué se diferencian y dónde está documentado cada uno.
+group: Nodes
+order: 1
+---
+
+import NodeTypes from "../../../../components/NodeTypes.astro";
+
+Un documento es un árbol de nodos. Todo nodo es tres cosas: un **id**, una
+**clase** y una regla para producir contenido.
+
+```ts
+paragraph<MemberData>({
+  id: "greeting",                                // the address
+  render: (data) => `Dear ${data.memberName},`,  // the rule
+});                                              // the helper is the kind
+```
+
+Resuelto con tus datos, se convierte en JSON puro:
+
+```json
+{ "id": "greeting", "kind": "paragraph", "mode": "static", "text": "Dear Adaeze Nkemelu," }
+```
+
+Sin estilos, sin maquetación. Eso le corresponde al renderizador.
+
+## El catálogo
+
+Cada tipo tiene una página propia, con todas las opciones que admite y una vista
+previa de cada manera de escribirlo.
+
+<NodeTypes />
+
+## Los ids son direcciones
+
+El id de un nodo es la forma en que un endpoint de generación apunta a ese
+párrafo, y la forma en que dos artefactos de compilación se alinean en un diff.
+Renombrar uno rompe todo lo que lo señale desde fuera, igual que renombrar una
+ruta de API.
+
+Mantenlos únicos dentro del documento. No cuesta nada y hace legibles los logs.
+
+## Estático y dinámico
+
+Un nodo **estático** calcula su contenido en local a partir de tus datos. Un nodo
+**dinámico** lleva prompts y un marcador de posición, y se rellena en el momento
+de la petición.
+
+Nunca declaras cuál quieres. Hay un helper por clase — `paragraph`, `image`,
+`graph` — y el modo se infiere de las opciones que le des: aporta el miembro de
+resolución local (`render`, `src`, `data`) y el nodo es estático; aporta prompts
+en su lugar y es dinámico. Ambos se resuelven al mismo `kind` y se diferencian
+por `mode` en el documento compilado.
+
+Aportar los dos es un error de compilación, así que `mode` tiene exactamente una
+fuente de verdad. [Estático y dinámico](/es/docs/essentials/static-and-dynamic/)
+explica dónde está la línea y por qué.
+
+## Anidamiento
+
+[`section`](/es/docs/nodes/section/) es hoy el único nodo que contiene hijos, y
+acepta cualquier clase, incluidas otras secciones. Un nodo de tabla con nodos en
+sus celdas es lo siguiente, con el mismo principio: los contenedores contienen
+los componentes que ya escribes, en lugar de un segundo modelo de contenido al
+lado.
+
+## Sobre estas vistas previas
+
+Cada vista previa de aquí es una compilación real. `src/nodes/`, en el
+repositorio de este sitio, guarda un archivo por variante, escrito contra el
+paquete publicado; un paso de compilación resuelve cada uno mediante
+`buildDocument` y lo renderiza con el renderizador que sirve `dxcl dev`. El
+código que se muestra es el archivo que se ejecutó, y el JSON es lo que devolvió
+— de modo que estas páginas se rompen a gritos en vez de quedarse
+silenciosamente obsoletas.

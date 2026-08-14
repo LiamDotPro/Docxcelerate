@@ -1,0 +1,90 @@
+---
+title: Dokumente und Nodes
+description: Ein Dokument ist ein Baum typisierter Komponenten, aufgelöst gegen Ihre Daten.
+group: Essentials
+order: 1
+---
+
+Ein Dokument ist ein Template plus ein Datentyp. Das Template ist ein Baum aus
+**Nodes**; löst man ihn gegen Daten auf, entsteht ein `DocumentModel` — reines
+JSON, ohne dass damit etwas über das Rendern gesagt wäre.
+
+## Die Node-Helper
+
+Jeder Helper nimmt eine `id` und entweder eine Render-Funktion oder eine Menge
+von Prompts und gibt eine Komponente zurück, die Sie in ein Template setzen
+können. Es gibt Helper für Absätze, Bilder, Diagramme und Abschnitte, jeweils als
+statisches und dynamisches Paar.
+
+[Nodes](/de/docs/nodes/overview/) dokumentiert jeden Typ mit seinen Optionen und
+Vorschauen. Der Rest dieser Seite handelt davon, was sie gemeinsam haben.
+
+Ids sind wichtig: Über sie adressiert ein Generierungs-Endpoint einzelne Nodes,
+und über sie bleiben Build-Artefakte zwischen Läufen vergleichbar. Halten Sie sie
+stabil.
+
+## Ein Node ist eine Funktion Ihrer Daten
+
+```ts
+import { paragraph } from "docxcelerate";
+import type { DocumentData } from "../types.ts";
+
+export const Greeting = paragraph<DocumentData>({
+  id: "greeting",
+  render: (data) => `Dear ${data.residentName},`,
+});
+```
+
+`render` bekommt Ihre typisierten Daten und ein `availableTokens`-Budget und gibt
+einen String zurück. Es gibt keine Templatesprache — alles, was sich in
+TypeScript ausdrücken lässt, steht zur Verfügung: Bedingungen, Formatierhelfer,
+Importe.
+
+## Abschnitte verschachteln, Nodes nicht
+
+`section` ist das einzige verschachtelnde Konstrukt. Es trägt einen Titel in die
+Dokumentgliederung:
+
+```ts
+import { section } from "docxcelerate";
+
+section({ id: "opening", title: "Opening" }, [Greeting, Offer]);
+```
+
+In TSX liest sich dasselbe wie Markup:
+
+```tsx
+<Section id="opening" title="Opening">
+  <Greeting />
+  <Offer />
+</Section>
+```
+
+Beides ergibt denselben Baum. Siehe [Templates](/de/docs/essentials/templates/)
+dazu, wann welche Form sich lohnt, und [Section](/de/docs/nodes/section/) dazu,
+was ein Abschnitt enthalten darf und wie tief.
+
+## Das Dokument bauen
+
+```ts
+import { buildDocument } from "docxcelerate";
+
+const doc = await buildDocument(documentTemplate, data);
+```
+
+Das Ergebnis ist ein `DocumentModel`: eine `schemaVersion`, eine `id`, ein
+`title` und ein `nodes`-Array. Es enthält kein Styling und kein Layout — das legt
+später der Renderer an, der es verarbeitet.
+
+Für ein Dokumentprojekt, das mit `defineDocumentProject` definiert wurde, nehmen
+Sie besser `buildProjectPreviewDocument`: das wendet den Stil des Projekts an und
+löst dynamische Nodes zu ihren Platzhaltern auf:
+
+```ts
+import { buildProjectPreviewDocument } from "docxcelerate";
+
+const doc = await buildProjectPreviewDocument(project);
+```
+
+Genau das ruft die Vorschau-App auf — was Sie im Code bauen, entspricht also dem,
+was Sie im Browser gesehen haben.

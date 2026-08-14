@@ -1,0 +1,71 @@
+---
+title: Paragraph
+description: Prosa, renderizada a partir de tus datos o resuelta desde prompts en el momento de la petición.
+group: Nodes
+subgroup: Node types
+order: 10
+---
+
+import NodeSummary from "../../../../components/NodeSummary.astro";
+import NodeVariants from "../../../../components/NodeVariants.astro";
+
+<NodeSummary type="paragraph" />
+
+## Escribir uno
+
+`render` recibe tus datos tipados y el presupuesto de tokens, y devuelve una
+cadena. No hay ningún lenguaje de plantillas de por medio, así que el formato,
+las bifurcaciones y los plurales son TypeScript corriente:
+
+```ts
+import { paragraph } from "docxcelerate";
+import type { MemberData } from "../types.ts";
+
+export const Greeting = paragraph<MemberData>({
+  id: "greeting",
+  render: (data) => `Dear ${data.memberName},`,
+});
+```
+
+Puede ser `async` — pero un nodo que hace peticiones es un nodo que puede fallar
+a mitad de la compilación, así que es preferible poner antes el valor en tus
+datos.
+
+## El presupuesto de tokens
+
+El segundo argumento de `render`, de `placeholder` y de cada prompt es
+`availableTokens`: el presupuesto asignado a este nodo, `2000` salvo que definas
+`availableTokens` en las opciones de compilación. Los nodos estáticos pueden
+ignorarlo. Los dinámicos deberían gastarlo:
+
+```ts
+generalPrompt: (data, availableTokens) =>
+  `Explain the change. At most ${Math.floor(availableTokens / 4)} words.`,
+```
+
+## Las bifurcaciones van dentro del render
+
+Un documento que dice una de tres cosas es un nodo con tres desenlaces, no tres
+nodos detrás de condiciones. El id se queda donde está, el árbol conserva su
+forma sea quien sea el destinatario, y la lógica es código que puedes probar.
+
+## Párrafos dinámicos
+
+Un párrafo dinámico cambia `render` por prompts y un marcador de posición. Las
+compilaciones de vista previa lo resuelven al marcador y lo etiquetan; las
+compilaciones en el momento de la petición envían los prompts. Solo
+`generalPrompt` es obligatorio — la cuarta variante de abajo muestra para qué
+sirven los otros tres.
+
+## Variantes
+
+<NodeVariants type="paragraph" />
+
+## Notas
+
+- Ambos modos se resuelven a `kind: "paragraph"`. Un renderizador lee `mode` si
+  es que le importa; nunca se bifurca según el helper que hayas llamado.
+- Una cadena vacía devuelve un párrafo vacío, no la ausencia de nodo. Para
+  eliminar el nodo, déjalo fuera del árbol.
+- Los renderizadores escapan el texto. Un párrafo no puede colar marcado en la
+  página, y no es el sitio para dar formato.

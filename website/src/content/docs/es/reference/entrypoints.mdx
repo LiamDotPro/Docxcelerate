@@ -1,0 +1,89 @@
+---
+title: Puntos de entrada del paquete
+description: Cada ruta importable y lo que hay detrás.
+group: Reference
+order: 1
+---
+
+El paquete distribuye salida compilada con declaraciones de tipos. Todos los
+puntos de entrada de abajo están declarados en `exports`, así que se resuelven en
+Node y en los bundlers sin necesidad de importar en profundidad dentro de
+`dist/`.
+
+## docxcelerate
+
+La superficie principal: los helpers de nodo, el compilador de documentos, los
+helpers de artefactos, los tipos de runtime y todos los tipos del dominio del
+documento.
+
+```ts
+import {
+  buildDocument,
+  buildProjectPreviewDocument,
+  cleanMinimalDocumentStyle,
+  graph,
+  image,
+  document,
+  paragraph,
+  section,
+  type DocumentModel,
+  type ParagraphNode,
+} from "docxcelerate";
+```
+
+## docxcelerate/document
+
+La definición de un proyecto de documento — el punto de entrada que usa un
+`document.project.ts` generado. La CLI y los nombres de archivo generados siguen
+diciendo `document`; la API, no.
+
+```ts
+import { defineDocumentProject } from "docxcelerate/document";
+```
+
+## docxcelerate/template
+
+La superficie de componentes TSX.
+
+```ts
+import {
+  defineDocumentComponent,
+  defineSectionComponent,
+  Document,
+  Section,
+  template,
+} from "docxcelerate/template";
+```
+
+Su runtime de JSX está expuesto en `docxcelerate/template/jsx-runtime` (y
+`.../jsx-dev-runtime`), que es a donde resuelve `jsxImportSource`.
+
+## docxcelerate/renderer
+
+Renderizadores que convierten un `DocumentModel` en algo visualizable.
+
+```ts
+import { renderDocumentWebsite } from "docxcelerate/renderer";
+```
+
+`renderDocumentWebsite` devuelve un **documento HTML completo e independiente**,
+con su propio `<html>` y su propio `<style>`, en vez de un fragmento. Insértalo en
+un iframe si lo necesitas dentro de otra página; así funciona la vista previa de
+la página de inicio de este sitio.
+
+## docxcelerate/docx
+
+Construcción de DOCX.
+
+```ts
+import { createDocxDocument } from "docxcelerate/docx";
+```
+
+## docxcelerate/scaffold y /cli
+
+El generador de workspaces y su interfaz de línea de comandos, para construir tus
+propias herramientas encima.
+
+```ts
+import { scaffoldWorkspace } from "docxcelerate/scaffold";
+```
