@@ -5,7 +5,7 @@ import mdx from "@astrojs/mdx";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  site: "https://docxcelerate.dev",
+  site: "https://docxcelerate.com",
   // Deployed to Deno Deploy. Every page is prerendered — output stays "static"
   // — so the adapter is here to name the target runtime, not to turn the site
   // into a server. It splits the build into dist/client (what gets served) and
