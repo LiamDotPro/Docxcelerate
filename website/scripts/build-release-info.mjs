@@ -35,21 +35,16 @@ function pack() {
   const stdout = execSync("npm pack --dry-run --json", {
     cwd: PACKAGE_ROOT,
     encoding: "utf8",
-    // npm writes its progress notices to stderr; only stdout carries the JSON.
+    // npm writes its progress notices to stderr — except on Deno Deploy, where
+    // the shim puts them on stdout alongside the JSON. extractResult() reads
+    // around them.
     stdio: ["ignore", "pipe", "ignore"],
     maxBuffer: 8 * 1024 * 1024,
   });
 
-  // Be tolerant of anything npm prints around the payload.
-  const start = stdout.indexOf("[");
-  const end = stdout.lastIndexOf("]");
-  if (start < 0 || end < 0) {
-    throw new Error("npm pack --json produced no JSON array.");
-  }
-
-  const [result] = JSON.parse(stdout.slice(start, end + 1));
-  if (!result?.version || !result?.integrity) {
-    throw new Error("npm pack --json output is missing version or integrity.");
+  const result = extractResult(stdout);
+  if (!result) {
+    throw new Error("npm pack --json produced no result array.");
   }
 
   return {
@@ -61,6 +56,62 @@ function pack() {
     entryCount: result.entryCount,
     unpackedSize: result.unpackedSize,
   };
+}
+
+/**
+ * The one result object out of `npm pack --json`, from output that may not be
+ * only JSON.
+ *
+ * npm documents the notices as going to stderr, and locally they do. Deno
+ * Deploy's npm is a shim over Deno, and there they land on stdout wrapped
+ * around the payload — so slicing from the first `[` to the last `]` picks up
+ * a bracket from a notice and parses nothing.
+ *
+ * Every `[` is tried in turn instead: scan to its balanced close, parse, and
+ * accept the first array whose first entry looks like a pack result. Anything
+ * else is a notice that happened to contain a bracket.
+ */
+function extractResult(stdout) {
+  for (let start = stdout.indexOf("["); start >= 0; start = stdout.indexOf("[", start + 1)) {
+    const end = matchingBracket(stdout, start);
+    if (end < 0) continue;
+
+    let parsed;
+    try {
+      parsed = JSON.parse(stdout.slice(start, end + 1));
+    } catch {
+      continue;
+    }
+
+    const [result] = Array.isArray(parsed) ? parsed : [];
+    if (result?.version && result?.integrity) {
+      return result;
+    }
+  }
+
+  return null;
+}
+
+/** The index of the `]` closing the `[` at `start`, or -1 if it never closes. */
+function matchingBracket(text, start) {
+  let depth = 0;
+  let inString = false;
+
+  for (let i = start; i < text.length; i += 1) {
+    const char = text[i];
+
+    if (inString) {
+      if (char === "\\") i += 1;
+      else if (char === '"') inString = false;
+      continue;
+    }
+
+    if (char === '"') inString = true;
+    else if (char === "[") depth += 1;
+    else if (char === "]" && (depth -= 1) === 0) return i;
+  }
+
+  return -1;
 }
 
 /**
