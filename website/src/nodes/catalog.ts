@@ -9,22 +9,22 @@
  * Adding a type: a directory under src/nodes/ with one file per variant, an
  * entry here, and — for a shipped type — an MDX page that names it.
  */
-import type { NodeComponent } from "docxcelerate";
+import type { Component } from "docxcelerate/template";
 import type { SampleData } from "./sample-data.ts";
 
-import { Greeting } from "./paragraph/static.node.ts";
-import { PriceChange } from "./paragraph/conditional.node.ts";
-import { NextSteps } from "./paragraph/dynamic.node.ts";
-import { Apology } from "./paragraph/prompted.node.ts";
-import { Opening } from "./section/basic.node.ts";
-import { YourYear } from "./section/nested.node.ts";
-import { Signature } from "./image/static.node.ts";
-import { CentrePhoto } from "./image/dynamic.node.ts";
-import { VisitsByMonth } from "./graph/bar.node.ts";
-import { CumulativeVisits } from "./graph/line.node.ts";
-import { ClassMix } from "./graph/pie.node.ts";
-import { PeakTimes } from "./graph/dynamic.node.ts";
-import { Contents } from "./table-of-contents/basic.node.ts";
+import { Greeting } from "./paragraph/static.node.tsx";
+import { PriceChange } from "./paragraph/conditional.node.tsx";
+import { NextSteps } from "./paragraph/dynamic.node.tsx";
+import { Apology } from "./paragraph/prompted.node.tsx";
+import { Opening } from "./section/basic.node.tsx";
+import { YourYear } from "./section/nested.node.tsx";
+import { Signature } from "./image/static.node.tsx";
+import { CentrePhoto } from "./image/dynamic.node.tsx";
+import { VisitsByMonth } from "./graph/bar.node.tsx";
+import { CumulativeVisits } from "./graph/line.node.tsx";
+import { ClassMix } from "./graph/pie.node.tsx";
+import { PeakTimes } from "./graph/dynamic.node.tsx";
+import { Contents } from "./table-of-contents/basic.node.tsx";
 
 /** Where a node type stands: shipped, authorable only by hand, or not yet built. */
 export type NodeStatus = "stable" | "no-helper" | "planned";
@@ -40,14 +40,14 @@ export interface NodeOption {
 
 export interface NodeVariant {
   /**
-   * Doubles as the file name (src/nodes/<type>/<id>.node.ts) and the preview
+   * Doubles as the file name (src/nodes/<type>/<id>.node.tsx) and the preview
    * name (public/demo/nodes/<type>/<id>.html). The build script checks the
    * source file exists, so a rename that misses one half fails the build.
    */
   id: string;
   title: string;
   summary: string;
-  component: NodeComponent<SampleData>;
+  component: Component;
 }
 
 export interface NodeTypeEntry {
@@ -58,7 +58,7 @@ export interface NodeTypeEntry {
   kind: string;
   category: NodeCategory;
   status: NodeStatus;
-  /** Authoring helpers exported from `docxcelerate`. */
+  /** Elements and hooks exported from `docxcelerate/template`. */
   helpers: string[];
   /** One line, for lists and cards. */
   summary: string;
@@ -84,46 +84,58 @@ const DERIVERS: NodeOption = {
   name: "derivers",
   type: "DeriverInvocation[]",
   summary:
-    "Values computed before the node resolves, written to `derived.*` and " +
-    "readable from a template token. Built with `derive()`.",
+    "Values the engine computes before the node resolves, written to " +
+    "`derived.*` and readable from a template token. Built with `derive()`. " +
+    "These survive publishing and run per document — use them for anything " +
+    "computed from request data. `useDeriver` runs one during the build instead.",
 };
 
 const ID: NodeOption = {
   name: "id",
   type: "string",
-  required: true,
   summary:
-    "Stable address for the node. Generation endpoints target it and build " +
-    "artifacts diff on it, so treat a rename as a breaking change.",
+    "Stable address for the node. Engines target it and build artifacts diff " +
+    "on it, so treat a rename as a breaking change. Optional: a node without " +
+    "one takes an id from where it sits, which is what keeps branches and " +
+    "loops from forcing you to invent names. Two nodes claiming one id is an " +
+    "error rather than a race.",
 };
 
+/**
+ * Prompts, settable either way.
+ *
+ * As props they sit on the element. Through `useSetPrompts` they are set by the
+ * component, which is what lets a shared hook add house style to a node it does
+ * not own. Props win, so a caller can override what a hook set.
+ */
 const PROMPT_OPTIONS: NodeOption[] = [
   {
     name: "placeholder",
-    type: "(data, availableTokens) => string",
+    type: "string",
     summary:
-      "What previews show in place of generated content. Optional, but a letter " +
-      "that reads badly without one cannot be reviewed.",
+      "What previews show in place of generated content. Also settable with " +
+      "`useSetPlaceholders`. Optional, but a document that reads badly without " +
+      "one cannot be reviewed.",
   },
   {
     name: "generalPrompt",
-    type: "(data, availableTokens) => string",
+    type: "string",
     required: true,
     summary: "What this node should say.",
   },
   {
     name: "infoPrompt",
-    type: "(data, availableTokens) => string",
+    type: "string",
     summary: "Context the model should have but should not restate.",
   },
   {
     name: "negativePrompt",
-    type: "(data, availableTokens) => string",
+    type: "string",
     summary: "What to avoid — claims, tones, or facts it must not invent.",
   },
   {
     name: "systemPrompt",
-    type: "(data, availableTokens) => string",
+    type: "string",
     summary: "Role and voice, applied ahead of the other prompts.",
   },
 ];
@@ -135,7 +147,7 @@ export const NODE_TYPES: NodeTypeEntry[] = [
     kind: "section",
     category: "Structure",
     status: "stable",
-    helpers: ["section", "Section"],
+    helpers: ["Section"],
     summary: "Groups nodes under a titled heading.",
     detail:
       "The only construct that nests today. Its title carries into the document " +
@@ -151,11 +163,11 @@ export const NODE_TYPES: NodeTypeEntry[] = [
         summary: "The heading printed above the children, and the outline entry.",
       },
       {
-        name: "nodes",
-        type: "NodeComponent[]",
+        name: "children",
+        type: "Yield",
         summary:
-          "The children. Passed as the second argument, as the `nodes` option, " +
-          "or as JSX children of `<Section>` — the three are the same call.",
+          "The children, as JSX children of `<Section>`. Components, elements, " +
+          "arrays and conditionals all count; anything falsy is skipped.",
       },
       DERIVERS,
     ],
@@ -181,23 +193,32 @@ export const NODE_TYPES: NodeTypeEntry[] = [
     kind: "paragraph",
     category: "Text",
     status: "stable",
-    helpers: ["paragraph"],
-    summary: "A block of prose, rendered from your data or from prompts.",
+    helpers: ["Paragraph", "useSetPrompts", "useSetPlaceholders"],
+    summary: "A block of prose, written from your data or generated from prompts.",
     detail:
-      "The workhorse. A static paragraph returns a string from your typed data; " +
-      "a dynamic one carries prompts and a placeholder, and is filled at " +
-      "request time. Both land as the same node kind, differing only by `mode`.",
+      "The workhorse. A static paragraph holds the text as its children; a " +
+      "dynamic one carries prompts and a placeholder, and is filled at request " +
+      "time. Both land as the same node kind, differing only by `mode` — which " +
+      "is inferred from what you supply, never declared. Supplying both text " +
+      "and a prompt on one element is an error rather than a precedence rule.",
     children: "None. Paragraphs are leaves.",
     resolves: "Both",
     options: [
       ID,
       {
-        name: "render",
-        type: "(data, availableTokens) => string",
-        required: true,
+        name: "children",
+        type: "string",
         summary:
-          "Static only. Receives your typed data and the token budget, returns " +
-          "the text. May be async.",
+          "Static only. The text, interpolated the way any JSX children are. " +
+          "A node given its own text is static, whatever prompts a hook set " +
+          "around it.",
+      },
+      {
+        name: "text",
+        type: "string",
+        summary:
+          "Static only. The same thing as children, for when a computed string " +
+          "reads better as a prop than as a body.",
       },
       ...PROMPT_OPTIONS.map((option) => ({
         ...option,
@@ -238,7 +259,7 @@ export const NODE_TYPES: NodeTypeEntry[] = [
     kind: "image",
     category: "Media",
     status: "stable",
-    helpers: ["image"],
+    helpers: ["Image"],
     summary: "A picture resolved from your data or described by a prompt.",
     detail:
       "A static image points at something you hold — a signature, a logo, a " +
@@ -254,27 +275,27 @@ export const NODE_TYPES: NodeTypeEntry[] = [
       ID,
       {
         name: "src",
-        type: "string | (data) => string",
+        type: "string",
         required: true,
         summary: "Static only. Path or URL to the image; lands on the node as `path`.",
       },
       {
         name: "alt",
-        type: "string | (data) => string",
+        type: "string",
         summary:
           "Static only. Alternative text — and, while the renderers draw a " +
           "frame rather than the picture, the words printed inside it.",
       },
       {
         name: "width",
-        type: "number | (data) => number",
+        type: "number",
         summary:
           "Static only. Intended width. Carried onto the node untouched; no " +
           "shipped renderer reads it yet.",
       },
       {
         name: "height",
-        type: "number | (data) => number",
+        type: "number",
         summary: "Static only. Intended height, on the same terms as `width`.",
       },
       ...PROMPT_OPTIONS.map((option) => ({
@@ -304,7 +325,7 @@ export const NODE_TYPES: NodeTypeEntry[] = [
     kind: "graph",
     category: "Data",
     status: "stable",
-    helpers: ["graph"],
+    helpers: ["Graph"],
     summary: "A bar, line or pie chart declared as data.",
     detail:
       "Charts are declared, never drawn: `graphType` fixes the form, `data` " +
@@ -325,7 +346,7 @@ export const NODE_TYPES: NodeTypeEntry[] = [
       },
       {
         name: "data",
-        type: "JsonObject | (data) => JsonObject",
+        type: "JsonObject",
         required: true,
         summary:
           "Static only. The plot payload, as plain JSON. Any shape you like — " +
@@ -334,7 +355,7 @@ export const NODE_TYPES: NodeTypeEntry[] = [
       },
       {
         name: "caption",
-        type: "string | (data) => string",
+        type: "string",
         summary:
           "Printed beneath the chart, and the words the placeholder frame " +
           "shows today. Optional on both modes.",
@@ -377,14 +398,14 @@ export const NODE_TYPES: NodeTypeEntry[] = [
     title: "Table of contents",
     kind: "tableOfContents",
     category: "Structure",
-    status: "no-helper",
-    helpers: [],
+    status: "stable",
+    helpers: ["TableOfContents"],
     summary: "A marker for a contents list, ahead of the renderers that build one.",
     detail:
-      "The kind is part of the letter schema and both renderers accept it, but " +
-      "no authoring helper is exported yet. Writing the component by hand " +
-      "works — a node component is a function returning a definition, and the " +
-      "helpers are conveniences over exactly that shape.",
+      "The kind is part of the document schema and both renderers accept it. " +
+      "What is missing is downstream rather than in the authoring: the element " +
+      "places the marker and carries its title, and building the entries from " +
+      "the surrounding section titles is a renderer's job.",
     children: "None. The entries would come from the sections beside it.",
     resolves: "By the renderer",
     renderNote:
@@ -403,8 +424,8 @@ export const NODE_TYPES: NodeTypeEntry[] = [
     variants: [
       {
         id: "basic",
-        title: "Written by hand",
-        summary: "The definition shape the helpers would produce.",
+        title: "A titled marker",
+        summary: "The element, and the title it carries into the document.",
         component: Contents,
       },
     ],

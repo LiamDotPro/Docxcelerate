@@ -7,6 +7,7 @@ import {
   type DocumentDeriverBundle,
   listDeriverDefinitionNames,
 } from "../runtime/derivers.ts";
+import { createPublishData } from "../template/publish.ts";
 import type { DocumentProject } from "./define.ts";
 
 export interface DocumentProjectManifest {
@@ -142,12 +143,19 @@ export async function buildProjectPreviewDocument<TData>(
   };
 }
 
+/**
+ * Builds the document that goes to an engine.
+ *
+ * Nothing here is decided. The data is a stand-in for a request nobody has made,
+ * so a branch keeps both arms under the condition that selects one, a loop stays
+ * a loop, and every value stays the token the engine substitutes. What comes out
+ * is the whole document with the decisions still in it.
+ */
 export async function buildProjectEngineDocument<TData>(
   project: DocumentProject<TData>,
   options: ComponentRuntimeOptions = {},
 ): Promise<DocumentModel> {
-  const data = createEngineArtifactData(project.previewData) as TData;
-  const doc = await buildDocument(project.template, data, {
+  const doc = await buildDocument(project.template, createPublishData() as TData, {
     ...project.buildOptions,
     ...options,
     availableTokens: "{{ctx.availableTokens}}" as unknown as number,
@@ -155,6 +163,7 @@ export async function buildProjectEngineDocument<TData>(
     derivers: project.derivers,
     deriverMode: "preserve",
     dynamicMode: "resolve",
+    branchMode: "publish",
   });
 
   return {
@@ -195,26 +204,9 @@ const engineArtifactAiClient: AiClient = {
   },
 };
 
-function createEngineArtifactData(value: unknown, path: string[] = []): unknown {
-  if (Array.isArray(value)) {
-    return value.map((item, index) => createEngineArtifactData(item, [...path, String(index)]));
-  }
-
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.keys(value).map((key) => [
-        key,
-        createEngineArtifactData((value as Record<string, unknown>)[key], [...path, key]),
-      ]),
-    );
-  }
-
-  return path.length === 0 ? "{{data.value}}" : `{{data.${path.join(".")}}}`;
-}
-
 function removeEmptyDynamicText(nodes: DocumentModel["nodes"]): DocumentModel["nodes"] {
   return nodes.map((node) => {
-    if (node.kind === "section") {
+    if (node.kind === "section" || node.kind === "repeat") {
       return {
         ...node,
         children: removeEmptyDynamicText(node.children),

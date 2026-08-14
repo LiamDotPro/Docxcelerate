@@ -1,55 +1,98 @@
 ---
 title: Documentos y nodos
-description: Un documento es un árbol de componentes tipados resuelto con tus datos.
+description: Un documento es un árbol de componentes, cada uno toma sus datos como estado y devuelve los nodos que quiere.
 group: Essentials
 order: 1
 ---
 
 Un documento es una plantilla más un tipo de datos. La plantilla es un árbol de
-**nodos**; resolverlo con datos produce un `DocumentModel` — JSON puro, sin que
-eso implique nada sobre el renderizado.
+**componentes**; cada uno devuelve **nodos**, y resolver el árbol con datos
+produce un `DocumentModel` — JSON puro, sin que eso implique nada sobre el
+renderizado.
 
-## Los helpers de nodo
+## Un componente toma sus datos como estado
 
-Cada helper recibe un `id` y una función de render o un conjunto de prompts, y
-devuelve un componente que puedes colocar en una plantilla. Hay helpers para
-párrafos, imágenes, gráficos y secciones, en parejas estática y dinámica.
-
-[Nodos](/es/docs/nodes/overview/) documenta cada tipo, con sus opciones y sus
-vistas previas. El resto de esta página es lo que tienen en común.
-
-Los ids importan: son la forma en que un endpoint de generación direcciona nodos
-concretos, y la forma en que los artefactos de compilación siguen siendo
-comparables entre ejecuciones. Mantenlos estables.
-
-## Un nodo es una función de tus datos
-
-```ts
-import { paragraph } from "docxcelerate";
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { Paragraph, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 
-export const Greeting = paragraph<DocumentData>({
-  id: "greeting",
-  render: (data) => `Dear ${data.residentName},`,
-});
+export const Greeting: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    name: data.residentName,
+  }));
+
+  return <Paragraph id="greeting">Dear {state.name},</Paragraph>;
+};
 ```
 
-`render` recibe tus datos tipados y un presupuesto `availableTokens`, y devuelve
-una cadena. No hay lenguaje de plantillas — dispones de todo lo que puedas
-expresar en TypeScript, incluidos condicionales, helpers de formato e imports.
+`useState` es el lugar por donde los datos entran en un componente, y el único.
+Todo lo que viene después lee el estado. Es una regla con un motivo: como cada
+dependencia pasa por una sola declaración, lo que un componente necesita queda
+escrito en vez de repartido por el código que lo usa.
+
+El inicializador es TypeScript corriente. No hay ningún lenguaje de plantillas,
+así que las condiciones, el formato y los imports están simplemente disponibles.
+
+`Paragraph` nombra a la vez el elemento y el tipo de componente — un valor y un
+tipo pueden compartir nombre —, de modo que `const Greeting: Paragraph` dice qué
+produce esto, y devolver un `<Section>` desde ahí es un error de compilación.
+
+## Los datos también pueden llegar como props
+
+Un componente al que se le da lo que necesita no tiene que ir a buscarlo:
+
+```tsx
+export const Arrears: Paragraph<{ amount: number }> = ({ amount }) => {
+  const { currency } = useFormat();
+
+  return <Paragraph id="arrears">You owe {currency(amount)}.</Paragraph>;
+};
+```
+
+Alguien tiene que leer los datos primero, así que un componente solo de props
+vive bajo un padre que los tomó como estado. Usa props para componentes que
+quieras reutilizar con valores distintos, y estado para componentes que saben a
+qué documento pertenecen.
+
+## Las decisiones son un `if` corriente
+
+```tsx
+export const Balance: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    settled: data.balanceDue === 0,
+  }));
+
+  if (state.settled) {
+    return <Paragraph id="settled">Nothing outstanding.</Paragraph>;
+  }
+
+  return <Paragraph id="arrears">A balance remains.</Paragraph>;
+};
+```
+
+Dale a cada rama su propio id. El documento resuelto registra entonces cuál le
+tocó a este destinatario, que es la diferencia entre un documento que puedes
+auditar y uno que solo puedes mirar.
+
+Hay algo que conviene saber sobre las bifurcaciones antes de publicar en un
+motor: mira [Estático y dinámico](/es/docs/essentials/static-and-dynamic/).
+
+## Los ids
+
+Un id es cómo un motor direcciona un nodo y cómo los artefactos de compilación
+siguen siendo diffables entre ejecuciones, así que trata un renombrado como un
+cambio incompatible.
+
+Puedes omitirlo. Un nodo sin id toma uno de donde está, y eso es lo que evita que
+las ramas y los bucles te obliguen a inventar nombres. Lo que no puedes es usar
+uno dos veces: dos nodos reclamando un id es un error, notificado con ambas
+posiciones, y no una carrera que gana el último.
 
 ## Las secciones anidan, los nodos no
 
-`section` es la única construcción que anida. Lleva un título al esquema del
+`Section` es la única construcción que anida. Su título pasa al esquema del
 documento:
-
-```ts
-import { section } from "docxcelerate";
-
-section({ id: "opening", title: "Opening" }, [Greeting, Offer]);
-```
-
-En TSX lo mismo se lee como marcado:
 
 ```tsx
 <Section id="opening" title="Opening">
@@ -58,10 +101,28 @@ En TSX lo mismo se lee como marcado:
 </Section>
 ```
 
-Ambos producen el mismo árbol. Consulta
-[Plantillas](/es/docs/essentials/templates/) para saber cuándo merece la pena
-cada forma, y [Sección](/es/docs/nodes/section/) para saber qué puede contener
-una sección y con cuánta profundidad.
+Mira [Section](/es/docs/nodes/section/) para saber qué puede contener una sección
+y hasta qué profundidad.
+
+## Hooks
+
+Los hooks son cómo un componente alcanza la compilación que lo rodea:
+
+| Hook | Qué te da |
+| --- | --- |
+| `useState` | Los datos, tomados una vez y conservados |
+| `useShared` | Un valor dejado para los componentes que se renderizan después |
+| `useSetPrompts` | Prompts para el nodo que produce — lo que lo hace dinámico |
+| `useSetPlaceholders` | Lo que las vistas previas muestran en lugar del contenido generado |
+| `usePlaceholderData` | Nombres, fechas y cifras de relleno para las vistas previas |
+| `useFormat` | Monedas, fechas, listas y plurales según la configuración regional |
+| `useAvailableTokens` | El presupuesto de tokens que asignó esta compilación |
+| `useDeriver` | Ejecuta ahora un derivador registrado |
+
+Se ejecutan en orden de llamada, así que todo hook debe alcanzarse antes del
+primer `await` y antes de cualquier bifurcación — la misma regla que usa React,
+por el mismo motivo. Llamar a uno después de un `await` es un error que lo dice,
+en lugar de engancharse en silencio al siguiente componente que se renderice.
 
 ## Compilar el documento
 
@@ -71,7 +132,7 @@ import { buildDocument } from "docxcelerate";
 const doc = await buildDocument(documentTemplate, data);
 ```
 
-El resultado es un `DocumentModel`: un `schemaVersion`, un `id`, un `title` y un
+El resultado es un `DocumentModel`: una `schemaVersion`, un `id`, un `title` y un
 array `nodes`. No contiene estilos ni maquetación — eso lo aplica más tarde el
 renderizador que lo consuma.
 
@@ -85,5 +146,5 @@ import { buildProjectPreviewDocument } from "docxcelerate";
 const doc = await buildProjectPreviewDocument(project);
 ```
 
-Eso es exactamente lo que llama la aplicación de vista previa, así que lo que
-compilas en código coincide con lo que viste en el navegador.
+Es exactamente lo que llama la app de vista previa, así que lo que compilas en
+código coincide con lo que viste en el navegador.

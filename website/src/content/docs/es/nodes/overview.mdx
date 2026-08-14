@@ -10,11 +10,12 @@ import NodeTypes from "../../../../components/NodeTypes.astro";
 Un documento es un árbol de nodos. Todo nodo es tres cosas: un **id**, una
 **clase** y una regla para producir contenido.
 
-```ts
-paragraph<MemberData>({
-  id: "greeting",                                // the address
-  render: (data) => `Dear ${data.memberName},`,  // the rule
-});                                              // the helper is the kind
+```tsx
+<Paragraph          // the kind
+  id="greeting"     // the address
+>
+  Dear {state.name},  {/* the rule */}
+</Paragraph>
 ```
 
 Resuelto con tus datos, se convierte en JSON puro:

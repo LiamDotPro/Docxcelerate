@@ -1,6 +1,6 @@
 ---
 title: Table of contents
-description: Eine Schema-Art ohne Helper — wie Sie eine platzieren und was sie heute tut.
+description: Ein Marker für ein Inhaltsverzeichnis, den Renderern voraus, die eines bauen.
 group: Nodes
 subgroup: Node types
 order: 14
@@ -11,24 +11,28 @@ import NodeVariants from "../../../../components/NodeVariants.astro";
 
 <NodeSummary type="table-of-contents" />
 
-## Eine ohne Helper schreiben
+## Eine schreiben
 
-Die Helper sind Bequemlichkeiten, kein Tor. Eine Node-Komponente ist eine
-Funktion, die Ihre Daten nimmt und eine Definition zurückgibt — jede Art im
-Schema ist also erreichbar, indem Sie diese Funktion schreiben:
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { TableOfContents } from "docxcelerate/template";
 
-```ts
-import type { NodeComponent } from "docxcelerate";
-
-export const Contents: NodeComponent<MemberData> = () => ({
-  kind: "tableOfContents",
-  id: "contents",
-  title: "What is in this document",
-});
+export const Contents: TableOfContents = () => (
+  <TableOfContents id="contents" title="What is in this document" />
+);
 ```
 
 Sie lässt sich wie jeder andere Node komponieren und löst sich in
-Vorschau-Builds, Engine-Builds und Tests gleich auf.
+Vorschau-Builds, Engine-Builds und Tests gleich auf. Direkt in einem Template
+platziert braucht sie gar keine eigene Komponente — `<TableOfContents
+id="contents" title="…" />` ist bereits alles.
+
+## Was fehlt, liegt weiter hinten
+
+Das Element setzt den Marker und trägt seinen Titel. Die Einträge aus den
+umgebenden Abschnittstiteln zu bauen ist Sache eines Renderers, und weder die
+Browser-Vorschau noch der DOCX-Packer tut das bislang — beide drucken den Titel
+und hören auf.
 
 ## Warum jetzt schon eine platzieren
 
@@ -45,7 +49,5 @@ lassen Sie ihn weg. Ihn später zu ergänzen ist genauso billig.
 
 ## Anmerkungen
 
-- Rechnen Sie irgendwann mit einem `tableOfContents`-Helper, der dasselbe
-  `{ id, title }` nimmt wie hier. So geschrieben wie oben, ist die Umstellung
-  eine Änderung von einer Zeile.
 - Der Node hat keine Kinder und liest zur Build-Zeit nichts.
+- `title` ist optional; Renderer greifen auf ihre eigene Formulierung zurück.

@@ -337,6 +337,13 @@ function renderNode(node: DocumentNode): string {
     </div>`;
   }
 
+  if (node.kind === "repeat") {
+    return `<div class="repeat-body" data-node-id="${escapeHtml(node.id)}">
+      <span class="node-id">Repeats per ${escapeHtml(node.source.path)}</span>
+      ${node.children.map(renderNode).join("\n")}
+    </div>`;
+  }
+
   return `<div class="toc-placeholder" data-node-id="${escapeHtml(node.id)}">
     ${escapeHtml(node.title ?? "Table of contents")}
   </div>`;

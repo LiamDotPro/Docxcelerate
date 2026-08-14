@@ -1,6 +1,6 @@
 ---
 title: Table of contents
-description: Вид из схемы, у которого пока нет хелпера — как его разместить и что он делает сегодня.
+description: Маркер для оглавления, опережающий рендереры, которые его построят.
 group: Nodes
 subgroup: Node types
 order: 14
@@ -11,24 +11,28 @@ import NodeVariants from "../../../../components/NodeVariants.astro";
 
 <NodeSummary type="table-of-contents" />
 
-## Как написать его без хелпера
+## Как его написать
 
-Хелперы — это удобство, а не пропускной пункт. Компонент узла — это функция,
-которая принимает ваши данные и возвращает определение, поэтому любой вид из
-схемы доступен: достаточно написать такую функцию:
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { TableOfContents } from "docxcelerate/template";
 
-```ts
-import type { NodeComponent } from "docxcelerate";
-
-export const Contents: NodeComponent<MemberData> = () => ({
-  kind: "tableOfContents",
-  id: "contents",
-  title: "What is in this document",
-});
+export const Contents: TableOfContents = () => (
+  <TableOfContents id="contents" title="What is in this document" />
+);
 ```
 
 Он компонуется как любой другой узел и одинаково разрешается в сборках
-предпросмотра, сборках движка и тестах.
+предпросмотра, сборках движка и тестах. Помещённый прямо в шаблон, он вообще не
+требует собственного компонента — `<TableOfContents id="contents" title="…" />`
+и есть всё целиком.
+
+## Недостающее — ниже по течению
+
+Элемент ставит маркер и несёт свой заголовок. Собрать записи из заголовков
+окружающих разделов — работа рендерера, и ни предпросмотр в браузере, ни
+упаковщик DOCX этого пока не делают: оба печатают заголовок и на этом
+останавливаются.
 
 ## Зачем размещать его уже сейчас
 
@@ -45,7 +49,5 @@ export const Contents: NodeComponent<MemberData> = () => ({
 
 ## Примечания
 
-- Со временем ожидается хелпер `tableOfContents`, принимающий тот же
-  `{ id, title }`, что и здесь. Если написать так, как выше, переход будет
-  правкой в одну строку.
+- `title` необязателен; рендереры используют собственную формулировку.
 - Узел не содержит потомков и ничего не читает во время сборки.

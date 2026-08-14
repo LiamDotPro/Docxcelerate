@@ -11,25 +11,29 @@ import NodeVariants from "../../../../components/NodeVariants.astro";
 
 <NodeSummary type="image" />
 
-## Jedes Feld nimmt eine Funktion
+## Jedes Feld ist ein Prop
 
-`src`, `alt`, `width` und `height` nehmen jeweils einen einfachen Wert oder eine
-Funktion Ihrer Daten. Eine Unterschrift, die je Standort abweicht, ein Logo je
-Marke, ein Foto nach Aktenzeichen — all das bleibt im Node, statt zu einer
-Verzweigung im Template zu werden:
+`src`, `alt`, `width` und `height` sind einfache Props, aus dem State berechnet,
+bevor das Element zurückgegeben wird. Eine Unterschrift, die je Standort
+abweicht, ein Logo je Marke, ein Foto nach Aktenzeichen — all das bleibt in der
+Komponente, statt zu einer Verzweigung im Template zu werden:
 
-```ts
-image<MemberData>({
-  id: "signature",
-  src: (data) => data.signatureUrl,
-  alt: (data) => `Signed by ${data.managerName}`,
-  width: 180,
-});
+```tsx
+export const Signature: Image = () => {
+  const [state] = useState((data: MemberData) => ({
+    src: data.signatureUrl,
+    manager: data.managerName,
+  }));
+
+  return (
+    <Image id="signature" src={state.src} alt={`Signed by ${state.manager}`} width={180} />
+  );
+};
 ```
 
 ## Aus src wird path
 
-Die Option heißt `src`; der aufgelöste Node nennt sie `path`. Klappen Sie *Wozu
+Das Prop heißt `src`; der aufgelöste Node nennt sie `path`. Klappen Sie *Wozu
 es aufgelöst wird* bei der ersten Variante unten auf, um es zu sehen.
 
 ## Dynamische Bilder

@@ -33,9 +33,12 @@ test("scaffold creates a structured document project and node generator updates 
 
   assertEquals(generatedNode.componentName, "RiskSummary");
   assertEquals(index.includes("RiskSummary"), true);
-  assertEquals(node.includes("paragraph<DocumentData>"), true);
-  // Mode is inferred from the options, so the prompt is what makes this node
-  // dynamic — assert on that rather than on a helper name.
+  assertEquals(node.includes("const RiskSummary: Paragraph = () =>"), true);
+  // Data reaches a component through state, never through render.
+  assertEquals(node.includes("useState((data: DocumentData)"), true);
+  // Mode is inferred from what the component sets, so the prompt is what makes
+  // this node dynamic — assert on that rather than on a helper name.
+  assertEquals(node.includes("useSetPrompts"), true);
   assertEquals(node.includes("generalPrompt"), true);
   assertEquals(style.includes("cleanMinimalDocumentStyle"), true);
   assertEquals(derivers.includes("DeriverDefinitions"), true);
@@ -60,7 +63,7 @@ test("workspace scaffold creates a project container for documents", async () =>
     `${workspace.projectDir}/documents/welcome/derivers/index.ts`,
   );
   const sampleNode = await readTextFile(
-    `${workspace.projectDir}/documents/welcome/nodes/balance-summary.node.ts`,
+    `${workspace.projectDir}/documents/welcome/nodes/balance-summary.node.tsx`,
   );
   const previewMain = await readTextFile(`${workspace.projectDir}/preview/main.ts`);
   const viteConfig = await readTextFile(`${workspace.projectDir}/vite.config.ts`);
@@ -213,9 +216,9 @@ test("node generator supports image and graph node types", async () => {
   const graphSource = await readTextFile(graph.filePath);
   const index = await readTextFile(`${scaffold.projectDir}/nodes/index.ts`);
 
-  assertEquals(imageSource.includes("image<DocumentData>"), true);
-  assertEquals(imageSource.includes("src"), true);
-  assertEquals(graphSource.includes("graph<DocumentData>"), true);
+  assertEquals(imageSource.includes("const SignatureImage: Image = () =>"), true);
+  assertEquals(imageSource.includes("src="), true);
+  assertEquals(graphSource.includes("const TrendChart: Graph = () =>"), true);
   assertEquals(graphSource.includes("generalPrompt"), true);
   assertEquals(index.includes("SignatureImage"), true);
   assertEquals(index.includes("TrendChart"), true);

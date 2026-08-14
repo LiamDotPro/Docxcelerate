@@ -28,19 +28,42 @@ npm install -g docxcelerate
 
 ## What a document looks like
 
-A document is a tree of typed components. Static nodes render locally; dynamic ones
-carry prompts and a placeholder, and the engine resolves them at request time.
+A document is a tree of components. Each one takes its data as state, decides what
+it is with ordinary JavaScript, and returns the nodes it wants.
 
 ```tsx
 /** @jsxImportSource docxcelerate/template */
-import { Document, Section, template } from "docxcelerate/template";
-import type { TenancyData } from "./types.ts";
-import { Greeting } from "./nodes/index.ts";
+import { Paragraph, useSetPrompts, useState } from "docxcelerate/template";
+import type { TenancyData } from "../types.ts";
 
+export const Balance: Paragraph = () => {
+  const [state] = useState((data: TenancyData) => ({
+    name: data.recipientName,
+    settled: data.balanceDue === 0,
+  }));
+
+  useSetPrompts({ generalPrompt: `Explain the balance to ${state.name}.` });
+
+  if (state.settled) {
+    return <Paragraph id="settled">Nothing outstanding, {state.name}.</Paragraph>;
+  }
+
+  return <Paragraph id="arrears" />;
+};
+```
+
+Data enters through `useState` and nothing else reaches for it, so what a component
+depends on is written down in one place. Setting prompts is what makes a node
+dynamic — the mode is inferred, never declared.
+
+Components compose into a template:
+
+```tsx
 export const documentTemplate = template<TenancyData>(
   <Document id="tenancy-renewal" title="Tenancy Renewal">
     <Section id="opening" title="Opening">
       <Greeting />
+      <Balance />
     </Section>
   </Document>,
 );

@@ -15,16 +15,22 @@ import NodeVariants from "../../../components/NodeVariants.astro";
 
 A graph node holds numbers and a form, never an image:
 
-```ts
-graph<MemberData>({
-  id: "visits-by-month",
-  graphType: "bar",
-  data: (data) => ({
+```tsx
+export const VisitsByMonth: Graph = () => {
+  const [state] = useState((data: MemberData) => ({
     labels: data.visitsByMonth.map((entry) => entry.month),
-    series: [{ name: "Visits", values: data.visitsByMonth.map((entry) => entry.visits) }],
-  }),
-  caption: () => "Your visits, last six months",
-});
+    visits: data.visitsByMonth.map((entry) => entry.visits),
+  }));
+
+  return (
+    <Graph
+      id="visits-by-month"
+      graphType="bar"
+      data={{ labels: state.labels, series: [{ name: "Visits", values: state.visits }] }}
+      caption="Your visits, last six months"
+    />
+  );
+};
 ```
 
 Carrying figures rather than a picture means one declaration serves every
@@ -39,9 +45,9 @@ whatever your renderer expects, and keep it consistent across a project.
 One thing does happen to the payload: string values are run through the template
 renderer, the same as prose. A label containing `{{derived.total}}` resolves.
 
-## Deriving in `data`
+## Deriving in state
 
-Running totals, percentages and rebasing belong in the `data` function rather
+Running totals, percentages and rebasing belong in the state initializer rather
 than upstream. The chart and the prose beside it are then computed from one
 source, so they cannot disagree.
 
@@ -51,6 +57,6 @@ source, so they cannot disagree.
 
 ## Notes
 
-- `graphType` defaults to `bar` on both helpers.
+- `graphType` defaults to `bar` in both modes.
 - On a dynamic graph the form is still fixed locally. The endpoint supplies the
   figures, and may override `graphType` and `caption` in its response.

@@ -1,14 +1,16 @@
 ---
-title: Шаблоны
-description: Соберите дерево документа на TSX или обычными вызовами функций — результат один и тот же.
+title: Templates
+description: Собирайте дерево документа на TSX и вычисляйте структуру тем же JavaScript, который пишете везде.
 group: Essentials
 order: 3
 ---
 
-Шаблоны бывают двух видов. Они равноценны; выбирайте по вкусу и по тому, сколько
-в документе структуры.
+Шаблон называет дерево документа, чтобы проект мог на него указать. Ничего из
+него не отрисовывается в момент написания — вычисление JSX только строит
+элементы, и именно это позволяет компоненту решить, чем он является, позже, уже
+с данными на руках.
 
-## TSX
+## Форма
 
 ```tsx
 /** @jsxImportSource docxcelerate/template */
@@ -28,8 +30,8 @@ export const documentTemplate = template<DocumentData>(
 );
 ```
 
-Прагма в первой строке — это то, что связывает JSX с Docxcelerate, а не с React.
-Задайте вместо неё `jsxImportSource` в `tsconfig.json`, и её можно опустить:
+Прагма в первой строке связывает JSX с Docxcelerate, а не с React. Если задать
+`jsxImportSource` в `tsconfig.json`, её можно опустить:
 
 ```json
 {
@@ -40,45 +42,66 @@ export const documentTemplate = template<DocumentData>(
 }
 ```
 
-В создаваемых workspace это уже настроено.
+В созданных workspace это уже настроено.
 
-## Обычные функции
+## Вычисляемая структура
 
-```ts
-import { document, section } from "docxcelerate";
-
-export const documentTemplate = doc<DocumentData>({
-  id: "tenancy-renewal",
-  title: "Tenancy Renewal",
-  nodes: [
-    section({ id: "opening", title: "Opening" }, [Greeting]),
-    section({ id: "closing", title: "Closing" }, [NextSteps]),
-  ],
-});
-```
-
-Удобно, когда структура документа вычисляется — например, когда разделы строятся
-из списка и JSX всё равно потребовал бы `map` и фрагмент.
-
-## Переиспользуемые компоненты
-
-`defineDocumentComponent` и `defineSectionComponent` позволяют построить
-собственные обёртки над примитивами — фирменный бланк, стандартный
-заключительный блок — и переиспользовать их в разных документах:
+Шаблон пишется на уровне модуля, где данных ещё нет, поэтому структура,
+зависящая от данных, живёт в компоненте, а не в шаблоне:
 
 ```tsx
-import { defineSectionComponent } from "docxcelerate/template";
+export const Enclosures: Section = () => {
+  const [state] = useState((data: DocumentData) => ({ items: data.enclosures }));
 
-export const Closing = defineSectionComponent<DocumentData>({
-  id: "closing",
-  title: "Closing",
-});
+  return (
+    <Section id="enclosures" title="Enclosed">
+      {state.items.map((item) => <Paragraph key={item.id}>{item.label}</Paragraph>)}
+    </Section>
+  );
+};
 ```
+
+Всё ложное среди потомков пропускается, поэтому `{condition && <Node />}`
+читается так же, как и везде. Узлы без id получают его из своего места, и это
+избавляет `map` от требования имён, которых у вас нет.
+
+Это работает, потому что список известен на момент сборки документа. Список,
+известный только на каждый запрос, — другая задача: см. [Статика и
+динамика](/ru/docs/essentials/static-and-dynamic/) про `Repeat`.
+
+## Переиспользуемые части
+
+Компонент — обычная функция, значит и обёртка в фирменном стиле тоже. Компоненты
+принимают потомков, как и всё остальное:
+
+```tsx
+export const Letterhead: Section<{ children?: Yield }> = ({ children }) => (
+  <Section id="letterhead" title="">
+    <Image id="logo" src="assets/logo.png" alt="Ashcroft Housing" />
+    {children}
+  </Section>
+);
+```
+
+Общий хук — вторая половина этого. Поскольку `useSetPrompts` задаёт промпты на
+том узле, который отдаёт вызывающий компонент, фирменный стиль можно применить к
+узлу, который хуку вовсе не принадлежит:
+
+```tsx
+export function useHouseVoice() {
+  useSetPrompts({
+    systemPrompt: "You write for a housing association. Plain English, second person.",
+  });
+}
+```
+
+Любой компонент, вызвавший `useHouseVoice()`, получает этот системный промпт на
+возвращаемом узле — и всё ещё может переопределить его пропсом.
 
 ## Проекты документов
 
-Проект документа связывает шаблон с его стилем и тестовыми данными через одну
-точку входа — `document.project.ts`:
+Проект документа связывает шаблон с его стилем и данными предпросмотра через
+единственную точку входа, `document.project.ts`:
 
 ```tsx
 import { defineDocumentProject } from "docxcelerate/document";
@@ -99,6 +122,6 @@ export default defineDocumentProject<DocumentData>({
 });
 ```
 
-Именно на `previewData` разрешает документ приложение предпросмотра. Держите их
-правдоподобными: короткие имена и выдуманные города скрывают проблемы вёрстки,
-которые реальные данные обязательно вскроют.
+На `previewData` разрешает приложение предпросмотра. Держите их реалистичными —
+короткие имена и выдуманные города скрывают проблемы вёрстки, которые настоящие
+данные как раз обнажают.

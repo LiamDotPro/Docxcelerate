@@ -1,14 +1,15 @@
 ---
 title: Templates
-description: Compose a document tree with TSX, or with plain function calls — both produce the same document.
+description: Compose a document tree with TSX, and compute structure with the same JavaScript you write everywhere else.
 group: Essentials
 order: 3
 ---
 
-Templates come in two forms. They are equivalent; pick by taste and by how much
-structure the document has.
+A template names a document tree so a project can point at it. Nothing in it is
+rendered when it is written — evaluating the JSX only builds elements, which is
+what lets a component decide what it is later, with data in hand.
 
-## TSX
+## The shape
 
 ```tsx
 /** @jsxImportSource docxcelerate/template */
@@ -42,38 +43,59 @@ Set `jsxImportSource` in `tsconfig.json` instead and you can drop it:
 
 Scaffolded workspaces already have this configured.
 
-## Plain functions
+## Computed structure
 
-```ts
-import { document, section } from "docxcelerate";
-
-export const documentTemplate = doc<DocumentData>({
-  id: "tenancy-renewal",
-  title: "Tenancy Renewal",
-  nodes: [
-    section({ id: "opening", title: "Opening" }, [Greeting]),
-    section({ id: "closing", title: "Closing" }, [NextSteps]),
-  ],
-});
-```
-
-Useful when a document's structure is computed — building sections from a list, for
-instance, where JSX would need a `map` and a fragment anyway.
-
-## Reusable components
-
-`defineDocumentComponent` and `defineSectionComponent` let you build your own
-wrappers around the primitives — a house-style letterhead, a standard closing
-block — and reuse them across documents:
+A template is written at module scope, where no data exists yet, so structure
+that depends on data belongs in a component rather than in the template:
 
 ```tsx
-import { defineSectionComponent } from "docxcelerate/template";
+export const Enclosures: Section = () => {
+  const [state] = useState((data: DocumentData) => ({ items: data.enclosures }));
 
-export const Closing = defineSectionComponent<DocumentData>({
-  id: "closing",
-  title: "Closing",
-});
+  return (
+    <Section id="enclosures" title="Enclosed">
+      {state.items.map((item) => <Paragraph key={item.id}>{item.label}</Paragraph>)}
+    </Section>
+  );
+};
 ```
+
+Anything falsy in the children is skipped, so `{condition && <Node />}` reads
+the way it does anywhere else. Nodes without ids take one from where they sit,
+which is what stops a `map` from demanding names you do not have.
+
+This works because the list is known when the document is built. A list that is
+only known per request is a different problem — see
+[Static and dynamic](/docs/essentials/static-and-dynamic/) for `Repeat`.
+
+## Reusable pieces
+
+A component is a plain function, so a house-style wrapper is a plain function
+too. Components accept children like anything else:
+
+```tsx
+export const Letterhead: Section<{ children?: Yield }> = ({ children }) => (
+  <Section id="letterhead" title="">
+    <Image id="logo" src="assets/logo.png" alt="Ashcroft Housing" />
+    {children}
+  </Section>
+);
+```
+
+A shared hook is the other half of this. Because `useSetPrompts` sets prompts on
+whatever the calling component yields, house style can be applied to a node the
+hook does not own:
+
+```tsx
+export function useHouseVoice() {
+  useSetPrompts({
+    systemPrompt: "You write for a housing association. Plain English, second person.",
+  });
+}
+```
+
+Any component that calls `useHouseVoice()` gets that system prompt on the node
+it returns, and can still override it with a prop.
 
 ## Document projects
 

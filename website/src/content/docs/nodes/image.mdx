@@ -11,25 +11,29 @@ import NodeVariants from "../../../components/NodeVariants.astro";
 
 <NodeSummary type="image" />
 
-## Every field takes a function
+## Every field is a prop
 
-`src`, `alt`, `width` and `height` each accept a plain value or a function of
-your data. A signature that differs per office, a logo per brand, a photograph
-keyed by reference — all of it stays inside the node instead of becoming a
-branch in the template:
+`src`, `alt`, `width` and `height` are plain props, computed from state before
+the element is returned. A signature that differs per office, a logo per brand,
+a photograph keyed by reference — all of it stays inside the component instead
+of becoming a branch in the template:
 
-```ts
-image<MemberData>({
-  id: "signature",
-  src: (data) => data.signatureUrl,
-  alt: (data) => `Signed by ${data.managerName}`,
-  width: 180,
-});
+```tsx
+export const Signature: Image = () => {
+  const [state] = useState((data: MemberData) => ({
+    src: data.signatureUrl,
+    manager: data.managerName,
+  }));
+
+  return (
+    <Image id="signature" src={state.src} alt={`Signed by ${state.manager}`} width={180} />
+  );
+};
 ```
 
 ## src becomes path
 
-The option is `src`; the resolved node calls it `path`. Expand *What it resolves
+The prop is `src`; the resolved node calls it `path`. Expand *What it resolves
 to* on the first variant below to see it.
 
 ## Dynamic images

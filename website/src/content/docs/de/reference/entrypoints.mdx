@@ -11,7 +11,7 @@ auf, ohne tief nach `dist/` hineinzuimportieren.
 
 ## docxcelerate
 
-Die Hauptoberfläche: Node-Helper, der Dokument-Builder, Artefakt-Helper,
+Die Hauptoberfläche: der Dokument-Builder, Artefakt-Helper, Deriver,
 Runtime-Typen und jeder Typ der Dokumentdomäne.
 
 ```ts
@@ -19,11 +19,8 @@ import {
   buildDocument,
   buildProjectPreviewDocument,
   cleanMinimalDocumentStyle,
-  graph,
-  image,
-  document,
-  paragraph,
-  section,
+  dataRef,
+  derive,
   type DocumentModel,
   type ParagraphNode,
 } from "docxcelerate";
@@ -41,17 +38,32 @@ import { defineDocumentProject } from "docxcelerate/document";
 
 ## docxcelerate/template
 
-Die TSX-Komponentenoberfläche.
+Die Autorenoberfläche: die Elemente, die Hooks und `template` selbst. Das ist,
+was eine Komponentendatei importiert.
 
 ```ts
 import {
-  defineDocumentComponent,
-  defineSectionComponent,
   Document,
+  Graph,
+  Image,
+  Paragraph,
+  Repeat,
   Section,
+  TableOfContents,
   template,
+  useAvailableTokens,
+  useFormat,
+  usePlaceholderData,
+  useSetPlaceholders,
+  useSetPrompts,
+  useShared,
+  useState,
 } from "docxcelerate/template";
 ```
+
+Jeder Elementname ist zugleich ein Komponententyp, sodass `const Greeting:
+Paragraph = () => <Paragraph … />` benennt, was eine Komponente liefert, und die
+falsche Art zurückzugeben abgelehnt wird.
 
 Ihre JSX-Runtime liegt unter `docxcelerate/template/jsx-runtime` (und
 `.../jsx-dev-runtime`) — genau dorthin löst `jsxImportSource` auf.

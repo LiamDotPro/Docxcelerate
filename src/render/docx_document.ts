@@ -83,6 +83,13 @@ function renderNode(node: DocumentNode, style: DocumentStyle): Paragraph[] {
     ];
   }
 
+  // A built document has already walked its loops, so this is a published one
+  // being packed directly. The body is all there is to show: one pass, standing
+  // for however many the request will ask for.
+  if (node.kind === "repeat") {
+    return node.children.flatMap((child) => renderNode(child, style));
+  }
+
   return [
     new Paragraph({
       children: [new TextRun(node.title ?? "Table of contents")],

@@ -1,6 +1,6 @@
 ---
 title: Paragraph
-description: Prose, rendered from your data or resolved from prompts at request time.
+description: Prose, written from your data or resolved from prompts at request time.
 group: Nodes
 subgroup: Node types
 order: 10
@@ -13,47 +13,76 @@ import NodeVariants from "../../../components/NodeVariants.astro";
 
 ## Writing one
 
-`render` receives your typed data and the token budget, and returns a string.
-There is no template language between them, so formatting, branching and
-pluralisation are all ordinary TypeScript:
+The text is the element's children, interpolated the way any JSX children are.
+There is no template language, so formatting, branching and pluralisation are
+all ordinary TypeScript — done in the state initializer, which is where a
+component does its thinking:
 
-```ts
-import { paragraph } from "docxcelerate";
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { Paragraph, useState } from "docxcelerate/template";
 import type { MemberData } from "../types.ts";
 
-export const Greeting = paragraph<MemberData>({
-  id: "greeting",
-  render: (data) => `Dear ${data.memberName},`,
-});
+export const Greeting: Paragraph = () => {
+  const [state] = useState((data: MemberData) => ({ name: data.memberName }));
+
+  return <Paragraph id="greeting">Dear {state.name},</Paragraph>;
+};
 ```
 
-It may be `async` — but a node that fetches is a node that can fail mid-build,
-so prefer putting the value in your data first.
+A component may be `async` — but one that fetches is one that can fail
+mid-build, so prefer putting the value in your data first. If you do await,
+every hook must be called before the first `await`.
 
 ## The token budget
 
-The second argument to `render`, `placeholder` and every prompt is
-`availableTokens`: the budget this node was allotted, `2000` unless you set
+`useAvailableTokens()` is the budget this build allotted, `2000` unless you set
 `availableTokens` in the build options. Static nodes can ignore it. Dynamic ones
 should spend it:
 
-```ts
-generalPrompt: (data, availableTokens) =>
-  `Explain the change. At most ${Math.floor(availableTokens / 4)} words.`,
+```tsx
+const availableTokens = useAvailableTokens();
+
+useSetPrompts({
+  generalPrompt: `Explain the change. At most ${Math.floor(availableTokens / 4)} words.`,
+});
 ```
 
-## Branching belongs in the render
+## Branching
 
-A document that says one of three things is one node with three outcomes, not
-three nodes behind conditions. The id stays put, the tree keeps its shape
-whoever the recipient is, and the logic is code you can test.
+A document that says one of three things is one component with three outcomes.
+Give each arm its own id:
+
+```tsx
+if (state.settled) {
+  return <Paragraph id="balance-settled">Nothing outstanding.</Paragraph>;
+}
+
+return <Paragraph id="balance-arrears">A balance remains.</Paragraph>;
+```
+
+Distinct ids are what let the resolved document record which arm this recipient
+got, and they are required once the branch is published — an engine stores both
+arms, and an id addresses exactly one node.
+
+When the outcomes differ only in wording, computing the string and returning one
+node keeps one id, which is the older habit and still a good one:
+
+```tsx
+const [state] = useState((data: MemberData) => ({
+  line: data.settled ? "Nothing outstanding." : "A balance remains.",
+}));
+
+return <Paragraph id="balance">{state.line}</Paragraph>;
+```
 
 ## Dynamic paragraphs
 
-A dynamic paragraph swaps `render` for prompts and a placeholder. Preview builds
-resolve it to the placeholder and label it; request-time builds send the prompts.
-Only `generalPrompt` is required — the fourth variant below shows what the other
-three are for.
+A dynamic paragraph has no text of its own; it carries prompts and a
+placeholder instead, set with `useSetPrompts` and `useSetPlaceholders` or given
+as props. Preview builds resolve it to the placeholder and label it; request-time
+builds send the prompts. Only `generalPrompt` is required — the fourth variant
+below shows what the other three are for.
 
 ## Variants
 
@@ -62,8 +91,10 @@ three are for.
 ## Notes
 
 - Both modes resolve to `kind: "paragraph"`. A renderer reads `mode` if it cares
-  at all; it never branches on which helper you called.
+  at all; it never branches on how the node was written.
+- A node given its own text is static, whatever prompts a shared hook set around
+  it. Supplying both on one element is an error.
 - An empty string returns an empty paragraph, not no node. To drop the node,
-  leave it out of the tree.
+  return nothing — `false`, `null` and `undefined` are all skipped.
 - Renderers escape the text. A paragraph cannot smuggle markup into the page,
   and is not the place for formatting.

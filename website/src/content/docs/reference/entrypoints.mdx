@@ -11,7 +11,7 @@ imports into `dist/`.
 
 ## docxcelerate
 
-The main surface: node helpers, the document builder, artifact helpers, runtime
+The main surface: the document builder, artifact helpers, derivers, runtime
 types, and every type in the document domain.
 
 ```ts
@@ -19,11 +19,8 @@ import {
   buildDocument,
   buildProjectPreviewDocument,
   cleanMinimalDocumentStyle,
-  graph,
-  image,
-  document,
-  paragraph,
-  section,
+  dataRef,
+  derive,
   type DocumentModel,
   type ParagraphNode,
 } from "docxcelerate";
@@ -40,17 +37,32 @@ import { defineDocumentProject } from "docxcelerate/document";
 
 ## docxcelerate/template
 
-The TSX component surface.
+The authoring surface: the elements, the hooks, and `template` itself. This is
+what a component file imports.
 
 ```ts
 import {
-  defineDocumentComponent,
-  defineSectionComponent,
   Document,
+  Graph,
+  Image,
+  Paragraph,
+  Repeat,
   Section,
+  TableOfContents,
   template,
+  useAvailableTokens,
+  useFormat,
+  usePlaceholderData,
+  useSetPlaceholders,
+  useSetPrompts,
+  useShared,
+  useState,
 } from "docxcelerate/template";
 ```
+
+Each element name is also a component type, so `const Greeting: Paragraph =
+() => <Paragraph … />` names what a component yields and rejects returning the
+wrong kind.
 
 Its JSX runtime is exposed at `docxcelerate/template/jsx-runtime` (and
 `.../jsx-dev-runtime`), which is what `jsxImportSource` resolves to.

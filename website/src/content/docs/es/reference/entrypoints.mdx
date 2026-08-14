@@ -12,8 +12,8 @@ Node y en los bundlers sin necesidad de importar en profundidad dentro de
 
 ## docxcelerate
 
-La superficie principal: los helpers de nodo, el compilador de documentos, los
-helpers de artefactos, los tipos de runtime y todos los tipos del dominio del
+La superficie principal: el compilador de documentos, los helpers de
+artefactos, los derivadores, los tipos de runtime y todos los tipos del dominio del
 documento.
 
 ```ts
@@ -21,11 +21,8 @@ import {
   buildDocument,
   buildProjectPreviewDocument,
   cleanMinimalDocumentStyle,
-  graph,
-  image,
-  document,
-  paragraph,
-  section,
+  dataRef,
+  derive,
   type DocumentModel,
   type ParagraphNode,
 } from "docxcelerate";
@@ -43,17 +40,32 @@ import { defineDocumentProject } from "docxcelerate/document";
 
 ## docxcelerate/template
 
-La superficie de componentes TSX.
+La superficie de autoría: los elementos, los hooks y `template` mismo. Esto es
+lo que importa un archivo de componente.
 
 ```ts
 import {
-  defineDocumentComponent,
-  defineSectionComponent,
   Document,
+  Graph,
+  Image,
+  Paragraph,
+  Repeat,
   Section,
+  TableOfContents,
   template,
+  useAvailableTokens,
+  useFormat,
+  usePlaceholderData,
+  useSetPlaceholders,
+  useSetPrompts,
+  useShared,
+  useState,
 } from "docxcelerate/template";
 ```
+
+Cada nombre de elemento es también un tipo de componente, de modo que `const
+Greeting: Paragraph = () => <Paragraph … />` nombra lo que produce un componente
+y rechaza devolver el tipo equivocado.
 
 Su runtime de JSX está expuesto en `docxcelerate/template/jsx-runtime` (y
 `.../jsx-dev-runtime`), que es a donde resuelve `jsxImportSource`.

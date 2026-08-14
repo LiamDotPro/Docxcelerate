@@ -15,16 +15,22 @@ import NodeVariants from "../../../../components/NodeVariants.astro";
 
 Ein Graph-Node enthält Zahlen und eine Form, nie ein Bild:
 
-```ts
-graph<MemberData>({
-  id: "visits-by-month",
-  graphType: "bar",
-  data: (data) => ({
+```tsx
+export const VisitsByMonth: Graph = () => {
+  const [state] = useState((data: MemberData) => ({
     labels: data.visitsByMonth.map((entry) => entry.month),
-    series: [{ name: "Visits", values: data.visitsByMonth.map((entry) => entry.visits) }],
-  }),
-  caption: () => "Your visits, last six months",
-});
+    visits: data.visitsByMonth.map((entry) => entry.visits),
+  }));
+
+  return (
+    <Graph
+      id="visits-by-month"
+      graphType="bar"
+      data={{ labels: state.labels, series: [{ name: "Visits", values: state.visits }] }}
+      caption="Your visits, last six months"
+    />
+  );
+};
 ```
 
 Zahlen statt eines Bildes mitzuführen heißt: eine Deklaration bedient jeden
@@ -41,7 +47,7 @@ Eines geschieht mit der Payload doch: String-Werte laufen durch den
 Template-Renderer, genau wie Prosa. Ein Label mit `{{derived.total}}` wird
 aufgelöst.
 
-## Ableiten in `data`
+## Ableiten im State
 
 Laufende Summen, Prozentwerte und Umbasierungen gehören in die `data`-Funktion,
 nicht weiter stromaufwärts. Diagramm und der Text daneben werden dann aus einer

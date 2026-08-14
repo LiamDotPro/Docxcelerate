@@ -24,7 +24,7 @@ const type = nodeType(Astro.props.type);
 const Heading = `h${headingLevel}` as "h2" | "h3";
 
 // Same glob shape as the hero: the file shown is the file that ran.
-const sources = import.meta.glob("../nodes/**/*.node.ts", {
+const sources = import.meta.glob("../nodes/**/*.node.tsx", {
   query: "?raw",
   import: "default",
   eager: true,

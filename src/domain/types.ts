@@ -1,6 +1,12 @@
 export type JsonObject = Record<string, unknown>;
 
-export type NodeKind = "section" | "paragraph" | "image" | "graph" | "tableOfContents";
+export type NodeKind =
+  | "section"
+  | "paragraph"
+  | "image"
+  | "graph"
+  | "tableOfContents"
+  | "repeat";
 
 export type NodeMode = "static" | "dynamic";
 
@@ -64,9 +70,28 @@ export interface DataReference {
   path: string;
 }
 
+export type ComparisonOperator = "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+
+/**
+ * A decision the engine makes per document, rather than one the build makes once.
+ *
+ * `truthy` and `not` came first and are still emitted for the shapes they cover,
+ * so an engine that predates the richer forms keeps understanding the common
+ * case. The compiler that turns an `if` in a component into one of these picks
+ * the narrowest form that fits.
+ */
 export type Condition =
   | { type: "truthy"; ref: DataReference }
-  | { type: "not"; ref: DataReference };
+  | { type: "not"; ref: DataReference }
+  | {
+    type: "compare";
+    operator: ComparisonOperator;
+    left: ValueExpression;
+    right: ValueExpression;
+  }
+  | { type: "and"; conditions: Condition[] }
+  | { type: "or"; conditions: Condition[] }
+  | { type: "negate"; condition: Condition };
 
 export type ValueExpression =
   | { type: "literal"; value: string | number | boolean }
@@ -127,7 +152,30 @@ export interface TableOfContentsNode extends BaseNode {
   kind: "tableOfContents";
 }
 
-export type DocumentNode = SectionNode | ParagraphNode | ImageNode | GraphNode | TableOfContentsNode;
+/**
+ * A body repeated once per entry in a request-time collection.
+ *
+ * A build cannot unroll this the way it unrolls a branch: the length of
+ * `source` is not known until a document is written. So the loop itself is
+ * what gets published, and the engine walks it. Each pass binds the entry under
+ * `as` and its position under `indexAs`, both readable through `ctx`, and
+ * suffixes child ids with the index so they stay unique across passes.
+ */
+export interface RepeatNode extends BaseNode {
+  kind: "repeat";
+  source: DataReference;
+  as: string;
+  indexAs: string;
+  children: DocumentNode[];
+}
+
+export type DocumentNode =
+  | SectionNode
+  | ParagraphNode
+  | ImageNode
+  | GraphNode
+  | TableOfContentsNode
+  | RepeatNode;
 
 export interface DocumentModel {
   schemaVersion: "docxcelerate.letter/v0";

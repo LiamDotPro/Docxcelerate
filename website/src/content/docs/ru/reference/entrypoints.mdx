@@ -11,7 +11,7 @@ order: 1
 
 ## docxcelerate
 
-Основная поверхность: хелперы узлов, сборщик документа, хелперы артефактов,
+Основная поверхность: сборщик документа, хелперы артефактов, деривер-функции,
 типы времени выполнения и все типы предметной области документа.
 
 ```ts
@@ -19,11 +19,8 @@ import {
   buildDocument,
   buildProjectPreviewDocument,
   cleanMinimalDocumentStyle,
-  graph,
-  image,
-  document,
-  paragraph,
-  section,
+  dataRef,
+  derive,
   type DocumentModel,
   type ParagraphNode,
 } from "docxcelerate";
@@ -41,17 +38,32 @@ import { defineDocumentProject } from "docxcelerate/document";
 
 ## docxcelerate/template
 
-Поверхность TSX-компонентов.
+Поверхность авторства: элементы, хуки и сам `template`. Именно это импортирует
+файл компонента.
 
 ```ts
 import {
-  defineDocumentComponent,
-  defineSectionComponent,
   Document,
+  Graph,
+  Image,
+  Paragraph,
+  Repeat,
   Section,
+  TableOfContents,
   template,
+  useAvailableTokens,
+  useFormat,
+  usePlaceholderData,
+  useSetPlaceholders,
+  useSetPrompts,
+  useShared,
+  useState,
 } from "docxcelerate/template";
 ```
+
+Имя каждого элемента — одновременно и тип компонента, поэтому `const Greeting:
+Paragraph = () => <Paragraph … />` называет, что компонент отдаёт, и запрещает
+вернуть не тот вид.
 
 Её JSX-рантайм доступен по адресу `docxcelerate/template/jsx-runtime` (а также
 `.../jsx-dev-runtime`) — именно туда разрешается `jsxImportSource`.
