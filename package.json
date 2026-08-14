@@ -24,7 +24,7 @@
     "node": ">=20"
   },
   "bin": {
-    "dxcl": "./bin/dxcl.mjs"
+    "dxcl": "bin/dxcl.mjs"
   },
   "files": [
     "bin/dxcl.mjs",
