@@ -1,0 +1,132 @@
+---
+title: Document projects
+description: The files that make up one document, what each is responsible for, and the config that surrounds them.
+group: Start Here
+order: 3
+---
+
+A workspace holds one **document project** per document. Each is a directory
+under `documents/` with a single entrypoint, so a document can be moved, copied
+or reviewed as one thing.
+
+## Create one
+
+```sh
+dxcl document new tenancy-renewal --title "Tenancy Renewal"
+```
+
+Run it with no arguments to be asked for the name and title instead.
+
+```text
+documents/tenancy-renewal/
+  document.project.ts
+  document.tsx
+  document-style.ts
+  preview-data.ts
+  types.ts
+  derivers/
+    index.ts
+  nodes/
+    greeting.node.tsx
+    intro.node.tsx
+    index.ts
+```
+
+The split is the point. Each file answers one question:
+
+| File | What it holds |
+| --- | --- |
+| `types.ts` | The data contract — what a document needs to be written |
+| `preview-data.ts` | One instance of that contract, for the preview |
+| `document.tsx` | Structure only: which nodes, in which sections, in which order |
+| `nodes/` | One component per node, plus an `index.ts` that exports them |
+| `document-style.ts` | Fonts, spacing and margins for the packed `.docx` |
+| `derivers/index.ts` | Named functions the engine runs per document |
+| `document.project.ts` | Ties the above together and names the document |
+
+## The entrypoint
+
+```ts
+import { defineDocumentProject } from "docxcelerate/document";
+import { derivers } from "./derivers/index.ts";
+import { documentTemplate } from "./document.tsx";
+import { documentStyle } from "./document-style.ts";
+import { previewData } from "./preview-data.ts";
+import type { DocumentData } from "./types.ts";
+
+export default defineDocumentProject<DocumentData>({
+  id: "tenancy-renewal",
+  name: "Tenancy Renewal",
+  version: "0.1.0",
+  template: documentTemplate,
+  previewData,
+  derivers,
+  style: documentStyle,
+  previewOptions: {
+    availableTokens: 800,
+  },
+});
+```
+
+| Field | What it decides |
+| --- | --- |
+| `id` | How the document is addressed, in artifacts and by an engine |
+| `name` | What a person sees in the preview app |
+| `version` | Stamped into every artifact this project builds |
+| `template` | The tree, from `document.tsx` |
+| `previewData` | What the preview resolves against |
+| `derivers` | Values computed per document rather than per build |
+| `style` | The style applied when packing |
+| `previewOptions.availableTokens` | The budget `useAvailableTokens` reports |
+
+The preview app discovers projects by globbing for `document.project.ts`, so a
+new document appears in the picker as soon as it exists. Nothing registers it.
+
+## Keep the preview data honest
+
+`preview-data.ts` is the only data most of a document will ever be built
+against, so it is worth more attention than it usually gets:
+
+```ts
+import type { DocumentData } from "./types.ts";
+
+export const previewData: DocumentData = {
+  recipientName: "Avery",
+  city: "Berlin",
+};
+```
+
+Short names and placeholder cities hide layout problems that real data exposes.
+Use the longest name and the largest figure you actually expect.
+
+## Workspace configuration
+
+`docxcelerate.config.json` sits at the top of the workspace and covers every
+document in it. It stores named **presets** for build and upload behaviour:
+
+```json
+{
+  "schemaVersion": "docxcelerate.config/v0",
+  "activePreset": "local",
+  "presets": {
+    "local": {
+      "build": { "outDir": "build" },
+      "upload": { "endpoint": "", "method": "POST", "headers": {}, "body": "document" }
+    }
+  }
+}
+```
+
+`activePreset` selects which one applies, which is how a local setup and a
+staging engine sit side by side without editing configuration between runs. With
+`upload.endpoint` empty, everything still builds — you get artifacts on disk
+instead of a finished document.
+
+[Workspace and config](/docs/projects/workspace/) documents every field, and
+[build artifacts](/docs/projects/artifacts/) covers what a build writes.
+
+## Where to go next
+
+- [Templates](/docs/essentials/templates/) — computed structure, reusable pieces, and what changes when you publish
+- [The engine](/docs/generation/endpoint/) — publishing a document and writing from it
+- [Commands](/docs/cli/commands/) — every CLI flag

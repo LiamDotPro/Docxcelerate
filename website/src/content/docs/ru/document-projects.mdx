@@ -1,0 +1,136 @@
+---
+title: Проекты документов
+description: Файлы, из которых состоит один документ, за что отвечает каждый и какая конфигурация их окружает.
+group: Start Here
+order: 3
+---
+
+В workspace на каждый документ приходится один **проект документа**. Каждый —
+это каталог в `documents/` с единственной точкой входа, так что документ можно
+перемещать, копировать и ревьюить как одно целое.
+
+## Создайте проект
+
+```sh
+dxcl document new tenancy-renewal --title "Tenancy Renewal"
+```
+
+Запустите команду без аргументов, чтобы имя и заголовок спросили у вас.
+
+```text
+documents/tenancy-renewal/
+  document.project.ts
+  document.tsx
+  document-style.ts
+  preview-data.ts
+  types.ts
+  derivers/
+    index.ts
+  nodes/
+    greeting.node.tsx
+    intro.node.tsx
+    index.ts
+```
+
+Разделение здесь и есть суть. Каждый файл отвечает на один вопрос:
+
+| Файл | Что в нём |
+| --- | --- |
+| `types.ts` | Контракт данных — что нужно документу, чтобы быть написанным |
+| `preview-data.ts` | Один экземпляр этого контракта, для предпросмотра |
+| `document.tsx` | Только структура: какие узлы, в каких секциях, в каком порядке |
+| `nodes/` | По компоненту на узел плюс `index.ts`, который их экспортирует |
+| `document-style.ts` | Шрифты, интервалы и поля для собранного `.docx` |
+| `derivers/index.ts` | Именованные функции, которые движок выполняет на каждый документ |
+| `document.project.ts` | Связывает всё перечисленное и даёт документу имя |
+
+## Точка входа
+
+```ts
+import { defineDocumentProject } from "docxcelerate/document";
+import { derivers } from "./derivers/index.ts";
+import { documentTemplate } from "./document.tsx";
+import { documentStyle } from "./document-style.ts";
+import { previewData } from "./preview-data.ts";
+import type { DocumentData } from "./types.ts";
+
+export default defineDocumentProject<DocumentData>({
+  id: "tenancy-renewal",
+  name: "Tenancy Renewal",
+  version: "0.1.0",
+  template: documentTemplate,
+  previewData,
+  derivers,
+  style: documentStyle,
+  previewOptions: {
+    availableTokens: 800,
+  },
+});
+```
+
+| Поле | Что определяет |
+| --- | --- |
+| `id` | Как документ адресуется — в артефактах и со стороны движка |
+| `name` | Что человек видит в приложении предпросмотра |
+| `version` | Проставляется в каждый артефакт, который собирает этот проект |
+| `template` | Дерево, из `document.tsx` |
+| `previewData` | То, на чём разрешает предпросмотр |
+| `derivers` | Значения, вычисляемые на каждый документ, а не на сборку |
+| `style` | Стиль, применяемый при сборке файла |
+| `previewOptions.availableTokens` | Бюджет, о котором сообщает `useAvailableTokens` |
+
+Приложение предпросмотра находит проекты глобом по `document.project.ts`, так что
+новый документ появляется в списке, как только он существует. Регистрировать его
+нигде не нужно.
+
+## Держите данные предпросмотра честными
+
+`preview-data.ts` — единственные данные, на которых большая часть документа
+вообще когда-либо будет собрана, и потому они заслуживают больше внимания, чем им
+обычно достаётся:
+
+```ts
+import type { DocumentData } from "./types.ts";
+
+export const previewData: DocumentData = {
+  recipientName: "Avery",
+  city: "Berlin",
+};
+```
+
+Короткие имена и выдуманные города скрывают проблемы вёрстки, которые настоящие
+данные как раз обнажают. Берите самое длинное имя и самую большую цифру, которых
+вы действительно ожидаете.
+
+## Конфигурация workspace
+
+`docxcelerate.config.json` лежит наверху workspace и распространяется на каждый
+документ в нём. Он хранит именованные **пресеты** поведения сборки и загрузки:
+
+```json
+{
+  "schemaVersion": "docxcelerate.config/v0",
+  "activePreset": "local",
+  "presets": {
+    "local": {
+      "build": { "outDir": "build" },
+      "upload": { "endpoint": "", "method": "POST", "headers": {}, "body": "document" }
+    }
+  }
+}
+```
+
+`activePreset` выбирает, какой из них действует, — так локальная настройка и
+staging-движок сосуществуют, не заставляя править конфигурацию между запусками. С
+пустым `upload.endpoint` всё по-прежнему собирается: вы получаете артефакты на
+диске вместо готового документа.
+
+[Workspace и конфигурация](/ru/docs/projects/workspace/) документирует каждое
+поле, а [артефакты сборки](/ru/docs/projects/artifacts/) рассказывают, что сборка
+записывает.
+
+## Куда дальше
+
+- [Шаблоны](/ru/docs/essentials/templates/) — вычисляемая структура, переиспользуемые части и что меняется при публикации
+- [Движок](/ru/docs/generation/endpoint/) — опубликовать документ и писать из него
+- [Команды](/ru/docs/cli/commands/) — каждый флаг CLI

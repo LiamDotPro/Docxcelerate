@@ -1,0 +1,136 @@
+---
+title: Proyectos de documento
+description: Los archivos que forman un documento, de qué responde cada uno, y la configuración que los rodea.
+group: Start Here
+order: 3
+---
+
+Un workspace tiene un **proyecto de documento** por documento. Cada uno es un
+directorio bajo `documents/` con un único punto de entrada, así que un documento
+se puede mover, copiar o revisar como una sola cosa.
+
+## Crea uno
+
+```sh
+dxcl document new tenancy-renewal --title "Tenancy Renewal"
+```
+
+Ejecútalo sin argumentos para que te pregunte el nombre y el título.
+
+```text
+documents/tenancy-renewal/
+  document.project.ts
+  document.tsx
+  document-style.ts
+  preview-data.ts
+  types.ts
+  derivers/
+    index.ts
+  nodes/
+    greeting.node.tsx
+    intro.node.tsx
+    index.ts
+```
+
+La separación es justamente el punto. Cada archivo responde una pregunta:
+
+| Archivo | Qué contiene |
+| --- | --- |
+| `types.ts` | El contrato de datos — qué necesita un documento para escribirse |
+| `preview-data.ts` | Una instancia de ese contrato, para la vista previa |
+| `document.tsx` | Solo estructura: qué nodos, en qué secciones, en qué orden |
+| `nodes/` | Un componente por nodo, más un `index.ts` que los exporta |
+| `document-style.ts` | Fuentes, espaciado y márgenes del `.docx` empaquetado |
+| `derivers/index.ts` | Funciones con nombre que el motor ejecuta por documento |
+| `document.project.ts` | Ata todo lo anterior y nombra el documento |
+
+## El punto de entrada
+
+```ts
+import { defineDocumentProject } from "docxcelerate/document";
+import { derivers } from "./derivers/index.ts";
+import { documentTemplate } from "./document.tsx";
+import { documentStyle } from "./document-style.ts";
+import { previewData } from "./preview-data.ts";
+import type { DocumentData } from "./types.ts";
+
+export default defineDocumentProject<DocumentData>({
+  id: "tenancy-renewal",
+  name: "Tenancy Renewal",
+  version: "0.1.0",
+  template: documentTemplate,
+  previewData,
+  derivers,
+  style: documentStyle,
+  previewOptions: {
+    availableTokens: 800,
+  },
+});
+```
+
+| Campo | Qué decide |
+| --- | --- |
+| `id` | Cómo se direcciona el documento, en artefactos y desde un motor |
+| `name` | Lo que ve una persona en la app de vista previa |
+| `version` | Se estampa en cada artefacto que compila este proyecto |
+| `template` | El árbol, desde `document.tsx` |
+| `previewData` | Contra qué resuelve la vista previa |
+| `derivers` | Valores calculados por documento en vez de por compilación |
+| `style` | El estilo que se aplica al empaquetar |
+| `previewOptions.availableTokens` | El presupuesto que reporta `useAvailableTokens` |
+
+La app de vista previa descubre proyectos haciendo glob de `document.project.ts`,
+así que un documento nuevo aparece en el selector en cuanto existe. No se registra
+en ningún sitio.
+
+## Mantén honestos los datos de vista previa
+
+`preview-data.ts` son los únicos datos contra los que se compilará la mayor parte
+de un documento, así que merecen más atención de la que suelen recibir:
+
+```ts
+import type { DocumentData } from "./types.ts";
+
+export const previewData: DocumentData = {
+  recipientName: "Avery",
+  city: "Berlin",
+};
+```
+
+Los nombres cortos y las ciudades de relleno ocultan problemas de maquetación que
+los datos reales sí exponen. Usa el nombre más largo y la cifra más grande que de
+verdad esperes.
+
+## Configuración del workspace
+
+`docxcelerate.config.json` está en la raíz del workspace y cubre todos los
+documentos que hay en él. Guarda **presets** con nombre para el comportamiento de
+compilación y subida:
+
+```json
+{
+  "schemaVersion": "docxcelerate.config/v0",
+  "activePreset": "local",
+  "presets": {
+    "local": {
+      "build": { "outDir": "build" },
+      "upload": { "endpoint": "", "method": "POST", "headers": {}, "body": "document" }
+    }
+  }
+}
+```
+
+`activePreset` selecciona cuál se aplica, que es como conviven un montaje local y
+un motor de staging sin editar la configuración entre ejecuciones. Con
+`upload.endpoint` vacío todo compila igual — obtienes artefactos en disco en lugar
+de un documento terminado.
+
+[Workspace y configuración](/es/docs/projects/workspace/) documenta cada campo, y
+[artefactos de compilación](/es/docs/projects/artifacts/) cubre qué escribe una
+compilación.
+
+## Por dónde seguir
+
+- [Plantillas](/es/docs/essentials/templates/) — estructura calculada, piezas reutilizables y qué cambia al publicar
+- [El motor](/es/docs/generation/endpoint/) — publicar un documento y escribir a partir de él
+- [Comandos](/es/docs/cli/commands/) — cada flag de la CLI

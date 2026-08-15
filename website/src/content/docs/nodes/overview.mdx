@@ -41,20 +41,21 @@ from outside, the way renaming an API route does.
 
 Keep them unique across the document. It costs nothing and makes logs readable.
 
-## Static and dynamic
+## Where content comes from
 
-A **static** node computes its content locally from your data. A **dynamic**
-node carries prompts and a placeholder, and is filled in at request time.
+Every node either has its content or has prompts for producing it, and that is
+decided by the component rather than declared anywhere. Give a paragraph text —
+or an `Image` a `src`, or a `Graph` its `data` — and it resolves on your
+machine. Give it prompts and a placeholder instead, and it is filled in at
+request time.
 
-You never declare which you want. There is one helper per kind — `paragraph`,
-`image`, `graph` — and the mode is inferred from the options you give it:
-supply the local-resolution member (`render`, `src`, `data`) and the node is
-static; supply prompts instead and it is dynamic. Both resolve to the same
-`kind`, differing by `mode` in the built document.
+Both resolve to the same `kind`, differing by `mode` in the built document.
+`mode` is output, not input: the build derives it from what the component
+supplied, and the package tells an engine which nodes it has to resolve.
+Supplying both on one element is an error rather than a coin-toss.
 
-Supplying both is a compile error, so `mode` has exactly one source of truth.
-[Static and dynamic](/docs/essentials/static-and-dynamic/) covers where the line
-sits and why.
+[Writing nodes](/docs/writing-nodes/) covers the prompt slots and what previews
+show in their place.
 
 ## Nesting
 

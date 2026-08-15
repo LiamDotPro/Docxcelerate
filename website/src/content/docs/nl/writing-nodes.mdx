@@ -1,0 +1,146 @@
+---
+title: Nodes schrijven
+description: Een node is een klein component dat zijn data aanneemt en teruggeeft wat het wil zeggen.
+group: Start Here
+order: 2
+---
+
+Een document is een boom van **componenten**. Elk geeft een **node** terug — een
+alinea, een afbeelding, een grafiek — en elk staat in zijn eigen bestand onder
+`nodes/`. Documenten worden lang, en een template dat zijn tekst inline zet, houdt
+ongeveer halverwege op leesbaar te zijn.
+
+## Genereer er een
+
+```sh
+dxcl document node documents/welcome next-steps --type paragraph
+```
+
+Dat schrijft `nodes/next-steps.node.tsx` en voegt hem toe aan `nodes/index.ts`.
+`--type` accepteert `paragraph`, `image` of `graph`; draai het commando zonder
+argumenten om het gevraagd te krijgen.
+
+De plaatsing wordt bewust aan jou gelaten. Open `document.tsx` en voeg het
+component toe op het punt in het document waar het hoort:
+
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { Document, Section, template } from "docxcelerate/template";
+import * as Nodes from "./nodes/index.ts";
+import type { DocumentData } from "./types.ts";
+
+export const documentTemplate = template<DocumentData>(
+  <Document id="welcome" title="Welcome">
+    <Section id="opening" title="Opening">
+      <Nodes.Greeting />
+    </Section>
+    <Section id="closing" title="Closing">
+      <Nodes.NextSteps />
+    </Section>
+  </Document>,
+);
+```
+
+Opslaan, en de preview herlaadt met de nieuwe node op zijn plek.
+
+## Data komt binnen via `useState`
+
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { Paragraph, useState } from "docxcelerate/template";
+import type { DocumentData } from "../types.ts";
+
+export const Greeting: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    name: data.recipientName,
+  }));
+
+  return <Paragraph id="greeting">Hello {state.name},</Paragraph>;
+};
+```
+
+`useState` is waar data een component binnenkomt, en de enige plek waar dat
+gebeurt — waar een node van afhangt staat dus in één declaratie opgeschreven in
+plaats van verspreid door de code die het leest.
+
+De initializer is gewoon TypeScript. Er is geen templatetaal, dus condities,
+formattering en imports zijn er gewoon, en een `if` die een andere alinea
+teruggeeft is precies wat het lijkt.
+
+`Paragraph` benoemt zowel het element als het componenttype, dus
+`const Greeting: Paragraph` zegt wat deze node oplevert — en er een `<Section>`
+uit teruggeven is een compileerfout.
+
+## Tekst die je gegenereerd wilt hebben
+
+Sommige alinea's kun je niet vooraf schrijven, omdat wat ze moeten zeggen afhangt
+van de persoon die ze krijgt. Zet **prompts** in plaats van tekst, en een
+**placeholder** zodat de preview leesbaar blijft:
+
+```tsx
+export const TutorNote: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    applicantName: data.applicantName,
+    interviewer: data.interviewer,
+  }));
+
+  useSetPrompts({
+    generalPrompt: `Write two warm sentences about ${state.applicantName}'s interview.`,
+  });
+  useSetPlaceholders(`A note from ${state.interviewer}.`);
+
+  return <Paragraph id="tutor-note" />;
+};
+```
+
+Er valt niets te declareren en geen modus te kiezen. Een node die zijn tekst heeft
+kan op jouw machine worden geproduceerd; een node die alleen prompts heeft, heeft
+de engine nodig. Het component beslist welke van de twee het is door wat het
+meegeeft, de build leidt het af, en het pakket dat eruit komt zegt welke nodes de
+engine moet oplossen.
+
+Beide meegeven op één element is een fout, geen kop of munt. Prompts kunnen ook
+als props worden gegeven, wat prettiger leest als ze kort zijn, en props winnen van
+de hook — zo kan een aanroeper overschrijven wat een gedeelde hook eromheen zette.
+
+Er zijn vier promptslots. Alleen `generalPrompt` is verplicht:
+
+| Slot | Waarvoor |
+| --- | --- |
+| `generalPrompt` | Wat de node moet zeggen |
+| `infoPrompt` | Context die het model moet hebben maar niet moet herhalen |
+| `negativePrompt` | Wat te vermijden |
+| `systemPrompt` | Rol- en toonaanwijzingen |
+
+`Image` en `Graph` werken hetzelfde — geef er een `src` of `data` aan en het lost
+lokaal op; geef het prompts en dat gebeurt niet.
+
+## Wat de preview laat zien
+
+Bouwen voor de preview lost nodes met prompts op naar hun **placeholders**, nooit
+naar gegenereerde tekst. De preview blijft deterministisch en gratis, dus je kunt
+aan structuur en styling werken zonder dat er één verzoek je machine verlaat.
+
+De placeholder is ook een nuttige discipline: als een document met placeholders
+onleesbaar is, doet zijn structuur te weinig werk.
+
+`usePlaceholderData` geeft je vervangende namen, datums en cijfers, geseed vanuit
+waar het component staat — dezelfde node toont dus elke keer dezelfde waarden. Een
+preview die zichzelf bij elke build opnieuw schudt, kan niemand nalezen.
+
+## Ids
+
+Een id is hoe een engine een node adresseert en hoe twee buildartefacten in een
+diff naast elkaar te leggen zijn, dus behandel een hernoeming als een breaking
+change.
+
+Je mag hem weglaten. Een node zonder id krijgt er een van waar hij staat, en dat
+weerhoudt vertakkingen en lijsten ervan namen te eisen die je niet hebt. Wat niet
+kan is er een twee keer gebruiken: twee nodes die één id claimen is een fout,
+gemeld met beide posities, in plaats van een race die de laatste wint.
+
+## Hoe nu verder
+
+- [Documentprojecten](/nl/docs/document-projects/) — de bestanden rond je nodes
+- [Documenten en nodes](/nl/docs/essentials/documents-and-nodes/) — het componentmodel volledig, hooks inbegrepen
+- [Het nodemodel](/nl/docs/nodes/overview/) — elk nodetype, met van elk een preview

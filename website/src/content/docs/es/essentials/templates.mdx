@@ -68,8 +68,8 @@ cualquier otro sitio. Los nodos sin id toman uno de donde están, y eso impide q
 un `map` exija nombres que no tienes.
 
 Esto funciona porque la lista se conoce al compilar el documento. Una lista que
-solo se conoce por petición es otro problema — mira [Estático y
-dinámico](/es/docs/essentials/static-and-dynamic/) para `Repeat`.
+solo se conoce por petición es otro problema — mira [los bucles se publican como
+bucles](#los-bucles-se-publican-como-bucles) más abajo.
 
 ## Piezas reutilizables
 
@@ -127,3 +127,77 @@ export default defineDocumentProject<DocumentData>({
 `previewData` es contra lo que resuelve la app de vista previa. Manténlo
 realista — los nombres cortos y las ciudades de relleno ocultan problemas de
 maquetación que los datos reales sí exponen.
+
+## Qué cambia al publicar
+
+Todo lo anterior da por hecho que tienes los datos. Cuando compilas con los datos
+en la mano — una vista previa, un empaquetado local, un documento escrito sobre la
+marcha — un `if` significa exactamente lo que dice, y un `.map()` recorre la lista
+que se le dio.
+
+Publicar en [un motor](/es/docs/generation/endpoint/) es distinto. El artefacto se
+compila **una vez**, contra valores de relleno para una petición que nadie ha
+hecho todavía, y se guarda. Una decisión que dependa de los datos de la petición
+no se puede zanjar durante esa compilación; tiene que viajar al motor y tomarse
+por documento.
+
+De ahí salen tres reglas, y la compilación hace cumplir las tres en lugar de dejar
+que un documento equivocado llegue a quien lo recibe.
+
+### Calcula por documento, no por compilación
+
+Interpolar un valor funciona al publicar: se convierte en el token que el motor
+sustituye.
+
+```tsx
+<Paragraph id="greeting">Hello {state.name},</Paragraph>
+// publicado como: "Hello {{data.name}},"
+```
+
+Calcular sobre él no, porque el valor todavía no se conoce. Formatear una moneda,
+sumar una lista, comparar una fecha — eso necesita un **deriver**, que el motor
+ejecuta por documento:
+
+```tsx
+<Paragraph
+  id="balance"
+  derivers={[
+    derive("currencyLabel", { output: "balanceLabel", inputs: [dataRef("balanceDue")] }),
+  ]}
+>
+  Your balance is {"{{derived.balanceLabel}}"}.
+</Paragraph>
+```
+
+`useFormat` y `useDeriver` calculan durante la compilación, que es lo correcto
+siempre que el valor ya se conozca. Echa mano de un deriver cuando no.
+
+### Los bucles se publican como bucles
+
+Una bifurcación tiene dos ramas y las dos se pueden publicar. Un bucle tiene
+tantas como entradas traiga la petición, y ese número no lo sabe nadie hasta que
+se escribe un documento — así que lo que se guarda es el bucle en sí:
+
+```tsx
+<Repeat over="visits" as="visit">
+  <Paragraph>Visit: {"{{ctx.visit.label}}"}</Paragraph>
+</Repeat>
+```
+
+Con datos reales esto recorre la colección de inmediato, así que las vistas previas
+enseñan la repetición en vez de una descripción de ella. Publicado, sigue siendo un
+bucle y lo recorre el motor, ligando cada entrada bajo `as` y su posición bajo
+`indexAs`, y añadiendo el índice a los ids de los hijos para que una pasada siga
+siendo distinguible de la siguiente.
+
+Llamar a `.map()` sobre datos de la petición al publicar es un error que nombra el
+`Repeat` que hay que escribir en su lugar.
+
+### Las bifurcaciones multiplican
+
+Publicar una bifurcación guarda las dos ramas, cada una bajo la condición que la
+selecciona. Anidar bifurcaciones multiplica lo que carga un documento, así que hay
+un límite — `branchLimit`, 32 por defecto — y pasarlo hace fallar la compilación en
+vez de producir un artefacto calladamente enorme. Sube la decisión a un deriver que
+dé un solo valor, o eleva el límite si el documento de verdad es así de
+condicional.

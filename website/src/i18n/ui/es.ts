@@ -154,9 +154,9 @@ export const es: UiStrings = {
           title: "El modelo de nodos",
           blurb: "Cada tipo de nodo, con una vista previa de cada uno.",
         },
-        staticAndDynamic: {
-          title: "Estático y dinámico",
-          blurb: "Qué se ejecuta en local y qué necesita el motor.",
+        writingNodes: {
+          title: "Escribir nodos",
+          blurb: "Las piezas de las que se compone un documento.",
         },
         cli: {
           title: "Comandos de la CLI",

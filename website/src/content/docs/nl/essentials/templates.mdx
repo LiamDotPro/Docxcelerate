@@ -66,8 +66,8 @@ Alles wat falsy is bij de children wordt overgeslagen, dus `{condition && <Node
 en dat weerhoudt een `map` ervan namen te eisen die je niet hebt.
 
 Dit werkt omdat de lijst bekend is wanneer het document gebouwd wordt. Een lijst
-die pas per verzoek bekend is, is een ander probleem — zie [Statisch en
-dynamisch](/nl/docs/essentials/static-and-dynamic/) voor `Repeat`.
+die pas per verzoek bekend is, is een ander probleem — zie [lussen worden als
+lussen gepubliceerd](#lussen-worden-als-lussen-gepubliceerd) hieronder.
 
 ## Herbruikbare onderdelen
 
@@ -125,3 +125,77 @@ export default defineDocumentProject<DocumentData>({
 `previewData` is waartegen de preview-app oplost. Houd het realistisch — korte
 namen en verzonnen plaatsnamen verbergen lay-outproblemen die echte data juist
 blootleggen.
+
+## Wat er verandert bij publiceren
+
+Alles hierboven gaat ervan uit dat jij de data hebt. Wanneer je bouwt met data in
+handen — een preview, een lokale pack, een document dat je ter plekke schrijft —
+betekent een `if` precies wat er staat, en loopt een `.map()` door de lijst die hij
+kreeg.
+
+Publiceren naar [een engine](/nl/docs/generation/endpoint/) is iets anders. Het
+artefact wordt **één keer** gebouwd, tegen vervangende waarden voor een aanvraag
+die nog niemand heeft gedaan, en opgeslagen. Een beslissing die van
+aanvraaggegevens afhangt, kan tijdens die build niet worden genomen; die moet naar
+de engine reizen en per document worden gemaakt.
+
+Daaruit volgen drie regels, en de build handhaaft alle drie in plaats van een
+verkeerd document bij een ontvanger te laten belanden.
+
+### Reken per document, niet per build
+
+Een waarde interpoleren werkt bij publiceren: het wordt het token dat de engine
+vervangt.
+
+```tsx
+<Paragraph id="greeting">Hello {state.name},</Paragraph>
+// gepubliceerd als: "Hello {{data.name}},"
+```
+
+Erop rekenen niet, want de waarde is nog niet bekend. Een bedrag opmaken, een lijst
+optellen, een datum vergelijken — daar is een **deriver** voor nodig, die de engine
+per document uitvoert:
+
+```tsx
+<Paragraph
+  id="balance"
+  derivers={[
+    derive("currencyLabel", { output: "balanceLabel", inputs: [dataRef("balanceDue")] }),
+  ]}
+>
+  Your balance is {"{{derived.balanceLabel}}"}.
+</Paragraph>
+```
+
+`useFormat` en `useDeriver` rekenen in plaats daarvan tijdens de build, wat juist is
+zodra de waarde al bekend is. Grijp naar een deriver wanneer dat niet zo is.
+
+### Lussen worden als lussen gepubliceerd
+
+Een vertakking heeft twee takken en beide kunnen worden gepubliceerd. Een lus heeft
+er zoveel als de aanvraag items heeft, en dat aantal weet niemand tot er een document
+geschreven wordt — dus wat er opgeslagen wordt, is de lus zelf:
+
+```tsx
+<Repeat over="visits" as="visit">
+  <Paragraph>Visit: {"{{ctx.visit.label}}"}</Paragraph>
+</Repeat>
+```
+
+Met echte data loopt dit meteen door de collectie, dus previews tonen de herhaling in
+plaats van een beschrijving ervan. Gepubliceerd blijft het een lus en loopt de engine
+hem af, waarbij elk item onder `as` en zijn positie onder `indexAs` wordt gebonden, en
+de ids van de children een index krijgen zodat de ene ronde te onderscheiden blijft van
+de volgende.
+
+`.map()` aanroepen op aanvraaggegevens is bij publiceren een fout die de `Repeat`
+noemt die je in plaats daarvan moet schrijven.
+
+### Vertakkingen vermenigvuldigen
+
+Een gepubliceerde vertakking slaat beide takken op, elk onder de conditie die hem
+selecteert. Vertakkingen nesten vermenigvuldigt wat een document meedraagt, dus er is
+een limiet — `branchLimit`, standaard 32 — en eroverheen gaan laat de build falen in
+plaats van een stilletjes enorm artefact te produceren. Til de beslissing op naar een
+deriver die één waarde oplevert, of verhoog de limiet als het document werkelijk zo
+voorwaardelijk is.

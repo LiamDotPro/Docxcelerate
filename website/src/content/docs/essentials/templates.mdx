@@ -66,7 +66,7 @@ which is what stops a `map` from demanding names you do not have.
 
 This works because the list is known when the document is built. A list that is
 only known per request is a different problem — see
-[Static and dynamic](/docs/essentials/static-and-dynamic/) for `Repeat`.
+[loops are published as loops](#loops-are-published-as-loops) below.
 
 ## Reusable pieces
 
@@ -123,3 +123,74 @@ export default defineDocumentProject<DocumentData>({
 
 `previewData` is what the preview app resolves against. Keep it realistic —
 short names and placeholder cities hide layout problems that real data exposes.
+
+## What changes when you publish
+
+Everything above assumes you hold the data. When you build with data in hand — a
+preview, a local pack, a document written on the spot — an `if` means exactly
+what it says, and a `.map()` walks the list it was given.
+
+Publishing to [an engine](/docs/generation/endpoint/) is different. The artifact
+is built **once**, against stand-in values for a request nobody has made yet,
+and stored. A decision that depends on request data cannot be settled during
+that build; it has to travel to the engine and be made per document.
+
+Three rules follow, and the build enforces all three rather than letting a wrong
+document reach a recipient.
+
+### Compute per document, not per build
+
+Interpolating a value works while publishing: it becomes the token the engine
+substitutes.
+
+```tsx
+<Paragraph id="greeting">Hello {state.name},</Paragraph>
+// published as: "Hello {{data.name}},"
+```
+
+Computing on one does not, because the value is not known yet. Formatting a
+currency, totalling a list, comparing a date — those need a **deriver**, which
+the engine runs per document:
+
+```tsx
+<Paragraph
+  id="balance"
+  derivers={[
+    derive("currencyLabel", { output: "balanceLabel", inputs: [dataRef("balanceDue")] }),
+  ]}
+>
+  Your balance is {"{{derived.balanceLabel}}"}.
+</Paragraph>
+```
+
+`useFormat` and `useDeriver` compute during the build instead, which is right
+whenever the value is already known. Reach for a deriver when it is not.
+
+### Loops are published as loops
+
+A branch has two arms and both can be published. A loop has as many as the
+request has entries, and nobody knows that number until a document is written —
+so the loop itself is what gets stored:
+
+```tsx
+<Repeat over="visits" as="visit">
+  <Paragraph>Visit: {"{{ctx.visit.label}}"}</Paragraph>
+</Repeat>
+```
+
+With real data this walks the collection immediately, so previews show the
+repetition rather than a description of it. Published, it stays a loop and the
+engine walks it, binding each entry under `as` and its position under `indexAs`,
+and suffixing child ids with the index so one pass stays distinguishable from
+the next.
+
+Calling `.map()` on request data while publishing is an error that names the
+`Repeat` to write instead.
+
+### Branches multiply
+
+Publishing a branch stores both arms, each under the condition that selects it.
+Nesting branches multiplies what a document carries, so there is a limit —
+`branchLimit`, 32 by default — and passing it fails the build rather than
+producing a quietly enormous artifact. Lift the decision into a deriver that
+yields one value, or raise the limit if the document really is that conditional.

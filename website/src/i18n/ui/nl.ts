@@ -152,9 +152,9 @@ export const nl: UiStrings = {
           title: "Het nodemodel",
           blurb: "Elk nodetype, met van elk een preview.",
         },
-        staticAndDynamic: {
-          title: "Statisch en dynamisch",
-          blurb: "Wat lokaal draait, en wat de engine nodig heeft.",
+        writingNodes: {
+          title: "Nodes schrijven",
+          blurb: "De onderdelen waaruit een document bestaat.",
         },
         cli: {
           title: "CLI-commando's",
