@@ -57,8 +57,8 @@ export const en = {
     headlineLineTwo: "DOCX as output.",
     lead:
       "Compose documents from small typed components, using the JSX you already " +
-      "write. Leverage in-built AI features to create dynamic documents and scale " +
-      "document generation using our engine.",
+      "write. Built-in AI can write any part of a document, or decide what goes " +
+      "in it. Then generate them at scale through the engine.",
     ctaStart: "Get started →",
     ctaHowItWorks: "How it works",
     copyInstall: "Copy install command",
@@ -66,7 +66,7 @@ export const en = {
     copied: "Copied",
     copyFallback: "Press ⌘C",
     /** {hash} is the full integrity hash. */
-    integrityTitle: "{hash} — click to copy",
+    integrityTitle: "{hash} · click to copy",
     /** Accessible name for the registry marks beside the version. */
     onNpm: "Docxcelerate on npm",
     onJsr: "Docxcelerate on JSR",
@@ -77,7 +77,7 @@ export const en = {
         title: "Write documents like websites",
         body:
           "A document is a tree of typed components. If you have written React you " +
-          "already know the shape of this — props, composition, small files — so a " +
+          "already know the shape of this: props, composition, small files. A " +
           "frontend engineer is productive on the first afternoon rather than " +
           "learning a template language first.",
       },
@@ -87,16 +87,16 @@ export const en = {
         body:
           "Generated prose is a node type, not a bolt-on. Mark the one paragraph " +
           "that genuinely needs a model, give it prompts and a placeholder, and " +
-          "leave the rest deterministic — so AI solves the hard part without " +
-          "putting the whole document at its mercy.",
+          "leave the rest deterministic. AI solves the hard part without putting " +
+          "the whole document at its mercy.",
       },
       changeControl: {
         label: "Change control",
         title: "Documents live in your repo",
         body:
-          "Because a document is source, changing a sentence is a pull request — " +
-          "diffed, reviewed, and still attributable a year later when someone asks " +
-          "who altered the arrears wording. Tests assert a document renders what you " +
+          "Because a document is source, changing a sentence is a pull request that " +
+          "gets diffed, reviewed, and stays attributable a year later when someone " +
+          "asks who altered the arrears wording. Tests assert a document renders what you " +
           "expect, so CI catches the mistake before a recipient does.",
       },
     },
@@ -143,7 +143,7 @@ export const en = {
       eyebrow: "Documentation",
       title: "Read the whole thing",
       lead:
-        "Every node type, every CLI flag, and every file a build writes — with " +
+        "Every node type, every CLI flag, and every file a build writes, with " +
         "previews rendered by the real renderer, so nothing on the page can " +
         "describe a helper that no longer exists.",
       cards: {
@@ -235,7 +235,7 @@ export const en = {
 
   nodes: {
     helpers: "Helpers",
-    noHelpers: "None — written by hand",
+    noHelpers: "None, written by hand",
     kind: "Node kind",
     category: "Category",
     resolves: "Resolves",

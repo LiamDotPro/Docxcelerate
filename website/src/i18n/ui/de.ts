@@ -49,16 +49,17 @@ export const de: UiStrings = {
     headlineLineOne: "Dokumente als Komponenten.",
     headlineLineTwo: "DOCX als Ergebnis.",
     lead:
-      "Setzen Sie Dokumente aus kleinen, typisierten Komponenten zusammen — mit dem " +
-      "JSX, das Sie ohnehin schreiben. Nutzen Sie die eingebauten KI-Funktionen für " +
-      "dynamische Dokumente und skalieren Sie die Dokumenterzeugung mit unserer Engine.",
+      "Setzen Sie Dokumente aus kleinen, typisierten Komponenten zusammen, mit dem " +
+      "JSX, das Sie ohnehin schreiben. Die eingebaute KI kann jeden Teil eines " +
+      "Dokuments schreiben oder entscheiden, was hineingehört. Skalieren Sie die " +
+      "Erzeugung anschließend mit der Engine.",
     ctaStart: "Loslegen →",
     ctaHowItWorks: "So funktioniert es",
     copyInstall: "Installationsbefehl kopieren",
     copy: "Kopieren",
     copied: "Kopiert",
     copyFallback: "⌘C drücken",
-    integrityTitle: "{hash} — zum Kopieren klicken",
+    integrityTitle: "{hash} · zum Kopieren klicken",
     /** Accessible name for the registry marks beside the version. */
     onNpm: "Docxcelerate auf npm",
     onJsr: "Docxcelerate auf JSR",
@@ -69,10 +70,10 @@ export const de: UiStrings = {
         title: "Dokumente schreiben wie Websites",
         body:
           "Ein Dokument ist ein Baum aus typisierten Komponenten. Wer schon einmal " +
-          "React geschrieben hat, kennt diese Form bereits — Props, Komposition, " +
-          "kleine Dateien — und ist als Frontend-Entwicklerin oder -Entwickler " +
-          "schon am ersten Nachmittag produktiv, statt erst eine Templatesprache " +
-          "lernen zu müssen.",
+          "React geschrieben hat, kennt diese Form bereits: Props, Komposition, " +
+          "kleine Dateien. Frontend-Entwicklerinnen und -Entwickler sind schon am " +
+          "ersten Nachmittag produktiv, statt erst eine Templatesprache lernen " +
+          "zu müssen.",
       },
       ai: {
         label: "KI",
@@ -81,7 +82,7 @@ export const de: UiStrings = {
           "Generierter Text ist ein Node-Typ, kein nachträglicher Aufsatz. " +
           "Markieren Sie den einen Absatz, der wirklich ein Modell braucht, geben " +
           "Sie ihm Prompts und einen Platzhalter, und lassen Sie den Rest " +
-          "deterministisch — so löst KI den schwierigen Teil, ohne dass das ganze " +
+          "deterministisch. So löst KI den schwierigen Teil, ohne dass das ganze " +
           "Dokument ihr ausgeliefert ist.",
       },
       changeControl: {
@@ -89,7 +90,7 @@ export const de: UiStrings = {
         title: "Dokumente liegen in Ihrem Repository",
         body:
           "Weil ein Dokument Quellcode ist, wird das Ändern eines Satzes zu einem " +
-          "Pull Request — mit Diff, mit Review, und noch ein Jahr später " +
+          "Pull Request: mit Diff, mit Review, und noch ein Jahr später " +
           "nachvollziehbar, wenn jemand fragt, wer die Formulierung zum " +
           "Zahlungsrückstand geändert hat. Tests halten fest, dass ein Dokument das " +
           "rendert, was Sie erwarten, sodass die CI den Fehler vor der Empfängerin " +
@@ -143,7 +144,7 @@ export const de: UiStrings = {
       eyebrow: "Dokumentation",
       title: "Lesen Sie das Ganze",
       lead:
-        "Jeder Node-Typ, jedes CLI-Flag und jede Datei, die ein Build schreibt — mit " +
+        "Jeder Node-Typ, jedes CLI-Flag und jede Datei, die ein Build schreibt. Dazu " +
         "Vorschauen, die der echte Renderer erzeugt hat, sodass nichts auf der Seite " +
         "einen Helper beschreiben kann, den es nicht mehr gibt.",
       cards: {
@@ -187,7 +188,7 @@ export const de: UiStrings = {
     fit: "Einpassen",
     frameTitle: "Das ausgewählte Dokument, gerendert von Docxcelerate",
     caption:
-      "Eine echte Dokumentvorschau, live gerendert — keine Screenshots und keine versteckten Tricks.",
+      "Eine echte Dokumentvorschau, live gerendert. Keine Screenshots und keine versteckten Tricks.",
     counts: "{documents} Dokumente · {files} Dateien",
     sectors: {
       education: "Bildung",
@@ -225,7 +226,7 @@ export const de: UiStrings = {
 
   nodes: {
     helpers: "Helper",
-    noHelpers: "Keine — von Hand geschrieben",
+    noHelpers: "Keine, von Hand geschrieben",
     kind: "Node-Art",
     category: "Kategorie",
     resolves: "Wird aufgelöst",

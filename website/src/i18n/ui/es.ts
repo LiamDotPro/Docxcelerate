@@ -51,15 +51,15 @@ export const es: UiStrings = {
     headlineLineTwo: "DOCX como resultado.",
     lead:
       "Compón documentos a partir de componentes pequeños y tipados, con el JSX que " +
-      "ya escribes. Aprovecha las funciones de IA integradas para crear documentos " +
-      "dinámicos y escala la generación de documentos con nuestro motor.",
+      "ya escribes. La IA integrada puede escribir cualquier parte de un documento, " +
+      "o decidir qué va en él. Después escala su generación con el motor.",
     ctaStart: "Empezar →",
     ctaHowItWorks: "Cómo funciona",
     copyInstall: "Copiar el comando de instalación",
     copy: "Copiar",
     copied: "Copiado",
     copyFallback: "Pulsa ⌘C",
-    integrityTitle: "{hash} — haz clic para copiar",
+    integrityTitle: "{hash} · haz clic para copiar",
     /** Accessible name for the registry marks beside the version. */
     onNpm: "Docxcelerate en npm",
     onJsr: "Docxcelerate en JSR",
@@ -70,7 +70,7 @@ export const es: UiStrings = {
         title: "Escribe documentos como sitios web",
         body:
           "Un documento es un árbol de componentes tipados. Si has escrito React, ya " +
-          "conoces esta forma — props, composición, archivos pequeños — así que una " +
+          "conoces esta forma: props, composición, archivos pequeños. Así que una " +
           "persona con perfil de frontend es productiva la primera tarde en lugar de " +
           "tener que aprender antes un lenguaje de plantillas.",
       },
@@ -80,15 +80,15 @@ export const es: UiStrings = {
         body:
           "El texto generado es un tipo de nodo, no un añadido. Marca el único " +
           "párrafo que de verdad necesita un modelo, dale prompts y un marcador de " +
-          "posición, y deja el resto determinista — así la IA resuelve la parte " +
+          "posición, y deja el resto determinista. Así la IA resuelve la parte " +
           "difícil sin poner todo el documento a su merced.",
       },
       changeControl: {
         label: "Control de cambios",
         title: "Los documentos viven en tu repositorio",
         body:
-          "Como un documento es código fuente, cambiar una frase es un pull request " +
-          "— con su diff, revisado, y todavía atribuible un año después cuando " +
+          "Como un documento es código fuente, cambiar una frase es un pull request: " +
+          "con su diff, revisado, y todavía atribuible un año después cuando " +
           "alguien pregunte quién modificó la redacción sobre los impagos. Las " +
           "pruebas afirman que un documento genera lo que esperas, así que la CI " +
           "detecta el error antes que quien lo recibe.",
@@ -139,7 +139,7 @@ export const es: UiStrings = {
       title: "Léelo entero",
       lead:
         "Cada tipo de nodo, cada flag de la CLI y cada archivo que escribe una " +
-        "compilación — con vistas previas generadas por el renderizador real, de modo " +
+        "compilación, con vistas previas generadas por el renderizador real, de modo " +
         "que nada en la página pueda describir un helper que ya no existe.",
       cards: {
         startHere: {
@@ -220,7 +220,7 @@ export const es: UiStrings = {
 
   nodes: {
     helpers: "Helpers",
-    noHelpers: "Ninguno — se escribe a mano",
+    noHelpers: "Ninguno, se escribe a mano",
     kind: "Clase de nodo",
     category: "Categoría",
     resolves: "Se resuelve",

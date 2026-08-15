@@ -47,15 +47,15 @@ export const nl: UiStrings = {
     headlineLineTwo: "DOCX als resultaat.",
     lead:
       "Stel documenten samen uit kleine, getypeerde componenten, met de JSX die je " +
-      "toch al schrijft. Gebruik de ingebouwde AI-functies om dynamische documenten " +
-      "te maken en schaal documentgeneratie op met onze engine.",
+      "toch al schrijft. Ingebouwde AI kan elk deel van een document schrijven, of " +
+      "bepalen wat erin komt. Schaal de generatie daarna op met de engine.",
     ctaStart: "Aan de slag →",
     ctaHowItWorks: "Hoe het werkt",
     copyInstall: "Installatiecommando kopiëren",
     copy: "Kopiëren",
     copied: "Gekopieerd",
     copyFallback: "Druk op ⌘C",
-    integrityTitle: "{hash} — klik om te kopiëren",
+    integrityTitle: "{hash} · klik om te kopiëren",
     /** Accessible name for the registry marks beside the version. */
     onNpm: "Docxcelerate op npm",
     onJsr: "Docxcelerate op JSR",
@@ -66,8 +66,8 @@ export const nl: UiStrings = {
         title: "Schrijf documenten zoals websites",
         body:
           "Een document is een boom van getypeerde componenten. Als je ooit React " +
-          "hebt geschreven, ken je deze vorm al — props, compositie, kleine " +
-          "bestanden — dus een frontend-engineer is de eerste middag al productief " +
+          "hebt geschreven, ken je deze vorm al: props, compositie, kleine " +
+          "bestanden. Een frontend-engineer is de eerste middag al productief " +
           "in plaats van eerst een templatetaal te moeten leren.",
       },
       ai: {
@@ -76,7 +76,7 @@ export const nl: UiStrings = {
         body:
           "Gegenereerde tekst is een nodetype, geen aanbouwsel. Markeer de ene " +
           "alinea die echt een model nodig heeft, geef die prompts en een " +
-          "placeholder, en laat de rest deterministisch — zo lost AI het moeilijke " +
+          "placeholder, en laat de rest deterministisch. Zo lost AI het moeilijke " +
           "deel op zonder dat het hele document aan zijn genade is overgeleverd.",
       },
       changeControl: {
@@ -84,7 +84,7 @@ export const nl: UiStrings = {
         title: "Documenten staan in je repository",
         body:
           "Omdat een document broncode is, is het wijzigen van een zin een pull " +
-          "request — gedift, beoordeeld, en een jaar later nog steeds herleidbaar " +
+          "request: gedift, beoordeeld, en een jaar later nog steeds herleidbaar " +
           "wanneer iemand vraagt wie de formulering over betalingsachterstanden " +
           "heeft aangepast. Tests leggen vast dat een document rendert wat je " +
           "verwacht, zodat CI de fout opmerkt vóór de ontvanger dat doet.",
@@ -136,7 +136,7 @@ export const nl: UiStrings = {
       eyebrow: "Documentatie",
       title: "Lees het helemaal",
       lead:
-        "Elk nodetype, elke CLI-vlag en elk bestand dat een build wegschrijft — met " +
+        "Elk nodetype, elke CLI-vlag en elk bestand dat een build wegschrijft, met " +
         "previews die door de echte renderer zijn gerenderd, zodat niets op de " +
         "pagina een helper kan beschrijven die niet meer bestaat.",
       cards: {
@@ -218,7 +218,7 @@ export const nl: UiStrings = {
 
   nodes: {
     helpers: "Helpers",
-    noHelpers: "Geen — met de hand geschreven",
+    noHelpers: "Geen, met de hand geschreven",
     kind: "Nodesoort",
     category: "Categorie",
     resolves: "Wordt opgelost",
