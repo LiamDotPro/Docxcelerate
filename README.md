@@ -32,7 +32,6 @@ Start at the **template**. It is the shape of the whole document in one file: th
 sections it has, and the components that fill them.
 
 ```tsx
-/** @jsxImportSource docxcelerate/template */
 import { Document, Section, template } from "docxcelerate/template";
 import { Balance, Greeting } from "./nodes/index.ts";
 import type { TenancyData } from "./types.ts";
@@ -54,7 +53,6 @@ is what lets each component decide what it is later, once there is data.
 its data as state, and returns the **node** it wants:
 
 ```tsx
-/** @jsxImportSource docxcelerate/template */
 import { Paragraph, useSetPrompts, useState } from "docxcelerate/template";
 import type { TenancyData } from "../types.ts";
 
