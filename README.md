@@ -28,8 +28,30 @@ npm install -g docxcelerate
 
 ## What a document looks like
 
-A document is a tree of components. Each one takes its data as state, decides what
-it is with ordinary JavaScript, and returns the nodes it wants.
+Start at the **template**. It is the shape of the whole document in one file: the
+sections it has, and the components that fill them.
+
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { Document, Section, template } from "docxcelerate/template";
+import { Balance, Greeting } from "./nodes/index.ts";
+import type { TenancyData } from "./types.ts";
+
+export const documentTemplate = template<TenancyData>(
+  <Document id="tenancy-renewal" title="Tenancy Renewal">
+    <Section id="opening" title="Opening">
+      <Greeting />
+      <Balance />
+    </Section>
+  </Document>,
+);
+```
+
+Nothing runs when that is written. Evaluating the JSX only builds elements, which
+is what lets each component decide what it is later, once there is data.
+
+`Greeting` and `Balance` are those **components**. Each lives in its own file, takes
+its data as state, and returns the **node** it wants:
 
 ```tsx
 /** @jsxImportSource docxcelerate/template */
@@ -53,21 +75,11 @@ export const Balance: Paragraph = () => {
 ```
 
 Data enters through `useState` and nothing else reaches for it, so what a component
-depends on is written down in one place. Setting prompts is what makes a node
-dynamic — the mode is inferred, never declared.
+depends on is written down in one place. Branching is an ordinary `if`.
 
-Components compose into a template:
-
-```tsx
-export const documentTemplate = template<TenancyData>(
-  <Document id="tenancy-renewal" title="Tenancy Renewal">
-    <Section id="opening" title="Opening">
-      <Greeting />
-      <Balance />
-    </Section>
-  </Document>,
-);
-```
+The two arms show where AI fits. The settled arm has its own text, so it is produced
+on your machine. The arrears arm has none, so the model writes it from the prompt.
+You never declare which is which — a component decides by what it supplies.
 
 ## Documentation
 
