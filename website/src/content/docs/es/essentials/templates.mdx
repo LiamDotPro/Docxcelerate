@@ -13,7 +13,6 @@ más tarde, con los datos en la mano.
 ## La forma
 
 ```tsx
-/** @jsxImportSource docxcelerate/template */
 import { Document, Section, template } from "docxcelerate/template";
 import { Greeting, NextSteps } from "./nodes/index.ts";
 import type { DocumentData } from "./types.ts";
@@ -30,9 +29,8 @@ export const documentTemplate = template<DocumentData>(
 );
 ```
 
-La pragma de la primera línea es lo que conecta JSX con Docxcelerate en lugar de
-con React. Si defines `jsxImportSource` en `tsconfig.json`, puedes prescindir de
-ella:
+Lo que conecta ese JSX con Docxcelerate en lugar de con React es
+`tsconfig.json`:
 
 ```json
 {
@@ -43,7 +41,11 @@ ella:
 }
 ```
 
-Los workspaces generados ya vienen configurados así.
+Los workspaces generados ya lo traen, así que no hay nada que añadir al principio
+de cada archivo. Si estás incorporando Docxcelerate a un proyecto que apunta
+`jsxImportSource` a otro sitio, un comentario
+`/** @jsxImportSource docxcelerate/template */` en la primera línea lo
+sobrescribe para ese archivo.
 
 ## Estructura calculada
 

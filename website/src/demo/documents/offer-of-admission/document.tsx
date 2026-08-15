@@ -1,4 +1,3 @@
-/** @jsxImportSource docxcelerate/template */
 import { Document, Section, template } from "docxcelerate/template";
 import {
   Conditions,

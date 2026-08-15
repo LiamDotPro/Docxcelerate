@@ -13,7 +13,6 @@ order: 3
 ## Форма
 
 ```tsx
-/** @jsxImportSource docxcelerate/template */
 import { Document, Section, template } from "docxcelerate/template";
 import { Greeting, NextSteps } from "./nodes/index.ts";
 import type { DocumentData } from "./types.ts";
@@ -30,8 +29,7 @@ export const documentTemplate = template<DocumentData>(
 );
 ```
 
-Прагма в первой строке связывает JSX с Docxcelerate, а не с React. Если задать
-`jsxImportSource` в `tsconfig.json`, её можно опустить:
+С Docxcelerate, а не с React, этот JSX связывает `tsconfig.json`:
 
 ```json
 {
@@ -42,7 +40,10 @@ export const documentTemplate = template<DocumentData>(
 }
 ```
 
-В созданных workspace это уже настроено.
+В созданных workspace это уже прописано, так что вверху файла добавлять нечего.
+Если вы подключаете Docxcelerate к проекту, где `jsxImportSource` указывает в
+другое место, комментарий `/** @jsxImportSource docxcelerate/template */` в
+первой строке переопределит его для этого файла.
 
 ## Вычисляемая структура
 

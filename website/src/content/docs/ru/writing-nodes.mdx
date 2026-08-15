@@ -24,7 +24,6 @@ dxcl document node documents/welcome next-steps --type paragraph
 в то место документа, которому он принадлежит:
 
 ```tsx
-/** @jsxImportSource docxcelerate/template */
 import { Document, Section, template } from "docxcelerate/template";
 import * as Nodes from "./nodes/index.ts";
 import type { DocumentData } from "./types.ts";
@@ -46,7 +45,6 @@ export const documentTemplate = template<DocumentData>(
 ## Данные приходят через `useState`
 
 ```tsx
-/** @jsxImportSource docxcelerate/template */
 import { Paragraph, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 

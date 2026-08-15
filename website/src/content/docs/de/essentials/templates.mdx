@@ -13,7 +13,6 @@ sie ist, mit Daten in der Hand.
 ## Die Form
 
 ```tsx
-/** @jsxImportSource docxcelerate/template */
 import { Document, Section, template } from "docxcelerate/template";
 import { Greeting, NextSteps } from "./nodes/index.ts";
 import type { DocumentData } from "./types.ts";
@@ -30,9 +29,8 @@ export const documentTemplate = template<DocumentData>(
 );
 ```
 
-Das Pragma in Zeile eins verdrahtet JSX mit Docxcelerate statt mit React. Setzen
-Sie stattdessen `jsxImportSource` in der `tsconfig.json`, können Sie es
-weglassen:
+Was dieses JSX mit Docxcelerate statt mit React verdrahtet, ist die
+`tsconfig.json`:
 
 ```json
 {
@@ -43,7 +41,11 @@ weglassen:
 }
 ```
 
-In angelegten Workspaces ist das bereits konfiguriert.
+In angelegten Workspaces steht das bereits, oben in einer Datei ist also nichts
+zu ergänzen. Wenn Sie Docxcelerate zu einem Projekt hinzufügen, das
+`jsxImportSource` anderswohin zeigen lässt, überschreibt ein Kommentar
+`/** @jsxImportSource docxcelerate/template */` in Zeile eins das für diese
+Datei.
 
 ## Berechnete Struktur
 

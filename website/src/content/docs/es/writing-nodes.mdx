@@ -24,7 +24,6 @@ La colocación se deja en tus manos a propósito. Abre `document.tsx` y añade e
 componente en el punto del documento al que pertenece:
 
 ```tsx
-/** @jsxImportSource docxcelerate/template */
 import { Document, Section, template } from "docxcelerate/template";
 import * as Nodes from "./nodes/index.ts";
 import type { DocumentData } from "./types.ts";
@@ -46,7 +45,6 @@ Guarda, y la vista previa se recarga con el nodo nuevo en su sitio.
 ## Los datos entran por `useState`
 
 ```tsx
-/** @jsxImportSource docxcelerate/template */
 import { Paragraph, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 

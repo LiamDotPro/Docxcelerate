@@ -12,7 +12,6 @@ what lets a component decide what it is later, with data in hand.
 ## The shape
 
 ```tsx
-/** @jsxImportSource docxcelerate/template */
 import { Document, Section, template } from "docxcelerate/template";
 import { Greeting, NextSteps } from "./nodes/index.ts";
 import type { DocumentData } from "./types.ts";
@@ -29,8 +28,7 @@ export const documentTemplate = template<DocumentData>(
 );
 ```
 
-The pragma on line one is what wires JSX to Docxcelerate rather than to React.
-Set `jsxImportSource` in `tsconfig.json` instead and you can drop it:
+What wires that JSX to Docxcelerate rather than to React is `tsconfig.json`:
 
 ```json
 {
@@ -41,7 +39,10 @@ Set `jsxImportSource` in `tsconfig.json` instead and you can drop it:
 }
 ```
 
-Scaffolded workspaces already have this configured.
+Scaffolded workspaces have this already, so there is nothing to add at the top of
+a file. If you are adding Docxcelerate to a project that points
+`jsxImportSource` somewhere else, a `/** @jsxImportSource docxcelerate/template */`
+comment on line one overrides it for that file.
 
 ## Computed structure
 

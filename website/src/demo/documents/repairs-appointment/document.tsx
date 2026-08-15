@@ -1,4 +1,3 @@
-/** @jsxImportSource docxcelerate/template */
 import { Document, Section, template } from "docxcelerate/template";
 import { Access, Appointment, Greeting, WhatToExpect } from "./nodes/index.ts";
 import type { RepairsData } from "./types.ts";

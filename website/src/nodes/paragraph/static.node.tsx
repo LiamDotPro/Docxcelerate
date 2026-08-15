@@ -1,4 +1,3 @@
-/** @jsxImportSource docxcelerate/template */
 import { Paragraph, useState } from "docxcelerate/template";
 import type { SampleData } from "../sample-data.ts";
 

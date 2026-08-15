@@ -1,4 +1,3 @@
-/** @jsxImportSource docxcelerate/template */
 import { Section } from "docxcelerate/template";
 import { ClassMix } from "../graph/pie.node.tsx";
 import { VisitsByMonth } from "../graph/bar.node.tsx";
