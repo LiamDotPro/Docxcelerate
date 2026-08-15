@@ -132,6 +132,88 @@ export const nl: UiStrings = {
       },
     },
 
+    scale: {
+      eyebrow: "Op schaal",
+      title: "Gebouwd voor hele documentbestanden, niet voor losse bestandjes",
+      lead:
+        "Volume was vanaf de eerste commit een uitgangspunt, niet iets wat er later " +
+        "bij is gezet. Het framework is ontworpen rond organisaties die post per " +
+        "honderdduizend versturen: dezelfde toelatingsbrief naar elke aanmelder, " +
+        "dezelfde verlenging naar elke polishouder, elk met andere gegevens en " +
+        "andere clausules.",
+      traits: {
+        volume: {
+          title: "Eén template, willekeurig veel documenten",
+          body:
+            "Een template publiceer je één keer en roep je daarna per record aan. " +
+            "Honderdduizend documenten maken is dezelfde handeling als er één maken, " +
+            "herhaald — schaal is hoe vaak je de engine aanroept, en niet een aparte " +
+            "batchpijplijn die iemand moet bouwen en daarna in de gaten houden.",
+        },
+        determinism: {
+          title: "Voorspelbaar zonder dat je er iets voor doet",
+          body:
+            "Alles behalve de nodes die je expliciet als gegenereerd markeert, " +
+            "rendert elke keer identiek. Over een heel klantenbestand telt dat " +
+            "zwaarder dan wat ook: je kunt beredeneren wat elke ontvanger krijgt, " +
+            "omdat alleen de delen mogen variëren die jij hebt gekozen.",
+        },
+        integration: {
+          title: "Aangeroepen door de systemen die je al draait",
+          body:
+            "De engine neemt gegevens over HTTP aan en geeft een .docx terug. Je CRM, " +
+            "zaaksysteem of facturatiesysteem maakt zijn eigen post, zonder dat " +
+            "iemand een spreadsheet exporteert, Word opent of een samenvoegmacro " +
+            "onderhoudt die maar één persoon begrijpt.",
+        },
+        reproducibility: {
+          title: "Een jaar later nog reproduceerbaar",
+          body:
+            "Een gepubliceerde template heeft een versie, dus het document dat een " +
+            "ontvanger kreeg, kan precies opnieuw worden gemaakt: uit dezelfde " +
+            "template en dezelfde gegevens. Als een klacht of een audit vraagt wat er " +
+            "in maart is verstuurd, is het antwoord een build en geen archief waarvan " +
+            "je hoopt dat iemand het heeft bewaard.",
+        },
+      },
+    },
+
+    openSource: {
+      eyebrow: "Open source",
+      title: "Open source, en gebouwd om dat te blijven",
+      bodyOne:
+        "Het framework, de renderers, het nodemodel en de CLI staan onder een " +
+        "MIT-licentie en worden in de openbaarheid ontwikkeld. Lees de code die je " +
+        "documenten schrijft, fork hem, of neem hem op in je eigen build. Schrijven, " +
+        "preview en het inpakken van DOCX draaien volledig op je eigen machine — " +
+        "geen account, geen upload, geen netwerkverkeer.",
+      bodyTwo:
+        "De generatie-engine mag je gratis zelf hosten, dus documenten op schaal " +
+        "maken hangt nooit af van een leverancier die blijft bestaan of van een " +
+        "prijslijst die gelijk blijft. De managed cloud is een gemak voor teams die " +
+        "hem liever niet zelf draaien, niet de enige deur naar binnen.",
+      facts: {
+        licence: {
+          title: "MIT-licentie",
+          body:
+            "Commercieel gebruiken, aanpassen, uitleveren. Geen gebruikersaantallen " +
+            "en geen tarief per document.",
+        },
+        local: {
+          title: "Draait op je eigen machine",
+          body:
+            "Documenten en gegevens blijven op je laptop en in je CI, tenzij je ze " +
+            "naar een engine stuurt die je zelf hebt gekozen.",
+        },
+        selfHost: {
+          title: "Zelf te hosten engine",
+          body: "De gratis engine draait op je eigen infrastructuur, binnen je eigen netwerk.",
+        },
+      },
+      ctaSource: "Bekijk de broncode →",
+      ctaNpm: "Bekijk het op npm",
+    },
+
     docs: {
       eyebrow: "Documentatie",
       title: "Lees het helemaal",
