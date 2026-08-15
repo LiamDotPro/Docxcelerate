@@ -22,7 +22,6 @@ test("scaffold creates a structured document project and node generator updates 
     projectDir: scaffold.projectDir,
     name: "risk summary",
     type: "paragraph",
-    mode: "dynamic",
   });
 
   const index = await readTextFile(`${scaffold.projectDir}/nodes/index.ts`);
@@ -36,10 +35,10 @@ test("scaffold creates a structured document project and node generator updates 
   assertEquals(node.includes("const RiskSummary: Paragraph = () =>"), true);
   // Data reaches a component through state, never through render.
   assertEquals(node.includes("useState((data: DocumentData)"), true);
-  // Mode is inferred from what the component sets, so the prompt is what makes
-  // this node dynamic — assert on that rather than on a helper name.
-  assertEquals(node.includes("useSetPrompts"), true);
-  assertEquals(node.includes("generalPrompt"), true);
+  // A generated node starts with its content. Prompts are what would make it
+  // dynamic, and the generator has no business deciding that for you.
+  assertEquals(node.includes(`<Paragraph id="risk-summary">`), true);
+  assertEquals(node.includes("useSetPrompts"), false);
   assertEquals(style.includes("cleanMinimalDocumentStyle"), true);
   assertEquals(derivers.includes("DeriverDefinitions"), true);
   assertEquals(projectSource.includes("derivers"), true);
@@ -203,13 +202,11 @@ test("node generator supports image and graph node types", async () => {
     projectDir: scaffold.projectDir,
     name: "signature image",
     type: "image",
-    mode: "static",
   });
   const graph = await generateNodeDefinition({
     projectDir: scaffold.projectDir,
     name: "trend chart",
     type: "graph",
-    mode: "dynamic",
   });
 
   const imageSource = await readTextFile(image.filePath);
@@ -219,7 +216,7 @@ test("node generator supports image and graph node types", async () => {
   assertEquals(imageSource.includes("const SignatureImage: Image = () =>"), true);
   assertEquals(imageSource.includes("src="), true);
   assertEquals(graphSource.includes("const TrendChart: Graph = () =>"), true);
-  assertEquals(graphSource.includes("generalPrompt"), true);
+  assertEquals(graphSource.includes("graphType=\"bar\""), true);
   assertEquals(index.includes("SignatureImage"), true);
   assertEquals(index.includes("TrendChart"), true);
 });

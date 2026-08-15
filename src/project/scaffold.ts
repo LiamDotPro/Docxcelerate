@@ -24,14 +24,10 @@ export interface GenerateNodeOptions {
   projectDir: string;
   name: string;
   type?: GeneratedNodeType;
-  mode?: GeneratedNodeMode;
-  kind?: GeneratedNodeMode;
   force?: boolean;
 }
 
 export type GeneratedNodeType = "paragraph" | "image" | "graph";
-
-export type GeneratedNodeMode = "static" | "dynamic";
 
 export type WorkspaceProjectTemplate = "sample" | "blank";
 
@@ -186,18 +182,16 @@ export async function generateNodeDefinition(
   const nodeId = slugify(options.name);
   const componentName = pascalCase(nodeId);
   const type = options.type ?? "paragraph";
-  const mode = options.mode ?? options.kind ?? "static";
   const nodesDir = joinPath(options.projectDir, "nodes");
   const filePath = joinPath(nodesDir, `${nodeId}.node.tsx`);
   const exportPath = joinPath(nodesDir, "index.ts");
 
   assertGeneratedNodeType(type);
-  assertGeneratedNodeMode(mode);
 
   await ensureDirectory(nodesDir);
   await writeScaffoldFile(
     filePath,
-    nodeTemplate({ componentName, nodeId, type, mode }),
+    nodeTemplate({ componentName, nodeId, type }),
     options.force ?? false,
   );
   await appendNodeExport(exportPath, componentName, nodeId);
@@ -216,12 +210,6 @@ function assertGeneratedNodeType(value: string): asserts value is GeneratedNodeT
   }
 }
 
-function assertGeneratedNodeMode(value: string): asserts value is GeneratedNodeMode {
-  if (value !== "static" && value !== "dynamic") {
-    throw new Error(`Unsupported node mode: ${value}. Expected "static" or "dynamic".`);
-  }
-}
-
 function assertWorkspaceProjectTemplate(
   value: string,
 ): asserts value is WorkspaceProjectTemplate {
@@ -230,27 +218,28 @@ function assertWorkspaceProjectTemplate(
   }
 }
 
+/**
+ * One template per node type, and no second axis.
+ *
+ * A generated node starts with its content, because that is the node you can
+ * read in the preview the moment it exists. What makes a node generated is
+ * setting prompts on it — a component decides that with data in hand, so it is
+ * not something the generator could have been told up front.
+ */
 function nodeTemplate(options: {
   componentName: string;
   nodeId: string;
   type: GeneratedNodeType;
-  mode: GeneratedNodeMode;
 }): string {
   if (options.type === "image") {
-    return options.mode === "dynamic"
-      ? dynamicImageNodeTemplate(options)
-      : staticImageNodeTemplate(options);
+    return imageNodeTemplate(options);
   }
 
   if (options.type === "graph") {
-    return options.mode === "dynamic"
-      ? dynamicGraphNodeTemplate(options)
-      : staticGraphNodeTemplate(options);
+    return graphNodeTemplate(options);
   }
 
-  return options.mode === "dynamic"
-    ? dynamicParagraphNodeTemplate(options)
-    : staticParagraphNodeTemplate(options);
+  return paragraphNodeTemplate(options);
 }
 
 async function ensureScaffoldTarget(projectDir: string, force: boolean): Promise<void> {
@@ -2157,7 +2146,7 @@ export { Greeting } from "./greeting.node.tsx";
 `;
 }
 
-function staticParagraphNodeTemplate(options: { componentName: string; nodeId: string }): string {
+function paragraphNodeTemplate(options: { componentName: string; nodeId: string }): string {
   return `/** @jsxImportSource docxcelerate/template */
 import { Paragraph, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
@@ -2176,39 +2165,7 @@ export const ${options.componentName}: Paragraph = () => {
 `;
 }
 
-function dynamicParagraphNodeTemplate(options: { componentName: string; nodeId: string }): string {
-  return `/** @jsxImportSource docxcelerate/template */
-import {
-  Paragraph,
-  useAvailableTokens,
-  useSetPlaceholders,
-  useSetPrompts,
-  useState,
-} from "docxcelerate/template";
-import type { DocumentData } from "../types.ts";
-
-export const ${options.componentName}: Paragraph = () => {
-  const availableTokens = useAvailableTokens();
-  const [state] = useState((data: DocumentData) => ({
-    name: data.recipientName,
-  }));
-
-  useSetPrompts({
-    generalPrompt:
-      \`Write a concise paragraph for \${state.name}. Stay within \${availableTokens} tokens.\`,
-    negativePrompt: "Do not invent facts or mention internal implementation details.",
-  });
-
-  useSetPlaceholders(
-    \`Placeholder ${titleFromSlug(options.nodeId).toLowerCase()} content for \${state.name}.\`,
-  );
-
-  return <Paragraph id="${options.nodeId}" />;
-};
-`;
-}
-
-function staticImageNodeTemplate(options: { componentName: string; nodeId: string }): string {
+function imageNodeTemplate(options: { componentName: string; nodeId: string }): string {
   return `/** @jsxImportSource docxcelerate/template */
 import { Image, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
@@ -2229,39 +2186,7 @@ export const ${options.componentName}: Image = () => {
 `;
 }
 
-function dynamicImageNodeTemplate(options: { componentName: string; nodeId: string }): string {
-  return `/** @jsxImportSource docxcelerate/template */
-import {
-  Image,
-  useAvailableTokens,
-  useSetPlaceholders,
-  useSetPrompts,
-  useState,
-} from "docxcelerate/template";
-import type { DocumentData } from "../types.ts";
-
-export const ${options.componentName}: Image = () => {
-  const availableTokens = useAvailableTokens();
-  const [state] = useState((data: DocumentData) => ({
-    name: data.recipientName,
-  }));
-
-  useSetPrompts({
-    generalPrompt:
-      \`Describe the image needed for \${state.name}. Stay within \${availableTokens} tokens.\`,
-    negativePrompt: "Do not invent facts or include private implementation details.",
-  });
-
-  useSetPlaceholders(
-    \`Placeholder ${titleFromSlug(options.nodeId).toLowerCase()} image for \${state.name}.\`,
-  );
-
-  return <Image id="${options.nodeId}" />;
-};
-`;
-}
-
-function staticGraphNodeTemplate(options: { componentName: string; nodeId: string }): string {
+function graphNodeTemplate(options: { componentName: string; nodeId: string }): string {
   return `/** @jsxImportSource docxcelerate/template */
 import { Graph, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
@@ -2282,38 +2207,6 @@ export const ${options.componentName}: Graph = () => {
       caption={\`${titleFromSlug(options.nodeId)} for \${state.name}.\`}
     />
   );
-};
-`;
-}
-
-function dynamicGraphNodeTemplate(options: { componentName: string; nodeId: string }): string {
-  return `/** @jsxImportSource docxcelerate/template */
-import {
-  Graph,
-  useAvailableTokens,
-  useSetPlaceholders,
-  useSetPrompts,
-  useState,
-} from "docxcelerate/template";
-import type { DocumentData } from "../types.ts";
-
-export const ${options.componentName}: Graph = () => {
-  const availableTokens = useAvailableTokens();
-  const [state] = useState((data: DocumentData) => ({
-    name: data.recipientName,
-  }));
-
-  useSetPrompts({
-    generalPrompt:
-      \`Prepare graph data for \${state.name}. Stay within \${availableTokens} tokens.\`,
-    negativePrompt: "Do not invent facts or include unsupported data points.",
-  });
-
-  useSetPlaceholders(
-    \`Placeholder ${titleFromSlug(options.nodeId).toLowerCase()} graph for \${state.name}.\`,
-  );
-
-  return <Graph id="${options.nodeId}" graphType="bar" />;
 };
 `;
 }

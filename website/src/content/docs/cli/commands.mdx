@@ -39,23 +39,28 @@ dxcl document new tenancy-renewal --title "Tenancy Renewal"
 ```
 
 Writes `documents/tenancy-renewal/` with `document.project.ts`, `document.tsx`,
-`document-style.ts`, `preview-data.ts`, `types.ts` and a `nodes/` directory.
+`document-style.ts`, `preview-data.ts`, `types.ts`, and `derivers/` and `nodes/`
+directories. See [document projects](/docs/document-projects/) for what each
+file is for.
 
 ## dxcl document node
 
 Generates a node component and registers it.
 
 ```sh
-dxcl document node documents/tenancy-renewal next-steps --type paragraph --mode dynamic
-dxcl document node documents/tenancy-renewal signature   --type image     --mode static
-dxcl document node documents/tenancy-renewal rent-trend  --type graph     --mode static
+dxcl document node documents/tenancy-renewal next-steps --type paragraph
+dxcl document node documents/tenancy-renewal signature  --type image
+dxcl document node documents/tenancy-renewal rent-trend --type graph
 ```
 
 | Flag | Values |
 | --- | --- |
 | `--type` | [`paragraph`](/docs/nodes/paragraph/), [`image`](/docs/nodes/image/), [`graph`](/docs/nodes/graph/) |
-| `--mode` | `static`, `dynamic` |
 
-The generator writes `nodes/<name>.node.ts` and updates `nodes/index.ts`. It
+The generator writes `nodes/<name>.node.tsx` and updates `nodes/index.ts`. It
 does **not** place the node in your template — add it to `document.tsx` at the
 point in the document where it belongs.
+
+The node it writes starts with its content. What makes a node generated is
+setting prompts on it, which a component decides with data in hand — so there is
+nothing to choose here. See [writing nodes](/docs/writing-nodes/).

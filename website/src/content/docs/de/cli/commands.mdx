@@ -39,23 +39,29 @@ dxcl document new tenancy-renewal --title "Tenancy Renewal"
 ```
 
 Schreibt `documents/tenancy-renewal/` mit `document.project.ts`, `document.tsx`,
-`document-style.ts`, `preview-data.ts`, `types.ts` und einem `nodes/`-Verzeichnis.
+`document-style.ts`, `preview-data.ts`, `types.ts` sowie den Verzeichnissen
+`derivers/` und `nodes/`. Wofür jede Datei da ist, steht unter
+[Dokumentprojekte](/de/docs/document-projects/).
 
 ## dxcl document node
 
 Erzeugt eine Node-Komponente und registriert sie.
 
 ```sh
-dxcl document node documents/tenancy-renewal next-steps --type paragraph --mode dynamic
-dxcl document node documents/tenancy-renewal signature   --type image     --mode static
-dxcl document node documents/tenancy-renewal rent-trend  --type graph     --mode static
+dxcl document node documents/tenancy-renewal next-steps --type paragraph
+dxcl document node documents/tenancy-renewal signature  --type image
+dxcl document node documents/tenancy-renewal rent-trend --type graph
 ```
 
 | Flag | Werte |
 | --- | --- |
 | `--type` | [`paragraph`](/de/docs/nodes/paragraph/), [`image`](/de/docs/nodes/image/), [`graph`](/de/docs/nodes/graph/) |
-| `--mode` | `static`, `dynamic` |
 
-Der Generator schreibt `nodes/<name>.node.ts` und aktualisiert `nodes/index.ts`.
+Der Generator schreibt `nodes/<name>.node.tsx` und aktualisiert `nodes/index.ts`.
 Er platziert den Node **nicht** in Ihrem Template — fügen Sie ihn in
 `document.tsx` an der Stelle ein, an die er im Dokument gehört.
+
+Der erzeugte Node beginnt mit seinem Inhalt. Generiert wird ein Node dadurch,
+dass Prompts auf ihm gesetzt werden, und das entscheidet eine Komponente mit
+Daten in der Hand — hier gibt es also nichts zu wählen. Siehe
+[Nodes schreiben](/de/docs/writing-nodes/).

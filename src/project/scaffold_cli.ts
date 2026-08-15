@@ -89,11 +89,6 @@ if (command === "node" || command === "generate-node") {
   if (type !== "paragraph" && type !== "image" && type !== "graph") {
     fail(`Unsupported node type: ${type}. Expected "paragraph", "image", or "graph".`);
   }
-  const mode = args.options.mode ?? args.options.kind ??
-    (guided ? await askChoice("Node mode", ["static", "dynamic"], "static") : "static");
-  if (mode !== "static" && mode !== "dynamic") {
-    fail(`Unsupported node mode: ${mode}. Expected "static" or "dynamic".`);
-  }
   const force = args.flags.has("force") ||
     (guided ? await askBoolean("Overwrite existing node file if needed?", false) : false);
 
@@ -101,11 +96,10 @@ if (command === "node" || command === "generate-node") {
     projectDir,
     name,
     type,
-    mode,
     force,
   });
 
-  console.log(`Created ${mode} ${type} node ${result.componentName} -> ${result.filePath}`);
+  console.log(`Created ${type} node ${result.componentName} -> ${result.filePath}`);
   console.log(`Updated exports -> ${result.exportPath}`);
   process.exit(0);
 }
@@ -443,7 +437,7 @@ function printHelp(): void {
 Usage:
   dxcl init [project-name] [--dir <parent-dir>] [--sample|--blank] [--official-server|--api-endpoint <url>|--no-api-endpoint]
   dxcl document new [name] [--title <title>] [--dir documents]
-  dxcl document node [project-dir] [name] [--type paragraph|image|graph] [--mode static|dynamic]
+  dxcl document node [project-dir] [name] [--type paragraph|image|graph]
 
 Examples:
   dxcl init
@@ -453,7 +447,7 @@ Examples:
   dxcl document new
   dxcl document new arrears-notice --title "Arrears Notice"
   dxcl document node
-  dxcl document node documents/arrears-notice repayment-summary --type paragraph --mode dynamic
+  dxcl document node documents/arrears-notice repayment-summary --type paragraph
 
 Aliases:
   dxcl new       -> dxcl document new
