@@ -134,6 +134,91 @@ export const es: UiStrings = {
       },
     },
 
+    scale: {
+      eyebrow: "A escala",
+      title: "Pensado para parques documentales, no para archivos sueltos",
+      lead:
+        "El volumen fue una premisa desde el primer commit, no un añadido posterior. " +
+        "El framework se diseñó alrededor de organizaciones que envían " +
+        "correspondencia por cientos de miles: la misma carta de admisión a cada " +
+        "solicitante, la misma renovación a cada asegurado, cada una con datos y " +
+        "cláusulas distintos.",
+      traits: {
+        volume: {
+          title: "Una plantilla, cualquier número de documentos",
+          body:
+            "Una plantilla se publica una vez y luego se llama por cada registro. " +
+            "Generar cien mil documentos es la misma operación que generar uno, " +
+            "repetida: la escala es la frecuencia con la que llamas al motor, no una " +
+            "canalización por lotes aparte que alguien tenga que construir y después " +
+            "vigilar.",
+        },
+        determinism: {
+          title: "Predecible por defecto",
+          body:
+            "Todo salvo los nodos que marcas explícitamente como generados se " +
+            "renderiza igual siempre. En una base de clientes entera eso importa más " +
+            "que ninguna otra cosa: puedes razonar sobre lo que recibirá cada " +
+            "destinatario, porque solo pueden variar las partes que elegiste.",
+        },
+        integration: {
+          title: "Lo llaman los sistemas que ya tienes",
+          body:
+            "El motor recibe datos por HTTP y devuelve un .docx. Tu CRM, tu gestor de " +
+            "expedientes o tu sistema de facturación genera su propia " +
+            "correspondencia, sin que nadie exporte una hoja de cálculo, abra Word ni " +
+            "mantenga una macro de combinación de correspondencia que solo entiende " +
+            "una persona.",
+        },
+        reproducibility: {
+          title: "Reproducible un año después",
+          body:
+            "Una plantilla publicada está versionada, así que el documento que " +
+            "recibió un destinatario puede volver a producirse exactamente igual, con " +
+            "la misma plantilla y los mismos datos. Cuando una reclamación o una " +
+            "auditoría pregunta qué se envió en marzo, la respuesta es una " +
+            "compilación y no un archivo que esperas que alguien guardara.",
+        },
+      },
+    },
+
+    openSource: {
+      eyebrow: "Código abierto",
+      title: "Código abierto, y hecho para seguir siéndolo",
+      bodyOne:
+        "El framework, los renderizadores, el modelo de nodos y la CLI tienen " +
+        "licencia MIT y se desarrollan a la vista de todos. Lee el código que escribe " +
+        "tus documentos, bifúrcalo o incorpóralo a tu propia compilación. La " +
+        "escritura, la vista previa y el empaquetado de DOCX se ejecutan íntegramente " +
+        "en tu máquina: sin cuenta, sin subidas, sin llamadas de red.",
+      bodyTwo:
+        "El motor de generación se puede autoalojar gratis, así que generar " +
+        "documentos a escala nunca depende de que un proveedor siga en el mercado ni " +
+        "de que una lista de precios no cambie. La nube gestionada es una comodidad " +
+        "para equipos que prefieren no operarlo ellos mismos, no la única puerta de " +
+        "entrada.",
+      facts: {
+        licence: {
+          title: "Licencia MIT",
+          body:
+            "Úsalo comercialmente, modifícalo, distribúyelo. Sin recuento de puestos " +
+            "ni tarifa por documento.",
+        },
+        local: {
+          title: "Se ejecuta en tu máquina",
+          body:
+            "Los documentos y los datos se quedan en tu portátil y en tu CI salvo que " +
+            "los envíes a un motor que hayas elegido.",
+        },
+        selfHost: {
+          title: "Motor autoalojable",
+          body: "El motor gratuito corre en tu propia infraestructura, dentro de tu propia red.",
+        },
+      },
+      ctaSource: "Ver el código →",
+      ctaNpm: "Verlo en npm",
+    },
+
     docs: {
       eyebrow: "Documentación",
       title: "Léelo entero",

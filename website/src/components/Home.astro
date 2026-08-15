@@ -36,6 +36,24 @@ const POINTS = [t.home.points.authoring, t.home.points.ai, t.home.points.changeC
 // framework is responsible for.
 const STEPS = [t.home.engine.steps.build, t.home.engine.steps.publish, t.home.engine.steps.write];
 
+// Volume first, because it is the claim the section is making; the other three
+// are what makes volume survivable once you have it.
+const TRAITS = [
+  t.home.scale.traits.volume,
+  t.home.scale.traits.determinism,
+  t.home.scale.traits.integration,
+  t.home.scale.traits.reproducibility,
+];
+
+// The three things a reader checks when someone says "open source": what the
+// licence lets them do, what leaves the machine, and whether they can run the
+// hosted part themselves.
+const FACTS = [
+  t.home.openSource.facts.licence,
+  t.home.openSource.facts.local,
+  t.home.openSource.facts.selfHost,
+];
+
 // What the package is, in the vocabulary a search engine already has. The
 // version and licence come from the release the site was built against, so this
 // cannot drift from the install command printed above it.
@@ -241,6 +259,95 @@ const CARDS = [
           ))
         }
       </ol>
+    </div>
+  </section>
+
+  <!-- Scale. Takes the surface treatment so the three prose sections either
+       side of it stay told apart without another band of accent. -->
+  <section class="border-y border-border bg-surface">
+    <div class="mx-auto max-w-6xl px-5 py-24 sm:px-8 sm:py-28">
+      <div class="mb-12 flex max-w-2xl flex-col gap-4">
+        <span
+          class="font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent"
+          >{t.home.scale.eyebrow}</span
+        >
+        <h2 class="m-0 text-3xl font-semibold sm:text-4xl">{t.home.scale.title}</h2>
+        <p class="m-0 leading-relaxed text-muted">
+          {t.home.scale.lead}
+        </p>
+      </div>
+
+      <!-- Numbered but unordered: they are four properties of one design, not
+           steps, and the numerals only give the eye somewhere to land. -->
+      <div class="grid gap-x-12 gap-y-9 sm:grid-cols-2">
+        {
+          TRAITS.map((trait, index) => (
+            <div class="flex flex-col border-t border-border pt-5">
+              <span class="mb-3 font-mono text-[0.7rem] text-muted tabular-nums">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <h3 class="m-0 mb-2 text-lg font-semibold">{trait.title}</h3>
+              <p class="m-0 text-[0.95rem] leading-[1.75] text-pretty text-muted">{trait.body}</p>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- Open source -->
+  <section class="mx-auto max-w-6xl px-5 py-24 sm:px-8 sm:py-28">
+    <div class="grid gap-12 md:grid-cols-[1.15fr_1fr] md:gap-16">
+      <div class="flex max-w-xl flex-col gap-5">
+        <span
+          class="font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent"
+          >{t.home.openSource.eyebrow}</span
+        >
+        <h2 class="m-0 text-3xl font-semibold sm:text-4xl">{t.home.openSource.title}</h2>
+        <p class="m-0 leading-relaxed text-muted">
+          {t.home.openSource.bodyOne}
+        </p>
+        <p class="m-0 leading-relaxed text-muted">
+          {t.home.openSource.bodyTwo}
+        </p>
+        <div class="mt-2 flex flex-wrap gap-3">
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded bg-accent-solid px-5 py-2.5 text-sm font-medium text-on-accent no-underline transition-colors hover:bg-accent-deep"
+            >{t.home.openSource.ctaSource}</a
+          >
+          <a
+            href={NPM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded border border-border-firm px-5 py-2.5 text-sm font-medium text-muted no-underline transition-colors hover:text-accent"
+            >{t.home.openSource.ctaNpm}</a
+          >
+        </div>
+      </div>
+
+      <!-- Boxed rather than ruled, so it doesn't read as a second copy of the
+           engine's step list sitting in the same position. -->
+      <ul
+        class="m-0 flex list-none flex-col gap-6 rounded-md border border-border bg-surface p-7 md:self-start"
+      >
+        {
+          FACTS.map((fact) => (
+            <li class="m-0 flex gap-3.5">
+              <span
+                class="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-solid"
+                aria-hidden="true"
+              />
+              <span class="flex flex-col gap-1">
+                <span class="font-semibold text-ink">{fact.title}</span>
+                <span class="text-sm leading-relaxed text-muted">{fact.body}</span>
+              </span>
+            </li>
+          ))
+        }
+      </ul>
     </div>
   </section>
 
