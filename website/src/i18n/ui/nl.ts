@@ -72,12 +72,13 @@ export const nl: UiStrings = {
       },
       ai: {
         label: "AI",
-        title: "Ontworpen voor AI",
+        title: "AI op componentniveau",
         body:
-          "Gegenereerde tekst is een nodetype, geen aanbouwsel. Markeer de ene " +
-          "alinea die echt een model nodig heeft, geef die prompts en een " +
-          "placeholder, en laat de rest deterministisch. Zo lost AI het moeilijke " +
-          "deel op zonder dat het hele document aan zijn genade is overgeleverd.",
+          "AI komt binnen via hooks, in de componenten die je toch al schrijft. Een " +
+          "component geeft het model zijn context en wat je geschreven wilt hebben, " +
+          "zodat het precies dat ene deel van het document maakt terwijl alles " +
+          "eromheen deterministisch blijft. Jij bepaalt hoeveel er gegenereerd " +
+          "wordt, één component tegelijk.",
       },
       changeControl: {
         label: "Wijzigingsbeheer",
