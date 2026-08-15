@@ -50,9 +50,9 @@ export const de: UiStrings = {
     headlineLineTwo: "DOCX als Ergebnis.",
     lead:
       "Setzen Sie Dokumente aus kleinen, typisierten Komponenten zusammen, mit dem " +
-      "JSX, das Sie ohnehin schreiben. Die eingebaute KI kann jeden Teil eines " +
-      "Dokuments schreiben oder entscheiden, was hineingehört. Skalieren Sie die " +
-      "Erzeugung anschließend mit der Engine.",
+      "JSX, das Sie ohnehin schreiben. Binden Sie KI mühelos ein, damit sie Inhalte " +
+      "schreibt oder über sie entscheidet. Nutzen Sie unsere Engine, um Dokumente " +
+      "in großem Umfang zu erzeugen.",
     ctaStart: "Loslegen →",
     ctaHowItWorks: "So funktioniert es",
     copyInstall: "Installationsbefehl kopieren",

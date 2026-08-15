@@ -51,8 +51,8 @@ export const es: UiStrings = {
     headlineLineTwo: "DOCX como resultado.",
     lead:
       "Compón documentos a partir de componentes pequeños y tipados, con el JSX que " +
-      "ya escribes. La IA integrada puede escribir cualquier parte de un documento, " +
-      "o decidir qué va en él. Después escala su generación con el motor.",
+      "ya escribes. Incorpora IA sin esfuerzo para escribir el contenido o decidir " +
+      "sobre él. Aprovecha nuestro motor para generar documentos a gran escala.",
     ctaStart: "Empezar →",
     ctaHowItWorks: "Cómo funciona",
     copyInstall: "Copiar el comando de instalación",
