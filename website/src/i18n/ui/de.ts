@@ -77,13 +77,13 @@ export const de: UiStrings = {
       },
       ai: {
         label: "KI",
-        title: "Für KI entworfen",
+        title: "KI auf Komponentenebene",
         body:
-          "Generierter Text ist ein Node-Typ, kein nachträglicher Aufsatz. " +
-          "Markieren Sie den einen Absatz, der wirklich ein Modell braucht, geben " +
-          "Sie ihm Prompts und einen Platzhalter, und lassen Sie den Rest " +
-          "deterministisch. So löst KI den schwierigen Teil, ohne dass das ganze " +
-          "Dokument ihr ausgeliefert ist.",
+          "KI kommt über Hooks herein, in den Komponenten, die Sie ohnehin " +
+          "schreiben. Eine Komponente gibt dem Modell ihren Kontext und das, was " +
+          "geschrieben werden soll, damit es genau diesen einen Teil des Dokuments " +
+          "erzeugt, während alles darum herum deterministisch bleibt. Wie viel " +
+          "erzeugt wird, entscheiden Sie, Komponente für Komponente.",
       },
       changeControl: {
         label: "Änderungskontrolle",

@@ -76,12 +76,13 @@ export const es: UiStrings = {
       },
       ai: {
         label: "IA",
-        title: "Diseñado para la IA",
+        title: "IA a nivel de componente",
         body:
-          "El texto generado es un tipo de nodo, no un añadido. Marca el único " +
-          "párrafo que de verdad necesita un modelo, dale prompts y un marcador de " +
-          "posición, y deja el resto determinista. Así la IA resuelve la parte " +
-          "difícil sin poner todo el documento a su merced.",
+          "La IA entra por hooks, dentro de los componentes que ya escribes. Un " +
+          "componente le da al modelo su contexto y lo que quieres que escriba, así " +
+          "que produce esa única parte del documento mientras todo lo que la rodea " +
+          "sigue siendo determinista. Tú decides cuánto se genera, un componente " +
+          "cada vez.",
       },
       changeControl: {
         label: "Control de cambios",

@@ -83,12 +83,12 @@ export const en = {
       },
       ai: {
         label: "AI",
-        title: "Designed for AI",
+        title: "AI at the component level",
         body:
-          "Generated prose is a node type, not a bolt-on. Mark the one paragraph " +
-          "that genuinely needs a model, give it prompts and a placeholder, and " +
-          "leave the rest deterministic. AI solves the hard part without putting " +
-          "the whole document at its mercy.",
+          "AI goes in through hooks, inside the components you already write. A " +
+          "component hands the model its context and what you want written, so it " +
+          "produces that one part of the document while everything around it stays " +
+          "deterministic. You decide how much is generated, a component at a time.",
       },
       changeControl: {
         label: "Change control",
