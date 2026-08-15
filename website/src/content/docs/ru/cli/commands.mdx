@@ -39,24 +39,28 @@ dxcl document new tenancy-renewal --title "Tenancy Renewal"
 ```
 
 Пишет `documents/tenancy-renewal/` с файлами `document.project.ts`,
-`document.tsx`, `document-style.ts`, `preview-data.ts`, `types.ts` и каталогом
-`nodes/`.
+`document.tsx`, `document-style.ts`, `preview-data.ts`, `types.ts` и каталогами
+`derivers/` и `nodes/`. О том, за что отвечает каждый файл, — [проекты
+документов](/ru/docs/document-projects/).
 
 ## dxcl document node
 
 Генерирует компонент узла и регистрирует его.
 
 ```sh
-dxcl document node documents/tenancy-renewal next-steps --type paragraph --mode dynamic
-dxcl document node documents/tenancy-renewal signature   --type image     --mode static
-dxcl document node documents/tenancy-renewal rent-trend  --type graph     --mode static
+dxcl document node documents/tenancy-renewal next-steps --type paragraph
+dxcl document node documents/tenancy-renewal signature  --type image
+dxcl document node documents/tenancy-renewal rent-trend --type graph
 ```
 
 | Флаг | Значения |
 | --- | --- |
 | `--type` | [`paragraph`](/ru/docs/nodes/paragraph/), [`image`](/ru/docs/nodes/image/), [`graph`](/ru/docs/nodes/graph/) |
-| `--mode` | `static`, `dynamic` |
 
-Генератор пишет `nodes/<name>.node.ts` и обновляет `nodes/index.ts`. Он **не**
+Генератор пишет `nodes/<name>.node.tsx` и обновляет `nodes/index.ts`. Он **не**
 размещает узел в вашем шаблоне — добавьте его в `document.tsx` в то место
 документа, которому он принадлежит.
+
+Записанный узел начинается со своего содержимого. Генерируемым узел делают
+заданные на нём промпты, а это компонент решает уже с данными на руках — так что
+выбирать здесь нечего. См. [как писать узлы](/ru/docs/writing-nodes/).

@@ -39,23 +39,28 @@ dxcl document new tenancy-renewal --title "Tenancy Renewal"
 ```
 
 Schrijft `documents/tenancy-renewal/` met `document.project.ts`, `document.tsx`,
-`document-style.ts`, `preview-data.ts`, `types.ts` en een `nodes/`-directory.
+`document-style.ts`, `preview-data.ts`, `types.ts` en de directories `derivers/`
+en `nodes/`. Zie [documentprojecten](/nl/docs/document-projects/) voor waar elk
+bestand voor is.
 
 ## dxcl document node
 
 Genereert een nodecomponent en registreert die.
 
 ```sh
-dxcl document node documents/tenancy-renewal next-steps --type paragraph --mode dynamic
-dxcl document node documents/tenancy-renewal signature   --type image     --mode static
-dxcl document node documents/tenancy-renewal rent-trend  --type graph     --mode static
+dxcl document node documents/tenancy-renewal next-steps --type paragraph
+dxcl document node documents/tenancy-renewal signature  --type image
+dxcl document node documents/tenancy-renewal rent-trend --type graph
 ```
 
 | Vlag | Waarden |
 | --- | --- |
 | `--type` | [`paragraph`](/nl/docs/nodes/paragraph/), [`image`](/nl/docs/nodes/image/), [`graph`](/nl/docs/nodes/graph/) |
-| `--mode` | `static`, `dynamic` |
 
-De generator schrijft `nodes/<name>.node.ts` en werkt `nodes/index.ts` bij. Hij
+De generator schrijft `nodes/<name>.node.tsx` en werkt `nodes/index.ts` bij. Hij
 plaatst de node **niet** in je template — voeg hem toe aan `document.tsx` op de
 plek in het document waar hij hoort.
+
+De node die hij schrijft begint met zijn content. Wat een node gegenereerd maakt
+is er prompts op zetten, en dat beslist een component met data in handen — hier
+valt dus niets te kiezen. Zie [nodes schrijven](/nl/docs/writing-nodes/).
