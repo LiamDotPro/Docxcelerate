@@ -57,8 +57,8 @@ export const en = {
     headlineLineTwo: "DOCX as output.",
     lead:
       "Compose documents from small typed components, using the JSX you already " +
-      "write. Built-in AI can write any part of a document, or decide what goes " +
-      "in it. Then generate them at scale through the engine.",
+      "write. Easily incorporate AI to write or make decisions about the " +
+      "contents. Take advantage of our engine to generate documents at scale.",
     ctaStart: "Get started →",
     ctaHowItWorks: "How it works",
     copyInstall: "Copy install command",

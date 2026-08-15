@@ -47,8 +47,8 @@ export const nl: UiStrings = {
     headlineLineTwo: "DOCX als resultaat.",
     lead:
       "Stel documenten samen uit kleine, getypeerde componenten, met de JSX die je " +
-      "toch al schrijft. Ingebouwde AI kan elk deel van een document schrijven, of " +
-      "bepalen wat erin komt. Schaal de generatie daarna op met de engine.",
+      "toch al schrijft. Bouw moeiteloos AI in die de inhoud schrijft of erover " +
+      "beslist. Benut onze engine om documenten op schaal te genereren.",
     ctaStart: "Aan de slag →",
     ctaHowItWorks: "Hoe het werkt",
     copyInstall: "Installatiecommando kopiëren",
