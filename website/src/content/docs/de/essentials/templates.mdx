@@ -67,8 +67,9 @@ sich also wie überall sonst. Nodes ohne id bekommen eine aus ihrer Position, un
 das hindert ein `map` daran, Namen zu verlangen, die Sie nicht haben.
 
 Das funktioniert, weil die Liste beim Bauen des Dokuments bekannt ist. Eine
-Liste, die erst je Anfrage feststeht, ist ein anderes Problem — siehe [Statisch
-und dynamisch](/de/docs/essentials/static-and-dynamic/) für `Repeat`.
+Liste, die erst je Anfrage feststeht, ist ein anderes Problem — siehe [Schleifen
+werden als Schleifen veröffentlicht](#schleifen-werden-als-schleifen-veröffentlicht)
+weiter unten.
 
 ## Wiederverwendbare Teile
 
@@ -126,3 +127,78 @@ export default defineDocumentProject<DocumentData>({
 Gegen `previewData` löst die Vorschau-App auf. Halten Sie es realistisch — kurze
 Namen und erfundene Ortsnamen verdecken Layout-Probleme, die echte Daten
 sichtbar machen.
+
+## Was sich beim Veröffentlichen ändert
+
+Alles oben setzt voraus, dass Sie die Daten haben. Wenn Sie mit Daten in der Hand
+bauen — eine Vorschau, ein lokales Pack, ein spontan geschriebenes Dokument —,
+bedeutet ein `if` genau das, was dasteht, und ein `.map()` läuft über die Liste,
+die es bekommen hat.
+
+An [eine Engine](/de/docs/generation/endpoint/) zu veröffentlichen ist etwas
+anderes. Das Artefakt wird **einmal** gebaut, gegen Stellvertreterwerte für eine
+Anfrage, die noch niemand gestellt hat, und gespeichert. Eine Entscheidung, die
+von Anfragedaten abhängt, kann bei diesem Build nicht fallen; sie muss zur Engine
+reisen und je Dokument getroffen werden.
+
+Daraus folgen drei Regeln, und der Build erzwingt alle drei, statt ein falsches
+Dokument bis zur Empfängerin oder zum Empfänger durchzulassen.
+
+### Je Dokument rechnen, nicht je Build
+
+Einen Wert zu interpolieren funktioniert beim Veröffentlichen: Er wird zu dem
+Token, das die Engine ersetzt.
+
+```tsx
+<Paragraph id="greeting">Hello {state.name},</Paragraph>
+// veröffentlicht als: "Hello {{data.name}},"
+```
+
+Auf ihm zu rechnen nicht, denn der Wert ist noch nicht bekannt. Eine Währung
+formatieren, eine Liste summieren, ein Datum vergleichen — dafür braucht es einen
+**Deriver**, den die Engine je Dokument ausführt:
+
+```tsx
+<Paragraph
+  id="balance"
+  derivers={[
+    derive("currencyLabel", { output: "balanceLabel", inputs: [dataRef("balanceDue")] }),
+  ]}
+>
+  Your balance is {"{{derived.balanceLabel}}"}.
+</Paragraph>
+```
+
+`useFormat` und `useDeriver` rechnen stattdessen während des Builds, was richtig
+ist, wann immer der Wert schon bekannt ist. Zum Deriver greifen Sie, wenn er es
+nicht ist.
+
+### Schleifen werden als Schleifen veröffentlicht
+
+Eine Verzweigung hat zwei Arme, und beide lassen sich veröffentlichen. Eine
+Schleife hat so viele, wie die Anfrage Einträge hat, und diese Zahl kennt niemand,
+bevor ein Dokument geschrieben wird — gespeichert wird also die Schleife selbst:
+
+```tsx
+<Repeat over="visits" as="visit">
+  <Paragraph>Visit: {"{{ctx.visit.label}}"}</Paragraph>
+</Repeat>
+```
+
+Mit echten Daten läuft das sofort über die Sammlung, Vorschauen zeigen also die
+Wiederholung statt einer Beschreibung davon. Veröffentlicht bleibt sie eine
+Schleife, und die Engine läuft sie ab, bindet jeden Eintrag unter `as` und seine
+Position unter `indexAs` und hängt an die ids der Kinder den Index an, damit ein
+Durchlauf vom nächsten unterscheidbar bleibt.
+
+`.map()` auf Anfragedaten aufzurufen ist beim Veröffentlichen ein Fehler, der das
+`Repeat` benennt, das stattdessen zu schreiben ist.
+
+### Verzweigungen multiplizieren
+
+Eine veröffentlichte Verzweigung speichert beide Arme, jeden unter der Bedingung,
+die ihn auswählt. Verschachtelte Verzweigungen multiplizieren, was ein Dokument
+mitträgt, deshalb gibt es ein Limit — `branchLimit`, standardmäßig 32 — und es zu
+überschreiten lässt den Build scheitern, statt ein still und leise riesiges
+Artefakt zu erzeugen. Heben Sie die Entscheidung in einen Deriver, der einen Wert
+liefert, oder erhöhen Sie das Limit, wenn das Dokument wirklich so bedingt ist.

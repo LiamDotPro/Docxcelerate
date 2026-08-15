@@ -6,10 +6,10 @@ order: 1
 ---
 
 Docxcelerate heeft **Node.js 20 of nieuwer** nodig en verder niets. Schrijven,
-preview en het inpakken van DOCX draaien allemaal lokaal — er is geen account om
-aan te maken en geen dienst die je moet bereiken voordat je een document ziet.
+preview en het inpakken van DOCX draaien allemaal lokaal — er is geen account aan
+te maken en geen dienst te bereiken voordat je een document ziet.
 
-## Een workspace opzetten
+## Installeer de CLI
 
 ```sh
 npx docxcelerate init my-documents
@@ -17,32 +17,48 @@ cd my-documents
 npm run dev
 ```
 
-`dxcl init` maakt een op zichzelf staande Vite-workspace en installeert de
-bijbehorende dependencies. `npm run dev` opent de previewsite, waar je een
-document kunt kiezen, het tegen previewdata kunt oplossen, het in de browser tot
-een echte `.docx` kunt inpakken en het met `docx-preview` weer kunt teruglezen.
-
-Voer `dxcl init` zonder argumenten uit voor een begeleide setup die om het
-template en het API-endpoint vraagt.
-
-### Het netjes installeren
-
-Het commando is `npx docxcelerate`, niet `npx dxcl` — npx zoekt de packagenaam
-op, en de binary daarbinnen heet `dxcl`.
-
-Om `dxcl` op je PATH te krijgen zodat je het direct kunt gebruiken:
+Dat is de hele eerste run. Wil je het commando liever in je PATH:
 
 ```sh
 npm install -g docxcelerate
 dxcl init my-documents
 ```
 
-Of voeg het toe aan een bestaand project, waar `npx dxcl` het dan lokaal oplost:
+Of voeg het toe aan een bestaande repository, waar `npx dxcl` het dan lokaal
+oplost:
 
 ```sh
 npm install --save-dev docxcelerate
 npx dxcl init my-documents
 ```
+
+Het commando is `npx docxcelerate`, niet `npx dxcl` — npx lost de pakketnaam op,
+en de binary erin heet `dxcl`.
+
+## Zet een workspace op
+
+```sh
+dxcl init my-documents
+```
+
+`dxcl init` schrijft een op zichzelf staande Vite-workspace en draait er
+`npm install` in. Zonder argumenten aangeroepen vraagt het om de naam, het
+template en het API-endpoint in plaats van ze als vlaggen te nemen:
+
+```sh
+dxcl init
+```
+
+| Vlag | Wat het doet |
+| --- | --- |
+| `--dir <parent-dir>` | Maakt de workspace in een bestaande map |
+| `--sample` | Zet er een werkend voorbeelddocument bij (standaard) |
+| `--blank` | Laat `documents/` leeg |
+| `--api-endpoint <url>` | Richt de workspace op een generatie-engine |
+| `--no-api-endpoint` | Zet op zonder er een; je kunt het later toevoegen |
+
+Het endpoint is alleen nodig voor documenten met gegenereerde tekst, en kan op
+elk moment worden ingevuld — zie [de engine](/nl/docs/generation/endpoint/).
 
 ## Wat je krijgt
 
@@ -51,71 +67,46 @@ my-documents/
   docxcelerate.config.json
   index.html
   package.json
+  tsconfig.json
+  vite.config.ts
+  .gitignore
   preview/
     main.ts
     styles.css
-  vite.config.ts
-  tsconfig.json
   documents/
+    welcome/
 ```
 
-`docxcelerate.config.json` bevat benoemde presets voor build- en uploadgedrag.
-Al het andere is een gewoon Vite-project — je kunt het in je editor openen en het
-gedraagt zich ook zo.
+Alles boven `documents/` is de preview-app. `documents/` is jouw werk: één map
+per document, en met `--sample` staat `welcome/` er al in.
 
-## Een document maken
+`docxcelerate.config.json` bevat benoemde presets voor build- en uploadgedrag. Al
+het andere is een gewoon Vite-project — open het in je editor en het gedraagt zich
+er ook naar.
+
+## Open de preview
 
 ```sh
-dxcl document new tenancy-renewal --title "Tenancy Renewal"
+npm run dev
 ```
 
-Dat schrijft een documentproject onder `documents/tenancy-renewal/`, met het
-template, de previewdata, de stijlen en de types in aparte bestanden:
+De previewsite komt op op `127.0.0.1:4507`. Kies een document en het wordt
+opgelost tegen zijn previewdata, in de browser tot een echte `.docx` ingepakt en
+met `docx-preview` weer ingelezen — wat je bekijkt is dus het bestand zelf, geen
+benadering ervan.
 
-```text
-documents/tenancy-renewal/
-  document.project.ts
-  document-style.ts
-  document.tsx
-  preview-data.ts
-  types.ts
-  nodes/
-    index.ts
-```
+Bewerk een bestand onder `documents/` en de pagina herlaadt met de wijziging erin.
 
-## Een node toevoegen
+De workspace komt met nog drie scripts:
 
-```sh
-dxcl document node documents/tenancy-renewal next-steps --type paragraph --mode dynamic
-```
+| Script | Wat het draait |
+| --- | --- |
+| `npm run document:new` | `dxcl document new` — een nieuw document |
+| `npm run document:node` | `dxcl document node` — een nieuwe node daarin |
+| `npm run documents:check` | `tsc` over elk document |
 
-De generator schrijft `nodes/next-steps.node.ts` en werkt `nodes/index.ts` bij.
-De plaatsing wordt bewust aan jou overgelaten — voeg de gegenereerde component
-toe aan `document.tsx` op de plek in het document waar hij hoort.
+## Hoe nu verder
 
-```tsx
-/** @jsxImportSource docxcelerate/template */
-import { Document, Section, template } from "docxcelerate/template";
-import { Greeting, NextSteps } from "./nodes/index.ts";
-import type { DocumentData } from "./types.ts";
-
-export const documentTemplate = template<DocumentData>(
-  <Document id="tenancy-renewal" title="Tenancy Renewal">
-    <Section id="opening" title="Opening">
-      <Greeting />
-    </Section>
-    <Section id="closing" title="Closing">
-      <NextSteps />
-    </Section>
-  </Document>,
-);
-```
-
-Sla op, en de preview laadt opnieuw met de nieuwe node op zijn plaats.
-
-## Waar je hierna heen gaat
-
-- [Documenten en nodes](/nl/docs/essentials/documents-and-nodes/) — het componentmodel
+- [Nodes schrijven](/nl/docs/writing-nodes/) — de onderdelen waaruit een document bestaat
+- [Documentprojecten](/nl/docs/document-projects/) — de bestanden van een document, en wat ze configureert
 - [Het nodemodel](/nl/docs/nodes/overview/) — elk nodetype, met van elk een preview
-- [Statisch en dynamisch](/nl/docs/essentials/static-and-dynamic/) — wat lokaal draait, wat een endpoint nodig heeft
-- [Package-entrypoints](/nl/docs/reference/entrypoints/) — alles wat importeerbaar is

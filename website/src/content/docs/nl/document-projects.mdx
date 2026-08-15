@@ -1,0 +1,134 @@
+---
+title: Documentprojecten
+description: De bestanden waaruit één document bestaat, waar elk verantwoordelijk voor is, en de configuratie eromheen.
+group: Start Here
+order: 3
+---
+
+Een workspace bevat één **documentproject** per document. Elk is een map onder
+`documents/` met één enkel entrypoint, zodat een document als één geheel te
+verplaatsen, te kopiëren of te reviewen is.
+
+## Maak er een
+
+```sh
+dxcl document new tenancy-renewal --title "Tenancy Renewal"
+```
+
+Draai het zonder argumenten om naar de naam en titel gevraagd te worden.
+
+```text
+documents/tenancy-renewal/
+  document.project.ts
+  document.tsx
+  document-style.ts
+  preview-data.ts
+  types.ts
+  derivers/
+    index.ts
+  nodes/
+    greeting.node.tsx
+    intro.node.tsx
+    index.ts
+```
+
+De opsplitsing is precies het punt. Elk bestand beantwoordt één vraag:
+
+| Bestand | Wat erin zit |
+| --- | --- |
+| `types.ts` | Het datacontract — wat een document nodig heeft om geschreven te worden |
+| `preview-data.ts` | Eén invulling van dat contract, voor de preview |
+| `document.tsx` | Alleen structuur: welke nodes, in welke secties, in welke volgorde |
+| `nodes/` | Eén component per node, plus een `index.ts` die ze exporteert |
+| `document-style.ts` | Lettertypen, witruimte en marges voor de ingepakte `.docx` |
+| `derivers/index.ts` | Benoemde functies die de engine per document uitvoert |
+| `document.project.ts` | Knoopt het bovenstaande aan elkaar en benoemt het document |
+
+## Het entrypoint
+
+```ts
+import { defineDocumentProject } from "docxcelerate/document";
+import { derivers } from "./derivers/index.ts";
+import { documentTemplate } from "./document.tsx";
+import { documentStyle } from "./document-style.ts";
+import { previewData } from "./preview-data.ts";
+import type { DocumentData } from "./types.ts";
+
+export default defineDocumentProject<DocumentData>({
+  id: "tenancy-renewal",
+  name: "Tenancy Renewal",
+  version: "0.1.0",
+  template: documentTemplate,
+  previewData,
+  derivers,
+  style: documentStyle,
+  previewOptions: {
+    availableTokens: 800,
+  },
+});
+```
+
+| Veld | Waar het over beslist |
+| --- | --- |
+| `id` | Hoe het document geadresseerd wordt, in artefacten en door een engine |
+| `name` | Wat een mens in de preview-app ziet |
+| `version` | Wordt in elk artefact van dit project gestempeld |
+| `template` | De boom, uit `document.tsx` |
+| `previewData` | Waartegen de preview oplost |
+| `derivers` | Waarden die per document worden berekend in plaats van per build |
+| `style` | De stijl die bij het inpakken wordt toegepast |
+| `previewOptions.availableTokens` | Het budget dat `useAvailableTokens` meldt |
+
+De preview-app vindt projecten door te globben op `document.project.ts`, dus een
+nieuw document verschijnt in de keuzelijst zodra het bestaat. Er wordt niets
+geregistreerd.
+
+## Houd de previewdata eerlijk
+
+`preview-data.ts` is de enige data waartegen het grootste deel van een document
+ooit gebouwd zal worden, en dus meer aandacht waard dan het meestal krijgt:
+
+```ts
+import type { DocumentData } from "./types.ts";
+
+export const previewData: DocumentData = {
+  recipientName: "Avery",
+  city: "Berlin",
+};
+```
+
+Korte namen en verzonnen plaatsnamen verbergen lay-outproblemen die echte data
+juist blootleggen. Gebruik de langste naam en het grootste bedrag dat je echt
+verwacht.
+
+## Workspaceconfiguratie
+
+`docxcelerate.config.json` staat bovenin de workspace en geldt voor elk document
+erin. Het bewaart benoemde **presets** voor build- en uploadgedrag:
+
+```json
+{
+  "schemaVersion": "docxcelerate.config/v0",
+  "activePreset": "local",
+  "presets": {
+    "local": {
+      "build": { "outDir": "build" },
+      "upload": { "endpoint": "", "method": "POST", "headers": {}, "body": "document" }
+    }
+  }
+}
+```
+
+`activePreset` kiest welke geldt, en zo staan een lokale opzet en een
+staging-engine naast elkaar zonder tussen twee runs de configuratie te bewerken.
+Met een lege `upload.endpoint` bouwt alles gewoon — je krijgt artefacten op schijf
+in plaats van een voltooid document.
+
+[Workspace en config](/nl/docs/projects/workspace/) documenteert elk veld, en
+[buildartefacten](/nl/docs/projects/artifacts/) behandelt wat een build wegschrijft.
+
+## Hoe nu verder
+
+- [Templates](/nl/docs/essentials/templates/) — berekende structuur, herbruikbare onderdelen, en wat er verandert bij publiceren
+- [De engine](/nl/docs/generation/endpoint/) — een document publiceren en eruit schrijven
+- [Commando's](/nl/docs/cli/commands/) — elke CLI-vlag

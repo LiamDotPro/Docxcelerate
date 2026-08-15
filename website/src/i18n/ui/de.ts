@@ -140,6 +140,95 @@ export const de: UiStrings = {
       },
     },
 
+    scale: {
+      eyebrow: "Im großen Maßstab",
+      title: "Gebaut für ganze Dokumentbestände, nicht für Einzelstücke",
+      lead:
+        "Große Mengen waren eine Grundannahme von Anfang an, nichts nachträglich " +
+        "Angebautes. Das Framework ist auf Organisationen zugeschnitten, die " +
+        "Schriftverkehr zu Hunderttausenden versenden: dasselbe Zulassungsschreiben " +
+        "an jede Bewerberin und jeden Bewerber, dieselbe Verlängerung an jede " +
+        "Versicherungsnehmerin und jeden Versicherungsnehmer, jedes Mal mit anderen " +
+        "Daten und anderen Klauseln.",
+      traits: {
+        volume: {
+          title: "Ein Template, beliebig viele Dokumente",
+          body:
+            "Ein Template wird einmal veröffentlicht und dann pro Datensatz " +
+            "aufgerufen. Hunderttausend Dokumente zu erzeugen ist derselbe Vorgang " +
+            "wie eines zu erzeugen, nur wiederholt — Maßstab heißt hier, wie oft Sie " +
+            "die Engine aufrufen, und nicht eine eigene Batch-Pipeline, die jemand " +
+            "bauen und danach betreuen muss.",
+        },
+        determinism: {
+          title: "Vorhersagbar von Haus aus",
+          body:
+            "Alles außer den Nodes, die Sie ausdrücklich als generiert markieren, " +
+            "rendert jedes Mal identisch. Über einen ganzen Kundenbestand hinweg " +
+            "zählt das mehr als alles andere: Sie können nachvollziehen, was jede " +
+            "Empfängerin und jeder Empfänger bekommt, weil nur die Teile variieren " +
+            "dürfen, die Sie ausgewählt haben.",
+        },
+        integration: {
+          title: "Aufgerufen von den Systemen, die Sie schon betreiben",
+          body:
+            "Die Engine nimmt Daten über HTTP entgegen und gibt eine .docx zurück. " +
+            "Ihr CRM, Ihre Fallverwaltung oder Ihr Abrechnungssystem erzeugt seinen " +
+            "Schriftverkehr selbst — ohne dass jemand eine Tabelle exportiert, Word " +
+            "öffnet oder ein Serienbrief-Makro pflegt, das nur eine Person versteht.",
+        },
+        reproducibility: {
+          title: "Noch ein Jahr später reproduzierbar",
+          body:
+            "Ein veröffentlichtes Template ist versioniert, sodass sich das Dokument, " +
+            "das eine Empfängerin oder ein Empfänger erhalten hat, exakt erneut " +
+            "erzeugen lässt: aus demselben Template und denselben Daten. Wenn eine " +
+            "Beschwerde oder eine Prüfung fragt, was im März verschickt wurde, ist " +
+            "die Antwort ein Build und kein Archiv, von dem Sie hoffen, dass es " +
+            "jemand aufbewahrt hat.",
+        },
+      },
+    },
+
+    openSource: {
+      eyebrow: "Open Source",
+      title: "Open Source, und darauf angelegt, es zu bleiben",
+      bodyOne:
+        "Das Framework, die Renderer, das Node-Modell und die CLI sind MIT-lizenziert " +
+        "und werden offen entwickelt. Lesen Sie den Code, der Ihre Dokumente " +
+        "schreibt, forken Sie ihn oder nehmen Sie ihn in Ihren eigenen Build auf. " +
+        "Schreiben, Vorschau und das Packen von DOCX laufen vollständig auf Ihrem " +
+        "Rechner — kein Konto, kein Upload, kein Netzwerkaufruf.",
+      bodyTwo:
+        "Die Generierungs-Engine lässt sich kostenlos selbst hosten. Dokumente im " +
+        "großen Maßstab zu erzeugen hängt damit nie daran, dass ein Anbieter am " +
+        "Markt bleibt oder eine Preisliste gleich bleibt. Die verwaltete Cloud ist " +
+        "eine Bequemlichkeit für Teams, die sie lieber nicht selbst betreiben, und " +
+        "nicht der einzige Weg hinein.",
+      facts: {
+        licence: {
+          title: "MIT-Lizenz",
+          body:
+            "Kommerziell nutzen, verändern, ausliefern. Keine Nutzerzahlen, keine " +
+            "Gebühr pro Dokument.",
+        },
+        local: {
+          title: "Läuft auf Ihrem Rechner",
+          body:
+            "Dokumente und Daten bleiben auf Ihrem Laptop und in Ihrer CI, solange " +
+            "Sie sie nicht an eine Engine senden, die Sie ausgewählt haben.",
+        },
+        selfHost: {
+          title: "Selbst hostbare Engine",
+          body:
+            "Die kostenlose Engine läuft auf Ihrer eigenen Infrastruktur, in Ihrem " +
+            "eigenen Netz.",
+        },
+      },
+      ctaSource: "Zum Quellcode →",
+      ctaNpm: "Auf npm ansehen",
+    },
+
     docs: {
       eyebrow: "Dokumentation",
       title: "Lesen Sie das Ganze",
@@ -160,9 +249,9 @@ export const de: UiStrings = {
           title: "Das Node-Modell",
           blurb: "Jeder Node-Typ, mit einer Vorschau zu jedem.",
         },
-        staticAndDynamic: {
-          title: "Statisch und dynamisch",
-          blurb: "Was lokal läuft und was die Engine braucht.",
+        writingNodes: {
+          title: "Nodes schreiben",
+          blurb: "Die Bausteine, aus denen ein Dokument besteht.",
         },
         cli: {
           title: "CLI-Befehle",

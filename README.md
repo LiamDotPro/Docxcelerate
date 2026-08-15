@@ -73,10 +73,11 @@ export const documentTemplate = template<TenancyData>(
 
 Everything is on [docxcelerate.com](https://docxcelerate.com):
 
-- [Start here](https://docxcelerate.com/docs/start-here/) — install, scaffold, first document
+- [Start here](https://docxcelerate.com/docs/start-here/) — install the CLI and scaffold a workspace
+- [Writing nodes](https://docxcelerate.com/docs/writing-nodes/) — the pieces a document is made of, and where AI fits
+- [Document projects](https://docxcelerate.com/docs/document-projects/) — the files in a document, and what configures them
 - [Documents and nodes](https://docxcelerate.com/docs/essentials/documents-and-nodes/) — the model
 - [Templates](https://docxcelerate.com/docs/essentials/templates/) — composing with JSX
-- [Static and dynamic](https://docxcelerate.com/docs/essentials/static-and-dynamic/) — where AI fits
 - [The node reference](https://docxcelerate.com/docs/nodes/overview/) — every node type, rendered
 - [CLI commands](https://docxcelerate.com/docs/cli/commands/) — every `dxcl` command
 - [The engine](https://docxcelerate.com/docs/generation/endpoint/) — generating at scale

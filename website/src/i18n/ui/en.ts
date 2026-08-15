@@ -139,6 +139,84 @@ export const en = {
       },
     },
 
+    scale: {
+      eyebrow: "At scale",
+      title: "Built for document estates, not one-off files",
+      lead:
+        "Volume was a founding assumption, not something bolted on later. The " +
+        "framework was shaped around organisations that send correspondence by the " +
+        "hundred thousand: the same offer letter to every applicant, the same " +
+        "renewal schedule to every policyholder, each one carrying different data " +
+        "and different clauses.",
+      traits: {
+        volume: {
+          title: "One template, any number of documents",
+          body:
+            "A template is published once and then called per record. Generating a " +
+            "hundred thousand documents is the same operation as generating one, " +
+            "repeated — scale is how often you call the engine, not a separate " +
+            "batch pipeline somebody has to build and then babysit.",
+        },
+        determinism: {
+          title: "Predictable by default",
+          body:
+            "Everything except the nodes you explicitly mark as generated renders " +
+            "identically every time. Across a whole customer base that matters more " +
+            "than anything else: you can reason about what every recipient will get, " +
+            "because only the parts you chose are allowed to vary.",
+        },
+        integration: {
+          title: "Called by the systems you already run",
+          body:
+            "The engine takes data over HTTP and returns a .docx. Your CRM, case " +
+            "management or billing system generates its own correspondence, with " +
+            "nobody exporting a spreadsheet, opening Word, or maintaining a " +
+            "mail-merge macro that one person understands.",
+        },
+        reproducibility: {
+          title: "Reproducible a year later",
+          body:
+            "A published template is versioned, so the document a recipient received " +
+            "can be produced again exactly, from the same template and the same " +
+            "data. When a complaint or an audit asks what was sent in March, the " +
+            "answer is a build rather than an archive you hope someone kept.",
+        },
+      },
+    },
+
+    openSource: {
+      eyebrow: "Open source",
+      title: "Open source, and built to stay that way",
+      bodyOne:
+        "The framework, the renderers, the node model and the CLI are MIT licensed " +
+        "and developed in the open. Read the code that writes your documents, fork " +
+        "it, or vendor it into your own build. Authoring, preview and DOCX packing " +
+        "run entirely on your machine — no account, no upload, no network call.",
+      bodyTwo:
+        "The generation engine is free to self-host, so running documents at scale " +
+        "never depends on a vendor staying in business or on a price list staying " +
+        "the same. The managed cloud is a convenience for teams who would rather " +
+        "not operate it themselves, not the only door in.",
+      facts: {
+        licence: {
+          title: "MIT licence",
+          body: "Use it commercially, change it, ship it. No seat count, no per-document fee.",
+        },
+        local: {
+          title: "Runs on your machine",
+          body:
+            "Documents and data stay on your laptop and in your CI unless you send " +
+            "them to an engine you chose.",
+        },
+        selfHost: {
+          title: "Self-hostable engine",
+          body: "The free engine runs on your own infrastructure, inside your own network.",
+        },
+      },
+      ctaSource: "View the source →",
+      ctaNpm: "See it on npm",
+    },
+
     docs: {
       eyebrow: "Documentation",
       title: "Read the whole thing",
@@ -159,9 +237,9 @@ export const en = {
           title: "The node model",
           blurb: "Every node type, with a preview of each.",
         },
-        staticAndDynamic: {
-          title: "Static and dynamic",
-          blurb: "What runs locally, and what needs the engine.",
+        writingNodes: {
+          title: "Writing nodes",
+          blurb: "The pieces a document is made of.",
         },
         cli: {
           title: "CLI commands",

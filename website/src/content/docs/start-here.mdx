@@ -9,7 +9,7 @@ Docxcelerate needs **Node.js 20 or newer** and nothing else. Authoring, preview
 and DOCX packing all run locally — there is no account to create and no service
 to reach before you see a document.
 
-## Scaffold a workspace
+## Install the CLI
 
 ```sh
 npx docxcelerate init my-documents
@@ -17,32 +17,47 @@ cd my-documents
 npm run dev
 ```
 
-`dxcl init` creates a self-contained Vite workspace and installs its
-dependencies. `npm run dev` opens the preview site, where you can pick a document,
-resolve it against preview data, pack it into a real `.docx` in the browser, and
-read it back with `docx-preview`.
-
-Run `dxcl init` with no arguments for a guided setup that asks for the template
-and the API endpoint.
-
-### Installing it properly
-
-The command is `npx docxcelerate`, not `npx dxcl` — npx resolves the package
-name, and the binary inside it is called `dxcl`.
-
-To get `dxcl` on your path so you can use it directly:
+That is the whole first run. If you would rather have the command on your path:
 
 ```sh
 npm install -g docxcelerate
 dxcl init my-documents
 ```
 
-Or add it to an existing project, where `npx dxcl` then resolves locally:
+Or add it to an existing repository, where `npx dxcl` then resolves locally:
 
 ```sh
 npm install --save-dev docxcelerate
 npx dxcl init my-documents
 ```
+
+The command is `npx docxcelerate`, not `npx dxcl` — npx resolves the package
+name, and the binary inside it is called `dxcl`.
+
+## Scaffold a workspace
+
+```sh
+dxcl init my-documents
+```
+
+`dxcl init` writes a self-contained Vite workspace and runs `npm install` in it.
+Called with no arguments it asks for the name, the template and the API endpoint
+instead of taking them as flags:
+
+```sh
+dxcl init
+```
+
+| Flag | What it does |
+| --- | --- |
+| `--dir <parent-dir>` | Creates the workspace inside an existing directory |
+| `--sample` | Includes a working document to read (the default) |
+| `--blank` | Leaves `documents/` empty |
+| `--api-endpoint <url>` | Points the workspace at a generation engine |
+| `--no-api-endpoint` | Sets up without one; you can add it later |
+
+The endpoint is only needed for documents with generated prose, and it can be
+filled in at any time — see [the engine](/docs/generation/endpoint/).
 
 ## What you get
 
@@ -51,71 +66,47 @@ my-documents/
   docxcelerate.config.json
   index.html
   package.json
+  tsconfig.json
+  vite.config.ts
+  .gitignore
   preview/
     main.ts
     styles.css
-  vite.config.ts
-  tsconfig.json
   documents/
+    welcome/
 ```
+
+Everything above `documents/` is the preview app. `documents/` is your work: one
+directory per document, and with `--sample` it starts with `welcome/` already in
+it.
 
 `docxcelerate.config.json` holds named presets for build and upload behaviour.
-Everything else is an ordinary Vite project — you can open it in your editor and
-it will behave like one.
+Everything else is an ordinary Vite project — open it in your editor and it will
+behave like one.
 
-## Create a document
-
-```sh
-dxcl document new tenancy-renewal --title "Tenancy Renewal"
-```
-
-That writes a document project under `documents/tenancy-renewal/`, with the template,
-preview data, styles and types kept in separate files:
-
-```text
-documents/tenancy-renewal/
-  document.project.ts
-  document-style.ts
-  document.tsx
-  preview-data.ts
-  types.ts
-  nodes/
-    index.ts
-```
-
-## Add a node
+## Open the preview
 
 ```sh
-dxcl document node documents/tenancy-renewal next-steps --type paragraph --mode dynamic
+npm run dev
 ```
 
-The generator writes `nodes/next-steps.node.ts` and updates `nodes/index.ts`.
-Placement is left to you on purpose — add the generated component to
-`document.tsx` at the point in the document where it belongs.
+The preview site comes up on `127.0.0.1:4507`. Pick a document and it is
+resolved against its preview data, packed into a real `.docx` in the browser,
+and read back with `docx-preview` — so what you are looking at is the file
+itself, not an approximation of it.
 
-```tsx
-/** @jsxImportSource docxcelerate/template */
-import { Document, Section, template } from "docxcelerate/template";
-import { Greeting, NextSteps } from "./nodes/index.ts";
-import type { DocumentData } from "./types.ts";
+Edit any file under `documents/` and the page reloads with the change in place.
 
-export const documentTemplate = template<DocumentData>(
-  <Document id="tenancy-renewal" title="Tenancy Renewal">
-    <Section id="opening" title="Opening">
-      <Greeting />
-    </Section>
-    <Section id="closing" title="Closing">
-      <NextSteps />
-    </Section>
-  </Document>,
-);
-```
+Three more scripts come with the workspace:
 
-Save, and the preview reloads with the new node in place.
+| Script | What it runs |
+| --- | --- |
+| `npm run document:new` | `dxcl document new` — a new document |
+| `npm run document:node` | `dxcl document node` — a new node in one |
+| `npm run documents:check` | `tsc` over every document |
 
 ## Where to go next
 
-- [Documents and nodes](/docs/essentials/documents-and-nodes/) — the component model
+- [Writing nodes](/docs/writing-nodes/) — the pieces a document is made of
+- [Document projects](/docs/document-projects/) — the files in a document, and what configures them
 - [The node model](/docs/nodes/overview/) — every node type, with previews of each
-- [Static and dynamic](/docs/essentials/static-and-dynamic/) — what runs locally, what needs an endpoint
-- [Package entrypoints](/docs/reference/entrypoints/) — everything importable

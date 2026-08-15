@@ -42,21 +42,21 @@ dat doet.
 
 Houd ze uniek binnen het document. Het kost niets en maakt logs leesbaar.
 
-## Statisch en dynamisch
+## Waar de content vandaan komt
 
-Een **statische** node berekent zijn content lokaal uit je data. Een
-**dynamische** node draagt prompts en een placeholder, en wordt op het moment van
-de aanvraag ingevuld.
+Elke node heeft ofwel zijn content ofwel prompts om die te produceren, en dat
+beslist het component in plaats van dat het ergens gedeclareerd wordt. Geef een
+alinea tekst — of een `Image` een `src`, of een `Graph` zijn `data` — en hij lost
+op je eigen machine op. Geef hem in plaats daarvan prompts en een placeholder, dan
+wordt hij op het moment van de aanvraag ingevuld.
 
-Je declareert nooit welke je wilt. Er is één helper per soort — `paragraph`,
-`image`, `graph` — en de modus wordt afgeleid uit de opties die je meegeeft: geef
-je het lid voor lokale oplossing (`render`, `src`, `data`), dan is de node
-statisch; geef je in plaats daarvan prompts, dan is hij dynamisch. Beide lossen
-op naar dezelfde `kind` en verschillen in het gebouwde document door `mode`.
+Beide lossen op naar dezelfde `kind` en verschillen in het gebouwde document door
+`mode`. `mode` is uitvoer, geen invoer: de build leidt het af uit wat het component
+meegaf, en het pakket vertelt een engine welke nodes die moet oplossen. Beide
+meegeven op één element is een fout, geen kop of munt.
 
-Beide meegeven is een compileerfout, dus `mode` heeft precies één bron van
-waarheid. [Statisch en dynamisch](/nl/docs/essentials/static-and-dynamic/)
-behandelt waar de grens ligt en waarom.
+[Nodes schrijven](/nl/docs/writing-nodes/) behandelt de promptslots en wat previews
+in hun plaats laten zien.
 
 ## Nesteling
 

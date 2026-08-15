@@ -1,0 +1,136 @@
+---
+title: Dokumentprojekte
+description: Die Dateien, aus denen ein Dokument besteht, wofür jede zuständig ist, und die Konfiguration darum herum.
+group: Start Here
+order: 3
+---
+
+Ein Workspace enthält je Dokument ein **Dokumentprojekt**. Jedes ist ein
+Verzeichnis unter `documents/` mit einem einzigen Entrypoint — ein Dokument lässt
+sich also als eine Einheit verschieben, kopieren und reviewen.
+
+## Eines anlegen
+
+```sh
+dxcl document new tenancy-renewal --title "Tenancy Renewal"
+```
+
+Ohne Argumente aufgerufen fragt der Befehl stattdessen nach Name und Titel.
+
+```text
+documents/tenancy-renewal/
+  document.project.ts
+  document.tsx
+  document-style.ts
+  preview-data.ts
+  types.ts
+  derivers/
+    index.ts
+  nodes/
+    greeting.node.tsx
+    intro.node.tsx
+    index.ts
+```
+
+Die Aufteilung ist der Punkt. Jede Datei beantwortet eine Frage:
+
+| Datei | Was darin liegt |
+| --- | --- |
+| `types.ts` | Der Datenvertrag — was ein Dokument braucht, um geschrieben zu werden |
+| `preview-data.ts` | Eine Ausprägung dieses Vertrags, für die Vorschau |
+| `document.tsx` | Nur Struktur: welche Nodes, in welchen Sections, in welcher Reihenfolge |
+| `nodes/` | Eine Komponente je Node, plus eine `index.ts`, die sie exportiert |
+| `document-style.ts` | Schriften, Abstände und Ränder für die gepackte `.docx` |
+| `derivers/index.ts` | Benannte Funktionen, die die Engine je Dokument ausführt |
+| `document.project.ts` | Verbindet das alles und benennt das Dokument |
+
+## Der Entrypoint
+
+```ts
+import { defineDocumentProject } from "docxcelerate/document";
+import { derivers } from "./derivers/index.ts";
+import { documentTemplate } from "./document.tsx";
+import { documentStyle } from "./document-style.ts";
+import { previewData } from "./preview-data.ts";
+import type { DocumentData } from "./types.ts";
+
+export default defineDocumentProject<DocumentData>({
+  id: "tenancy-renewal",
+  name: "Tenancy Renewal",
+  version: "0.1.0",
+  template: documentTemplate,
+  previewData,
+  derivers,
+  style: documentStyle,
+  previewOptions: {
+    availableTokens: 800,
+  },
+});
+```
+
+| Feld | Worüber es entscheidet |
+| --- | --- |
+| `id` | Wie das Dokument adressiert wird, in Artefakten und von einer Engine |
+| `name` | Was eine Person in der Vorschau-App sieht |
+| `version` | Wird in jedes Artefakt dieses Projekts gestempelt |
+| `template` | Der Baum, aus `document.tsx` |
+| `previewData` | Wogegen die Vorschau auflöst |
+| `derivers` | Werte, die je Dokument statt je Build berechnet werden |
+| `style` | Der Stil, der beim Packen angewendet wird |
+| `previewOptions.availableTokens` | Das Budget, das `useAvailableTokens` meldet |
+
+Die Vorschau-App findet Projekte per Glob über `document.project.ts` — ein neues
+Dokument taucht also in der Auswahl auf, sobald es existiert. Es wird nirgends
+registriert.
+
+## Halten Sie die Vorschaudaten ehrlich
+
+`preview-data.ts` sind die einzigen Daten, gegen die der größte Teil eines
+Dokuments je gebaut wird, und deshalb mehr Aufmerksamkeit wert, als sie
+üblicherweise bekommen:
+
+```ts
+import type { DocumentData } from "./types.ts";
+
+export const previewData: DocumentData = {
+  recipientName: "Avery",
+  city: "Berlin",
+};
+```
+
+Kurze Namen und Platzhalterstädte verbergen Layoutprobleme, die echte Daten
+aufdecken. Nehmen Sie den längsten Namen und die größte Zahl, mit denen Sie
+tatsächlich rechnen.
+
+## Workspace-Konfiguration
+
+`docxcelerate.config.json` liegt oben im Workspace und gilt für jedes Dokument
+darin. Sie enthält benannte **Presets** für das Build- und Upload-Verhalten:
+
+```json
+{
+  "schemaVersion": "docxcelerate.config/v0",
+  "activePreset": "local",
+  "presets": {
+    "local": {
+      "build": { "outDir": "build" },
+      "upload": { "endpoint": "", "method": "POST", "headers": {}, "body": "document" }
+    }
+  }
+}
+```
+
+`activePreset` wählt aus, welches gilt — so stehen ein lokales Setup und eine
+Staging-Engine nebeneinander, ohne zwischen zwei Läufen die Konfiguration zu
+bearbeiten. Mit leerem `upload.endpoint` baut trotzdem alles; Sie bekommen
+Artefakte auf der Platte statt eines fertigen Dokuments.
+
+[Workspace und Konfiguration](/de/docs/projects/workspace/) dokumentiert jedes
+Feld, und [Build-Artefakte](/de/docs/projects/artifacts/) behandelt, was ein
+Build schreibt.
+
+## Wie es weitergeht
+
+- [Templates](/de/docs/essentials/templates/) — berechnete Struktur, wiederverwendbare Teile, und was sich beim Veröffentlichen ändert
+- [Die Engine](/de/docs/generation/endpoint/) — ein Dokument veröffentlichen und daraus schreiben
+- [Befehle](/de/docs/cli/commands/) — jedes CLI-Flag

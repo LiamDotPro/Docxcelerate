@@ -42,21 +42,21 @@ ruta de API.
 
 Mantenlos únicos dentro del documento. No cuesta nada y hace legibles los logs.
 
-## Estático y dinámico
+## De dónde sale el contenido
 
-Un nodo **estático** calcula su contenido en local a partir de tus datos. Un nodo
-**dinámico** lleva prompts y un marcador de posición, y se rellena en el momento
-de la petición.
+Todo nodo o bien tiene su contenido o bien tiene prompts para producirlo, y eso lo
+decide el componente en lugar de declararse en ninguna parte. Dale texto a un
+párrafo — o un `src` a un `Image`, o sus `data` a un `Graph` — y se resuelve en tu
+máquina. Dale prompts y un marcador de posición en su lugar, y se rellena en el
+momento de la petición.
 
-Nunca declaras cuál quieres. Hay un helper por clase — `paragraph`, `image`,
-`graph` — y el modo se infiere de las opciones que le des: aporta el miembro de
-resolución local (`render`, `src`, `data`) y el nodo es estático; aporta prompts
-en su lugar y es dinámico. Ambos se resuelven al mismo `kind` y se diferencian
-por `mode` en el documento compilado.
+Ambos se resuelven al mismo `kind` y se diferencian por `mode` en el documento
+compilado. `mode` es salida, no entrada: la compilación lo deriva de lo que aportó
+el componente, y el paquete le dice a un motor qué nodos tiene que resolver.
+Aportar los dos en un mismo elemento es un error, no un cara o cruz.
 
-Aportar los dos es un error de compilación, así que `mode` tiene exactamente una
-fuente de verdad. [Estático y dinámico](/es/docs/essentials/static-and-dynamic/)
-explica dónde está la línea y por qué.
+[Escribir nodos](/es/docs/writing-nodes/) cubre las ranuras de prompt y qué
+muestran las vistas previas en su lugar.
 
 ## Anidamiento
 

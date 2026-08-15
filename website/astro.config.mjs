@@ -46,6 +46,13 @@ export default defineConfig({
       "/docs/essentials/letters-and-nodes/",
       "/docs/essentials/documents-and-nodes/",
     ),
+    // Static and dynamic was a page about a choice you never made. A component
+    // decides what it is from what it supplies, and the package records the
+    // answer, so the concept now sits inside the page about writing one.
+    ...localised(
+      "/docs/essentials/static-and-dynamic/",
+      "/docs/writing-nodes/",
+    ),
   },
   vite: {
     // Two copies of Vite are installed: Astro pins 6, @tailwindcss/vite is

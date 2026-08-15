@@ -42,22 +42,22 @@ einer API-Route.
 
 Halten Sie sie im Dokument eindeutig. Das kostet nichts und macht Logs lesbar.
 
-## Statisch und dynamisch
+## Woher der Inhalt kommt
 
-Ein **statischer** Node berechnet seinen Inhalt lokal aus Ihren Daten. Ein
-**dynamischer** Node trägt Prompts und einen Platzhalter und wird zur
-Anfragezeit ausgefüllt.
+Jeder Node hat entweder seinen Inhalt oder Prompts, um ihn zu erzeugen, und das
+entscheidet die Komponente, statt dass es irgendwo deklariert würde. Geben Sie
+einem Absatz Text — oder einem `Image` ein `src`, oder einem `Graph` seine
+`data` —, und er löst auf Ihrem Rechner auf. Geben Sie ihm stattdessen Prompts
+und einen Platzhalter, wird er zur Anfragezeit ausgefüllt.
 
-Sie deklarieren nie, was Sie wollen. Es gibt einen Helper je Art — `paragraph`,
-`image`, `graph` — und der Modus wird aus den Optionen abgeleitet, die Sie
-angeben: Geben Sie das Mitglied für die lokale Auflösung an (`render`, `src`,
-`data`), ist der Node statisch; geben Sie stattdessen Prompts an, ist er
-dynamisch. Beide lösen zur selben `kind` auf und unterscheiden sich im gebauten
-Dokument durch `mode`.
+Beide lösen zur selben `kind` auf und unterscheiden sich im gebauten Dokument
+durch `mode`. `mode` ist Ausgabe, nicht Eingabe: Der Build leitet es aus dem ab,
+was die Komponente angegeben hat, und das Paket sagt einer Engine, welche Nodes
+sie auflösen muss. Beides an einem Element anzugeben ist ein Fehler und kein
+Münzwurf.
 
-Beides anzugeben ist ein Compile-Fehler, `mode` hat also genau eine
-Wahrheitsquelle. [Statisch und dynamisch](/de/docs/essentials/static-and-dynamic/)
-behandelt, wo die Grenze verläuft und warum.
+[Nodes schreiben](/de/docs/writing-nodes/) behandelt die Prompt-Slots und was
+Vorschauen an ihrer Stelle zeigen.
 
 ## Verschachtelung
 

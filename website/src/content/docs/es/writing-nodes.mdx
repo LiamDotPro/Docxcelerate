@@ -1,0 +1,147 @@
+---
+title: Escribir nodos
+description: Un nodo es un componente pequeño que toma sus datos y devuelve lo que quiere decir.
+group: Start Here
+order: 2
+---
+
+Un documento es un árbol de **componentes**. Cada uno devuelve un **nodo** — un
+párrafo, una imagen, un gráfico — y cada uno vive en su propio archivo bajo
+`nodes/`. Los documentos se hacen largos, y una plantilla que mete la prosa
+dentro deja de ser legible más o menos a mitad de camino.
+
+## Genera uno
+
+```sh
+dxcl document node documents/welcome next-steps --type paragraph
+```
+
+Eso escribe `nodes/next-steps.node.tsx` y lo añade a `nodes/index.ts`. `--type`
+acepta `paragraph`, `image` o `graph`; ejecuta el comando sin argumentos para que
+te pregunte.
+
+La colocación se deja en tus manos a propósito. Abre `document.tsx` y añade el
+componente en el punto del documento al que pertenece:
+
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { Document, Section, template } from "docxcelerate/template";
+import * as Nodes from "./nodes/index.ts";
+import type { DocumentData } from "./types.ts";
+
+export const documentTemplate = template<DocumentData>(
+  <Document id="welcome" title="Welcome">
+    <Section id="opening" title="Opening">
+      <Nodes.Greeting />
+    </Section>
+    <Section id="closing" title="Closing">
+      <Nodes.NextSteps />
+    </Section>
+  </Document>,
+);
+```
+
+Guarda, y la vista previa se recarga con el nodo nuevo en su sitio.
+
+## Los datos entran por `useState`
+
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { Paragraph, useState } from "docxcelerate/template";
+import type { DocumentData } from "../types.ts";
+
+export const Greeting: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    name: data.recipientName,
+  }));
+
+  return <Paragraph id="greeting">Hello {state.name},</Paragraph>;
+};
+```
+
+`useState` es por donde entran los datos en un componente, y el único sitio por
+donde lo hacen — así que de qué depende un nodo queda escrito en una sola
+declaración en vez de repartido por el código que lo lee.
+
+El inicializador es TypeScript corriente. No hay lenguaje de plantillas, así que
+las condiciones, el formateo y los imports están simplemente disponibles, y un
+`if` que devuelve otro párrafo es exactamente lo que parece.
+
+`Paragraph` nombra tanto el elemento como el tipo del componente, así que
+`const Greeting: Paragraph` dice qué produce este nodo — y devolver una
+`<Section>` desde él es un error de compilación.
+
+## Prosa que quieres generada
+
+Algunos párrafos no se pueden escribir por adelantado, porque lo que deben decir
+depende de quien los recibe. Pon **prompts** en lugar de texto, y un **marcador
+de posición** para que la vista previa siga siendo legible:
+
+```tsx
+export const TutorNote: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    applicantName: data.applicantName,
+    interviewer: data.interviewer,
+  }));
+
+  useSetPrompts({
+    generalPrompt: `Write two warm sentences about ${state.applicantName}'s interview.`,
+  });
+  useSetPlaceholders(`A note from ${state.interviewer}.`);
+
+  return <Paragraph id="tutor-note" />;
+};
+```
+
+No hay nada que declarar ni modo que elegir. Un nodo que tiene su texto se puede
+producir en tu máquina; un nodo que solo tiene prompts necesita el motor. El
+componente decide cuál es por lo que aporta, la compilación lo deduce, y el
+paquete que produce dice qué nodos tiene que resolver el motor.
+
+Aportar los dos en un mismo elemento es un error, no un cara o cruz. Los prompts
+también se pueden dar como props, que se lee mejor cuando son cortos, y las props
+ganan al hook — así quien lo llama puede sobrescribir lo que un hook compartido
+puso a su alrededor.
+
+Hay cuatro ranuras de prompt. Solo `generalPrompt` es obligatoria:
+
+| Ranura | Para qué sirve |
+| --- | --- |
+| `generalPrompt` | Qué debe decir el nodo |
+| `infoPrompt` | Contexto que el modelo debe tener pero no repetir |
+| `negativePrompt` | Qué evitar |
+| `systemPrompt` | Instrucciones de rol y tono |
+
+`Image` y `Graph` funcionan igual — dale un `src` o un `data` y se resuelve en
+local; dale prompts y no.
+
+## Qué muestra la vista previa
+
+Compilar para la vista previa resuelve los nodos con prompts a sus **marcadores
+de posición**, nunca a prosa generada. La vista previa se mantiene determinista y
+gratuita, así que puedes iterar sobre estructura y estilos sin que salga una sola
+petición de tu máquina.
+
+El marcador también es una disciplina útil: si un documento es ilegible con los
+marcadores puestos, su estructura está haciendo demasiado poco trabajo.
+
+`usePlaceholderData` te da nombres, fechas y cifras de relleno, sembrados a partir
+de dónde está el componente — así que el mismo nodo muestra los mismos valores
+siempre. Una vista previa que se rebaraja en cada compilación no la puede
+corregir nadie.
+
+## Los ids
+
+Un id es cómo un motor direcciona un nodo y cómo dos artefactos de compilación se
+alinean en un diff, así que trata un renombrado como un cambio incompatible.
+
+Puedes omitirlo. Un nodo sin id toma uno de donde está, y eso evita que las
+bifurcaciones y las listas te obliguen a inventar nombres. Lo que no puedes es
+usar uno dos veces: dos nodos reclamando un id es un error, reportado con ambas
+posiciones, en lugar de una carrera que gana el último.
+
+## Por dónde seguir
+
+- [Proyectos de documento](/es/docs/document-projects/) — los archivos alrededor de tus nodos
+- [Documentos y nodos](/es/docs/essentials/documents-and-nodes/) — el modelo de componentes al completo, hooks incluidos
+- [El modelo de nodos](/es/docs/nodes/overview/) — cada tipo de nodo, con una vista previa de cada uno

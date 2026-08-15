@@ -1,0 +1,144 @@
+---
+title: Writing nodes
+description: A node is a small component that takes its data and returns what it wants to say.
+group: Start Here
+order: 2
+---
+
+A document is a tree of **components**. Each one returns a **node** — a
+paragraph, an image, a graph — and each lives in its own file under `nodes/`.
+Documents get long, and a template that inlines its prose stops being readable
+about halfway down.
+
+## Generate one
+
+```sh
+dxcl document node documents/welcome next-steps --type paragraph
+```
+
+That writes `nodes/next-steps.node.tsx` and adds it to `nodes/index.ts`.
+`--type` takes `paragraph`, `image` or `graph`; run the command with no
+arguments to be asked instead.
+
+Placement is left to you on purpose. Open `document.tsx` and add the component
+at the point in the document where it belongs:
+
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { Document, Section, template } from "docxcelerate/template";
+import * as Nodes from "./nodes/index.ts";
+import type { DocumentData } from "./types.ts";
+
+export const documentTemplate = template<DocumentData>(
+  <Document id="welcome" title="Welcome">
+    <Section id="opening" title="Opening">
+      <Nodes.Greeting />
+    </Section>
+    <Section id="closing" title="Closing">
+      <Nodes.NextSteps />
+    </Section>
+  </Document>,
+);
+```
+
+Save, and the preview reloads with the new node in place.
+
+## Data comes in through `useState`
+
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { Paragraph, useState } from "docxcelerate/template";
+import type { DocumentData } from "../types.ts";
+
+export const Greeting: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    name: data.recipientName,
+  }));
+
+  return <Paragraph id="greeting">Hello {state.name},</Paragraph>;
+};
+```
+
+`useState` is where data enters a component, and the only place it does — so
+what a node depends on is written down in one declaration rather than scattered
+through the code that reads it.
+
+The initializer is ordinary TypeScript. There is no template language, so
+conditionals, formatting and imports are all just available, and an `if` that
+returns a different paragraph is exactly what it looks like.
+
+`Paragraph` names both the element and the component type, so
+`const Greeting: Paragraph` says what this node yields — and returning a
+`<Section>` from it is a compile error.
+
+## Prose you want generated
+
+Some paragraphs cannot be written in advance, because what they should say
+depends on the person receiving them. Set **prompts** instead of text, and a
+**placeholder** so the preview stays readable:
+
+```tsx
+export const TutorNote: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    applicantName: data.applicantName,
+    interviewer: data.interviewer,
+  }));
+
+  useSetPrompts({
+    generalPrompt: `Write two warm sentences about ${state.applicantName}'s interview.`,
+  });
+  useSetPlaceholders(`A note from ${state.interviewer}.`);
+
+  return <Paragraph id="tutor-note" />;
+};
+```
+
+There is nothing to declare and no mode to pick. A node that has its text can be
+produced on your machine; a node that has only prompts needs the engine. The
+component decides which it is by what it supplies, the build works it out, and
+the package it produces says which nodes the engine has to resolve.
+
+Supplying both on one element is an error rather than a coin-toss. Prompts can
+also be given as props, which reads better when they are short, and props win
+over the hook — so a caller can override what a shared hook set around it.
+
+Four prompt slots are available. Only `generalPrompt` is required:
+
+| Slot | Purpose |
+| --- | --- |
+| `generalPrompt` | What the node should say |
+| `infoPrompt` | Context the model should have but not restate |
+| `negativePrompt` | What to avoid |
+| `systemPrompt` | Role and tone instructions |
+
+`Image` and `Graph` work the same way — give one `src` or `data` and it resolves
+locally; give it prompts and it does not.
+
+## What the preview shows
+
+Building for preview resolves prompted nodes to their **placeholders**, never to
+generated prose. Preview stays deterministic and free, so you can iterate on
+structure and styling without a single request leaving your machine.
+
+The placeholder is also a useful discipline: if a document is unreadable with
+placeholders in place, its structure is doing too little work.
+
+`usePlaceholderData` gives you stand-in names, dates and figures, seeded from
+where the component sits — so the same node shows the same values every time. A
+preview that reshuffles itself on each build is one nobody can proofread.
+
+## Ids
+
+An id is how an engine addresses a node and how two build artifacts line up in a
+diff, so treat a rename as a breaking change.
+
+You can leave it out. A node without an id takes one from where it sits, which
+is what keeps branches and lists from forcing you to invent names. What you
+cannot do is use one twice: two nodes claiming one id is an error, reported with
+both positions, rather than a race the later one wins.
+
+## Where to go next
+
+- [Document projects](/docs/document-projects/) — the files around your nodes
+- [Documents and nodes](/docs/essentials/documents-and-nodes/) — the component model in full, including hooks
+- [The node model](/docs/nodes/overview/) — every node type, with previews of each

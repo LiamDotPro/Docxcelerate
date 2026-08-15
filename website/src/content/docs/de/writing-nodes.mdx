@@ -1,0 +1,149 @@
+---
+title: Nodes schreiben
+description: Ein Node ist eine kleine Komponente, die ihre Daten nimmt und zurückgibt, was sie sagen will.
+group: Start Here
+order: 2
+---
+
+Ein Dokument ist ein Baum aus **Komponenten**. Jede gibt einen **Node** zurück —
+einen Absatz, ein Bild, einen Graph — und jede liegt in einer eigenen Datei unter
+`nodes/`. Dokumente werden lang, und ein Template, das seine Prosa einbettet,
+hört etwa auf halber Strecke auf, lesbar zu sein.
+
+## Einen erzeugen
+
+```sh
+dxcl document node documents/welcome next-steps --type paragraph
+```
+
+Das schreibt `nodes/next-steps.node.tsx` und trägt ihn in `nodes/index.ts` ein.
+`--type` nimmt `paragraph`, `image` oder `graph`; rufen Sie den Befehl ohne
+Argumente auf, um stattdessen gefragt zu werden.
+
+Die Platzierung bleibt absichtlich Ihnen überlassen. Öffnen Sie `document.tsx`
+und fügen Sie die Komponente an der Stelle ein, an die sie im Dokument gehört:
+
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { Document, Section, template } from "docxcelerate/template";
+import * as Nodes from "./nodes/index.ts";
+import type { DocumentData } from "./types.ts";
+
+export const documentTemplate = template<DocumentData>(
+  <Document id="welcome" title="Welcome">
+    <Section id="opening" title="Opening">
+      <Nodes.Greeting />
+    </Section>
+    <Section id="closing" title="Closing">
+      <Nodes.NextSteps />
+    </Section>
+  </Document>,
+);
+```
+
+Speichern — und die Vorschau lädt neu, mit dem neuen Node an seinem Platz.
+
+## Daten kommen über `useState` herein
+
+```tsx
+/** @jsxImportSource docxcelerate/template */
+import { Paragraph, useState } from "docxcelerate/template";
+import type { DocumentData } from "../types.ts";
+
+export const Greeting: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    name: data.recipientName,
+  }));
+
+  return <Paragraph id="greeting">Hello {state.name},</Paragraph>;
+};
+```
+
+`useState` ist die Stelle, an der Daten in eine Komponente kommen, und die
+einzige — so steht in einer Deklaration, wovon ein Node abhängt, statt verstreut
+über den Code, der es liest.
+
+Der Initializer ist gewöhnliches TypeScript. Es gibt keine Templatesprache,
+Bedingungen, Formatierung und Imports sind also einfach da, und ein `if`, das
+einen anderen Absatz zurückgibt, ist genau das, wonach es aussieht.
+
+`Paragraph` benennt sowohl das Element als auch den Komponententyp;
+`const Greeting: Paragraph` sagt also, was dieser Node liefert — und eine
+`<Section>` daraus zurückzugeben ist ein Compile-Fehler.
+
+## Text, den Sie generieren lassen wollen
+
+Manche Absätze lassen sich nicht im Voraus schreiben, weil das, was sie sagen
+sollen, von der Person abhängt, die sie bekommt. Setzen Sie statt Text
+**Prompts** und einen **Platzhalter**, damit die Vorschau lesbar bleibt:
+
+```tsx
+export const TutorNote: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => ({
+    applicantName: data.applicantName,
+    interviewer: data.interviewer,
+  }));
+
+  useSetPrompts({
+    generalPrompt: `Write two warm sentences about ${state.applicantName}'s interview.`,
+  });
+  useSetPlaceholders(`A note from ${state.interviewer}.`);
+
+  return <Paragraph id="tutor-note" />;
+};
+```
+
+Es gibt nichts zu deklarieren und keinen Modus zu wählen. Ein Node, der seinen
+Text hat, kann auf Ihrem Rechner erzeugt werden; ein Node, der nur Prompts hat,
+braucht die Engine. Die Komponente entscheidet durch das, was sie angibt, der
+Build leitet es ab, und das erzeugte Paket sagt, welche Nodes die Engine
+auflösen muss.
+
+Beides an einem Element anzugeben ist ein Fehler und kein Münzwurf. Prompts
+können auch als Props übergeben werden, was sich bei kurzen besser liest, und
+Props gewinnen gegen den Hook — eine aufrufende Stelle kann also überschreiben,
+was ein geteilter Hook drumherum gesetzt hat.
+
+Vier Prompt-Slots stehen zur Verfügung. Nur `generalPrompt` ist Pflicht:
+
+| Slot | Zweck |
+| --- | --- |
+| `generalPrompt` | Was der Node sagen soll |
+| `infoPrompt` | Kontext, den das Modell haben, aber nicht wiedergeben soll |
+| `negativePrompt` | Was zu vermeiden ist |
+| `systemPrompt` | Rolle und Tonfall |
+
+`Image` und `Graph` funktionieren genauso — geben Sie `src` oder `data` an, und
+es löst lokal auf; geben Sie Prompts an, dann nicht.
+
+## Was die Vorschau zeigt
+
+Ein Build für die Vorschau löst Nodes mit Prompts zu ihren **Platzhaltern** auf,
+nie zu generiertem Text. Die Vorschau bleibt deterministisch und kostenlos, Sie
+können also an Struktur und Styling arbeiten, ohne dass eine einzige Anfrage
+Ihren Rechner verlässt.
+
+Der Platzhalter ist außerdem eine nützliche Disziplin: Wenn ein Dokument mit
+Platzhaltern unlesbar ist, leistet seine Struktur zu wenig.
+
+`usePlaceholderData` liefert Ihnen Ersatznamen, -daten und -zahlen, geseedet aus
+der Position der Komponente — derselbe Node zeigt also jedes Mal dieselben Werte.
+Eine Vorschau, die sich bei jedem Build neu mischt, kann niemand Korrektur lesen.
+
+## Ids
+
+Eine id ist die Adresse, unter der eine Engine einen Node anspricht, und das,
+woran zwei Build-Artefakte in einem Diff aneinander ausgerichtet werden — ein
+Umbenennen ist also ein Breaking Change.
+
+Sie dürfen sie weglassen. Ein Node ohne id bekommt eine aus seiner Position, und
+das hindert Verzweigungen und Listen daran, Namen zu verlangen, die Sie nicht
+haben. Was nicht geht, ist eine zweimal zu verwenden: Zwei Nodes, die dieselbe id
+beanspruchen, sind ein Fehler, gemeldet mit beiden Positionen, statt ein Rennen,
+das der spätere gewinnt.
+
+## Wie es weitergeht
+
+- [Dokumentprojekte](/de/docs/document-projects/) — die Dateien rund um Ihre Nodes
+- [Dokumente und Nodes](/de/docs/essentials/documents-and-nodes/) — das Komponentenmodell vollständig, samt Hooks
+- [Das Node-Modell](/de/docs/nodes/overview/) — jeder Node-Typ, mit einer Vorschau zu jedem
