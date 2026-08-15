@@ -134,47 +134,39 @@ export const nl: UiStrings = {
     },
 
     scale: {
-      eyebrow: "Op schaal",
-      title: "Gebouwd voor hele documentbestanden, niet voor losse bestandjes",
+      eyebrow: "Enterprise",
+      title: "Gebouwd voor de rapporten die je nu met de hand schrijft",
       lead:
-        "Volume was vanaf de eerste commit een uitgangspunt, niet iets wat er later " +
-        "bij is gezet. Het framework is ontworpen rond organisaties die post per " +
-        "honderdduizend versturen: dezelfde toelatingsbrief naar elke aanmelder, " +
-        "dezelfde verlenging naar elke polishouder, elk met andere gegevens en " +
-        "andere clausules.",
+        "Een kantoor dat hetzelfde rapport honderden keren per maand maakt, heeft de " +
+        "opmaak en het meeste van de tekst allang. Wat verandert, is de persoon voor " +
+        "wie het geschreven wordt. Bouw dat rapport opnieuw op uit componenten, houd " +
+        "elke run identiek, en geef een model alleen de delen die afhangen van wie " +
+        "het leest.",
       traits: {
         volume: {
-          title: "Eén template, willekeurig veel documenten",
+          title: "Eén template, elke ontvanger",
           body:
-            "Een template publiceer je één keer en roep je daarna per record aan. " +
-            "Honderdduizend documenten maken is dezelfde handeling als er één maken, " +
-            "herhaald — schaal is hoe vaak je de engine aanroept, en niet een aparte " +
-            "batchpijplijn die iemand moet bouwen en daarna in de gaten houden.",
+            "Publiceer de template één keer en roep hem daarna per persoon aan. Eén " +
+            "rapport of honderdduizend is dezelfde aanroep, herhaald.",
         },
         determinism: {
-          title: "Voorspelbaar zonder dat je er iets voor doet",
+          title: "Elke keer hetzelfde document",
           body:
-            "Alles behalve de nodes die je expliciet als gegenereerd markeert, " +
-            "rendert elke keer identiek. Over een heel klantenbestand telt dat " +
-            "zwaarder dan wat ook: je kunt beredeneren wat elke ontvanger krijgt, " +
-            "omdat alleen de delen mogen variëren die jij hebt gekozen.",
+            "Alles wat je niet als gegenereerd hebt gemarkeerd, rendert bij elke run " +
+            "identiek. Alleen de delen die jij koos mogen variëren.",
         },
         integration: {
-          title: "Aangeroepen door de systemen die je al draait",
+          title: "Aangeroepen door de systemen die je draait",
           body:
-            "De engine neemt gegevens over HTTP aan en geeft een .docx terug. Je CRM, " +
-            "zaaksysteem of facturatiesysteem maakt zijn eigen post, zonder dat " +
-            "iemand een spreadsheet exporteert, Word opent of een samenvoegmacro " +
-            "onderhoudt die maar één persoon begrijpt.",
+            "Je CRM, zaaksysteem of facturatiesysteem stuurt zijn gegevens en krijgt " +
+            "een .docx terug. Niemand exporteert een spreadsheet of opent Word.",
         },
         reproducibility: {
           title: "Een jaar later nog reproduceerbaar",
           body:
-            "Een gepubliceerde template heeft een versie, dus het document dat een " +
-            "ontvanger kreeg, kan precies opnieuw worden gemaakt: uit dezelfde " +
-            "template en dezelfde gegevens. Als een klacht of een audit vraagt wat er " +
-            "in maart is verstuurd, is het antwoord een build en geen archief waarvan " +
-            "je hoopt dat iemand het heeft bewaard.",
+            "Templates hebben een versie, dus elk document kan opnieuw worden " +
+            "gebouwd uit dezelfde template en dezelfde gegevens. Een audit krijgt een " +
+            "build, geen archief.",
         },
       },
     },
