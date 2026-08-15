@@ -1,4 +1,3 @@
-/** @jsxImportSource docxcelerate/template */
 import {
   Paragraph,
   useAvailableTokens,

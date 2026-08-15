@@ -1984,8 +1984,7 @@ select {
 }
 
 function greetingNodeTemplate(): string {
-  return `/** @jsxImportSource docxcelerate/template */
-import { Paragraph, useState } from "docxcelerate/template";
+  return `import { Paragraph, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 
 export const Greeting: Paragraph = () => {
@@ -1999,8 +1998,7 @@ export const Greeting: Paragraph = () => {
 }
 
 function introNodeTemplate(): string {
-  return `/** @jsxImportSource docxcelerate/template */
-import { Paragraph, useState } from "docxcelerate/template";
+  return `import { Paragraph, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 
 export const Intro: Paragraph = () => {
@@ -2018,8 +2016,7 @@ export const Intro: Paragraph = () => {
 }
 
 function sampleBalanceSummaryNodeTemplate(): string {
-  return `/** @jsxImportSource docxcelerate/template */
-import { dataRef, derive, Paragraph, useState } from "docxcelerate/document";
+  return `import { dataRef, derive, Paragraph, useState } from "docxcelerate/document";
 import type { DocumentData } from "../types.ts";
 
 /**
@@ -2084,8 +2081,7 @@ export default derivers;
 }
 
 function documentTemplate(options: { id: string; title: string }): string {
-  return `/** @jsxImportSource docxcelerate/template */
-import { Document, Section, template } from "docxcelerate/template";
+  return `import { Document, Section, template } from "docxcelerate/template";
 import * as Nodes from "./nodes/index.ts";
 import type { DocumentData } from "./types.ts";
 
@@ -2101,8 +2097,7 @@ export const documentTemplate = template<DocumentData>(
 }
 
 function sampleDocumentTemplate(): string {
-  return `/** @jsxImportSource docxcelerate/template */
-import { Document, Section, template } from "docxcelerate/template";
+  return `import { Document, Section, template } from "docxcelerate/template";
 import * as Nodes from "./nodes/index.ts";
 import type { DocumentData } from "./types.ts";
 
@@ -2147,8 +2142,7 @@ export { Greeting } from "./greeting.node.tsx";
 }
 
 function paragraphNodeTemplate(options: { componentName: string; nodeId: string }): string {
-  return `/** @jsxImportSource docxcelerate/template */
-import { Paragraph, useState } from "docxcelerate/template";
+  return `import { Paragraph, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 
 export const ${options.componentName}: Paragraph = () => {
@@ -2166,8 +2160,7 @@ export const ${options.componentName}: Paragraph = () => {
 }
 
 function imageNodeTemplate(options: { componentName: string; nodeId: string }): string {
-  return `/** @jsxImportSource docxcelerate/template */
-import { Image, useState } from "docxcelerate/template";
+  return `import { Image, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 
 export const ${options.componentName}: Image = () => {
@@ -2187,8 +2180,7 @@ export const ${options.componentName}: Image = () => {
 }
 
 function graphNodeTemplate(options: { componentName: string; nodeId: string }): string {
-  return `/** @jsxImportSource docxcelerate/template */
-import { Graph, useState } from "docxcelerate/template";
+  return `import { Graph, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 
 export const ${options.componentName}: Graph = () => {

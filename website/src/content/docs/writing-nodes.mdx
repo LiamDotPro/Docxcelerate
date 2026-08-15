@@ -24,7 +24,6 @@ Placement is left to you on purpose. Open `document.tsx` and add the component
 at the point in the document where it belongs:
 
 ```tsx
-/** @jsxImportSource docxcelerate/template */
 import { Document, Section, template } from "docxcelerate/template";
 import * as Nodes from "./nodes/index.ts";
 import type { DocumentData } from "./types.ts";
@@ -46,7 +45,6 @@ Save, and the preview reloads with the new node in place.
 ## Data comes in through `useState`
 
 ```tsx
-/** @jsxImportSource docxcelerate/template */
 import { Paragraph, useState } from "docxcelerate/template";
 import type { DocumentData } from "../types.ts";
 

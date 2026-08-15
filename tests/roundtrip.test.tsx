@@ -1,4 +1,3 @@
-/** @jsxImportSource docxcelerate/template */
 import { test } from "node:test";
 import { assertEquals } from "./assert.ts";
 import {

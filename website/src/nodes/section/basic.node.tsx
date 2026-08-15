@@ -1,4 +1,3 @@
-/** @jsxImportSource docxcelerate/template */
 import { Section } from "docxcelerate/template";
 import { PriceChange } from "../paragraph/conditional.node.tsx";
 import { Greeting } from "../paragraph/static.node.tsx";

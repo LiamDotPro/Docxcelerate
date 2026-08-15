@@ -1,4 +1,3 @@
-/** @jsxImportSource docxcelerate/template */
 import { Paragraph, useSetPlaceholders, useSetPrompts, useState } from "docxcelerate/template";
 import type { RepairsData } from "../types.ts";
 

@@ -13,7 +13,6 @@ wat hij is, met data in de hand.
 ## De vorm
 
 ```tsx
-/** @jsxImportSource docxcelerate/template */
 import { Document, Section, template } from "docxcelerate/template";
 import { Greeting, NextSteps } from "./nodes/index.ts";
 import type { DocumentData } from "./types.ts";
@@ -30,8 +29,8 @@ export const documentTemplate = template<DocumentData>(
 );
 ```
 
-De pragma op regel één is wat JSX aan Docxcelerate koppelt in plaats van aan
-React. Zet je `jsxImportSource` in `tsconfig.json`, dan kun je hem weglaten:
+Wat die JSX aan Docxcelerate koppelt in plaats van aan React, is
+`tsconfig.json`:
 
 ```json
 {
@@ -42,7 +41,11 @@ React. Zet je `jsxImportSource` in `tsconfig.json`, dan kun je hem weglaten:
 }
 ```
 
-In aangemaakte workspaces is dit al geconfigureerd.
+In aangemaakte workspaces staat dit al, dus bovenaan een bestand hoeft niets bij.
+Voeg je Docxcelerate toe aan een project dat `jsxImportSource` ergens anders naar
+laat wijzen, dan overschrijft een commentaar
+`/** @jsxImportSource docxcelerate/template */` op regel één dat voor dat
+bestand.
 
 ## Berekende structuur
 

@@ -1,4 +1,3 @@
-/** @jsxImportSource docxcelerate/template */
 import { TableOfContents } from "docxcelerate/template";
 
 /**
