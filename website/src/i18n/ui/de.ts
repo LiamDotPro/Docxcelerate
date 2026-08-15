@@ -141,51 +141,40 @@ export const de: UiStrings = {
     },
 
     scale: {
-      eyebrow: "Im großen Maßstab",
-      title: "Gebaut für ganze Dokumentbestände, nicht für Einzelstücke",
+      eyebrow: "Enterprise",
+      title: "Gebaut für die Berichte, die Sie heute von Hand schreiben",
       lead:
-        "Große Mengen waren eine Grundannahme von Anfang an, nichts nachträglich " +
-        "Angebautes. Das Framework ist auf Organisationen zugeschnitten, die " +
-        "Schriftverkehr zu Hunderttausenden versenden: dasselbe Zulassungsschreiben " +
-        "an jede Bewerberin und jeden Bewerber, dieselbe Verlängerung an jede " +
-        "Versicherungsnehmerin und jeden Versicherungsnehmer, jedes Mal mit anderen " +
-        "Daten und anderen Klauseln.",
+        "Ein Unternehmen, das denselben Bericht hunderte Male im Monat erstellt, " +
+        "hat das Layout und die meisten Formulierungen längst. Was sich ändert, ist " +
+        "die Person, für die er geschrieben wird. Bauen Sie diesen Bericht aus " +
+        "Komponenten neu, halten Sie jeden Durchlauf identisch, und geben Sie einem " +
+        "Modell nur die Teile, die davon abhängen, wer ihn liest.",
       traits: {
         volume: {
-          title: "Ein Template, beliebig viele Dokumente",
+          title: "Ein Template, jede Empfängerin und jeder Empfänger",
           body:
-            "Ein Template wird einmal veröffentlicht und dann pro Datensatz " +
-            "aufgerufen. Hunderttausend Dokumente zu erzeugen ist derselbe Vorgang " +
-            "wie eines zu erzeugen, nur wiederholt — Maßstab heißt hier, wie oft Sie " +
-            "die Engine aufrufen, und nicht eine eigene Batch-Pipeline, die jemand " +
-            "bauen und danach betreuen muss.",
+            "Das Template einmal veröffentlichen, dann pro Person aufrufen. Ein " +
+            "Bericht oder hunderttausend sind derselbe Aufruf, wiederholt.",
         },
         determinism: {
-          title: "Vorhersagbar von Haus aus",
+          title: "Jedes Mal dasselbe Dokument",
           body:
-            "Alles außer den Nodes, die Sie ausdrücklich als generiert markieren, " +
-            "rendert jedes Mal identisch. Über einen ganzen Kundenbestand hinweg " +
-            "zählt das mehr als alles andere: Sie können nachvollziehen, was jede " +
-            "Empfängerin und jeder Empfänger bekommt, weil nur die Teile variieren " +
-            "dürfen, die Sie ausgewählt haben.",
+            "Alles, was Sie nicht als generiert markiert haben, rendert bei jedem " +
+            "Lauf identisch. Variieren dürfen nur die Teile, die Sie ausgewählt haben.",
         },
         integration: {
-          title: "Aufgerufen von den Systemen, die Sie schon betreiben",
+          title: "Aufgerufen von den Systemen, die Sie betreiben",
           body:
-            "Die Engine nimmt Daten über HTTP entgegen und gibt eine .docx zurück. " +
-            "Ihr CRM, Ihre Fallverwaltung oder Ihr Abrechnungssystem erzeugt seinen " +
-            "Schriftverkehr selbst — ohne dass jemand eine Tabelle exportiert, Word " +
-            "öffnet oder ein Serienbrief-Makro pflegt, das nur eine Person versteht.",
+            "Ihr CRM, Ihre Fallverwaltung oder Ihr Abrechnungssystem schickt seine " +
+            "Daten und bekommt eine .docx zurück. Niemand exportiert eine Tabelle " +
+            "oder öffnet Word.",
         },
         reproducibility: {
           title: "Noch ein Jahr später reproduzierbar",
           body:
-            "Ein veröffentlichtes Template ist versioniert, sodass sich das Dokument, " +
-            "das eine Empfängerin oder ein Empfänger erhalten hat, exakt erneut " +
-            "erzeugen lässt: aus demselben Template und denselben Daten. Wenn eine " +
-            "Beschwerde oder eine Prüfung fragt, was im März verschickt wurde, ist " +
-            "die Antwort ein Build und kein Archiv, von dem Sie hoffen, dass es " +
-            "jemand aufbewahrt hat.",
+            "Templates sind versioniert, jedes Dokument lässt sich also aus " +
+            "demselben Template und denselben Daten neu bauen. Eine Prüfung bekommt " +
+            "einen Build, kein Archiv.",
         },
       },
     },

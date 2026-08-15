@@ -136,49 +136,39 @@ export const es: UiStrings = {
     },
 
     scale: {
-      eyebrow: "A escala",
-      title: "Pensado para parques documentales, no para archivos sueltos",
+      eyebrow: "Empresa",
+      title: "Pensado para los informes que ya escribes a mano",
       lead:
-        "El volumen fue una premisa desde el primer commit, no un añadido posterior. " +
-        "El framework se diseñó alrededor de organizaciones que envían " +
-        "correspondencia por cientos de miles: la misma carta de admisión a cada " +
-        "solicitante, la misma renovación a cada asegurado, cada una con datos y " +
-        "cláusulas distintos.",
+        "Una firma que produce el mismo informe cientos de veces al mes ya tiene la " +
+        "maquetación y casi toda la redacción. Lo que cambia es la persona para la " +
+        "que se escribe. Reconstruye ese informe con componentes, mantén cada " +
+        "ejecución idéntica y deja al modelo solo las partes que dependen de quién " +
+        "lo va a leer.",
       traits: {
         volume: {
-          title: "Una plantilla, cualquier número de documentos",
+          title: "Una plantilla, cada destinatario",
           body:
-            "Una plantilla se publica una vez y luego se llama por cada registro. " +
-            "Generar cien mil documentos es la misma operación que generar uno, " +
-            "repetida: la escala es la frecuencia con la que llamas al motor, no una " +
-            "canalización por lotes aparte que alguien tenga que construir y después " +
-            "vigilar.",
+            "Publica la plantilla una vez y luego llámala por persona. Un informe o " +
+            "cien mil son la misma llamada, repetida.",
         },
         determinism: {
-          title: "Predecible por defecto",
+          title: "El mismo documento siempre",
           body:
-            "Todo salvo los nodos que marcas explícitamente como generados se " +
-            "renderiza igual siempre. En una base de clientes entera eso importa más " +
-            "que ninguna otra cosa: puedes razonar sobre lo que recibirá cada " +
-            "destinatario, porque solo pueden variar las partes que elegiste.",
+            "Todo lo que no marcaste como generado se renderiza igual en cada " +
+            "ejecución. Solo pueden variar las partes que elegiste.",
         },
         integration: {
           title: "Lo llaman los sistemas que ya tienes",
           body:
-            "El motor recibe datos por HTTP y devuelve un .docx. Tu CRM, tu gestor de " +
-            "expedientes o tu sistema de facturación genera su propia " +
-            "correspondencia, sin que nadie exporte una hoja de cálculo, abra Word ni " +
-            "mantenga una macro de combinación de correspondencia que solo entiende " +
-            "una persona.",
+            "Tu CRM, tu gestor de expedientes o tu sistema de facturación envía sus " +
+            "datos y recibe un .docx. Nadie exporta una hoja de cálculo ni abre Word.",
         },
         reproducibility: {
           title: "Reproducible un año después",
           body:
-            "Una plantilla publicada está versionada, así que el documento que " +
-            "recibió un destinatario puede volver a producirse exactamente igual, con " +
-            "la misma plantilla y los mismos datos. Cuando una reclamación o una " +
-            "auditoría pregunta qué se envió en marzo, la respuesta es una " +
-            "compilación y no un archivo que esperas que alguien guardara.",
+            "Las plantillas están versionadas, así que cualquier documento se puede " +
+            "reconstruir con la misma plantilla y los mismos datos. Una auditoría " +
+            "recibe una compilación, no un archivo.",
         },
       },
     },

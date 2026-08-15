@@ -140,46 +140,37 @@ export const en = {
     },
 
     scale: {
-      eyebrow: "At scale",
-      title: "Built for document estates, not one-off files",
+      eyebrow: "Enterprise",
+      title: "Built for the reports you already write by hand",
       lead:
-        "Volume was a founding assumption, not something bolted on later. The " +
-        "framework was shaped around organisations that send correspondence by the " +
-        "hundred thousand: the same offer letter to every applicant, the same " +
-        "renewal schedule to every policyholder, each one carrying different data " +
-        "and different clauses.",
+        "A firm producing the same report hundreds of times a month already has " +
+        "the layout and most of the wording. What changes is the person it is " +
+        "written for. Rebuild that report as components, keep every run identical, " +
+        "and hand a model only the parts that depend on who is reading it.",
       traits: {
         volume: {
-          title: "One template, any number of documents",
+          title: "One template, every recipient",
           body:
-            "A template is published once and then called per record. Generating a " +
-            "hundred thousand documents is the same operation as generating one, " +
-            "repeated — scale is how often you call the engine, not a separate " +
-            "batch pipeline somebody has to build and then babysit.",
+            "Publish the template once, then call it per person. One report or a " +
+            "hundred thousand is the same call, repeated.",
         },
         determinism: {
-          title: "Predictable by default",
+          title: "The same document every time",
           body:
-            "Everything except the nodes you explicitly mark as generated renders " +
-            "identically every time. Across a whole customer base that matters more " +
-            "than anything else: you can reason about what every recipient will get, " +
-            "because only the parts you chose are allowed to vary.",
+            "Anything you did not mark as generated renders identically on every " +
+            "run. Only the parts you chose can vary.",
         },
         integration: {
-          title: "Called by the systems you already run",
+          title: "Called by the systems you run",
           body:
-            "The engine takes data over HTTP and returns a .docx. Your CRM, case " +
-            "management or billing system generates its own correspondence, with " +
-            "nobody exporting a spreadsheet, opening Word, or maintaining a " +
-            "mail-merge macro that one person understands.",
+            "Your CRM, case system or billing platform posts its data and gets a " +
+            ".docx back. Nobody exports a spreadsheet or opens Word.",
         },
         reproducibility: {
           title: "Reproducible a year later",
           body:
-            "A published template is versioned, so the document a recipient received " +
-            "can be produced again exactly, from the same template and the same " +
-            "data. When a complaint or an audit asks what was sent in March, the " +
-            "answer is a build rather than an archive you hope someone kept.",
+            "Templates are versioned, so any document can be rebuilt from the same " +
+            "template and the same data. An audit gets a build, not an archive.",
         },
       },
     },
