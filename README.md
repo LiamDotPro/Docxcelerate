@@ -1,7 +1,8 @@
 # Docxcelerate
 
 Compose DOCX documents from small typed components, using the JSX you already write.
-Author and preview them locally, then generate finished documents through the engine.
+Write and preview them on your machine, then generate finished documents through
+the engine.
 
 **[Documentation](https://docxcelerate.com/docs/start-here/)** · [docxcelerate.com](https://docxcelerate.com)
 
@@ -17,8 +18,8 @@ cd my-documents
 npm run dev
 ```
 
-This scaffolds a workspace and opens the preview app, where you can pick a document,
-resolve it against preview data, and pack it into a real `.docx` in the browser.
+This creates a workspace and opens the preview app, where you can pick a document,
+fill it with sample data, and pack it into a real `.docx` in the browser.
 
 To get the `dxcl` binary on your path:
 
@@ -46,11 +47,11 @@ export const documentTemplate = template<TenancyData>(
 );
 ```
 
-Nothing runs when that is written. Evaluating the JSX only builds elements, which
-is what lets each component decide what it is later, once there is data.
+That file is structure and nothing else. `Greeting` and `Balance` do not run until
+you build the document with real data.
 
-`Greeting` and `Balance` are those **components**. Each lives in its own file, takes
-its data as state, and returns the **node** it wants:
+They are the **components**. Each one lives in its own file, reads the data it
+needs, and returns a piece of the document:
 
 ```tsx
 import { Paragraph, useSetPrompts, useState } from "docxcelerate/template";
@@ -72,12 +73,13 @@ export const Balance: Paragraph = () => {
 };
 ```
 
-Data enters through `useState` and nothing else reaches for it, so what a component
-depends on is written down in one place. Branching is an ordinary `if`.
+`useState` is the only way data gets in, so everything a component depends on is
+listed in one place. Deciding what to say is an ordinary `if`.
 
-The two arms show where AI fits. The settled arm has its own text, so it is produced
-on your machine. The arrears arm has none, so the model writes it from the prompt.
-You never declare which is which — a component decides by what it supplies.
+The two paragraphs it can return are where AI comes in. If the balance is settled,
+the paragraph already has its words and your machine produces it. If it is not, the
+paragraph is left empty and the model writes it using the prompt above. You never
+mark a paragraph as AI-written: leaving the words out is what asks for that.
 
 ## Documentation
 
