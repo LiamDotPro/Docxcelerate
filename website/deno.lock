@@ -1,0 +1,81 @@
+{
+  "version": "5",
+  "specifiers": {
+    "jsr:@std/cli@^1.0.28": "1.0.30",
+    "jsr:@std/encoding@^1.0.10": "1.0.10",
+    "jsr:@std/fmt@^1.0.9": "1.0.10",
+    "jsr:@std/fs@^1.0.23": "1.0.23",
+    "jsr:@std/html@^1.0.5": "1.0.6",
+    "jsr:@std/http@1.0": "1.0.25",
+    "jsr:@std/internal@^1.0.14": "1.0.14",
+    "jsr:@std/media-types@^1.1.0": "1.1.0",
+    "jsr:@std/net@^1.0.6": "1.0.6",
+    "jsr:@std/path@1.0": "1.0.9",
+    "jsr:@std/path@^1.1.4": "1.1.5",
+    "jsr:@std/streams@^1.0.17": "1.1.0"
+  },
+  "jsr": {
+    "@std/cli@1.0.30": {
+      "integrity": "769446536522d0417d7127ebcabcafac1ab0ce6766d0eb3fca1d36326fe98d13"
+    },
+    "@std/encoding@1.0.10": {
+      "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
+    },
+    "@std/fmt@1.0.10": {
+      "integrity": "90dfba288802ac6de82fb31d0917eb9e4450b9925b954d5e51fc29ac07419db5"
+    },
+    "@std/fs@1.0.23": {
+      "integrity": "3ecbae4ce4fee03b180fa710caff36bb5adb66631c46a6460aaad49515565a37"
+    },
+    "@std/html@1.0.6": {
+      "integrity": "eaf759c8141e0733ca30eb49e4c08d8e6ca442b85c4d51f9894a56f502993e08"
+    },
+    "@std/http@1.0.25": {
+      "integrity": "577b4252290af1097132812b339fffdd55fb0f4aeb98ff11bdbf67998aa17193",
+      "dependencies": [
+        "jsr:@std/cli",
+        "jsr:@std/encoding",
+        "jsr:@std/fmt",
+        "jsr:@std/fs",
+        "jsr:@std/html",
+        "jsr:@std/media-types",
+        "jsr:@std/net",
+        "jsr:@std/path@^1.1.4",
+        "jsr:@std/streams"
+      ]
+    },
+    "@std/internal@1.0.14": {
+      "integrity": "291516b3d4c35024d6ffbc0a9df5bf4c64116e05b50012cf846710152d2ffdf7"
+    },
+    "@std/media-types@1.1.0": {
+      "integrity": "c9d093f0c05c3512932b330e3cc1fe1d627b301db33a4c2c2185c02471d6eaa4"
+    },
+    "@std/net@1.0.6": {
+      "integrity": "110735f93e95bb9feb95790a8b1d1bf69ec0dc74f3f97a00a76ea5efea25500c"
+    },
+    "@std/path@1.0.9": {
+      "integrity": "260a49f11edd3db93dd38350bf9cd1b4d1366afa98e81b86167b4e3dd750129e"
+    },
+    "@std/path@1.1.5": {
+      "integrity": "ccea00982ea28c36becaf6e62f855406c76a8c32d462f66f415bbb7d83a271bc",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
+    },
+    "@std/streams@1.1.0": {
+      "integrity": "2f7024d841f343fd478afe0c958a3f0f068ef2a0d2bcc954f550f97ac1fa22e3"
+    }
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@astrojs/mdx@^4.3.2",
+        "npm:@deno/astro-adapter@~0.3.2",
+        "npm:@tailwindcss/vite@^4.1.14",
+        "npm:astro@^5.14.1",
+        "npm:esbuild@~0.28.2",
+        "npm:tailwindcss@^4.1.14"
+      ]
+    }
+  }
+}
