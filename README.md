@@ -18,8 +18,8 @@ cd my-documents
 npm run dev
 ```
 
-This creates a workspace and opens the preview app, where you can pick a document,
-fill it with sample data, and pack it into a real `.docx` in the browser.
+This creates a workspace and opens the preview app, where you can begin to create documents
+and edit or add nodes and finally package it into a reusable format.
 
 To get the `dxcl` binary on your path:
 
@@ -29,8 +29,8 @@ npm install -g docxcelerate
 
 ## What a document looks like
 
-Start at the **template**. It is the shape of the whole document in one file: the
-sections it has, and the components that fill them.
+Below is the **index.ts** which is the root of a document inside of a workspace. All documents use the Document component as the parent
+and allow us to configure the documents settings and stylings.
 
 ```tsx
 import { Document, Section, template } from "docxcelerate/template";
@@ -47,11 +47,11 @@ export const documentTemplate = template<TenancyData>(
 );
 ```
 
-That file is structure and nothing else. `Greeting` and `Balance` do not run until
-you build the document with real data.
+If you are fammilar with frontend frameworks the idea of having an entrypoint for your application
+maps well into the shape of how we structure documents with docxcerlate.
 
-They are the **components**. Each one lives in its own file, reads the data it
-needs, and returns a piece of the document:
+We build components which represent the contents of a document, these are basic elements
+of a word document such as a paragraph, image, clipart or something else.
 
 ```tsx
 import { Paragraph, useSetPrompts, useState } from "docxcelerate/template";
@@ -73,13 +73,13 @@ export const Balance: Paragraph = () => {
 };
 ```
 
-`useState` is the only way data gets in, so everything a component depends on is
-listed in one place. Deciding what to say is an ordinary `if`.
+We structure documents with hooks that allow us to bring in ai features, at the most basic level
+this is just stuff like making a paragraph say X or Y or write something unique.
 
-The two paragraphs it can return are where AI comes in. If the balance is settled,
-the paragraph already has its words and your machine produces it. If it is not, the
-paragraph is left empty and the model writes it using the prompt above. You never
-mark a paragraph as AI-written: leaving the words out is what asks for that.
+In the example above we are simply using the generalPrompt to get some text out about the balance a user has left,
+you can imagine that if the user has a lot of money the AI may choose to write "You've got a substantial amount of money William".
+
+Jump into our documentation to understand how you can structure documents with AI and create more complex documents for your own needs.
 
 ## Documentation
 
