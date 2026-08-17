@@ -244,6 +244,21 @@ export const es: UiStrings = {
         },
       },
     },
+
+    agentSkill: {
+      eyebrow: "Agent skills",
+      title: "Dale el conjunto a tu agente",
+      lead:
+        "Un solo archivo Markdown le enseña a un agente de código cómo se arman aquí " +
+        "los documentos: el modelo de componentes, la CLI y dónde entra la IA. " +
+        "Colócalo y pide un documento en lugar de escribir el primero tú.",
+      copySkill: "Copiar la skill",
+      note:
+        "Coloca la carpeta en .claude/skills/ y Claude Code la carga en cuanto aparece " +
+        "un proyecto de documentos, con cuatro archivos de referencia al lado. En " +
+        "cualquier caso es Markdown corriente, así que Cursor, Copilot o cualquier cosa " +
+        "que lea AGENTS.md la toma tal cual.",
+    },
   },
 
   demo: {

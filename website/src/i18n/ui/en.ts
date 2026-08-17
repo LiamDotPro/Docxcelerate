@@ -242,6 +242,27 @@ export const en = {
         },
       },
     },
+
+    /**
+     * The skill itself is Markdown read out of the repository at build time, so
+     * only the words around it are here. It stays English in every language for
+     * the same reason the node catalog does: it is toolkit content, and a
+     * translated copy would be a second one to keep true.
+     */
+    agentSkill: {
+      eyebrow: "Agent skills",
+      title: "Hand the whole thing to your agent",
+      lead:
+        "One Markdown file teaches a coding agent how documents are put together " +
+        "here — the component model, the CLI, and where AI goes. Drop it in and " +
+        "ask for a document instead of writing the first one yourself.",
+      copySkill: "Copy the skill",
+      note:
+        "Drop the folder into .claude/skills/ and Claude Code loads it whenever a " +
+        "document project shows up, with four reference files beside it. It is " +
+        "plain Markdown either way, so Cursor, Copilot or anything reading " +
+        "AGENTS.md takes it as it stands.",
+    },
   },
 
   demo: {

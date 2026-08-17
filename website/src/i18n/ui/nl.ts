@@ -241,6 +241,21 @@ export const nl: UiStrings = {
         },
       },
     },
+
+    agentSkill: {
+      eyebrow: "Agent skills",
+      title: "Geef het geheel aan je agent",
+      lead:
+        "Één Markdown-bestand leert een coding agent hoe documenten hier in elkaar " +
+        "zitten — het componentmodel, de CLI en waar AI binnenkomt. Zet het erin en " +
+        "vraag om een document in plaats van het eerste zelf te schrijven.",
+      copySkill: "Kopieer de skill",
+      note:
+        "Zet de map in .claude/skills/ en Claude Code laadt hem zodra er een " +
+        "documentproject opduikt, met vier referentiebestanden ernaast. Het is hoe " +
+        "dan ook gewone Markdown, dus Cursor, Copilot of alles wat AGENTS.md leest " +
+        "neemt het zo over.",
+    },
   },
 
   demo: {
