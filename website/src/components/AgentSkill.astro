@@ -1,0 +1,203 @@
+---
+/**
+ * The agent skill, printed in full at the foot of the homepage.
+ *
+ * Centred rather than laid out in columns like the sections above it: there is
+ * one thing to do here — take the file — and a single column puts the heading,
+ * the file and the button it needs on one axis.
+ *
+ * The file is the same for every agent, so the picker below changes only where
+ * it goes: the caption above the code and the line under it. Nothing reloads
+ * and nothing is fetched, because there is nothing per-agent to fetch.
+ *
+ * The Markdown is read from the repository at build time (see src/skill.ts), so
+ * the page shows the skill that ships rather than a copy of it that can drift.
+ */
+import { Code } from "astro:components";
+import AgentMark from "./AgentMark.astro";
+import { agentSkill } from "../skill";
+import { asLocale, ui } from "../i18n";
+
+const locale = asLocale(Astro.currentLocale);
+const t = ui(locale);
+
+const skill = agentSkill();
+
+/**
+ * Where the file goes, per agent.
+ *
+ * Names and paths are not translated — they are what the agent calls itself and
+ * what its own docs tell you to type. Only the sentence about each one is.
+ *
+ * Claude Code is first because the skill is written in its format; the rest read
+ * the same Markdown from wherever they happen to look. The last entry is a file
+ * rather than a product on purpose — four agents share it, and naming them all
+ * on a tab would be a paragraph.
+ */
+const AGENTS = (
+  [
+    { id: "claude-code", name: "Claude Code", path: ".claude/skills/docxcelerate/" },
+    { id: "cursor", name: "Cursor", path: ".cursor/rules/docxcelerate.mdc" },
+    { id: "copilot", name: "Copilot", path: ".github/copilot-instructions.md" },
+    { id: "agents-md", name: "AGENTS.md", path: "AGENTS.md" },
+  ] as const
+).map((agent) => ({ ...agent, note: t.home.agentSkill.agents[agent.id] }));
+
+const [FIRST] = AGENTS;
+---
+
+<section class="border-t border-border">
+  <div class="mx-auto max-w-4xl px-5 py-24 sm:px-8 sm:py-28">
+    <div class="mx-auto mb-8 flex max-w-2xl flex-col items-center gap-4 text-center">
+      <span
+        class="font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent"
+        >{t.home.agentSkill.eyebrow}</span
+      >
+      <h2 class="m-0 text-3xl font-semibold sm:text-4xl">{t.home.agentSkill.title}</h2>
+      <p class="m-0 leading-relaxed text-muted">
+        {t.home.agentSkill.lead}
+      </p>
+    </div>
+
+    <div
+      class="mb-6 flex flex-wrap items-center justify-center gap-2"
+      role="group"
+      aria-label={t.home.agentSkill.where}
+    >
+      {
+        AGENTS.map((agent) => (
+          <button
+            type="button"
+            class="agent-tab inline-flex items-center gap-2 rounded-full border border-border px-3.5 py-1.5 text-sm text-muted transition-colors hover:text-accent"
+            data-agent={agent.id}
+            data-path={agent.path}
+            aria-pressed={agent.id === FIRST.id ? "true" : "false"}
+          >
+            <AgentMark agent={agent.id} />
+            {agent.name}
+          </button>
+        ))
+      }
+    </div>
+
+    <figure class="m-0 overflow-hidden rounded-md border border-border">
+      <!-- The caption is the instruction. A reader who copies the file still has
+           to be told where to put it, and the top of the file is where they are
+           looking when they wonder. -->
+      <figcaption
+        class="flex items-center justify-between gap-3 border-b border-border bg-surface px-4 py-2.5"
+      >
+        <code id="skill-target" class="truncate font-mono text-xs text-muted">{FIRST.path}</code>
+        <button
+          type="button"
+          id="copy-skill"
+          class="shrink-0 rounded px-1.5 py-0.5 font-mono text-xs text-muted transition-colors hover:text-accent"
+          data-idle={t.home.copy}
+          data-copied={t.home.copied}
+          data-fallback={t.home.copyFallback}
+          aria-label={t.home.agentSkill.copySkill}>{t.home.copy}</button
+        >
+      </figcaption>
+
+      <!-- Capped and scrolled: the skill is allowed to grow without the block it
+           sits in taking over the bottom of the page. -->
+      <div class="skill-scroll max-h-[30rem] overflow-auto" id="skill-source">
+        <Code
+          code={skill}
+          lang="markdown"
+          themes={{ light: "github-light", dark: "github-dark-dimmed" }}
+        />
+      </div>
+    </figure>
+
+    <!-- Every note is rendered and all but one hidden, so switching agents is a
+         class change rather than a string lookup in the script — and so the
+         page still says something useful with JavaScript off. -->
+    <p
+      class="mx-auto mt-6 max-w-xl text-center text-sm leading-relaxed text-pretty text-muted"
+      aria-live="polite"
+    >
+      {
+        AGENTS.map((agent) => (
+          <span class="agent-note" data-agent={agent.id} hidden={agent.id !== FIRST.id}>
+            {agent.note}
+          </span>
+        ))
+      }
+    </p>
+
+    <p class="mx-auto mt-2 max-w-xl text-center text-sm leading-relaxed text-muted">
+      {t.home.agentSkill.references}
+    </p>
+  </div>
+</section>
+
+<script>
+  const tabs = document.querySelectorAll<HTMLButtonElement>(".agent-tab");
+  const notes = document.querySelectorAll<HTMLElement>(".agent-note");
+  const target = document.getElementById("skill-target");
+
+  for (const tab of tabs) {
+    tab.addEventListener("click", () => {
+      const chosen = tab.dataset.agent;
+
+      for (const other of tabs) {
+        other.setAttribute("aria-pressed", String(other === tab));
+      }
+      for (const note of notes) {
+        note.hidden = note.dataset.agent !== chosen;
+      }
+      if (target && tab.dataset.path) {
+        target.textContent = tab.dataset.path;
+      }
+    });
+  }
+
+  /**
+   * Copies the file itself. The text comes back off the rendered block rather
+   * than from a second copy of it in an attribute — the highlighter only wraps
+   * the source in spans, so reading it back gives the same characters the build
+   * put in.
+   */
+  const button = document.getElementById("copy-skill");
+  const source = document.querySelector<HTMLPreElement>("#skill-source pre");
+
+  button?.addEventListener("click", async () => {
+    const text = source?.textContent;
+    if (!text) return;
+
+    const idle = button.dataset.idle ?? "";
+    const restore = () => setTimeout(() => (button.textContent = idle), 1600);
+    try {
+      await navigator.clipboard.writeText(text);
+      button.textContent = button.dataset.copied ?? idle;
+    } catch {
+      button.textContent = button.dataset.fallback ?? idle;
+    }
+    restore();
+  });
+</script>
+
+<style>
+  /* Pressed rather than selected: the row picks which instruction is showing,
+     it does not switch panels. */
+  .agent-tab[aria-pressed="true"] {
+    border-color: var(--accent);
+    background: var(--accent-tint);
+    color: var(--accent);
+  }
+
+  /* The highlighter brings its own ground, which is the point — the file reads
+     as a file. The border above owns the rounding, so the block inside only has
+     to fill it. */
+  .skill-scroll :global(pre) {
+    margin: 0;
+    padding: 1.15rem 1.3rem;
+    font-size: 0.78rem;
+    line-height: 1.7;
+    /* Fills a short skill out to the bottom of the card rather than leaving a
+       strip of the page showing under the last line. */
+    min-height: 100%;
+    box-sizing: border-box;
+  }
+</style>

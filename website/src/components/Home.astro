@@ -6,6 +6,7 @@
  * addresses for one page instead of two copies of it. Everything it says comes
  * from the dictionaries; the only English left below is markup.
  */
+import AgentSkill from "./AgentSkill.astro";
 import Base from "../layouts/Base.astro";
 import HeroDemo from "./HeroDemo.astro";
 import RegistryMark from "./RegistryMark.astro";
@@ -383,6 +384,10 @@ const CARDS = [
       </div>
     </div>
   </section>
+
+  <!-- Last, and deliberately so: it is the docs again, addressed to whatever is
+       writing the code rather than to the person reading the page. -->
+  <AgentSkill />
 
 </Base>
 
