@@ -93,8 +93,9 @@ jobs:
           fi
 
       # Ahead of the release decision, and deliberately not skipped when there
-      # is nothing to publish: this is the only workflow in the repository, so
-      # it is also the only thing running the suite against main.
+      # is nothing to publish: this is what runs the suite against main. The JSR
+      # release in release-jsr.yml runs it too, for the same reason — neither
+      # publish should be the first thing to find out the tests are red.
       - run: npm ci
 
       - run: npm test
