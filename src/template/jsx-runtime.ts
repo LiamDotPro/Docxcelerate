@@ -1,3 +1,19 @@
+/**
+ * The JSX runtime the compiler emits calls to. You import this by configuring
+ * it, not by hand.
+ *
+ * ```json
+ * {
+ *   "compilerOptions": {
+ *     "jsx": "react-jsx",
+ *     "jsxImportSource": "@docxcelerate/docxcelerate/template"
+ *   }
+ * }
+ * ```
+ *
+ * @module
+ */
+
 import {
   type Component,
   createElement,
@@ -16,12 +32,28 @@ import {
  * decision can be made. Now it records the type and its props, and the renderer
  * calls it later, once, with data in hand and a hook context around it. Every
  * other feature here follows from that.
+ *
+ * @typeParam P The props the type takes.
+ * @typeParam K What the element turns into.
+ * @param type A document element such as `Paragraph`.
+ * @param props The props written on the tag, children included.
+ * @param key Identity across renders, for elements built in a list.
+ * @returns The recorded element.
  */
 export function jsx<P, K extends HostKind>(
   type: HostElementType<P, K>,
   props: P,
   key?: string,
 ): TemplateElement<K>;
+/**
+ * Builds an element from a component. It does not call the component.
+ *
+ * @typeParam P The props the component takes.
+ * @param type A component function.
+ * @param props The props written on the tag, children included.
+ * @param key Identity across renders, for elements built in a list.
+ * @returns The recorded element.
+ */
 export function jsx<P>(
   type: Component<P>,
   props: P,
@@ -42,8 +74,20 @@ export function jsx(
   return createElement(hostKindOf(type) ?? "component", type, props ?? {}, key);
 }
 
-export const jsxs = jsx;
+/**
+ * What the compiler calls for a tag with more than one child.
+ *
+ * The same function as {@linkcode jsx}: children arrive as an array either way,
+ * and nothing here needs to tell the two apart.
+ */
+export const jsxs: typeof jsx = jsx;
 
+/**
+ * Groups nodes without adding one of its own, written as `<>...</>`.
+ *
+ * @param props The nodes to group.
+ * @returns Those nodes, unchanged.
+ */
 export function Fragment(props: { children?: Yield }): Yield {
   return props.children;
 }
@@ -56,6 +100,7 @@ function describe(value: unknown): string {
   return value === null ? "null" : typeof value;
 }
 
+/** What TypeScript consults to type-check a tag. */
 // deno-lint-ignore no-namespace
 export namespace JSX {
   /**
@@ -73,11 +118,19 @@ export namespace JSX {
     // deno-lint-ignore no-explicit-any
     | ((props: any) => Yield | Promise<Yield>);
 
+  /** What a tag evaluates to. */
   // deno-lint-ignore no-explicit-any
   export type Element = TemplateElement<any>;
+  /** Names the prop nested tags are collected into. */
   export interface ElementChildrenAttribute {
+    /** The prop children arrive on. */
     children: Record<string, unknown>;
   }
+  /**
+   * Deliberately empty: a document has no intrinsic tags, so `<div>` is a
+   * mistake TypeScript can catch rather than something the renderer has to
+   * explain later.
+   */
   // deno-lint-ignore no-empty-interface
   export interface IntrinsicElements {}
 }

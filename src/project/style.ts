@@ -1,5 +1,17 @@
 import type { DocumentStyle } from "../domain/types.ts";
 
+/**
+ * The style a document falls back to when it declares none.
+ *
+ * @module
+ */
+
+/**
+ * A plain, readable style: A4 portrait, one-inch margins, and Aptos at 11pt
+ * over Cambria headings.
+ *
+ * This is what a renderer uses when a document carries no style of its own.
+ */
 export const cleanMinimalDocumentStyle: DocumentStyle = {
   preset: "clean-minimal",
   page: {

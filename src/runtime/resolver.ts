@@ -13,10 +13,32 @@ import { evaluateCondition } from "./conditions.ts";
 import { createDefaultDeriverRegistry, type DeriverRegistry, runDerivers } from "./derivers.ts";
 import { renderTemplate } from "./templates.ts";
 
+/**
+ * Settling a published document against real data.
+ *
+ * This is the engine half of the split: the build left conditions, loops and
+ * tokens in place because it could not know the answers, and this is what
+ * answers them.
+ *
+ * @module
+ */
+
+/** What {@linkcode resolveDocument} takes beyond the document and its state. */
 export interface ResolveOptions {
+  /** The derivers the document may invoke. Defaults to the built-in ones. */
   derivers?: DeriverRegistry;
 }
 
+/**
+ * Walks a published document and settles it: runs derivers, evaluates
+ * conditions, unrolls repeats, and substitutes every `{{...}}` token.
+ *
+ * @param doc The published document.
+ * @param state The data, context and clients to resolve against.
+ * @param options The derivers the document may invoke.
+ * @returns The document with nothing left to decide.
+ * @throws If the document invokes a deriver the registry does not hold.
+ */
 export async function resolveDocument(
   doc: DocumentModel,
   state: RuntimeState,

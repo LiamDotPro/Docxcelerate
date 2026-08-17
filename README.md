@@ -102,7 +102,12 @@ npm install       # install dependencies
 npm run build     # compile src/ to dist/ with type declarations
 npm test          # build, then run the Node test suite
 npm run typecheck # type-check sources and tests
+npm run jsr:doc   # check every entrypoint and exported symbol is documented
 ```
+
+`jsr:doc` is what keeps the package's JSR score at nine out of nine. It needs
+[Deno](https://deno.com) on your path, and runs on every pull request that
+touches `src/`.
 
 The published package ships compiled output from `dist/` plus the `dxcl` binary.
 Pushing a change to `src/` on `main` publishes a new version.

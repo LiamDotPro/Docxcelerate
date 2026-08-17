@@ -1,3 +1,37 @@
+/**
+ * Everything you write a document with: the elements, the hooks, and
+ * {@linkcode template} to name the tree.
+ *
+ * This is the entrypoint a document project imports. Nothing here renders —
+ * evaluating JSX records elements, and a build calls the components later.
+ *
+ * @example Composing a document
+ * ```tsx
+ * import {
+ *   Document,
+ *   Paragraph,
+ *   Section,
+ *   template,
+ *   useState,
+ * } from "@docxcelerate/docxcelerate/template";
+ *
+ * const Greeting: Paragraph = () => {
+ *   const [name] = useState((data: { name: string }) => data.name);
+ *   return <Paragraph id="greeting">Dear {name},</Paragraph>;
+ * };
+ *
+ * export const documentTemplate = template<{ name: string }>(
+ *   <Document id="welcome" title="Welcome">
+ *     <Section id="opening" title="Opening">
+ *       <Greeting />
+ *     </Section>
+ *   </Document>,
+ * );
+ * ```
+ *
+ * @module
+ */
+
 import type { DocumentTemplate } from "./components.ts";
 import { hostKindOf, isTemplateElement, type TemplateElement } from "./template/element.ts";
 import type { DocumentProps } from "./template/elements.ts";
@@ -28,6 +62,11 @@ export { buildDocument } from "./components.ts";
  * Nothing here is rendered. Evaluating the JSX only builds elements, and the
  * root's id and title are plain props, so a template can be read for what it is
  * called long before anybody has data to build it with.
+ *
+ * @typeParam TData The shape the template reads.
+ * @param element A single `<Document>` element.
+ * @returns The template, ready for a project to build.
+ * @throws If the element is not a `<Document>`, or is missing an id or title.
  */
 export function template<TData>(element: unknown): DocumentTemplate<TData> {
   if (!isTemplateElement(element) || hostKindOf(element.type) !== "document") {

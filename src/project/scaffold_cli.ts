@@ -1,3 +1,20 @@
+/**
+ * The `dxcl` command line, as an executable module.
+ *
+ * Importing this runs it — it reads `process.argv` at module scope and exits
+ * when it is done. To drive the same work from code, call
+ * {@linkcode scaffoldWorkspaceProject}, {@linkcode scaffoldDocumentProject} or
+ * {@linkcode generateNodeDefinition} from `/scaffold` instead.
+ *
+ * ```sh
+ * npx docxcelerate init my-documents
+ * npx dxcl document new tenancy-renewal
+ * npx dxcl document node documents/tenancy-renewal balance --type paragraph
+ * ```
+ *
+ * @module
+ */
+
 import {
   generateNodeDefinition,
   normalizeDocxcelerateApiEndpoint,

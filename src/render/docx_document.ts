@@ -1,7 +1,21 @@
+/**
+ * Packing a finished document model into a Word file.
+ *
+ * @module
+ */
+
 import { Document, HeadingLevel, Packer, PageOrientation, Paragraph, TextRun } from "docx";
 import type { DocumentModel, DocumentNode, DocumentStyle } from "../domain/types.ts";
 import { cleanMinimalDocumentStyle } from "../project/style.ts";
 
+/**
+ * Lays a document model out as a `docx` document — page size, margins, styles
+ * and all the nodes.
+ *
+ * @param doc The finished document. Its style falls back to the clean minimal
+ * preset when it has none.
+ * @returns The `docx` document, ready to pack.
+ */
 export function createDocxDocument(doc: DocumentModel): Document {
   const style = doc.style ?? cleanMinimalDocumentStyle;
 
@@ -38,6 +52,18 @@ export function createDocxDocument(doc: DocumentModel): Document {
   });
 }
 
+/**
+ * Packs a document model into a `.docx` file.
+ *
+ * @param doc The finished document.
+ * @returns The file, as a blob.
+ *
+ * @example
+ * ```ts
+ * const blob = await createDocxBlob(model);
+ * await Deno.writeFile("letter.docx", new Uint8Array(await blob.arrayBuffer()));
+ * ```
+ */
 export async function createDocxBlob(doc: DocumentModel): Promise<Blob> {
   return await Packer.toBlob(createDocxDocument(doc));
 }

@@ -1,6 +1,20 @@
 import type { ComparisonOperator, Condition, RuntimeState } from "../domain/types.ts";
 import { resolveReference, resolveValueExpression } from "./templates.ts";
 
+/**
+ * Deciding, per document, what a build left open.
+ *
+ * @module
+ */
+
+/**
+ * Evaluates a published condition against the data at hand.
+ *
+ * @param condition The condition. An absent one holds, so a node with no
+ * `when` is always included.
+ * @param state The data, context and derived values to test against.
+ * @returns Whether the condition holds.
+ */
 export async function evaluateCondition(
   condition: Condition | undefined,
   state: RuntimeState,
