@@ -1,0 +1,65 @@
+# Guards the package's JSR score on every pull request.
+#
+# JSR grades a package out of nine points and only shows the result after a
+# version is published, which is the wrong moment to find out a merge cost you
+# one. Five of the nine are settled elsewhere and cannot regress here — the
+# README and its example are in the repository, provenance comes from the
+# release workflow, and the description and runtime tags are package settings on
+# jsr.io that no commit can reach. The remaining four are exactly what a diff
+# can break, so they are checked before the merge rather than after it:
+#
+#   - Has module docs in all entrypoints
+#   - Has docs for most symbols          (JSR wants 80%; this holds it at 100%)
+#   - No slow types are used             \ both covered by the dry-run publish,
+#   - The package still publishes        / which type-checks the way JSR does
+#
+# This does not run the test suite. The release workflows do that on main, and
+# a repository-wide test job belongs in its own file rather than bolted onto a
+# score check.
+name: JSR score
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "jsr.json"
+      - "scripts/jsr-doc-check.mjs"
+      - ".github/workflows/jsr-score.yml"
+  # So the check can be re-run against main after a merge, and so a change to
+  # the workflow itself can be tried without opening a pull request.
+  workflow_dispatch:
+
+concurrency:
+  group: jsr-score-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      # `docx` is a bare specifier, and with a package.json present Deno
+      # resolves it through node_modules rather than through jsr.json's import
+      # map. Without this, both steps below fail on an unresolvable import and
+      # say nothing useful about the score.
+      - run: npm ci
+
+      - name: Check every entrypoint and symbol is documented
+        run: npm run jsr:doc
+
+      # Everything the publish itself would reject: slow types, unresolvable
+      # imports, an entrypoint that does not exist. --allow-dirty because npm ci
+      # leaves node_modules behind, and a dry run has nothing to be careful
+      # about.
+      - name: Check the package would publish
+        run: deno publish --dry-run --allow-dirty

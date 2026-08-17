@@ -1,3 +1,13 @@
+/**
+ * The stand-in a publish build reads its data through.
+ *
+ * Every path answers with the token an engine substitutes, so a template can be
+ * walked in full without any real data — including the branch arms this build
+ * would not have taken.
+ *
+ * @module
+ */
+
 const publishTargetMarker = Symbol.for("docxcelerate.publishTarget");
 
 /**
@@ -76,6 +86,16 @@ export function createPublishData(path: string[] = []): unknown {
   });
 }
 
+/**
+ * Whether a value is the stand-in a publish build reads its data through.
+ *
+ * That stand-in answers every path with the token an engine substitutes, so a
+ * build can walk a template without any real data. Recognising it is how the
+ * rest of the build knows not to treat those answers as values.
+ *
+ * @param value The value to test.
+ * @returns `true` when it is the publish stand-in.
+ */
 export function isPublishValue(value: unknown): boolean {
   return Boolean(
     value !== null &&

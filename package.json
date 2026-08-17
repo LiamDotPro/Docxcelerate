@@ -1,6 +1,6 @@
 {
   "name": "docxcelerate",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "TypeScript toolkit and CLI for building DOCX letter projects with a browser preview.",
   "license": "MIT",
   "type": "module",
@@ -76,6 +76,7 @@
     "prepare": "node scripts/prepare.mjs",
     "prepublishOnly": "npm run clean && npm run build",
     "typecheck": "npm run build && tsc -p tsconfig.json",
+    "jsr:doc": "node scripts/jsr-doc-check.mjs",
     "dxcl": "node ./bin/dxcl.mjs"
   },
   "devDependencies": {

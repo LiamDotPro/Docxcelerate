@@ -23,11 +23,24 @@ import type { DocumentProps } from "./template/elements.ts";
 import { isPublishValue } from "./template/publish.ts";
 import { renderDocumentChildren } from "./template/render.ts";
 
+/**
+ * Turning a template into a document: what a build is given, and what it hands
+ * back.
+ *
+ * @module
+ */
+
+/** What a build is allowed to do, and what it has to do it with. */
 export interface ComponentRuntimeOptions {
+  /** The token budget `useAvailableTokens` reports. Defaults to `2000`. */
   availableTokens?: number;
+  /** What writes dynamic nodes. Required when `dynamicMode` is `resolve`. */
   aiClient?: AiClient;
+  /** Whether dynamic nodes are written now or left as placeholders. */
   dynamicMode?: DynamicMode;
+  /** The derivers this build can run. */
   derivers?: DeriverDefinitions | DeriverRegistry;
+  /** Whether derivers run now or are published for the engine to run. */
   deriverMode?: DeriverMode;
   /**
    * Whether a branch is taken now or published for the engine to take.
@@ -44,16 +57,41 @@ export interface ComponentRuntimeOptions {
   locale?: string;
 }
 
+/**
+ * A `<Document>` tree, ready to build, with the data type it expects attached.
+ *
+ * @typeParam TData The shape the template reads.
+ */
 export interface DocumentTemplate<TData = unknown> {
+  /** The template version, so a reader knows what it is looking at. */
   readonly schemaVersion: "docxcelerate.template/v0";
+  /** The document's identifier, taken from the `<Document>`. */
   readonly id: string;
+  /** The document's title, taken from the `<Document>`. */
   readonly title: string;
+  /** Anything the `<Document>` carries alongside itself. */
   readonly metadata?: JsonObject;
+  /** The root of the element tree. */
   readonly element: TemplateElement<"document">;
   /** Present only so the data type survives; never read. */
   readonly __data?: TData;
 }
 
+/**
+ * Renders a template into a document model.
+ *
+ * Components run once each, in document order, so a later one sees what earlier
+ * ones left in shared state. What comes out is JSON — how much of it is settled
+ * depends on the modes in `options`.
+ *
+ * @typeParam TData The shape the template reads.
+ * @param template The template to build.
+ * @param data The data to build it against.
+ * @param options What the build is allowed to do.
+ * @returns The built document.
+ * @throws If a dynamic node needs an AI client and none was given, or two nodes
+ * claim the same id.
+ */
 export async function buildDocument<TData>(
   template: DocumentTemplate<TData>,
   data: TData,

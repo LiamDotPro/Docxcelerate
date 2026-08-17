@@ -1,10 +1,27 @@
 import type { DocumentModel, DocumentNode } from "../domain/types.ts";
 
+/**
+ * Rendering a document to HTML, for reading it on a screen.
+ *
+ * @module
+ */
+
+/** What {@linkcode renderDocumentWebsite} takes beyond the document. */
 export interface WebRenderOptions {
+  /** Reload the page when the document changes, for the preview app. */
   liveReload?: boolean;
+  /** The page title. Defaults to the document's own. */
   title?: string;
 }
 
+/**
+ * Renders a document as a standalone HTML page, styles inlined and nothing
+ * fetched.
+ *
+ * @param doc The document to render.
+ * @param options The page title, and whether to poll for changes.
+ * @returns The page, as HTML.
+ */
 export function renderDocumentWebsite(
   doc: DocumentModel,
   options: WebRenderOptions = {},

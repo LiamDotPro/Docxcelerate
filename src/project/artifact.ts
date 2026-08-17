@@ -10,15 +10,37 @@ import {
 import { createPublishData } from "../template/publish.ts";
 import type { DocumentProject } from "./define.ts";
 
+/**
+ * Turning a document project into the files that leave the machine it was
+ * written on.
+ *
+ * A build produces two documents from one template. The preview is fully
+ * resolved against sample data, for reading on a screen. The engine document
+ * keeps every decision open — branches, loops and tokens intact — because the
+ * data that settles them does not exist yet.
+ *
+ * @module
+ */
+
+/** What an artifact is, described for whatever reads it later. */
 export interface DocumentProjectManifest {
+  /** The manifest version, so a reader knows what it is looking at. */
   schemaVersion: "docxcelerate.project-manifest/v0";
+  /** The project's identifier. */
   id: string;
+  /** The project's package name. */
   name: string;
+  /** The project's version. */
   version: string;
+  /** The document's title. */
   title: string;
+  /** The project file the artifact was built from. */
   entrypoint: string;
+  /** When the artifact was built, as an ISO 8601 string. */
   builtAt: string;
+  /** The file holding the preview document. */
   previewDocument: string;
+  /** The file holding the engine document. */
   engineDocument: string;
   /**
    * The names these fields had before the vocabulary settled on documents.
@@ -29,38 +51,81 @@ export interface DocumentProjectManifest {
    * @deprecated
    */
   previewLetter?: string;
-  /** @deprecated See {@link DocumentProjectManifest.previewLetter}. */
+  /**
+   * The file holding the engine document, under its former name.
+   *
+   * @deprecated See {@link DocumentProjectManifest.previewLetter}.
+   */
   engineLetter?: string;
+  /** The file holding the deriver bundle, when the document uses any. */
   derivers?: string;
+  /** The derivers the engine document invokes. */
   deriverNames?: string[];
+  /** How the document looks. */
   style?: DocumentModel["style"];
+  /** Anything the project carries alongside the document. */
   metadata?: JsonObject;
 }
 
+/** What {@linkcode createDocumentProjectArtifact} takes beyond the project. */
 export interface CreateDocumentProjectArtifactOptions {
+  /** The project file being built, recorded on the manifest. */
   entrypoint?: string;
+  /** The build timestamp to record. Defaults to now. */
   builtAt?: string;
+  /** What to call the preview document. Defaults to `preview.json`. */
   previewFileName?: string;
+  /** What to call the engine document. Defaults to `document.json`. */
   engineFileName?: string;
+  /** What to call the deriver bundle. Defaults to `derivers.js`. */
   deriversFileName?: string;
 }
 
+/** Everything a build produces, ready to be written out or shipped. */
 export interface DocumentProjectArtifact {
+  /** What the artifact is. */
   manifest: DocumentProjectManifest;
+  /** The document resolved against the project's preview data. */
   previewDocument: DocumentModel;
+  /** The document with its decisions still open, for an engine. */
   engineDocument: DocumentModel;
-  /** @deprecated See {@link DocumentProjectManifest.previewLetter}. */
+  /**
+   * The preview document, under its former name.
+   *
+   * @deprecated See {@link DocumentProjectManifest.previewLetter}.
+   */
   previewLetter?: DocumentModel;
-  /** @deprecated See {@link DocumentProjectManifest.previewLetter}. */
+  /**
+   * The engine document, under its former name.
+   *
+   * @deprecated See {@link DocumentProjectManifest.previewLetter}.
+   */
   engineLetter?: DocumentModel;
+  /** The project's derivers as loadable source, when the document uses any. */
   derivers?: DocumentDeriverBundle;
 }
 
+/**
+ * What {@linkcode buildProjectFinalDocument} takes beyond the project.
+ *
+ * @typeParam TData The shape the project's template reads.
+ */
 export interface BuildProjectFinalDocumentOptions<TData = unknown>
   extends Omit<ComponentRuntimeOptions, "dynamicMode"> {
+  /** The data to write this document from. Falls back to the preview data. */
   data?: TData;
 }
 
+/**
+ * Builds a project into everything that ships: both documents, the manifest,
+ * and the deriver bundle.
+ *
+ * @typeParam TData The shape the project's template reads.
+ * @param project The project to build.
+ * @param options File names and build metadata to record.
+ * @returns The artifact.
+ * @throws If the document invokes a deriver the project does not register.
+ */
 export async function createDocumentProjectArtifact<TData>(
   project: DocumentProject<TData>,
   options: CreateDocumentProjectArtifactOptions = {},
@@ -124,6 +189,16 @@ function assertReferencedDeriversAreAvailable<TData>(
   }
 }
 
+/**
+ * Builds the document you read on a screen: the template resolved against the
+ * project's preview data, with dynamic nodes standing in as placeholders rather
+ * than calling an AI client.
+ *
+ * @typeParam TData The shape the project's template reads.
+ * @param project The project to build.
+ * @param options Runtime overrides for this build.
+ * @returns The resolved document.
+ */
 export async function buildProjectPreviewDocument<TData>(
   project: DocumentProject<TData>,
   options: ComponentRuntimeOptions = {},
@@ -150,6 +225,11 @@ export async function buildProjectPreviewDocument<TData>(
  * so a branch keeps both arms under the condition that selects one, a loop stays
  * a loop, and every value stays the token the engine substitutes. What comes out
  * is the whole document with the decisions still in it.
+ *
+ * @typeParam TData The shape the project's template reads.
+ * @param project The project to build.
+ * @param options Runtime overrides for this build.
+ * @returns The document, with its decisions still open.
  */
 export async function buildProjectEngineDocument<TData>(
   project: DocumentProject<TData>,
@@ -177,6 +257,11 @@ export async function buildProjectEngineDocument<TData>(
 /**
  * Resolves a project into its final document, running dynamic nodes through the
  * AI client. This is what a generation service calls with request-time data.
+ *
+ * @typeParam TData The shape the project's template reads.
+ * @param project The project to write a document from.
+ * @param options The request's data, and runtime overrides for this build.
+ * @returns The finished document, ready to render.
  */
 export async function buildProjectFinalDocument<TData>(
   project: DocumentProject<TData>,

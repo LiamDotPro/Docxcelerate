@@ -1,6 +1,19 @@
+/**
+ * Writing the files a project starts life as.
+ *
+ * This is what `dxcl init` and `dxcl new` are built on, exported so the same
+ * scaffolding can be driven from a script rather than a terminal.
+ *
+ * @module
+ */
+
+/** What {@linkcode scaffoldDocumentProject} needs to write a document project. */
 export interface ScaffoldDocumentProjectOptions {
+  /** The document's name; slugified into the directory name. */
   name: string;
+  /** The document's title. Derived from `name` when absent. */
   title?: string;
+  /** Where document projects live. Defaults to `documents`. */
   documentsDir?: string;
   /**
    * What `documentsDir` was called before the vocabulary settled on documents.
@@ -9,52 +22,90 @@ export interface ScaffoldDocumentProjectOptions {
    * @deprecated Use {@link ScaffoldDocumentProjectOptions.documentsDir}.
    */
   lettersDir?: string;
+  /** Overwrite files that are already there, rather than refusing. */
   force?: boolean;
 }
 
+/** What {@linkcode scaffoldWorkspaceProject} needs to write a workspace. */
 export interface ScaffoldWorkspaceProjectOptions {
+  /** The workspace's name; slugified into the directory name. */
   name: string;
+  /** Where to create the workspace directory. Defaults to the cwd. */
   parentDir?: string;
+  /** The engine the workspace generates against. Defaults to the official one. */
   apiEndpoint?: string;
+  /** Whether to write a worked example or an empty workspace. Defaults to `sample`. */
   template?: WorkspaceProjectTemplate;
+  /** Overwrite files that are already there, rather than refusing. */
   force?: boolean;
 }
 
+/** What {@linkcode generateNodeDefinition} needs to write a node. */
 export interface GenerateNodeOptions {
+  /** The document project the node belongs to. */
   projectDir: string;
+  /** The node's name; slugified into its id and PascalCased into its component. */
   name: string;
+  /** Which kind of node to write. Defaults to `paragraph`. */
   type?: GeneratedNodeType;
+  /** Overwrite a node file that is already there, rather than refusing. */
   force?: boolean;
 }
 
+/** The kinds of node the generator can write. */
 export type GeneratedNodeType = "paragraph" | "image" | "graph";
 
+/** Whether a new workspace comes with a worked example or nothing at all. */
 export type WorkspaceProjectTemplate = "sample" | "blank";
 
+/** The hosted engine a scaffolded workspace points at by default. */
 export const officialDocxcelerateApiServer: string = "https://docxcelerate.thoughtup.deno.net/";
+/** The generation endpoint on {@linkcode officialDocxcelerateApiServer}. */
 export const officialDocxcelerateApiEndpoint: string =
   `${officialDocxcelerateApiServer}api/letters`;
 
+/** What {@linkcode scaffoldDocumentProject} wrote. */
 export interface ScaffoldDocumentProjectResult {
+  /** The directory the project was written to. */
   projectDir: string;
+  /** The project's entrypoint file. */
   entrypoint: string;
+  /** Every file written, in the order they were written. */
   files: string[];
 }
 
+/** What {@linkcode scaffoldWorkspaceProject} wrote. */
 export interface ScaffoldWorkspaceProjectResult {
+  /** The directory the workspace was written to. */
   projectDir: string;
+  /** The engine the workspace was pointed at. */
   apiEndpoint: string;
+  /** Which template was used. */
   template: WorkspaceProjectTemplate;
+  /** Every file written, in the order they were written. */
   files: string[];
 }
 
+/** What {@linkcode generateNodeDefinition} wrote. */
 export interface GenerateNodeResult {
+  /** The node file that was written. */
   filePath: string;
+  /** The barrel the node was re-exported from. */
   exportPath: string;
+  /** The component's name. */
   componentName: string;
+  /** The node's id, as it appears in the document. */
   nodeId: string;
 }
 
+/**
+ * Writes a document project — types, preview data, style, derivers and a
+ * couple of nodes — under the workspace's documents directory.
+ *
+ * @param options The document's name, and where to put it.
+ * @returns Where the project landed, and every file written.
+ * @throws If the target exists and `force` was not set.
+ */
 export async function scaffoldDocumentProject(
   options: ScaffoldDocumentProjectOptions,
 ): Promise<ScaffoldDocumentProjectResult> {
@@ -114,6 +165,14 @@ export async function scaffoldDocumentProject(
   };
 }
 
+/**
+ * Writes a workspace: the package, the preview app's config, and — unless the
+ * `blank` template was asked for — one worked document to read.
+ *
+ * @param options The workspace's name, and what to put in it.
+ * @returns Where the workspace landed, and every file written.
+ * @throws If the target exists and `force` was not set.
+ */
 export async function scaffoldWorkspaceProject(
   options: ScaffoldWorkspaceProjectOptions,
 ): Promise<ScaffoldWorkspaceProjectResult> {
@@ -176,6 +235,15 @@ export async function scaffoldWorkspaceProject(
   };
 }
 
+/**
+ * Writes one node into an existing document project and re-exports it from the
+ * project's `nodes/index.ts`.
+ *
+ * @param options The project to write into, and what to call the node.
+ * @returns Where the node landed, and the names it was given.
+ * @throws If the node file exists and `force` was not set, or the type is not
+ * one of {@linkcode GeneratedNodeType}.
+ */
 export async function generateNodeDefinition(
   options: GenerateNodeOptions,
 ): Promise<GenerateNodeResult> {
@@ -2217,6 +2285,17 @@ function slugify(value: string): string {
   return slug;
 }
 
+/**
+ * Turns whatever someone typed for an engine URL into a generation endpoint.
+ *
+ * A bare server — which is what people paste — gets `/api/letters` appended;
+ * a URL that already names a path is left alone. An empty or missing value
+ * comes back empty, meaning "use the default".
+ *
+ * @param value The URL to normalize.
+ * @returns The endpoint, or an empty string when there was nothing to
+ * normalize or the value was not a URL.
+ */
 export function normalizeDocxcelerateApiEndpoint(value: string | undefined): string {
   const trimmed = value?.trim() ?? "";
   if (trimmed === "") {

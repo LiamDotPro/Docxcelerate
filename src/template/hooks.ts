@@ -7,6 +7,23 @@ import {
   requireInstance,
 } from "./context.ts";
 
+/**
+ * The hooks a component calls while a build renders it.
+ *
+ * A build is one pass, so these are not the React hooks they read like: nothing
+ * re-renders and nothing is cached between builds. What they do share is the
+ * ordering rule — hooks are matched to cells by call order, so a component has
+ * to call the same ones in the same order every time.
+ *
+ * @module
+ */
+
+/**
+ * A component's initial state, or a function deriving it from the document data.
+ *
+ * @typeParam TState What the component keeps.
+ * @typeParam TData The shape the document reads.
+ */
 export type StateInitializer<TState, TData> = TState | ((data: TData) => TState);
 
 /**
@@ -114,13 +131,55 @@ export function useSetPlaceholders(placeholder: string | { placeholder?: string 
   return { ...instance.prompts };
 }
 
+/** The stand-in values {@linkcode usePlaceholderData} hands out. */
 export interface PlaceholderData {
+  /**
+   * A person's name.
+   *
+   * @returns A first and last name.
+   */
   name(): string;
+  /**
+   * A place name.
+   *
+   * @returns A city.
+   */
   city(): string;
+  /**
+   * A date, formatted for the build's locale.
+   *
+   * @param offsetDays Days from the fixed base date. Defaults to `0`.
+   * @returns The formatted date.
+   */
   date(offsetDays?: number): string;
+  /**
+   * An amount of money, formatted for the build's locale.
+   *
+   * @param amount The amount. A stable arbitrary one is used when absent.
+   * @returns The formatted amount.
+   */
   currency(amount?: number): string;
+  /**
+   * A sentence of filler.
+   *
+   * @param words How many words. Defaults to `12`.
+   * @returns The sentence, capitalised and stopped.
+   */
   sentence(words?: number): string;
+  /**
+   * A paragraph of filler.
+   *
+   * @param sentences How many sentences. Defaults to `3`.
+   * @returns The paragraph.
+   */
   paragraph(sentences?: number): string;
+  /**
+   * One of your own values, chosen the same way every build.
+   *
+   * @typeParam TValue What the list holds.
+   * @param values The values to choose between.
+   * @returns One of them.
+   */
   pick<TValue>(values: readonly TValue[]): TValue;
 }
 
@@ -162,11 +221,48 @@ export function usePlaceholderData(): PlaceholderData {
   };
 }
 
+/** The formatting {@linkcode useFormat} hands out, bound to one locale. */
 export interface Formatters {
+  /**
+   * Formats an amount of money.
+   *
+   * @param amount The amount.
+   * @param currency An ISO 4217 code. Defaults to `GBP`.
+   * @returns The formatted amount.
+   */
   currency(amount: number, currency?: string): string;
+  /**
+   * Formats a number.
+   *
+   * @param value The number.
+   * @param options Passed straight to `Intl.NumberFormat`.
+   * @returns The formatted number.
+   */
   number(value: number, options?: Intl.NumberFormatOptions): string;
+  /**
+   * Formats a date.
+   *
+   * @param value A date, a parseable string, or a timestamp.
+   * @param options Passed straight to `Intl.DateTimeFormat`. Defaults to a long date.
+   * @returns The formatted date.
+   */
   date(value: Date | string | number, options?: Intl.DateTimeFormatOptions): string;
+  /**
+   * Joins values the way the locale writes a list.
+   *
+   * @param values The values to join.
+   * @param type Whether the list reads as "and" or "or". Defaults to `conjunction`.
+   * @returns The joined list.
+   */
   list(values: readonly string[], type?: "conjunction" | "disjunction"): string;
+  /**
+   * Picks the singular or plural form for a count.
+   *
+   * @param count How many.
+   * @param singular The singular form.
+   * @param plural The plural form. Defaults to the singular with an `s`.
+   * @returns The form that fits.
+   */
   plural(count: number, singular: string, plural?: string): string;
 }
 

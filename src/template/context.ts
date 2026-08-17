@@ -1,7 +1,26 @@
+/**
+ * What a build carries while it renders: the modes it runs in, the state hooks
+ * read through, and the per-component bookkeeping behind them.
+ *
+ * @module
+ */
+
 import type { AiClient, PromptKind, RuntimeState } from "../domain/types.ts";
 import type { DeriverRegistry } from "../runtime/derivers.ts";
 
+/**
+ * Whether a dynamic node is written now or left showing its placeholder.
+ *
+ * `resolve` calls the AI client. `placeholder` is what a preview does, so
+ * building one costs nothing and produces the same document every time.
+ */
 export type DynamicMode = "resolve" | "placeholder";
+/**
+ * Whether derivers run during this build or are published for the engine to run.
+ *
+ * `resolve` runs them against the data at hand. `preserve` keeps the invocation
+ * on the node, because the data it needs does not exist yet.
+ */
 export type DeriverMode = "resolve" | "preserve";
 
 /**
@@ -14,11 +33,20 @@ export type DeriverMode = "resolve" | "preserve";
  */
 export type BranchMode = "decide" | "publish";
 
+/**
+ * The prompts collected for a node while its component renders, before they are
+ * written onto the node itself.
+ */
 export interface PromptDraft {
+  /** Standing instructions, such as the voice a document is written in. */
   systemPrompt?: string;
+  /** What the node should say. */
   generalPrompt?: string;
+  /** Facts to write from. */
   infoPrompt?: string;
+  /** What the node must not say. */
   negativePrompt?: string;
+  /** What to show wherever the node has not been written yet. */
   placeholder?: string;
 }
 
