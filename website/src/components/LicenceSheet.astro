@@ -1,0 +1,96 @@
+---
+/**
+ * The project's licence, drawn as the sheet of paper it is.
+ *
+ * The two sheets behind the front one are paper and nothing else — no content,
+ * hidden from screen readers. The front one carries real, selectable text: the
+ * clause a reader is actually checking for, with the permissions it grants
+ * marked the way you would mark them on a printout.
+ *
+ * The tilt only appears once there is room for it; stacked on a narrow screen
+ * the sheets sit square so nothing clips off the side.
+ */
+import { asLocale, fill, ui } from "../i18n";
+
+const locale = asLocale(Astro.currentLocale);
+const t = ui(locale);
+const year = new Date().getFullYear();
+
+const VERBS = [
+  t.home.openSource.licence.fork,
+  t.home.openSource.licence.vendor,
+  t.home.openSource.licence.ship,
+];
+
+/**
+ * The repository has no LICENSE file of its own yet, so this points at the
+ * licence it is under rather than at a 404. Repoint it at the repository copy
+ * when one lands — it is the same text either way.
+ */
+const LICENCE_URL = "https://opensource.org/licenses/MIT";
+---
+
+<div class="relative pt-2.5">
+  <div
+    aria-hidden="true"
+    class="absolute top-6.5 left-5 hidden h-[96%] rounded-sm border border-border bg-surface-2 lg:right-[-4px] lg:block lg:rotate-[1.1deg]"
+  >
+  </div>
+  <div
+    aria-hidden="true"
+    class="absolute top-4 right-0.5 left-2.5 hidden h-[98%] rounded-sm border border-border bg-paper lg:block lg:rotate-[0.4deg]"
+  >
+  </div>
+
+  <div
+    class="relative rounded-sm border border-border bg-paper px-8 pt-7.5 pb-8 shadow-[0_18px_40px_rgba(23,26,23,0.08)] lg:-rotate-[0.9deg]"
+  >
+    <div
+      class="flex items-baseline justify-between gap-4 border-b border-border pb-4.5 font-mono text-[0.6rem] text-muted"
+    >
+      <span class="tracking-[0.18em]">LICENSE</span>
+      <span class="tracking-[0.04em] opacity-70">{t.home.openSource.licence.pages}</span>
+    </div>
+
+    <p class="m-0 mt-6.5 font-serif text-[3.25rem] leading-[0.9] font-bold tracking-[-0.03em]">
+      MIT
+    </p>
+    <p class="m-0 mt-3.5 font-mono text-[0.66rem] text-muted">
+      {fill(t.home.openSource.licence.copyright, { year })}
+    </p>
+
+    <!-- The licence's own words, and English in every language for the same
+         reason the licence itself is: a translation of it is not the licence. -->
+    <p class="m-0 mt-3.5 font-serif text-[0.97rem] leading-[1.7] text-pretty text-muted">
+      Permission is hereby granted, free of charge, to any person obtaining a copy of this
+      software, <span
+        class="bg-[linear-gradient(180deg,transparent_52%,var(--wash)_52%)] text-ink"
+        >to use, copy, modify, merge, publish, distribute, sublicense</span
+      > and sell copies of it.
+    </p>
+
+    <div class="mt-7 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-border pt-4.5">
+      <p class="m-0 flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.845rem] text-ink">
+        {
+          VERBS.map((verb, index) => (
+            <Fragment>
+              {index > 0 && (
+                <span class="text-border-firm" aria-hidden="true">
+                  ·
+                </span>
+              )}
+              <span>{verb}</span>
+            </Fragment>
+          ))
+        }
+      </p>
+      <a
+        href={LICENCE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="text-[0.78rem] font-semibold whitespace-nowrap text-accent no-underline hover:underline"
+        >{t.home.openSource.licence.read}</a
+      >
+    </div>
+  </div>
+</div>

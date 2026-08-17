@@ -35,13 +35,17 @@ export const de: UiStrings = {
   },
 
   footer: {
-    label: "Fußzeile",
     licence:
-      "MIT-lizenziert. Schreiben, Vorschau und das Packen von DOCX laufen vollständig auf Ihrem Rechner.",
+      "Dokumente als Komponenten, DOCX als Ausgabe. Offen entwickelt, MIT-lizenziert " +
+      "und auf Ihrem eigenen Rechner laufend, solange Sie es nicht anders entscheiden.",
     docs: "Doku",
+    project: "Projekt",
+    engine: "Engine",
     cloud: "Cloud",
     github: "GitHub",
     npm: "npm",
+    releases: "Releases",
+    artifacts: "Build-Artefakte",
     copyright: "© {year} Docxcelerate-Mitwirkende.",
   },
 
@@ -99,14 +103,19 @@ export const de: UiStrings = {
     },
 
     pullQuote:
-      "Docxcelerate behandelt ein Dokument so, wie ein UI-Framework einen " +
-      "Bildschirm behandelt: kleine Komponenten, zu einem Baum zusammengesetzt, " +
-      "gerendert von etwas, das Papier versteht. Sie bekommen die Ergonomie eines " +
-      "Komponentenmodells, und die Empfängerin oder der Empfänger bekommt ein " +
-      "Word-Dokument.",
+      "Ein Dokument ist ein Baum aus kleinen Komponenten, gerendert von etwas, " +
+      "das Papier versteht. Sie bekommen die Ergonomie eines Komponentenmodells. " +
+      "Die Person am anderen Ende bekommt eine Word-Datei.",
+
+    attribution: {
+      name: "Liam",
+      role: "Autor, Docxcelerate",
+      portraitAlt: "Liam, der Autor von Docxcelerate",
+    },
 
     engine: {
-      title: "Die Engine",
+      eyebrow: "Die Engine",
+      title: "Einmal veröffentlichen. Beliebig skalieren.",
       bodyOne:
         "In der Engine werden Dokumente tatsächlich geschrieben. Sie setzt Ihre " +
         "Daten ein, führt die KI aus und gibt das fertige Dokument zurück. Jede Art " +
@@ -185,37 +194,25 @@ export const de: UiStrings = {
       bodyOne:
         "Das Framework, die Renderer, das Node-Modell und die CLI sind MIT-lizenziert " +
         "und werden offen entwickelt. Lesen Sie den Code, der Ihre Dokumente " +
-        "schreibt, forken Sie ihn oder nehmen Sie ihn in Ihren eigenen Build auf. " +
-        "Schreiben, Vorschau und das Packen von DOCX laufen vollständig auf Ihrem " +
-        "Rechner — kein Konto, kein Upload, kein Netzwerkaufruf.",
+        "schreibt, forken Sie ihn oder nehmen Sie ihn in Ihren eigenen Build auf.",
       bodyTwo:
-        "Die Generierungs-Engine lässt sich kostenlos selbst hosten. Dokumente im " +
-        "großen Maßstab zu erzeugen hängt damit nie daran, dass ein Anbieter am " +
-        "Markt bleibt oder eine Preisliste gleich bleibt. Die verwaltete Cloud ist " +
-        "eine Bequemlichkeit für Teams, die sie lieber nicht selbst betreiben, und " +
-        "nicht der einzige Weg hinein.",
-      facts: {
-        licence: {
-          title: "MIT-Lizenz",
-          body:
-            "Kommerziell nutzen, verändern, ausliefern. Keine Nutzerzahlen, keine " +
-            "Gebühr pro Dokument.",
-        },
-        local: {
-          title: "Läuft auf Ihrem Rechner",
-          body:
-            "Dokumente und Daten bleiben auf Ihrem Laptop und in Ihrer CI, solange " +
-            "Sie sie nicht an eine Engine senden, die Sie ausgewählt haben.",
-        },
-        selfHost: {
-          title: "Selbst hostbare Engine",
-          body:
-            "Die kostenlose Engine läuft auf Ihrer eigenen Infrastruktur, in Ihrem " +
-            "eigenen Netz.",
-        },
-      },
+        "Die Engine lässt sich kostenlos selbst hosten. Dokumente im großen Maßstab " +
+        "zu erzeugen hängt damit nie daran, dass ein Anbieter am Markt bleibt oder " +
+        "eine Preisliste gleich bleibt. Unsere kostenpflichtige Cloud legt die " +
+        "Premium-Funktionen auf denselben freien Kern, sodass Hosting und Skalierung " +
+        "ab dem ersten Dokument bereitstehen. Sie ist die Bequemlichkeit, nicht der " +
+        "Weg hinein.",
       ctaSource: "Zum Quellcode →",
       ctaNpm: "Auf npm ansehen",
+
+      licence: {
+        pages: "1 von 1",
+        copyright: "Copyright (c) {year} Docxcelerate",
+        fork: "Forken",
+        vendor: "Einbetten",
+        ship: "Ausliefern",
+        read: "Lesen →",
+      },
     },
 
     docs: {
@@ -225,6 +222,7 @@ export const de: UiStrings = {
         "Jeder Node-Typ, jedes CLI-Flag und jede Datei, die ein Build schreibt. Dazu " +
         "Vorschauen, die der echte Renderer erzeugt hat, sodass nichts auf der Seite " +
         "einen Helper beschreiben kann, den es nicht mehr gibt.",
+      ctaAll: "Vollständige Dokumentation →",
       cards: {
         startHere: {
           title: "Hier anfangen",

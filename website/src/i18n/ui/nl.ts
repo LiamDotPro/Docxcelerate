@@ -32,13 +32,17 @@ export const nl: UiStrings = {
   },
 
   footer: {
-    label: "Voettekst",
     licence:
-      "MIT-licentie. Schrijven, preview en het inpakken van DOCX draaien volledig op je eigen machine.",
+      "Documenten als componenten, DOCX als uitvoer. In de open ontwikkeld, onder " +
+      "MIT-licentie, en draaiend op je eigen machine tenzij je anders besluit.",
     docs: "Docs",
+    project: "Project",
+    engine: "Engine",
     cloud: "Cloud",
     github: "GitHub",
     npm: "npm",
+    releases: "Releases",
+    artifacts: "Build-artefacten",
     copyright: "© {year} Docxcelerate-bijdragers.",
   },
 
@@ -93,13 +97,19 @@ export const nl: UiStrings = {
     },
 
     pullQuote:
-      "Docxcelerate behandelt een document zoals een UI-framework een scherm " +
-      "behandelt: kleine componenten, samengevoegd tot een boom, gerenderd door " +
-      "iets dat verstand heeft van papier. Jij krijgt het gemak van een " +
-      "componentmodel, en de ontvanger krijgt een Word-document.",
+      "Een document is een boom van kleine componenten, gerenderd door iets dat " +
+      "verstand heeft van papier. Jij krijgt het gemak van een componentmodel. " +
+      "De persoon aan de andere kant krijgt een Word-bestand.",
+
+    attribution: {
+      name: "Liam",
+      role: "Auteur, Docxcelerate",
+      portraitAlt: "Liam, de auteur van Docxcelerate",
+    },
 
     engine: {
-      title: "De engine",
+      eyebrow: "De engine",
+      title: "Publiceer één keer. Schaal daarna op.",
       bodyOne:
         "In de engine worden documenten daadwerkelijk geschreven. Hij vult je " +
         "gegevens in, voert de AI uit en geeft het voltooide document terug. Elk " +
@@ -177,34 +187,24 @@ export const nl: UiStrings = {
       bodyOne:
         "Het framework, de renderers, het nodemodel en de CLI staan onder een " +
         "MIT-licentie en worden in de openbaarheid ontwikkeld. Lees de code die je " +
-        "documenten schrijft, fork hem, of neem hem op in je eigen build. Schrijven, " +
-        "preview en het inpakken van DOCX draaien volledig op je eigen machine — " +
-        "geen account, geen upload, geen netwerkverkeer.",
+        "documenten schrijft, fork hem, of neem hem op in je eigen build.",
       bodyTwo:
-        "De generatie-engine mag je gratis zelf hosten, dus documenten op schaal " +
-        "maken hangt nooit af van een leverancier die blijft bestaan of van een " +
-        "prijslijst die gelijk blijft. De managed cloud is een gemak voor teams die " +
-        "hem liever niet zelf draaien, niet de enige deur naar binnen.",
-      facts: {
-        licence: {
-          title: "MIT-licentie",
-          body:
-            "Commercieel gebruiken, aanpassen, uitleveren. Geen gebruikersaantallen " +
-            "en geen tarief per document.",
-        },
-        local: {
-          title: "Draait op je eigen machine",
-          body:
-            "Documenten en gegevens blijven op je laptop en in je CI, tenzij je ze " +
-            "naar een engine stuurt die je zelf hebt gekozen.",
-        },
-        selfHost: {
-          title: "Zelf te hosten engine",
-          body: "De gratis engine draait op je eigen infrastructuur, binnen je eigen netwerk.",
-        },
-      },
+        "De engine mag je gratis zelf hosten, dus documenten op schaal maken hangt " +
+        "nooit af van een leverancier die blijft bestaan of van een prijslijst die " +
+        "gelijk blijft. Onze betaalde cloud legt de premiumfuncties op diezelfde " +
+        "vrije kern, zodat hosting en schaal er zijn vanaf het eerste document dat " +
+        "je schrijft. Hij is het gemak, niet de deur naar binnen.",
       ctaSource: "Bekijk de broncode →",
       ctaNpm: "Bekijk het op npm",
+
+      licence: {
+        pages: "1 van 1",
+        copyright: "Copyright (c) {year} Docxcelerate",
+        fork: "Fork hem",
+        vendor: "Neem hem op",
+        ship: "Lever hem uit",
+        read: "Lees hem →",
+      },
     },
 
     docs: {
@@ -214,6 +214,7 @@ export const nl: UiStrings = {
         "Elk nodetype, elke CLI-vlag en elk bestand dat een build wegschrijft, met " +
         "previews die door de echte renderer zijn gerenderd, zodat niets op de " +
         "pagina een helper kan beschrijven die niet meer bestaat.",
+      ctaAll: "Volledige documentatie →",
       cards: {
         startHere: {
           title: "Begin hier",

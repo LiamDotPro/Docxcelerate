@@ -36,13 +36,17 @@ export const es: UiStrings = {
   },
 
   footer: {
-    label: "Pie de página",
     licence:
-      "Con licencia MIT. La escritura, la vista previa y el empaquetado de DOCX se ejecutan por completo en tu máquina.",
+      "Documentos como componentes, DOCX como salida. Desarrollado en abierto, con " +
+      "licencia MIT, y ejecutándose en tu propia máquina salvo que decidas otra cosa.",
     docs: "Docs",
+    project: "Proyecto",
+    engine: "Motor",
     cloud: "Cloud",
     github: "GitHub",
     npm: "npm",
+    releases: "Versiones",
+    artifacts: "Artefactos de compilación",
     copyright: "© {year} Colaboradores de Docxcelerate.",
   },
 
@@ -97,13 +101,19 @@ export const es: UiStrings = {
     },
 
     pullQuote:
-      "Docxcelerate trata un documento como un framework de interfaz trata una " +
-      "pantalla: componentes pequeños, compuestos en un árbol, renderizados por algo " +
-      "que entiende de papel. Tú obtienes la ergonomía de un modelo de componentes, y " +
-      "quien lo recibe obtiene un documento de Word.",
+      "Un documento es un árbol de componentes pequeños, renderizado por algo que " +
+      "entiende de papel. Tú obtienes la ergonomía de un modelo de componentes. La " +
+      "persona del otro lado obtiene un archivo de Word.",
+
+    attribution: {
+      name: "Liam",
+      role: "Autor, Docxcelerate",
+      portraitAlt: "Liam, el autor de Docxcelerate",
+    },
 
     engine: {
-      title: "El motor",
+      eyebrow: "El motor",
+      title: "Publica una vez. Escala cuanto haga falta.",
       bodyOne:
         "El motor es donde los documentos se escriben de verdad. Rellena tus datos, " +
         "ejecuta la IA y devuelve el documento terminado. Cualquier tipo de nodo puede " +
@@ -179,35 +189,25 @@ export const es: UiStrings = {
       bodyOne:
         "El framework, los renderizadores, el modelo de nodos y la CLI tienen " +
         "licencia MIT y se desarrollan a la vista de todos. Lee el código que escribe " +
-        "tus documentos, bifúrcalo o incorpóralo a tu propia compilación. La " +
-        "escritura, la vista previa y el empaquetado de DOCX se ejecutan íntegramente " +
-        "en tu máquina: sin cuenta, sin subidas, sin llamadas de red.",
+        "tus documentos, bifúrcalo o incorpóralo a tu propia compilación.",
       bodyTwo:
-        "El motor de generación se puede autoalojar gratis, así que generar " +
-        "documentos a escala nunca depende de que un proveedor siga en el mercado ni " +
-        "de que una lista de precios no cambie. La nube gestionada es una comodidad " +
-        "para equipos que prefieren no operarlo ellos mismos, no la única puerta de " +
-        "entrada.",
-      facts: {
-        licence: {
-          title: "Licencia MIT",
-          body:
-            "Úsalo comercialmente, modifícalo, distribúyelo. Sin recuento de puestos " +
-            "ni tarifa por documento.",
-        },
-        local: {
-          title: "Se ejecuta en tu máquina",
-          body:
-            "Los documentos y los datos se quedan en tu portátil y en tu CI salvo que " +
-            "los envíes a un motor que hayas elegido.",
-        },
-        selfHost: {
-          title: "Motor autoalojable",
-          body: "El motor gratuito corre en tu propia infraestructura, dentro de tu propia red.",
-        },
-      },
+        "El motor se puede autoalojar gratis, así que generar documentos a escala " +
+        "nunca depende de que un proveedor siga en el mercado ni de que una lista de " +
+        "precios no cambie. Nuestra nube de pago añade las funciones premium sobre " +
+        "ese mismo núcleo libre, de modo que el alojamiento y la escala empresarial " +
+        "están listos desde el primer documento que escribes. Es la comodidad, no la " +
+        "puerta de entrada.",
       ctaSource: "Ver el código →",
       ctaNpm: "Verlo en npm",
+
+      licence: {
+        pages: "1 de 1",
+        copyright: "Copyright (c) {year} Docxcelerate",
+        fork: "Bifúrcalo",
+        vendor: "Incorpóralo",
+        ship: "Publícalo",
+        read: "Léela →",
+      },
     },
 
     docs: {
@@ -217,6 +217,7 @@ export const es: UiStrings = {
         "Cada tipo de nodo, cada flag de la CLI y cada archivo que escribe una " +
         "compilación, con vistas previas generadas por el renderizador real, de modo " +
         "que nada en la página pueda describir un helper que ya no existe.",
+      ctaAll: "Documentación completa →",
       cards: {
         startHere: {
           title: "Empieza aquí",

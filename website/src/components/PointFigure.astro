@@ -1,0 +1,114 @@
+---
+/**
+ * The figure between a mid-page point's heading and its prose.
+ *
+ * Each one is a picture of the claim above it, and each is taken from the demo
+ * document in src/demo/ rather than invented: the tree is
+ * offer-of-admission's real document.tsx, the hook and its placeholder are its
+ * TutorNote, and the diff is the shape of change that lands on a node file.
+ *
+ * The content stays English in every language for the same reason the node
+ * catalog does — it is toolkit source, not interface. The parts that are pure
+ * decoration are hidden from screen readers; the code is not, because it is
+ * the argument.
+ */
+interface Props {
+  kind: "authoring" | "ai" | "changeControl";
+}
+
+const { kind } = Astro.props;
+
+// Once the three sit side by side, they take the height of the tallest so the
+// prose under all three starts on the same line; stacked on a phone that
+// reservation is just a hole, so it only applies from md up. Code does not
+// wrap, so a narrow screen scrolls the figure rather than the page.
+const frame =
+  "mb-6 overflow-x-auto font-mono text-[0.72rem] leading-[1.75] text-muted md:min-h-[11.5rem]";
+---
+
+{
+  kind === "authoring" && (
+    <div class={frame}>
+      <div>
+        <span class="text-muted">&lt;</span><span class="text-accent">Document</span>{" "}
+        <span class="text-ink">title</span>=<span class="text-rubric">"Offer of Admission"</span>
+        <span class="text-muted">&gt;</span>
+      </div>
+      <div class="pl-3.5">
+        <span class="text-muted">&lt;</span><span class="text-accent">Section</span>{" "}
+        <span class="text-ink">title</span>=<span class="text-rubric">"Your offer"</span>
+        <span class="text-muted">&gt;</span>
+      </div>
+      <div class="pl-7">
+        <span class="text-muted">&lt;</span><span class="text-accent">Greeting</span>{" "}
+        <span class="text-muted">/&gt;</span>
+      </div>
+      <div class="pl-7">
+        <span class="text-muted">&lt;</span><span class="text-accent">Offer</span>{" "}
+        <span class="text-muted">/&gt;</span>
+      </div>
+      <div class="pl-7">
+        <span class="text-muted">&lt;</span><span class="text-accent">TutorNote</span>{" "}
+        <span class="text-muted">/&gt;</span>
+      </div>
+      <div class="pl-3.5">
+        <span class="text-muted">&lt;/</span><span class="text-accent">Section</span>
+        <span class="text-muted">&gt;</span>
+      </div>
+      <div>
+        <span class="text-muted">&lt;/</span><span class="text-accent">Document</span>
+        <span class="text-muted">&gt;</span>
+      </div>
+    </div>
+  )
+}
+
+{
+  kind === "ai" && (
+    <div class={frame}>
+      <div class="rounded-sm border border-border-firm bg-paper px-3 py-2">
+        <div class="flex items-baseline justify-between gap-3">
+          <span>
+            state: <span class="text-rubric">{"{ interviewer, portfolioTheme }"}</span>
+          </span>
+          <span class="text-[0.6rem] tracking-[0.1em] text-muted">DATA</span>
+        </div>
+        <div>
+          tone: <span class="text-rubric">"warm, never effusive"</span>
+        </div>
+      </div>
+
+      <div class="flex justify-center py-1" aria-hidden="true">
+        <span class="h-0 w-0 border-x-4 border-t-[5px] border-x-transparent border-t-border-firm" />
+      </div>
+
+      <div class="flex items-center justify-between gap-3 rounded-sm bg-accent-solid px-3 py-1.5">
+        <span class="text-on-accent">&lt;TutorNote /&gt;</span>
+        <span class="text-[0.6rem] tracking-[0.1em] text-on-accent/80">useSetPrompts</span>
+      </div>
+
+      <div class="flex justify-center py-1" aria-hidden="true">
+        <span class="h-0 w-0 border-x-4 border-t-[5px] border-x-transparent border-t-border-firm" />
+      </div>
+
+      <div class="border-l-2 border-accent-solid pl-2.5 font-serif text-[0.8rem] leading-snug text-ink">
+        A short personal note from Dr Priya Raman about Maya Oyelaran's interview.
+      </div>
+    </div>
+  )
+}
+
+{
+  kind === "changeControl" && (
+    <div class={`${frame} leading-[1.9]`}>
+      <div>nodes/arrears.node.tsx</div>
+      <div class="-mx-1.5 bg-rubric-tint px-1.5 text-rubric">
+        − within 14 days of this notice
+      </div>
+      <div class="-mx-1.5 bg-accent-tint px-1.5 text-accent">
+        + within 30 days of this notice
+      </div>
+      <div class="mt-1.5">✓ arrears-notice renders as expected</div>
+    </div>
+  )
+}

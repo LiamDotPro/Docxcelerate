@@ -1,0 +1,61 @@
+---
+/**
+ * The artefact each step of the engine's pipeline actually produces.
+ *
+ * Deliberately files and calls rather than invented CLI verbs: a build writes
+ * the three JSON files below, publishing is `upload.endpoint` pointing at an
+ * engine, and writing is a request against it. See
+ * /docs/projects/artifacts/ and /docs/generation/endpoint/ — if those change,
+ * these change with them.
+ */
+interface Props {
+  kind: "build" | "publish" | "write";
+}
+
+const { kind } = Astro.props;
+
+// Overflows sideways inside its own box rather than widening the page: the
+// endpoint line is longer than a phone is wide, and it is a URL, so wrapping
+// it would be worse than scrolling it.
+const frame =
+  "overflow-x-auto rounded border border-border bg-paper px-3.5 py-3 font-mono text-[0.72rem] leading-[1.8] text-muted";
+---
+
+{
+  kind === "build" && (
+    <div class={frame}>
+      <div>documents/offer-of-admission/build/</div>
+      <div class="pl-4 text-muted/80">manifest.json</div>
+      <div class="pl-4 text-muted/80">preview.json</div>
+      <div class="pl-4 text-accent">document.json</div>
+    </div>
+  )
+}
+
+{
+  kind === "publish" && (
+    <div class={frame}>
+      <div>docxcelerate.config.json</div>
+      <div>
+        <span class="text-ink">"upload"</span>: {"{"}{" "}
+        <span class="text-ink">"endpoint"</span>:{" "}
+        <span class="text-rubric">"https://documents.example.com/api/letters"</span> {"}"}
+      </div>
+      <div class="text-accent">→ document.json stored, and given an address</div>
+    </div>
+  )
+}
+
+{
+  kind === "write" && (
+    <div class={frame}>
+      <div>
+        <span class="text-ink">POST</span> /api/letters
+      </div>
+      <div class="pl-4 text-rubric">{"{ applicantName, conditions, interviewer }"}</div>
+      <div>
+        <span class="text-accent">→ 200</span> offer-of-admission.docx
+      </div>
+    </div>
+  )
+}
