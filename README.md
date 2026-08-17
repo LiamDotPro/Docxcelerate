@@ -1,4 +1,6 @@
-# Docxcelerate
+<!-- The banner carries its own dark ground, so it reads the same on GitHub's
+     light and dark themes. Regenerate it with `npm run brand` in website/. -->
+<img src="website/public/brand/banner.png" alt="Docxcelerate — Documents as components. DOCX as output." width="880">
 
 Compose DOCX documents from small typed components, using the JSX you already write.
 Write and preview them on your machine, then generate finished documents through

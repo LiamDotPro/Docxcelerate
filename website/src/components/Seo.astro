@@ -9,7 +9,7 @@
  * passed in, already translated.
  */
 import { existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { SITE } from "../site";
 import { alternates, asLocale, localizePath, stripLocale, DEFAULT_LOCALE, LOCALES } from "../i18n";
 import type { Locale } from "../i18n";
@@ -62,8 +62,15 @@ const ogLocale = (value: Locale) => (value === "en" ? "en_US" : value);
 // A share card is announced only once it exists. Pointing at a missing image is
 // worse than omitting it: the platforms that follow the tag render a blank or
 // broken card rather than falling back to the text one they would have built.
-// Drop a 1200x630 PNG at public/og.png and every page picks it up.
-const socialImage = existsSync(fileURLToPath(new URL("../../public/og.png", import.meta.url)))
+// public/og.png is built by scripts/build-brand-assets.mjs (`npm run brand`).
+//
+// Resolved from the working directory, not from `import.meta.url`. Every page
+// here is prerendered, which means this module runs as a bundled chunk under
+// dist/server/ — relative to *that*, "../../public" is dist/public, which never
+// exists, so the check answered "no" no matter what was in public/. The Astro
+// CLI always runs from the project root, so cwd is the one base that means the
+// same thing in `astro dev` and in a build.
+const socialImage = existsSync(join(process.cwd(), "public", "og.png"))
   ? href("/og.png")
   : undefined;
 

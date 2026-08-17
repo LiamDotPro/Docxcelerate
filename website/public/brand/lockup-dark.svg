@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280.89 48" width="280.89" height="48" role="img">
+  <title>Docxcelerate</title>
+  <g transform="translate(0 9.00) scale(0.697674)">
+  <g transform="translate(-2.3094 -12) skewX(-12)">
+    <rect x="14" y="12" width="38" height="7" fill="#d7e0da" opacity="0.38" />
+    <rect x="14" y="24" width="28" height="7" fill="#d7e0da" opacity="0.55" />
+    <rect x="14" y="36" width="42" height="7" fill="#8ac5ae" />
+    <rect x="14" y="48" width="21" height="7" fill="#d7e0da" opacity="0.55" />
+  </g>
+  </g>
+  <text x="44.89" y="34.56" font-family="'Iowan Old Style','Palatino Linotype',Palatino,'Book Antiqua','URW Palladio L',serif" font-size="40" font-weight="600" letter-spacing="-0.4" fill="#d7e0da">Docx<tspan fill="#8ac5ae">celerate</tspan></text>
+</svg>
