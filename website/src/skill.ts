@@ -16,11 +16,10 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 /**
- * The skill's path in the repository — what the card is captioned with, and
- * what the copy button hands over. `references/` beside it is the rest of the
- * skill; the homepage shows the file an agent reads first.
+ * The skill's path in the repository. `references/` beside it is the rest of
+ * the skill; the homepage prints the file an agent reads first.
  */
-export const SKILL_PATH = "skills/docxcelerate/SKILL.md";
+const SKILL_PATH = "skills/docxcelerate/SKILL.md";
 
 /**
  * Where to look, in order. Resolved against the working directory, which is

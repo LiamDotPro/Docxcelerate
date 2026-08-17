@@ -255,18 +255,33 @@ export const de: UiStrings = {
 
     agentSkill: {
       eyebrow: "Agent Skills",
-      title: "Geben Sie Ihrem Agenten das Ganze",
+      title: "Bringen Sie Ihrem Agenten das Framework bei",
       lead:
         "Eine einzige Markdown-Datei bringt einem Coding-Agenten bei, wie Dokumente " +
-        "hier aufgebaut sind — das Komponentenmodell, die CLI und wo KI ins Spiel " +
-        "kommt. Legen Sie sie ab und fragen Sie nach einem Dokument, statt das erste " +
-        "selbst zu schreiben.",
+        "hier aufgebaut sind: das Komponentenmodell, die Regeln, über die Agenten " +
+        "stolpern, und jeder Befehl. Legen Sie sie ab und fragen Sie nach einem " +
+        "Dokument, statt das erste selbst zu schreiben.",
+      where: "Wohin die Datei gehört",
       copySkill: "Skill kopieren",
-      note:
-        "Legen Sie den Ordner in .claude/skills/, und Claude Code lädt ihn, sobald ein " +
-        "Dokumentprojekt auftaucht — vier Referenzdateien liegen daneben. Es ist " +
-        "ohnehin schlichtes Markdown, also übernehmen Cursor, Copilot oder alles, was " +
-        "AGENTS.md liest, es unverändert.",
+      references:
+        "Es ist schlichtes Markdown, und vier Referenzdateien liegen daneben in " +
+        "skills/docxcelerate/.",
+      agents: {
+        "claude-code":
+          "Kopieren Sie den Ordner nach .claude/skills/ für ein Projekt oder nach " +
+          "~/.claude/skills/ für alle. Er lädt sich selbst, sobald ein " +
+          "Dokumentprojekt auftaucht.",
+        "cursor":
+          "Als Rules-Datei ablegen, dann liest Cursor sie in diesem Projekt. Oder die " +
+          "Datei im Chat per @ erwähnen, wenn Sie sie brauchen.",
+        "copilot":
+          "In .github/copilot-instructions.md einfügen, dann wendet Copilot sie im " +
+          "ganzen Repository an.",
+        "agents-md":
+          "Codex, Gemini CLI, Aider und Cline lesen alle AGENTS.md im Wurzelverzeichnis " +
+          "des Repos. Fügen Sie sie ein oder verweisen Sie darauf, wenn Ihr Agent " +
+          "Dateien öffnet.",
+      },
     },
   },
 

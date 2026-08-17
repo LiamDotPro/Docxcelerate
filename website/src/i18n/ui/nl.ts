@@ -244,17 +244,31 @@ export const nl: UiStrings = {
 
     agentSkill: {
       eyebrow: "Agent skills",
-      title: "Geef het geheel aan je agent",
+      title: "Leer je agent het framework",
       lead:
         "Één Markdown-bestand leert een coding agent hoe documenten hier in elkaar " +
-        "zitten — het componentmodel, de CLI en waar AI binnenkomt. Zet het erin en " +
-        "vraag om een document in plaats van het eerste zelf te schrijven.",
+        "zitten: het componentmodel, de regels waar agents over struikelen en elk " +
+        "commando. Zet het erin en vraag om een document in plaats van het eerste " +
+        "zelf te schrijven.",
+      where: "Waar het bestand hoort",
       copySkill: "Kopieer de skill",
-      note:
-        "Zet de map in .claude/skills/ en Claude Code laadt hem zodra er een " +
-        "documentproject opduikt, met vier referentiebestanden ernaast. Het is hoe " +
-        "dan ook gewone Markdown, dus Cursor, Copilot of alles wat AGENTS.md leest " +
-        "neemt het zo over.",
+      references:
+        "Het is gewone Markdown, en er staan vier referentiebestanden naast in " +
+        "skills/docxcelerate/.",
+      agents: {
+        "claude-code":
+          "Zet de map in .claude/skills/ voor één project, of in ~/.claude/skills/ " +
+          "voor allemaal. Hij laadt zichzelf zodra er een documentproject opduikt.",
+        "cursor":
+          "Sla het op als rule-bestand, dan leest Cursor het in dat project. Of " +
+          "@-mention het bestand in de chat wanneer je het nodig hebt.",
+        "copilot":
+          "Plak het in .github/copilot-instructions.md, dan past Copilot het toe in " +
+          "de hele repository.",
+        "agents-md":
+          "Codex, Gemini CLI, Aider en Cline lezen allemaal AGENTS.md in de root van " +
+          "de repo. Plak het erin, of verwijs ernaar als je agent bestanden opent.",
+      },
     },
   },
 

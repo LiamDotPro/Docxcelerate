@@ -251,17 +251,38 @@ export const en = {
      */
     agentSkill: {
       eyebrow: "Agent skills",
-      title: "Hand the whole thing to your agent",
+      title: "Teach your agent the framework",
       lead:
         "One Markdown file teaches a coding agent how documents are put together " +
-        "here — the component model, the CLI, and where AI goes. Drop it in and " +
-        "ask for a document instead of writing the first one yourself.",
+        "here: the component model, the rules that catch agents out, and every " +
+        "command. Drop it in and ask for a document instead of writing the first " +
+        "one yourself.",
+      /** Names the picker for a screen reader; the tabs themselves are products. */
+      where: "Where the file goes",
       copySkill: "Copy the skill",
-      note:
-        "Drop the folder into .claude/skills/ and Claude Code loads it whenever a " +
-        "document project shows up, with four reference files beside it. It is " +
-        "plain Markdown either way, so Cursor, Copilot or anything reading " +
-        "AGENTS.md takes it as it stands.",
+      references:
+        "It is plain Markdown, and four reference files sit beside it in " +
+        "skills/docxcelerate/.",
+      /**
+       * One line each, keyed by the agent ids in AgentSkill.astro. Paths and
+       * product names stay as they are typed; only the sentence around them is
+       * translated.
+       */
+      agents: {
+        "claude-code":
+          "Copy the folder into .claude/skills/ for one project, or " +
+          "~/.claude/skills/ for all of them. It loads itself when a document " +
+          "project turns up.",
+        "cursor":
+          "Save it as a rule file and Cursor reads it in that project. Or " +
+          "@-mention the file in chat when you want it.",
+        "copilot":
+          "Paste it into .github/copilot-instructions.md and Copilot applies it " +
+          "across the repository.",
+        "agents-md":
+          "Codex, Gemini CLI, Aider and Cline all read AGENTS.md at the root of " +
+          "the repo. Paste it in, or link to it if your agent opens files.",
+      },
     },
   },
 

@@ -247,17 +247,32 @@ export const es: UiStrings = {
 
     agentSkill: {
       eyebrow: "Agent skills",
-      title: "Dale el conjunto a tu agente",
+      title: "Enséñale el framework a tu agente",
       lead:
         "Un solo archivo Markdown le enseña a un agente de código cómo se arman aquí " +
-        "los documentos: el modelo de componentes, la CLI y dónde entra la IA. " +
-        "Colócalo y pide un documento en lugar de escribir el primero tú.",
+        "los documentos: el modelo de componentes, las reglas con las que tropiezan " +
+        "los agentes y todos los comandos. Colócalo y pide un documento en lugar de " +
+        "escribir el primero tú.",
+      where: "Dónde va el archivo",
       copySkill: "Copiar la skill",
-      note:
-        "Coloca la carpeta en .claude/skills/ y Claude Code la carga en cuanto aparece " +
-        "un proyecto de documentos, con cuatro archivos de referencia al lado. En " +
-        "cualquier caso es Markdown corriente, así que Cursor, Copilot o cualquier cosa " +
-        "que lea AGENTS.md la toma tal cual.",
+      references:
+        "Es Markdown corriente, y a su lado hay cuatro archivos de referencia en " +
+        "skills/docxcelerate/.",
+      agents: {
+        "claude-code":
+          "Copia la carpeta en .claude/skills/ para un proyecto, o en " +
+          "~/.claude/skills/ para todos. Se carga sola en cuanto aparece un proyecto " +
+          "de documentos.",
+        "cursor":
+          "Guárdalo como archivo de reglas y Cursor lo lee en ese proyecto. O " +
+          "menciónalo con @ en el chat cuando lo necesites.",
+        "copilot":
+          "Pégalo en .github/copilot-instructions.md y Copilot lo aplica en todo el " +
+          "repositorio.",
+        "agents-md":
+          "Codex, Gemini CLI, Aider y Cline leen AGENTS.md en la raíz del repositorio. " +
+          "Pégalo ahí, o enlázalo si tu agente abre archivos.",
+      },
     },
   },
 
