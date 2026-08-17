@@ -1,0 +1,137 @@
+# Publishes the framework to JSR when it changes on main.
+#
+# The npm release lives in release.yml. This is a separate workflow because the
+# two registries ship different things: npm gets the compiled dist/, JSR gets
+# the TypeScript in src/ and type-checks it on the way in. A break that only
+# JSR would catch should not hold up an npm release, and vice versa.
+#
+# Authentication is JSR's tokenless OIDC publishing: the job asks GitHub for a
+# short-lived ID token and JSR trades it for publish rights. There is no secret
+# in this repository and nothing to rotate.
+#
+# It needs one thing set up outside this file, and publishing fails without it:
+#
+#   On jsr.io -> @docxcelerate/docxcelerate -> Settings -> GitHub Repository,
+#   enter LiamDotPro/Docxcelerate and click Link. OIDC is only trusted from the
+#   repository the package names, so an unlinked package rejects every token
+#   this job can offer.
+#
+# The version in jsr.json decides whether anything is released, and it has to
+# agree with package.json — the check below fails the run when it does not,
+# rather than letting the two registries drift a version apart.
+name: Release to JSR
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "jsr.json"
+      - "package.json"
+  # For re-running a release whose publish failed after the version was merged.
+  workflow_dispatch:
+
+# One JSR release at a time. Deliberately its own group rather than sharing
+# release.yml's: the npm publish and this one have nothing to race over.
+concurrency:
+  group: release-jsr
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # nothing to push: release.yml owns the vX.Y.Z tag
+      id-token: write # the OIDC ID token JSR trades for publish rights
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      # Not optional, and not only for the tests below. `docx` is a bare
+      # specifier, and with a package.json present Deno resolves it through
+      # node_modules rather than through jsr.json's import map — so a publish
+      # from a fresh checkout fails on an unresolvable import without this.
+      - run: npm ci
+
+      # Publishing cannot be undone. A yanked version still occupies its number
+      # forever, so the suite runs before the irreversible step rather than
+      # trusting release.yml to have caught it on the same push.
+      - run: npm test
+
+      # Whether there is anything to release, asked of the registry rather than
+      # of the diff — the same reasoning as release.yml. The diff calls a
+      # release whose publish failed "unchanged" and never retries it; the
+      # registry knows the version is still missing and lets the next push
+      # finish the job.
+      - name: Decide whether to release
+        id: version
+        run: |
+          set -euo pipefail
+
+          name=$(node -p "require('./jsr.json').name")
+          version=$(node -p "require('./jsr.json').version")
+          npm_version=$(node -p "require('./package.json').version")
+
+          # The one number lives in two files, so the mismatch gets caught here
+          # instead of on jsr.io a version later.
+          if [ "$version" != "$npm_version" ]; then
+            echo "::error::jsr.json is $version but package.json is $npm_version. Bump both to the same number."
+            exit 1
+          fi
+
+          meta=$(curl -fsSL "https://jsr.io/$name/meta.json" || true)
+
+          if [ -z "$meta" ]; then
+            echo "::error::Could not read https://jsr.io/$name/meta.json. The package must already exist on JSR and be linked to this repository."
+            exit 1
+          fi
+
+          # Prints "live" for a published version, "yanked" for one that was
+          # published and withdrawn, and nothing for a version that is free.
+          state=$(printf '%s' "$meta" | node -e "
+            let raw = '';
+            process.stdin
+              .on('data', (chunk) => { raw += chunk; })
+              .on('end', () => {
+                const versions = JSON.parse(raw).versions ?? {};
+                const found = versions[process.argv[1]];
+                process.stdout.write(found ? (found.yanked ? 'yanked' : 'live') : '');
+              });
+          " "$version")
+
+          if [ "$state" = "live" ]; then
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "$name@$version is already published — nothing to release."
+            echo "Bump the version in jsr.json and package.json to ship a new build." \
+              >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Worth its own message: 0.1.0 through 0.1.2 are all yanked, and JSR
+          # refuses to reuse a yanked number. Retrying cannot fix it — only a
+          # bump can — so this fails rather than skipping quietly.
+          if [ "$state" = "yanked" ]; then
+            echo "::error::$name@$version was published and yanked. JSR will not reuse that number — bump to a version that has never shipped."
+            exit 1
+          fi
+
+          echo "release=true" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "$name@$version is not published — releasing it."
+          echo "Releasing $name@$version to JSR." >> "$GITHUB_STEP_SUMMARY"
+
+      # `deno publish` refuses a dirty tree, which is the behaviour we want: the
+      # checkout is clean, and everything npm ci and npm test leave behind
+      # (node_modules/, dist/) is gitignored. No --allow-dirty to paper over a
+      # tree that unexpectedly is not clean.
+      - name: Publish to JSR
+        if: steps.version.outputs.release == 'true'
+        run: deno publish

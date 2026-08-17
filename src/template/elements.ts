@@ -3,6 +3,7 @@ import {
   type CommonElementProps,
   type Component,
   host,
+  type HostElementType,
   type Yield,
 } from "./element.ts";
 
@@ -74,16 +75,26 @@ export interface RepeatProps extends CommonElementProps {
   children?: Yield;
 }
 
-export const Document = host<DocumentProps, "document">("document", "Document");
-export const Section = host<SectionProps, "section">("section", "Section");
-export const Paragraph = host<ParagraphProps, "paragraph">("paragraph", "Paragraph");
-export const Image = host<ImageProps, "image">("image", "Image");
-export const Graph = host<GraphProps, "graph">("graph", "Graph");
-export const TableOfContents = host<TableOfContentsProps, "tableOfContents">(
+// The type is written out rather than inferred from `host`. Both readers need
+// it: a person can see what an element takes without opening element.ts, and
+// JSR refuses to publish a public API whose types it would have to run the
+// compiler to learn.
+export const Document: HostElementType<DocumentProps, "document"> = host(
+  "document",
+  "Document",
+);
+export const Section: HostElementType<SectionProps, "section"> = host("section", "Section");
+export const Paragraph: HostElementType<ParagraphProps, "paragraph"> = host(
+  "paragraph",
+  "Paragraph",
+);
+export const Image: HostElementType<ImageProps, "image"> = host("image", "Image");
+export const Graph: HostElementType<GraphProps, "graph"> = host("graph", "Graph");
+export const TableOfContents: HostElementType<TableOfContentsProps, "tableOfContents"> = host(
   "tableOfContents",
   "TableOfContents",
 );
-export const Repeat = host<RepeatProps, "repeat">("repeat", "Repeat");
+export const Repeat: HostElementType<RepeatProps, "repeat"> = host("repeat", "Repeat");
 
 /**
  * The component types, sharing a name with the element each one yields.
