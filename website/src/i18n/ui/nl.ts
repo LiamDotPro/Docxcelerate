@@ -244,7 +244,7 @@ export const nl: UiStrings = {
 
     agentSkill: {
       eyebrow: "Agent skills",
-      title: "Leer je agent het framework",
+      title: "Geef het geheel aan je agent",
       lead:
         "Één Markdown-bestand leert een coding agent hoe documenten hier in elkaar " +
         "zitten: het componentmodel, de regels waar agents over struikelen en elk " +

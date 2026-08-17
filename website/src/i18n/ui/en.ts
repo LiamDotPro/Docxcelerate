@@ -251,7 +251,7 @@ export const en = {
      */
     agentSkill: {
       eyebrow: "Agent skills",
-      title: "Teach your agent the framework",
+      title: "Hand the whole thing to your agent",
       lead:
         "One Markdown file teaches a coding agent how documents are put together " +
         "here: the component model, the rules that catch agents out, and every " +

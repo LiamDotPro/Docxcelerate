@@ -247,7 +247,7 @@ export const es: UiStrings = {
 
     agentSkill: {
       eyebrow: "Agent skills",
-      title: "Enséñale el framework a tu agente",
+      title: "Dale el conjunto a tu agente",
       lead:
         "Un solo archivo Markdown le enseña a un agente de código cómo se arman aquí " +
         "los documentos: el modelo de componentes, las reglas con las que tropiezan " +
