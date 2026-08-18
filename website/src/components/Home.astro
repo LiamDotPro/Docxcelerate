@@ -8,8 +8,12 @@
  */
 import AgentSkill from "./AgentSkill.astro";
 import Base from "../layouts/Base.astro";
+import EngineFigure from "./EngineFigure.astro";
 import HeroDemo from "./HeroDemo.astro";
+import LicenceSheet from "./LicenceSheet.astro";
+import PointFigure from "./PointFigure.astro";
 import RegistryMark from "./RegistryMark.astro";
+import ScaleFigure from "./ScaleFigure.astro";
 import {
   CLOUD_URL,
   GITHUB_URL,
@@ -31,28 +35,28 @@ const shortIntegrity = `${release.integrity.slice(0, 24)}…`;
 
 // The label names the dimension each point argues on, so the three read as a
 // set covering authoring, AI and governance rather than three loose claims.
-const POINTS = [t.home.points.authoring, t.home.points.ai, t.home.points.changeControl];
+// `figure` picks the drawing that sits under the heading — see PointFigure.
+const POINTS = [
+  { ...t.home.points.authoring, figure: "authoring" as const },
+  { ...t.home.points.ai, figure: "ai" as const },
+  { ...t.home.points.changeControl, figure: "changeControl" as const },
+];
 
 // A real sequence, so it's numbered. The first step is the only one the
 // framework is responsible for.
-const STEPS = [t.home.engine.steps.build, t.home.engine.steps.publish, t.home.engine.steps.write];
+const STEPS = [
+  { ...t.home.engine.steps.build, figure: "build" as const },
+  { ...t.home.engine.steps.publish, figure: "publish" as const },
+  { ...t.home.engine.steps.write, figure: "write" as const },
+];
 
 // Volume first, because it is the claim the section is making; the other three
 // are what makes volume survivable once you have it.
 const TRAITS = [
-  t.home.scale.traits.volume,
-  t.home.scale.traits.determinism,
-  t.home.scale.traits.integration,
-  t.home.scale.traits.reproducibility,
-];
-
-// The three things a reader checks when someone says "open source": what the
-// licence lets them do, what leaves the machine, and whether they can run the
-// hosted part themselves.
-const FACTS = [
-  t.home.openSource.facts.licence,
-  t.home.openSource.facts.local,
-  t.home.openSource.facts.selfHost,
+  { ...t.home.scale.traits.volume, figure: "volume" as const },
+  { ...t.home.scale.traits.determinism, figure: "determinism" as const },
+  { ...t.home.scale.traits.integration, figure: "integration" as const },
+  { ...t.home.scale.traits.reproducibility, figure: "reproducibility" as const },
 ];
 
 // What the package is, in the vocabulary a search engine already has. The
@@ -162,26 +166,100 @@ const CARDS = [
     <HeroDemo />
   </section>
 
-  <!-- Positioning. Top margin only — the quote below owns the gap after it, so
-       the two don't stack margin and padding into a hole. -->
-  <section class="mt-10 border-y border-border bg-surface sm:mt-6">
-    <div class="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24">
-      <div class="grid gap-16 md:grid-cols-3 md:gap-0">
+  <!-- The thesis, said by the person who wrote the thing, and the one place on
+       the page that spends a full band of green. The green is fixed rather
+       than tokenised: like the letter preview, it is the same in both themes.
+       Top margin only — the band owns the gap after it. -->
+  <section class="relative mt-10 overflow-hidden bg-ledger-900 text-white sm:mt-6">
+    <div
+      class="pointer-events-none absolute inset-0"
+      style="background:radial-gradient(ellipse 70% 90% at 50% 34%, rgba(159,212,184,0.16), rgba(15,63,45,0) 70%)"
+      aria-hidden="true"
+    >
+    </div>
+    <div class="relative mx-auto max-w-3xl px-5 py-24 text-center sm:px-8 sm:py-32">
+      <p class="pull-quote">
+        {t.home.pullQuote}
+      </p>
+      <figure class="m-0 mt-10 flex flex-col items-center gap-3">
+        <div class="rounded-full bg-white/10 p-1 shadow-[0_10px_30px_rgba(0,0,0,0.25)]">
+          <img
+            src="/liam.webp"
+            width="208"
+            height="208"
+            loading="lazy"
+            decoding="async"
+            alt={t.home.attribution.portraitAlt}
+            class="h-26 w-26 rounded-full object-cover"
+          />
+        </div>
+        <figcaption
+          class="font-mono text-[0.62rem] leading-[1.7] tracking-[0.14em] text-white/60 uppercase"
+        >
+          {t.home.attribution.name}<br /><span class="text-white/45"
+            >{t.home.attribution.role}</span
+          >
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- Positioning. Each point leads with a drawing of the claim it makes.
+       The three columns share one set of row tracks, so label, drawing,
+       heading and prose each start on the same line across all three however
+       long a translated title runs. -->
+  <section class="border-b border-border">
+    <div class="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+      <div class="grid gap-16 xl:grid-cols-3 xl:gap-0">
         {
           POINTS.map((point, index) => (
             <div
               class:list={[
-                "flex flex-col",
+                // min-w-0 so the code figure scrolls inside its column
+                // instead of stretching the column to fit its longest line.
+                "flex min-w-0 flex-col",
+                // Side by side, each column takes the row tracks of the grid
+                // above it rather than stacking its own four items: the four
+                // rows then size to the tallest label, drawing, heading and
+                // paragraph, and every column's prose starts on the same line
+                // even where a title runs to one line and its neighbours run
+                // to two. Nothing here is a measured reservation, so a longer
+                // translation moves the line rather than breaking it.
+                "xl:row-span-4 xl:grid xl:grid-rows-subgrid",
+                // Three up from xl, later than the rest of the page, because
+                // these columns carry code rather than prose: under about
+                // 1280 a third of the row is too narrow for the longest line,
+                // so the figures wrap to different heights, the headings stop
+                // lining up and the narrowest column scrolls. Stacked, each
+                // figure gets the full measure and none of them scroll.
                 // Hairlines between columns rather than boxes around them —
                 // the points are peers, not cards.
-                index > 0 && "md:border-l md:border-border md:pl-12",
-                index < POINTS.length - 1 && "md:pr-12",
+                index > 0 && "xl:border-l xl:border-border xl:pl-11",
+                index < POINTS.length - 1 && "xl:pr-11",
               ]}
             >
-              <span class="mb-4 font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent">
+              <span class="mb-4 font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent tabular-nums">
+                {String(index + 1).padStart(2, "0")}
+                <span class="mx-2 text-muted" aria-hidden="true">
+                  ·
+                </span>
                 {point.label}
               </span>
-              <h2 class="m-0 mb-4 text-[1.75rem] leading-[1.15] font-semibold">{point.title}</h2>
+              <PointFigure kind={point.figure} />
+              <!-- The heading and its prose read as one block now the drawing
+                   is above them rather than between them, so the gap between
+                   the two closes to match. The measure is in the heading's own
+                   ems: it breaks every title over two lines rather than
+                   letting one column run wide and short beside two that wrap,
+                   and balancing gives two lines of a length instead of a long
+                   one over a stub. 11em is wide enough that every locale
+                   settles on two lines and narrow enough that the shortest
+                   English title cannot creep back onto one. A title that needs
+                   a third line still gets one — the row grows and all three
+                   paragraphs move down together. -->
+              <h2 class="m-0 mb-3 max-w-[11em] text-[1.75rem] leading-[1.15] font-semibold text-balance">
+                {point.title}
+              </h2>
               <p class="m-0 text-[0.975rem] leading-[1.75] text-pretty text-muted">
                 {point.body}
               </p>
@@ -192,80 +270,77 @@ const CARDS = [
     </div>
   </section>
 
-  <!-- The thesis. The one place on the page that spends the accent at full
-       strength — everything around it stays quiet. -->
-  <section class="bg-accent-solid text-on-accent">
-    <div class="mx-auto max-w-6xl px-5 py-32 sm:px-8 sm:py-44">
-      <div class="mx-auto max-w-3xl text-center">
-        <p class="pull-quote">
-          {t.home.pullQuote}
-        </p>
-        <span class="quote-rule" aria-hidden="true"></span>
-      </div>
-    </div>
-  </section>
-
-  <!-- The engine -->
-  <section class="mx-auto max-w-6xl px-5 py-24 sm:px-8">
-    <div class="grid gap-12 md:grid-cols-2 md:gap-16">
-      <div class="flex max-w-xl flex-col gap-5">
-        <h2 class="m-0 text-3xl font-semibold sm:text-4xl">{t.home.engine.title}</h2>
-        <p class="m-0 leading-relaxed text-muted">
-          {t.home.engine.bodyOne}
-        </p>
-        <p class="m-0 leading-relaxed text-muted">
-          {t.home.engine.bodyTwo}
-        </p>
-        <div class="mt-2 flex flex-wrap gap-3">
-          <a
-            href={localizePath("/docs/generation/endpoint/", locale)}
-            class="rounded bg-accent-solid px-5 py-2.5 text-sm font-medium text-on-accent no-underline transition-colors hover:bg-accent-deep"
-            >{t.home.engine.ctaHow}</a
+  <!-- The engine. The steps run down a spine on the right, each carrying the
+       artefact it actually produces. -->
+  <section class="border-b border-border bg-surface">
+    <div class="mx-auto max-w-6xl px-5 py-24 sm:px-8 sm:py-28">
+      <div class="grid gap-12 md:grid-cols-2 md:gap-16">
+        <div class="flex max-w-xl flex-col gap-5">
+          <span
+            class="font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent"
+            >{t.home.engine.eyebrow}</span
           >
-          <a
-            href={CLOUD_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="inline-flex items-center gap-2 rounded border border-border-firm px-5 py-2.5 text-sm font-medium text-muted no-underline transition-colors hover:text-accent"
-            >{t.home.engine.ctaCloud}
-            <span
-              class="rounded-full border border-border-firm px-1.5 py-px font-mono text-[0.6rem] uppercase tracking-[0.08em]"
-              >{t.common.soon}</span
-            ></a
-          >
-        </div>
-      </div>
-
-      <!-- Full height and spread, so the first step's text starts level with
-           the heading and the last ends level with the buttons. -->
-      <ol class="m-0 flex list-none flex-col p-0 md:h-full md:justify-between">
-        {
-          STEPS.map((step, index) => (
-            <li
-              class:list={[
-                "m-0 flex gap-5 py-5",
-                index > 0 && "border-t border-border",
-                index === 0 && "md:pt-0",
-                index === STEPS.length - 1 && "md:pb-0",
-              ]}
+          <h2 class="m-0 text-3xl font-semibold sm:text-4xl">{t.home.engine.title}</h2>
+          <p class="m-0 leading-relaxed text-muted">
+            {t.home.engine.bodyOne}
+          </p>
+          <p class="m-0 leading-relaxed text-muted">
+            {t.home.engine.bodyTwo}
+          </p>
+          <div class="mt-2 flex flex-wrap gap-3">
+            <a
+              href={localizePath("/docs/generation/endpoint/", locale)}
+              class="rounded bg-accent-solid px-5 py-2.5 text-sm font-medium text-on-accent no-underline transition-colors hover:bg-accent-deep"
+              >{t.home.engine.ctaHow}</a
             >
-              <span class="pt-0.5 font-mono text-sm text-muted tabular-nums">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <span class="flex flex-col gap-1">
-                <span class="font-semibold text-ink">{step.title}</span>
-                <span class="text-sm leading-relaxed text-muted">{step.detail}</span>
-              </span>
-            </li>
-          ))
-        }
-      </ol>
+            <a
+              href={CLOUD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-2 rounded border border-border-firm px-5 py-2.5 text-sm font-medium text-muted no-underline transition-colors hover:text-accent"
+              >{t.home.engine.ctaCloud}
+              <span
+                class="rounded-full border border-border-firm px-1.5 py-px font-mono text-[0.6rem] uppercase tracking-[0.08em]"
+                >{t.common.soon}</span
+              ></a
+            >
+          </div>
+        </div>
+
+        <!-- A spine rather than a ruled list: the numbers are joined because the
+             three steps are one sequence, and the rule between them is the
+             thing that says so. -->
+        <ol class="m-0 flex list-none flex-col p-0">
+          {
+            STEPS.map((step, index) => (
+              <li class="m-0 grid grid-cols-[3.25rem_1fr]">
+                <div class="flex flex-col items-center">
+                  <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent-solid font-mono text-[0.62rem] text-on-accent tabular-nums">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  {index < STEPS.length - 1 && (
+                    <span class="my-2 w-px flex-1 bg-border-firm" aria-hidden="true" />
+                  )}
+                </div>
+                <div class:list={["min-w-0", index < STEPS.length - 1 && "pb-8"]}>
+                  <h3 class="m-0 text-xl font-semibold">{step.title}</h3>
+                  <p class="mt-1.5 mb-3.5 text-sm leading-relaxed text-pretty text-muted">
+                    {step.detail}
+                  </p>
+                  <EngineFigure kind={step.figure} />
+                </div>
+              </li>
+            ))
+          }
+        </ol>
+      </div>
     </div>
   </section>
 
-  <!-- Scale. Takes the surface treatment so the three prose sections either
-       side of it stay told apart without another band of accent. -->
-  <section class="border-y border-border bg-surface">
+  <!-- Scale. Cards rather than columns: the first claim is the section's
+       argument and gets the width, and the three under it are what makes the
+       first survivable. -->
+  <section>
     <div class="mx-auto max-w-6xl px-5 py-24 sm:px-8 sm:py-28">
       <div class="mb-12 flex max-w-2xl flex-col gap-4">
         <span
@@ -279,16 +354,28 @@ const CARDS = [
       </div>
 
       <!-- Numbered but unordered: they are four properties of one design, not
-           steps, and the numerals only give the eye somewhere to land. -->
-      <div class="grid gap-x-12 gap-y-9 sm:grid-cols-2">
+           steps, and the numerals only give the eye somewhere to land. The
+           first runs the full width and sets its drawing beside the words;
+           the rest stack theirs underneath. -->
+      <div class="grid gap-5 lg:grid-cols-3">
         {
           TRAITS.map((trait, index) => (
-            <div class="flex flex-col border-t border-border pt-5">
-              <span class="mb-3 font-mono text-[0.7rem] text-muted tabular-nums">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <h3 class="m-0 mb-2 text-lg font-semibold">{trait.title}</h3>
-              <p class="m-0 text-[0.95rem] leading-[1.75] text-pretty text-muted">{trait.body}</p>
+            <div
+              class:list={[
+                "flex min-w-0 flex-col rounded-md border border-border p-7",
+                index === 0 && "gap-8 lg:col-span-3 lg:grid lg:grid-cols-2 lg:items-center lg:gap-14",
+              ]}
+            >
+              <div class="flex flex-col">
+                <span class="mb-3 font-mono text-[0.7rem] text-muted tabular-nums">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <h3 class="m-0 mb-2 text-lg font-semibold">{trait.title}</h3>
+                <p class="m-0 text-[0.95rem] leading-[1.75] text-pretty text-muted">{trait.body}</p>
+              </div>
+              <div class:list={[index > 0 && "mt-auto pt-7"]}>
+                <ScaleFigure kind={trait.figure} />
+              </div>
             </div>
           ))
         }
@@ -296,88 +383,88 @@ const CARDS = [
     </div>
   </section>
 
-  <!-- Open source -->
-  <section class="mx-auto max-w-6xl px-5 py-24 sm:px-8 sm:py-28">
-    <div class="grid gap-12 md:grid-cols-[1.15fr_1fr] md:gap-16">
-      <div class="flex max-w-xl flex-col gap-5">
-        <span
-          class="font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent"
-          >{t.home.openSource.eyebrow}</span
-        >
-        <h2 class="m-0 text-3xl font-semibold sm:text-4xl">{t.home.openSource.title}</h2>
-        <p class="m-0 leading-relaxed text-muted">
-          {t.home.openSource.bodyOne}
-        </p>
-        <p class="m-0 leading-relaxed text-muted">
-          {t.home.openSource.bodyTwo}
-        </p>
-        <div class="mt-2 flex flex-wrap gap-3">
-          <a
-            href={GITHUB_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="rounded bg-accent-solid px-5 py-2.5 text-sm font-medium text-on-accent no-underline transition-colors hover:bg-accent-deep"
-            >{t.home.openSource.ctaSource}</a
+  <!-- Open source. The claim is a licence, so the licence is the picture: a
+       fixed track for the sheet, because a sheet of paper is not elastic. -->
+  <section class="border-t border-border bg-surface">
+    <div class="mx-auto max-w-6xl px-5 py-24 sm:px-8 sm:py-28">
+      <div class="grid gap-14 lg:grid-cols-[1fr_420px] lg:items-start lg:gap-16">
+        <div class="flex max-w-xl flex-col gap-5">
+          <span
+            class="font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent"
+            >{t.home.openSource.eyebrow}</span
           >
-          <a
-            href={NPM_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="rounded border border-border-firm px-5 py-2.5 text-sm font-medium text-muted no-underline transition-colors hover:text-accent"
-            >{t.home.openSource.ctaNpm}</a
-          >
+          <h2 class="m-0 text-3xl font-semibold sm:text-4xl">{t.home.openSource.title}</h2>
+          <p class="m-0 leading-relaxed text-pretty text-muted">
+            {t.home.openSource.bodyOne}
+          </p>
+          <p class="m-0 leading-relaxed text-pretty text-muted">
+            {t.home.openSource.bodyTwo}
+          </p>
+          <div class="mt-2 flex flex-wrap gap-3">
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="rounded bg-accent-solid px-5 py-2.5 text-sm font-medium text-on-accent no-underline transition-colors hover:bg-accent-deep"
+              >{t.home.openSource.ctaSource}</a
+            >
+            <a
+              href={NPM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="rounded border border-border-firm bg-paper px-5 py-2.5 text-sm font-medium text-ink no-underline transition-colors hover:border-accent hover:text-accent"
+              >{t.home.openSource.ctaNpm}</a
+            >
+          </div>
         </div>
-      </div>
 
-      <!-- Boxed rather than ruled, so it doesn't read as a second copy of the
-           engine's step list sitting in the same position. -->
-      <ul
-        class="m-0 flex list-none flex-col gap-6 rounded-md border border-border bg-surface p-7 md:self-start"
-      >
-        {
-          FACTS.map((fact) => (
-            <li class="m-0 flex gap-3.5">
-              <span
-                class="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-solid"
-                aria-hidden="true"
-              />
-              <span class="flex flex-col gap-1">
-                <span class="font-semibold text-ink">{fact.title}</span>
-                <span class="text-sm leading-relaxed text-muted">{fact.body}</span>
-              </span>
-            </li>
-          ))
-        }
-      </ul>
+        <LicenceSheet />
+      </div>
     </div>
   </section>
 
-  <!-- The docs -->
-  <section class="border-t border-border bg-surface">
+  <!-- The docs. Paper, so the page keeps alternating: the licence band above
+       it is grey and the agent skill below it takes the grey back. -->
+  <section class="border-t border-border">
     <div class="mx-auto max-w-6xl px-5 py-24 sm:px-8 sm:py-28">
-      <div class="mb-10 flex max-w-2xl flex-col gap-4">
-        <span
-          class="font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent"
-          >{t.home.docs.eyebrow}</span
+      <div class="mb-10 flex flex-wrap items-end justify-between gap-x-10 gap-y-5">
+        <div class="flex max-w-2xl flex-col gap-4">
+          <span
+            class="font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent"
+            >{t.home.docs.eyebrow}</span
+          >
+          <h2 class="m-0 text-3xl font-semibold sm:text-4xl">{t.home.docs.title}</h2>
+          <p class="m-0 leading-relaxed text-muted">
+            {t.home.docs.lead}
+          </p>
+        </div>
+        <a
+          href={localizePath("/docs/start-here/", locale)}
+          class="text-sm font-medium whitespace-nowrap text-accent no-underline hover:underline"
+          >{t.home.docs.ctaAll}</a
         >
-        <h2 class="m-0 text-3xl font-semibold sm:text-4xl">{t.home.docs.title}</h2>
-        <p class="m-0 leading-relaxed text-muted">
-          {t.home.docs.lead}
-        </p>
       </div>
 
-      <div class="grid gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
+      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {
-          CARDS.map((card) => (
+          CARDS.map((card, index) => (
             <a
               href={localizePath(card.href, locale)}
-              class="group flex flex-col gap-1.5 bg-paper p-6 no-underline transition-colors hover:bg-accent-tint"
+              class="group flex flex-col rounded-md border border-border bg-surface p-6 no-underline transition-colors hover:border-accent hover:bg-accent-tint"
             >
-              <span class="font-semibold text-ink transition-colors group-hover:text-accent">
-                {card.title}
-                <span class="ml-1 inline-block transition-transform group-hover:translate-x-0.5" aria-hidden="true">→</span>
+              <span class="mb-3.5 font-mono text-[0.65rem] tracking-[0.14em] text-muted tabular-nums">
+                {String(index + 1).padStart(2, "0")}
               </span>
-              <span class="text-sm leading-relaxed text-muted">{card.blurb}</span>
+              <span class="font-serif text-lg font-semibold text-ink transition-colors group-hover:text-accent">
+                {card.title}
+                <span
+                  class="ml-1 inline-block transition-transform group-hover:translate-x-0.5"
+                  aria-hidden="true"
+                >
+                  →
+                </span>
+              </span>
+              <span class="mt-1.5 text-sm leading-relaxed text-muted">{card.blurb}</span>
             </a>
           ))
         }
@@ -473,20 +560,11 @@ const CARDS = [
     /* Balanced rather than pretty: on a centred block of four or five lines,
        even line lengths matter more than avoiding a single short last line. */
     text-wrap: balance;
-    /* Inherits from the band, so it stays legible on the accent in both
-       themes rather than pinning itself to the page ink colour. */
+    /* Inherits from the band, so it stays legible on the green in both themes
+       rather than pinning itself to the page ink colour. */
     color: inherit;
-  }
-
-  /* Closes the block so it doesn't trail off, and gives the centred text an
-     axis to sit on. */
-  .quote-rule {
-    display: block;
-    width: 3.5rem;
-    height: 2px;
-    margin: 2.25rem auto 0;
-    border-radius: 1px;
-    background: currentColor;
-    opacity: 0.45;
+    /* Sits the type on the band's glow rather than in front of it. Wide and
+       faint enough to read as depth rather than as a shadow. */
+    text-shadow: 0 1px 24px rgba(0, 0, 0, 0.18);
   }
 </style>

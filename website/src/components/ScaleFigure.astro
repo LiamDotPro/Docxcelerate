@@ -1,0 +1,102 @@
+---
+/**
+ * The diagram on an enterprise card. One per trait, and each says the same
+ * thing as the sentence above it — nothing here carries information the prose
+ * does not, which is why the drawings are hidden from screen readers and only
+ * the words that name real things (a version, a file type) are read out.
+ */
+interface Props {
+  kind: "volume" | "determinism" | "integration" | "reproducibility";
+}
+
+const { kind } = Astro.props;
+
+// One published template, thirty documents out of it. The fade is per column,
+// so the run reads as continuing past the edge of the card rather than
+// stopping at thirty.
+const COLUMNS = 10;
+const ROWS = 3;
+const CELLS = Array.from({ length: COLUMNS * ROWS }, (_, index) => 0.9 - (index % COLUMNS) * 0.078);
+
+// Three releases of one template. Widths only — a version list drawn, not
+// spelled out, so no month names leak into four other languages.
+const VERSIONS = ["1.0.0", "1.1.0", "2.0.0"];
+---
+
+{
+  kind === "volume" && (
+    <div class="grid grid-cols-[auto_2rem_1fr] items-center gap-0">
+      <div class="rounded bg-accent-solid px-2.5 py-3 text-center font-mono text-[0.68rem] leading-snug text-on-accent">
+        offer-of-admission
+        <br />
+        <span class="text-on-accent/60">1.0.0</span>
+      </div>
+      <div class="flex items-center" aria-hidden="true">
+        <span class="h-px flex-1 bg-border-firm" />
+        <span class="h-0 w-0 border-y-4 border-l-[5px] border-y-transparent border-l-border-firm" />
+      </div>
+      <div class="grid grid-cols-10 gap-1" aria-hidden="true">
+        {CELLS.map((opacity) => (
+          <span class="h-3.5 rounded-[1px] bg-accent-solid" style={`opacity:${opacity}`} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+{
+  kind === "determinism" && (
+    <div class="grid grid-cols-2 gap-4" aria-hidden="true">
+      {[0, 1].map((run) => (
+        <div class="flex flex-col gap-1.5">
+          <span class="font-mono text-[0.6rem] tracking-[0.1em] text-muted">
+            RUN {run + 1}
+          </span>
+          <span class="h-1.5 w-full rounded-[1px] bg-border-firm" />
+          <span class="h-1.5 w-4/5 rounded-[1px] bg-border-firm" />
+          <span
+            class:list={["h-1.5 rounded-[1px] bg-accent-solid", run === 0 ? "w-3/5" : "w-11/12"]}
+          />
+          <span class="h-1.5 w-2/3 rounded-[1px] bg-border-firm" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+{
+  kind === "integration" && (
+    <div class="flex items-center gap-2 font-mono text-[0.68rem] text-muted">
+      <span class="rounded-sm border border-border-firm px-2 py-1.5">CRM</span>
+      <span class="h-px flex-1 bg-border-firm" aria-hidden="true" />
+      <span class="rounded-sm bg-accent-solid px-2 py-1.5 text-on-accent">engine × n</span>
+      <span class="h-px flex-1 bg-border-firm" aria-hidden="true" />
+      <span class="rounded-sm border border-border-firm px-2 py-1.5">.docx</span>
+    </div>
+  )
+}
+
+{
+  kind === "reproducibility" && (
+    <ol class="m-0 flex list-none flex-col gap-1.5 p-0 font-mono text-[0.68rem] text-muted">
+      {VERSIONS.map((version, index) => (
+        <li
+          class:list={[
+            "m-0 flex items-center justify-between gap-3 pb-1.5",
+            index < VERSIONS.length - 1 && "border-b border-border",
+            index === VERSIONS.length - 1 && "text-accent",
+          ]}
+        >
+          <span>offer-of-admission@{version}</span>
+          <span
+            class:list={[
+              "h-1.5 w-1.5 shrink-0 rounded-full",
+              index === VERSIONS.length - 1 ? "bg-accent-solid" : "bg-border-firm",
+            ]}
+            aria-hidden="true"
+          />
+        </li>
+      ))}
+    </ol>
+  )
+}

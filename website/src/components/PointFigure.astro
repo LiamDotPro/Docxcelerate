@@ -1,0 +1,155 @@
+---
+/**
+ * The figure a mid-page point leads with, under its label and above its heading.
+ *
+ * Each one is a picture of the claim above it, and each is taken from the demo
+ * document in src/demo/ rather than invented: the tree is offer-of-admission's
+ * real document.tsx abridged to its first two sections, the data, tone and
+ * placeholder are its TutorNote's, and the diff is the shape of change that
+ * lands on node files — two of them, because one reworded sentence rarely sits
+ * in a single node, and what gets reviewed is the pair.
+ *
+ * The content stays English in every language for the same reason the node
+ * catalog does — it is toolkit source, not interface. The parts that are pure
+ * decoration are hidden from screen readers; the code is not, because it is
+ * the argument.
+ */
+interface Props {
+  kind: "authoring" | "ai" | "changeControl";
+}
+
+const { kind } = Astro.props;
+
+// Side by side the three share one row of the grid in Home.astro, which takes
+// the height of the tallest, so each is drawn to that height rather than left
+// to sit in a taller row: the ten-line tree measures a shade over 12.5rem, and
+// the other two are built out to within a pixel of it. Code does not wrap, so
+// a narrow screen scrolls the figure rather than the page; no line here is
+// longer than the tree's first, so nothing scrolls that did not scroll before.
+const frame =
+  "mb-6 overflow-x-auto font-mono text-[0.72rem] leading-[1.75] text-muted";
+---
+
+{
+  kind === "authoring" && (
+    <div class={frame}>
+      <div>
+        <span class="text-muted">&lt;</span><span class="text-accent">Document</span>{" "}
+        <span class="text-ink">title</span>=<span class="text-rubric">"Offer of Admission"</span>
+        <span class="text-muted">&gt;</span>
+      </div>
+      <div class="pl-3.5">
+        <span class="text-muted">&lt;</span><span class="text-accent">Section</span>{" "}
+        <span class="text-ink">title</span>=<span class="text-rubric">"Your offer"</span>
+        <span class="text-muted">&gt;</span>
+      </div>
+      <div class="pl-7">
+        <span class="text-muted">&lt;</span><span class="text-accent">Greeting</span>{" "}
+        <span class="text-muted">/&gt;</span>
+      </div>
+      <div class="pl-7">
+        <span class="text-muted">&lt;</span><span class="text-accent">Offer</span>{" "}
+        <span class="text-muted">/&gt;</span>
+      </div>
+      <div class="pl-7">
+        <span class="text-muted">&lt;</span><span class="text-accent">TutorNote</span>{" "}
+        <span class="text-muted">/&gt;</span>
+      </div>
+      <div class="pl-3.5">
+        <span class="text-muted">&lt;/</span><span class="text-accent">Section</span>
+        <span class="text-muted">&gt;</span>
+      </div>
+      <div class="pl-3.5">
+        <span class="text-muted">&lt;</span><span class="text-accent">Section</span>{" "}
+        <span class="text-ink">title</span>=<span class="text-rubric">"Conditions"</span>
+        <span class="text-muted">&gt;</span>
+      </div>
+      <div class="pl-7">
+        <span class="text-muted">&lt;</span><span class="text-accent">Conditions</span>{" "}
+        <span class="text-muted">/&gt;</span>
+      </div>
+      <div class="pl-3.5">
+        <span class="text-muted">&lt;/</span><span class="text-accent">Section</span>
+        <span class="text-muted">&gt;</span>
+      </div>
+      <div>
+        <span class="text-muted">&lt;/</span><span class="text-accent">Document</span>
+        <span class="text-muted">&gt;</span>
+      </div>
+    </div>
+  )
+}
+
+{
+  kind === "ai" && (
+    <div class={frame}>
+      <div class="rounded-sm border border-border-firm bg-paper px-3 py-3">
+        <div class="flex items-baseline justify-between gap-3">
+          <span>
+            state: <span class="text-rubric">{"{ interviewer, portfolioTheme }"}</span>
+          </span>
+          <span class="text-[0.6rem] tracking-[0.1em] text-muted">DATA</span>
+        </div>
+        <div>
+          tone: <span class="text-rubric">"warm, never effusive"</span>
+        </div>
+      </div>
+
+      <div class="flex justify-center py-1.5" aria-hidden="true">
+        <span class="h-0 w-0 border-x-4 border-t-[5px] border-x-transparent border-t-border-firm" />
+      </div>
+
+      <div class="flex items-center justify-between gap-3 rounded-sm bg-accent-solid px-3 py-2.5">
+        <span class="text-on-accent">&lt;TutorNote /&gt;</span>
+        <span class="text-[0.6rem] tracking-[0.1em] text-on-accent/80">useSetPrompts</span>
+      </div>
+
+      <div class="flex justify-center py-1.5" aria-hidden="true">
+        <span class="h-0 w-0 border-x-4 border-t-[5px] border-x-transparent border-t-border-firm" />
+      </div>
+
+      <!-- The tag under the sentence is the third of the set, after DATA and
+           useSetPrompts: what stands in the document until the engine runs. -->
+      <div class="border-l-2 border-accent-solid pl-2.5">
+        <div class="font-serif text-[0.8rem] leading-snug text-ink">
+          A short personal note from Dr Priya Raman about Maya Oyelaran's interview.
+        </div>
+        <div class="mt-2 text-[0.6rem] tracking-[0.1em] text-muted">PLACEHOLDER</div>
+      </div>
+    </div>
+  )
+}
+
+{
+  kind === "changeControl" && (
+    // The tinted rows bleed 1.5 past the text so a change reads as a band
+    // rather than a highlight, and the frame carries that bleed back as its own
+    // padding: without it the rows are wider than the frame's content box,
+    // which to a scroll container is overflow, and the figure grows a
+    // scrollbar with nothing to scroll. The two hunks are separated by space
+    // alone — a rule between them would be a third weight in a drawing that
+    // needs two.
+    <div class={`${frame} -mx-1.5 px-1.5`}>
+      <div>nodes/arrears.node.tsx</div>
+      <div class="-mx-1.5 bg-rubric-tint px-1.5 text-rubric">
+        − within 14 days of this notice
+      </div>
+      <div class="-mx-1.5 bg-accent-tint px-1.5 text-accent">
+        + within 30 days of this notice
+      </div>
+
+      <div class="mt-5">nodes/contact.node.tsx</div>
+      <div class="-mx-1.5 bg-rubric-tint px-1.5 text-rubric">
+        − call us to discuss
+      </div>
+      <div class="-mx-1.5 bg-accent-tint px-1.5 text-accent">
+        + call us to agree a payment plan
+      </div>
+
+      <!-- Two checks: the document the reword was for, and the assurance that
+           it was the only one the reword reached. -->
+      <div class="mt-5">✓ arrears-notice renders as expected</div>
+      <div>✓ no other document changed</div>
+    </div>
+  )
+}

@@ -1,6 +1,7 @@
 ---
 import { NAV, SITE } from "../site";
 import LocaleSwitcher from "./LocaleSwitcher.astro";
+import Mark from "./Mark.astro";
 import { asLocale, localizePath, stripLocale, ui } from "../i18n";
 
 const locale = asLocale(Astro.currentLocale);
@@ -20,12 +21,19 @@ const sectionOf = (href: string) => `/${href.split("/")[1] ?? ""}`;
   <div
     class="mx-auto flex h-14 max-w-6xl items-center gap-6 px-5 sm:px-8"
   >
+    {
+      /* The mark is decorative here — the wordmark beside it is real text, so
+         the link already has its name. It sizes off the type rather than off a
+         fixed pixel height, which keeps the lockup's proportions if the reader
+         scales the page. */
+    }
     <a
       href={localizePath("/", locale)}
-      class="font-serif text-lg font-semibold tracking-tight text-ink no-underline"
+      class="flex items-center gap-2.5 font-serif text-lg font-semibold tracking-tight text-ink no-underline"
       aria-label={SITE.name}
     >
-      Docx<span class="text-accent">celerate</span>
+      <Mark class="h-[1.35em] w-auto" />
+      <span>Docx<span class="text-accent">celerate</span></span>
     </a>
 
     <nav aria-label={t.nav.label} class="ml-auto flex items-center gap-5 text-sm">

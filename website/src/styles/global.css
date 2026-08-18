@@ -50,6 +50,14 @@
   --accent-tint: #f0f7f4; /* accent on tint: 6.70 */
   --on-accent: #ffffff; /*  7.29 on accent-solid */
   --selection: #dbeee5;
+  /* The one non-green in the palette. Named for the red a scribe used for the
+     parts of a document that were not the text: it marks string literals in the
+     code figures and removed lines in a diff, and nothing else. */
+  --rubric: #9a3b31; /*  6.93 on paper */
+  --rubric-tint: #fbeeec;
+  /* Marker-pen wash, for the run of the licence a reader actually cares about.
+     Sits under ink, so it has to stay light enough to read through. */
+  --wash: #e4efe7; /* ink on wash: 13.94 */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -67,6 +75,9 @@
     --accent-tint: #16281f;
     --on-accent: #f0f7f4; /*  5.77 on accent-solid */
     --selection: #1d7357;
+    --rubric: #e8998e; /*  7.80 on paper */
+    --rubric-tint: #2a1b19;
+    --wash: #1d4a39; /* ink on wash: 7.16 */
   }
 }
 
@@ -84,6 +95,9 @@
   --accent-tint: #16281f;
   --on-accent: #f0f7f4;
   --selection: #1d7357;
+  --rubric: #e8998e;
+  --rubric-tint: #2a1b19;
+  --wash: #1d4a39;
 }
 
 /* Expose the semantic tokens to Tailwind utilities (bg-paper, text-accent, …). */
@@ -100,6 +114,8 @@
   --color-accent-solid: var(--accent-solid);
   --color-accent-tint: var(--accent-tint);
   --color-on-accent: var(--on-accent);
+  --color-rubric: var(--rubric);
+  --color-rubric-tint: var(--rubric-tint);
 }
 
 @layer base {

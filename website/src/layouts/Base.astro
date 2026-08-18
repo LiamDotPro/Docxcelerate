@@ -39,9 +39,21 @@ const fullTitle = title ? `${title} — ${SITE.name}` : `${SITE.name} — ${t.me
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {
+      /* Four icons, because four different consumers ask four different
+         questions. The SVG carries a `prefers-color-scheme` rule so the mark
+         stays legible on a light tab strip and a dark one; the ICO cannot ask,
+         so it is the monochrome cut reversed out of brand green, which holds
+         against either. Both are declared: browsers that understand the SVG
+         prefer it, and the rest fall back without a request for a file that
+         isn't there. See scripts/build-brand-assets.mjs. */
+    }
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+    <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#0f1a15" media="(prefers-color-scheme: dark)" />
     <meta name="generator" content={Astro.generator} />
     <Seo
       title={fullTitle}

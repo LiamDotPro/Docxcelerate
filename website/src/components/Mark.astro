@@ -1,0 +1,64 @@
+---
+/**
+ * The Docxcelerate mark: four sheared text lines, the generated one accented.
+ *
+ * Drawn inline rather than loaded from public/brand/mark.svg, because inline is
+ * the only version that follows the site's own theme. The file in public/ can
+ * only ask the operating system what it prefers; this one paints its three
+ * quiet lines in `currentColor` and takes its accent from a utility class, so
+ * the mark turns over with the theme toggle in the nav and picks up hover
+ * colour from whatever link it sits inside — for free, with no second copy of
+ * the palette.
+ *
+ * The viewBox is the ink's exact bounding box, which is why sizing is stated as
+ * a height: the mark is wider than it is tall, so a square `size-*` utility
+ * would squash it. Default height tracks the type beside it, which is what
+ * keeps the lockup's proportions right at any font size.
+ */
+interface Props {
+  /**
+   * Utility classes controlling the drawn size. Give it a height and let the
+   * width follow — `h-6 w-auto`, not `size-6`.
+   */
+  class?: string;
+  /**
+   * Which accent paints the third line. The default follows the theme token,
+   * which is right on the page's own ground; anywhere the ground is fixed
+   * regardless of theme — the footer's brand green — pass the value that reads
+   * against it instead.
+   */
+  accentClass?: string;
+  /**
+   * Set only when the mark is the whole of a link or heading. Beside the
+   * wordmark it is decorative: the words already name the product, and a second
+   * "Docxcelerate" would make a screen reader say it twice.
+   */
+  title?: string;
+}
+
+const {
+  class: className = "h-[1.15em] w-auto",
+  accentClass = "fill-accent",
+  title,
+} = Astro.props;
+---
+
+<svg
+  viewBox="0 0 47.14 43"
+  class:list={["shrink-0", className]}
+  role={title ? "img" : undefined}
+  aria-hidden={title ? undefined : "true"}
+>
+  {title && <title>{title}</title>}
+  {
+    /* Sheared in place, then shifted so the ink starts at the origin — see
+       scripts/build-brand-assets.mjs, which draws every exported asset from
+       these same four rectangles. */
+  }
+  <g transform="translate(-2.3094 -12) skewX(-12)">
+    <rect x="14" y="12" width="38" height="7" fill="currentColor" opacity="0.38" />
+    <rect x="14" y="24" width="28" height="7" fill="currentColor" opacity="0.55" />
+    <rect x="14" y="36" width="42" height="7" class:list={[accentClass]} />
+    <rect x="14" y="48" width="21" height="7" fill="currentColor" opacity="0.55" />
+  </g>
+</svg>

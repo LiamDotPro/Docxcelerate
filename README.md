@@ -1,4 +1,16 @@
-# Docxcelerate
+<!-- Absolute URLs, and markdown rather than <img>: this file is the package
+     page on npm and on JSR as well as the front page here, and neither registry
+     has the repository around it to resolve a relative path against. The banner
+     carries its own dark ground, so it reads the same on a light theme and a
+     dark one. Rebuild it, and every icon beside it, with `npm run brand` in
+     website/. -->
+
+![Docxcelerate — Documents as components. DOCX as output.](https://raw.githubusercontent.com/LiamDotPro/Docxcelerate/main/website/public/brand/banner.png)
+
+[![npm](https://img.shields.io/npm/v/docxcelerate?label=npm&color=17624a&labelColor=16211c)](https://www.npmjs.com/package/docxcelerate)
+[![JSR](https://img.shields.io/jsr/v/%40docxcelerate/docxcelerate?label=jsr&color=17624a&labelColor=16211c)](https://jsr.io/@docxcelerate/docxcelerate)
+[![JSR score](https://jsr.io/badges/@docxcelerate/docxcelerate/score)](https://jsr.io/@docxcelerate/docxcelerate)
+[![node](https://img.shields.io/node/v/docxcelerate?label=node&color=17624a&labelColor=16211c)](https://nodejs.org)
 
 Compose DOCX documents from small typed components, using the JSX you already write.
 Write and preview them on your machine, then generate finished documents through

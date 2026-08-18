@@ -1,30 +1,126 @@
 ---
-import { GITHUB_URL, NPM_URL, CLOUD_URL } from "../site";
+import { CLOUD_AVAILABLE, CLOUD_URL, GITHUB_URL, JSR_URL, NPM_URL } from "../site";
+import release from "../generated/release.json";
+import Mark from "./Mark.astro";
 import { asLocale, fill, localizePath, ui } from "../i18n";
 
 const locale = asLocale(Astro.currentLocale);
 const t = ui(locale);
 const year = new Date().getFullYear();
+
+// The same value the homepage prints under the install command. Shown short
+// because the point of it here is that there is one, not what it says.
+const shortIntegrity = `${release.integrity.slice(0, 24)}…`;
+
+/**
+ * Three columns, each answering a different question: where do I read about
+ * this, where does the code live, and how do I run it in anger. Internal
+ * links are written canonically and localised on the way out; external ones
+ * are used as they stand.
+ */
+interface FooterLink {
+  label: string;
+  href: string;
+  external?: boolean;
+  /** Shows the same "soon" badge the nav uses. */
+  soon?: boolean;
+}
+
+const COLUMNS: { heading: string; links: FooterLink[] }[] = [
+  {
+    heading: t.footer.docs,
+    links: [
+      { label: t.home.docs.cards.startHere.title, href: "/docs/start-here/" },
+      { label: t.home.docs.cards.nodeModel.title, href: "/docs/nodes/overview/" },
+      { label: t.home.docs.cards.cli.title, href: "/docs/cli/commands/" },
+      { label: t.home.docs.cards.entrypoints.title, href: "/docs/reference/entrypoints/" },
+    ],
+  },
+  {
+    heading: t.footer.project,
+    links: [
+      { label: t.footer.github, href: GITHUB_URL, external: true },
+      { label: t.footer.npm, href: NPM_URL, external: true },
+      { label: "JSR", href: JSR_URL, external: true },
+      { label: t.footer.releases, href: `${GITHUB_URL}/releases`, external: true },
+    ],
+  },
+  {
+    heading: t.footer.engine,
+    links: [
+      { label: t.home.engine.eyebrow, href: "/docs/generation/endpoint/" },
+      { label: t.footer.artifacts, href: "/docs/projects/artifacts/" },
+      { label: t.footer.cloud, href: CLOUD_URL, external: true, soon: !CLOUD_AVAILABLE },
+    ],
+  },
+];
 ---
 
-<footer class="border-t border-border bg-surface">
-  <div
-    class="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-10 text-sm text-muted sm:flex-row sm:items-center sm:justify-between sm:px-8"
-  >
-    <p class="m-0">
-      {t.footer.licence}
-    </p>
-    <nav aria-label={t.footer.label} class="flex gap-5">
-      <a
-        href={localizePath("/docs/start-here/", locale)}
-        class="no-underline text-muted hover:text-accent">{t.footer.docs}</a
-      >
-      <a href={CLOUD_URL} target="_blank" rel="noopener noreferrer" class="no-underline text-muted hover:text-accent">{t.footer.cloud} ↗</a>
-      <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" class="no-underline text-muted hover:text-accent">{t.footer.github} ↗</a>
-      <a href={NPM_URL} target="_blank" rel="noopener noreferrer" class="no-underline text-muted hover:text-accent">{t.footer.npm} ↗</a>
-    </nav>
-  </div>
-  <div class="mx-auto max-w-6xl px-5 pb-8 text-xs text-muted sm:px-8">
-    <p class="m-0">{fill(t.footer.copyright, { year })}</p>
+<!-- Fixed green in both themes, like the pull quote it rhymes with: the page
+     ends on the brand rather than fading out into the ground it started on. -->
+<footer class="bg-ledger-900 text-white">
+  <div class="mx-auto max-w-6xl px-5 pt-20 pb-9 sm:px-8">
+    <div class="grid gap-12 md:grid-cols-[1.6fr_1fr_1fr_1fr] md:gap-10">
+      <div class="max-w-sm">
+        {
+          /* The footer's ground is brand green in both themes, so the mark
+             cannot take `--accent` from the theme the way it does everywhere
+             else: in light mode that token *is* this ground. It borrows the
+             same ledger-300 the wordmark uses for "celerate", and its quiet
+             lines inherit the white text around them. */
+        }
+        <p class="m-0 flex items-center gap-3 font-serif text-2xl font-bold">
+          <Mark class="h-[1.3em] w-auto" accentClass="fill-ledger-300" />
+          <span>Docx<span class="text-ledger-300">celerate</span></span>
+        </p>
+        <p class="mt-3.5 mb-0 text-[0.95rem] leading-relaxed text-pretty text-white/60">
+          {t.footer.licence}
+        </p>
+        <p
+          class="m-0 mt-5 flex flex-wrap gap-2 font-mono text-[0.62rem] tracking-[0.1em] text-white/55"
+        >
+          <span class="rounded-full border border-white/20 px-2.5 py-1">v{release.version}</span>
+          <span class="rounded-full border border-white/20 px-2.5 py-1">MIT</span>
+          <span class="rounded-full border border-white/20 px-2.5 py-1">npm · JSR</span>
+        </p>
+      </div>
+
+      {
+        COLUMNS.map((column) => (
+          <nav aria-label={column.heading}>
+            <p class="m-0 mb-3.5 font-mono text-[0.62rem] tracking-[0.14em] text-white/45 uppercase">
+              {column.heading}
+            </p>
+            <ul class="m-0 flex list-none flex-col gap-2.5 p-0 text-[0.9rem]">
+              {column.links.map((link) => (
+                <li class="m-0">
+                  <a
+                    href={link.external ? link.href : localizePath(link.href, locale)}
+                    target={link.external ? "_blank" : undefined}
+                    rel={link.external ? "noopener noreferrer" : undefined}
+                    class="inline-flex items-center gap-1.5 text-white/80 no-underline transition-colors hover:text-white"
+                  >
+                    {link.label}
+                    {link.external && <span aria-hidden="true">↗</span>}
+                    {link.soon && (
+                      <span class="rounded-full border border-white/25 px-1.5 py-px font-mono text-[0.55rem] tracking-[0.08em] uppercase">
+                        {t.common.soon}
+                      </span>
+                    )}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ))
+      }
+    </div>
+
+    <div
+      class="mt-14 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-white/15 pt-5 font-mono text-[0.68rem] tracking-[0.04em] text-white/45"
+    >
+      <p class="m-0">{fill(t.footer.copyright, { year })}</p>
+      <p class="m-0 max-w-full truncate" title={release.integrity}>{shortIntegrity}</p>
+    </div>
   </div>
 </footer>

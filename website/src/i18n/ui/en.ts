@@ -40,13 +40,18 @@ export const en = {
   },
 
   footer: {
-    label: "Footer",
     licence:
-      "MIT licensed. Authoring, preview and DOCX packing run entirely on your machine.",
+      "Documents as components, DOCX as output. Built in the open, MIT licensed, " +
+      "and running on your own machine unless you decide otherwise.",
+    /** Column headings. `docs` also labels the first column. */
     docs: "Docs",
+    project: "Project",
+    engine: "Engine",
     cloud: "Cloud",
     github: "GitHub",
     npm: "npm",
+    releases: "Releases",
+    artifacts: "Build artifacts",
     /** {year} is substituted at render time. */
     copyright: "© {year} Docxcelerate contributors.",
   },
@@ -102,13 +107,23 @@ export const en = {
     },
 
     pullQuote:
-      "Docxcelerate treats a document the way a UI framework treats a screen: " +
-      "small components, composed into a tree, rendered by something that " +
-      "knows about paper. You get the ergonomics of a component model, and " +
-      "the recipient gets a Word document.",
+      "A document is a tree of small components, rendered by something that " +
+      "understands paper. You get the ergonomics of a component model. The " +
+      "person on the other end gets a Word file.",
+
+    /**
+     * Who said the line above. The name is spelled the same in every language;
+     * the role and the alt text are prose.
+     */
+    attribution: {
+      name: "Liam",
+      role: "Author, Docxcelerate",
+      portraitAlt: "Liam, the author of Docxcelerate",
+    },
 
     engine: {
-      title: "The engine",
+      eyebrow: "The engine",
+      title: "Publish once. Scale it out.",
       bodyOne:
         "The engine is where documents are actually written. It fills in your " +
         "data, runs the AI, and returns the finished document. Any kind of node " +
@@ -181,40 +196,42 @@ export const en = {
       bodyOne:
         "The framework, the renderers, the node model and the CLI are MIT licensed " +
         "and developed in the open. Read the code that writes your documents, fork " +
-        "it, or vendor it into your own build. Authoring, preview and DOCX packing " +
-        "run entirely on your machine — no account, no upload, no network call.",
+        "it, or vendor it into your own build.",
       bodyTwo:
-        "The generation engine is free to self-host, so running documents at scale " +
-        "never depends on a vendor staying in business or on a price list staying " +
-        "the same. The managed cloud is a convenience for teams who would rather " +
-        "not operate it themselves, not the only door in.",
-      facts: {
-        licence: {
-          title: "MIT licence",
-          body: "Use it commercially, change it, ship it. No seat count, no per-document fee.",
-        },
-        local: {
-          title: "Runs on your machine",
-          body:
-            "Documents and data stay on your laptop and in your CI unless you send " +
-            "them to an engine you chose.",
-        },
-        selfHost: {
-          title: "Self-hostable engine",
-          body: "The free engine runs on your own infrastructure, inside your own network.",
-        },
-      },
+        "The engine is free to self-host, so running documents at scale never " +
+        "depends on a vendor staying in business or a price list staying the same. " +
+        "Our paid cloud adds the premium features on top of that same free core, so " +
+        "hosting and enterprise scale are ready from the first document you write. " +
+        "It is the convenience, not the way in.",
       ctaSource: "View the source →",
       ctaNpm: "See it on npm",
+
+      /**
+       * The labels around the licence drawn beside the copy. The licence text
+       * itself is not here: it is the licence, and a translated licence is a
+       * different one. "LICENSE" and "MIT" are the file and the licence by
+       * name, so they are not here either.
+       */
+      licence: {
+        /** Page count on a one-page document. */
+        pages: "1 of 1",
+        /** {year} is substituted at render time. */
+        copyright: "Copyright (c) {year} Docxcelerate",
+        fork: "Fork it",
+        vendor: "Vendor it",
+        ship: "Ship it",
+        read: "Read it →",
+      },
     },
 
     docs: {
       eyebrow: "Documentation",
-      title: "Read the whole thing",
+      title: "Everything is documented",
       lead:
         "Every node type, every CLI flag, and every file a build writes, with " +
         "previews rendered by the real renderer, so nothing on the page can " +
         "describe a helper that no longer exists.",
+      ctaAll: "Full documentation →",
       cards: {
         startHere: {
           title: "Start here",
