@@ -226,7 +226,7 @@ export const en = {
 
     docs: {
       eyebrow: "Documentation",
-      title: "Read the whole thing",
+      title: "Everything is documented",
       lead:
         "Every node type, every CLI flag, and every file a build writes, with " +
         "previews rendered by the real renderer, so nothing on the page can " +

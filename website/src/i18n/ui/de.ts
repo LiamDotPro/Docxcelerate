@@ -217,7 +217,7 @@ export const de: UiStrings = {
 
     docs: {
       eyebrow: "Dokumentation",
-      title: "Lesen Sie das Ganze",
+      title: "Alles ist dokumentiert",
       lead:
         "Jeder Node-Typ, jedes CLI-Flag und jede Datei, die ein Build schreibt. Dazu " +
         "Vorschauen, die der echte Renderer erzeugt hat, sodass nichts auf der Seite " +

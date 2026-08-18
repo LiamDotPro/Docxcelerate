@@ -212,7 +212,7 @@ export const es: UiStrings = {
 
     docs: {
       eyebrow: "Documentación",
-      title: "Léelo entero",
+      title: "Todo está documentado",
       lead:
         "Cada tipo de nodo, cada flag de la CLI y cada archivo que escribe una " +
         "compilación, con vistas previas generadas por el renderizador real, de modo " +

@@ -209,7 +209,7 @@ export const nl: UiStrings = {
 
     docs: {
       eyebrow: "Documentatie",
-      title: "Lees het helemaal",
+      title: "Alles is gedocumenteerd",
       lead:
         "Elk nodetype, elke CLI-vlag en elk bestand dat een build wegschrijft, met " +
         "previews die door de echte renderer zijn gerenderd, zodat niets op de " +
