@@ -204,8 +204,8 @@ const CARDS = [
     </div>
   </section>
 
-  <!-- Positioning. Each point carries a drawing of the claim it makes, sized
-       so all three sets of prose start on the same line. -->
+  <!-- Positioning. Each point leads with a drawing of the claim it makes,
+       sized so all three headings start on the same line. -->
   <section class="border-b border-border">
     <div class="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
       <div class="grid gap-16 md:grid-cols-3 md:gap-0">
@@ -229,13 +229,15 @@ const CARDS = [
                 </span>
                 {point.label}
               </span>
-              <!-- Two lines' worth of room whether the title needs it or not,
-                   so the three figures start level once they are side by
-                   side. Stacked, the title takes the room it needs. -->
-              <h2 class="m-0 mb-6 text-[1.75rem] leading-[1.15] font-semibold md:min-h-[2.3em]">
+              <PointFigure kind={point.figure} />
+              <!-- The heading and its prose read as one block now the drawing
+                   is above them rather than between them, so the gap between
+                   the two closes to match. The title takes exactly the room it
+                   needs and no more: holding the three columns level is the
+                   figures' job, and a reservation they had to make anyway. -->
+              <h2 class="m-0 mb-3 text-[1.75rem] leading-[1.15] font-semibold">
                 {point.title}
               </h2>
-              <PointFigure kind={point.figure} />
               <p class="m-0 text-[0.975rem] leading-[1.75] text-pretty text-muted">
                 {point.body}
               </p>

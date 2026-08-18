@@ -1,6 +1,6 @@
 ---
 /**
- * The figure between a mid-page point's heading and its prose.
+ * The figure a mid-page point leads with, under its label and above its heading.
  *
  * Each one is a picture of the claim above it, and each is taken from the demo
  * document in src/demo/ rather than invented: the tree is
@@ -19,8 +19,8 @@ interface Props {
 const { kind } = Astro.props;
 
 // Once the three sit side by side, they take the height of the tallest so the
-// prose under all three starts on the same line; stacked on a phone that
-// reservation is just a hole, so it only applies from md up. Code does not
+// heading and prose under all three start on the same line; stacked on a phone
+// that reservation is just a hole, so it only applies from md up. Code does not
 // wrap, so a narrow screen scrolls the figure rather than the page.
 const frame =
   "mb-6 overflow-x-auto font-mono text-[0.72rem] leading-[1.75] text-muted md:min-h-[11.5rem]";
