@@ -1,6 +1,16 @@
-<!-- The banner carries its own dark ground, so it reads the same on GitHub's
-     light and dark themes. Regenerate it with `npm run brand` in website/. -->
-<img src="website/public/brand/banner.png" alt="Docxcelerate — Documents as components. DOCX as output." width="880">
+<!-- Absolute URLs, and markdown rather than <img>: this file is the package
+     page on npm and on JSR as well as the front page here, and neither registry
+     has the repository around it to resolve a relative path against. The banner
+     carries its own dark ground, so it reads the same on a light theme and a
+     dark one. Rebuild it, and everything beside it, with `npm run brand` in
+     website/ — see Brand assets below. -->
+
+![Docxcelerate — Documents as components. DOCX as output.](https://raw.githubusercontent.com/LiamDotPro/Docxcelerate/main/website/public/brand/banner.png)
+
+[![npm](https://img.shields.io/npm/v/docxcelerate?label=npm&color=17624a&labelColor=16211c)](https://www.npmjs.com/package/docxcelerate)
+[![JSR](https://img.shields.io/jsr/v/%40docxcelerate/docxcelerate?label=jsr&color=17624a&labelColor=16211c)](https://jsr.io/@docxcelerate/docxcelerate)
+[![JSR score](https://jsr.io/badges/@docxcelerate/docxcelerate/score)](https://jsr.io/@docxcelerate/docxcelerate)
+[![node](https://img.shields.io/node/v/docxcelerate?label=node&color=17624a&labelColor=16211c)](https://nodejs.org)
 
 Compose DOCX documents from small typed components, using the JSX you already write.
 Write and preview them on your machine, then generate finished documents through
@@ -113,6 +123,38 @@ touches `src/`.
 
 The published package ships compiled output from `dist/` plus the `dxcl` binary.
 Pushing a change to `src/` on `main` publishes a new version.
+
+## Brand assets
+
+Everything below is cut from one piece of geometry by
+`website/scripts/build-brand-assets.mjs`, so no two of them can drift apart. Run
+`npm run brand` in `website/` to rebuild the set — the outputs are committed, so
+that is only needed when the identity itself changes. Anything carrying type is
+rendered by headless Chrome, because the wordmark is a serif from a system stack
+that only a browser resolves faithfully.
+
+| Asset | Size | Used for |
+| --- | --- | --- |
+| [`brand/banner.png`][banner] | 1280×320 | the masthead at the top of this file |
+| [`brand/github-social.png`][social] | 1280×640 | this repository's social preview card |
+| [`og.png`][og] | 1200×630 | the link card the site announces |
+| [`social-square.png`][square] | 1200×1200 | a square post, or a timeline card |
+| [`brand/avatar.png`][avatar] | 1024×1024 | a profile picture, wherever one is cropped to a circle |
+| [`brand/mark.svg`][mark] | vector | the mark alone, following the reader's colour scheme |
+| [`brand/lockup-light.svg`][lockup-light] · [`-dark`][lockup-dark] | vector | mark and wordmark together, on paper or on ink |
+
+The social preview is the one asset no build installs: upload
+`brand/github-social.png` under Settings › General › Social preview to set what
+a link to this repository unfurls into.
+
+[banner]: https://raw.githubusercontent.com/LiamDotPro/Docxcelerate/main/website/public/brand/banner.png
+[social]: https://raw.githubusercontent.com/LiamDotPro/Docxcelerate/main/website/public/brand/github-social.png
+[og]: https://raw.githubusercontent.com/LiamDotPro/Docxcelerate/main/website/public/og.png
+[square]: https://raw.githubusercontent.com/LiamDotPro/Docxcelerate/main/website/public/social-square.png
+[avatar]: https://raw.githubusercontent.com/LiamDotPro/Docxcelerate/main/website/public/brand/avatar.png
+[mark]: https://raw.githubusercontent.com/LiamDotPro/Docxcelerate/main/website/public/brand/mark.svg
+[lockup-light]: https://raw.githubusercontent.com/LiamDotPro/Docxcelerate/main/website/public/brand/lockup-light.svg
+[lockup-dark]: https://raw.githubusercontent.com/LiamDotPro/Docxcelerate/main/website/public/brand/lockup-dark.svg
 
 ## License
 

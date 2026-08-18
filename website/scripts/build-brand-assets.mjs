@@ -575,46 +575,106 @@ write(
   ),
 );
 
+// The profile picture, for the places the project has an account rather than a
+// page: npm, GitHub, a social handle. No type on it — every one of those crops
+// to a circle and renders it around 48px, where a wordmark is a smudge and only
+// the rag of the four lines still identifies it. The ink runs fuller than the
+// maskable icon's, because a circle inscribed in the square is a kinder crop
+// than the arbitrary mask a launcher may apply: at 0.58 the ink's corner-to-
+// corner span is 0.78 of the circle's diameter, so no bar comes near the edge.
+write(
+  join(brandDir, "avatar.png"),
+  await rasterise(
+    iconSvg({
+      size: 1024,
+      ground: C.accentLight,
+      radius: 0,
+      inkFraction: 0.58,
+      ink: C.onAccent,
+      accent: C.onAccent,
+      mono: true,
+    }),
+    1024,
+  ),
+);
+
 /* --- Share cards ---------------------------------------------------------- */
 
 const { tagline, description } = readCopy();
 const command = installCommand();
 const [taglineFirst, ...taglineRest] = tagline.split(/(?<=\.)\s+/);
 
+/**
+ * The wide share card, drawn once and rendered at whatever box asks for it.
+ *
+ * Open Graph settled on 1200x630 and GitHub's repository preview asks for
+ * 1280x640 — near enough in ratio that one composition serves both, far enough
+ * apart that letting a platform rescale the other one would soften exactly the
+ * serif this file goes to such lengths to render sharply. So nothing here is an
+ * absolute pixel: every measurement is stated against the 1200x630 the card was
+ * drawn at, type and horizontal rhythm follow the width, the air above and
+ * below follows the height, and both sizes are rendered rather than resampled.
+ *
+ * The oversized mark behind the composition sits fully inside the frame rather
+ * than bleeding off a corner. Bled, the four bars lose their rag and read as
+ * three unrelated slabs — the one thing the mark must never do.
+ *
+ * @param {object} options
+ * @param {number} options.width
+ * @param {number} options.height
+ * @returns {string}
+ */
+const wideCard = ({ width, height }) => {
+  const k = width / 1200;
+  const x = (n) => (n * k).toFixed(1);
+  const y = (n) => ((n * height) / 630).toFixed(1);
+  return cardHtml({
+    width,
+    height,
+    ground: C.paperDark,
+    body: `<div style="position:relative;width:${width}px;height:${height}px;display:flex;flex-direction:column;justify-content:space-between;padding:${y(74)}px ${x(84)}px;overflow:hidden">
+  <div style="position:absolute;right:${x(60)}px;bottom:${y(52)}px;opacity:0.05">${inlineMark({ width: 320 * k, ink: C.inkDark, accent: C.inkDark, mono: true })}</div>
+  <div style="position:relative;display:flex;align-items:center;gap:${x(15)}px">
+    ${inlineMark({ width: 34 * k, ink: C.inkDark, accent: C.accentDark })}
+    ${wordmark({ size: 33 * k, ink: C.inkDark, accent: C.accentDark })}
+  </div>
+  <div style="position:relative;display:flex;flex-direction:column;gap:${y(24)}px">
+    <div style="font-family:${SERIF};font-size:${x(66)}px;font-weight:600;letter-spacing:-0.025em;line-height:1.1;color:${C.inkDark};max-width:${x(900)}px">${taglineFirst}<br><span style="color:${C.accentDark}">${taglineRest.join(" ")}</span></div>
+    <div style="font-family:${SANS};font-size:${x(23)}px;line-height:1.45;color:${C.mutedDark};max-width:${x(790)}px">${description}</div>
+  </div>
+  <div style="position:relative;display:flex;align-items:center;gap:${x(20)}px">
+    <span style="font-family:${MONO};font-size:${x(19)}px;color:${C.accentDark};background:${C.surfaceDark};border:1px solid ${C.borderDark};border-radius:8px;padding:${y(12)}px ${x(16)}px">$ ${command}</span>
+    <span style="font-family:${MONO};font-size:${x(17)}px;color:${C.mutedDark}">MIT · docxcelerate.com</span>
+  </div>
+</div>`,
+  });
+};
+
 // Open Graph. 1200x630 is the ratio every platform crops least, and Seo.astro
 // starts announcing the card the moment this file exists.
-//
-// The oversized mark behind the composition sits fully inside the frame rather
-// than bleeding off a corner. Bled, the four bars lose their rag and read as
-// three unrelated slabs — the one thing the mark must never do.
 await shoot({
   width: 1200,
   height: 630,
   out: join(publicDir, "og.png"),
-  html: cardHtml({
-    width: 1200,
-    height: 630,
-    ground: C.paperDark,
-    body: `<div style="position:relative;width:1200px;height:630px;display:flex;flex-direction:column;justify-content:space-between;padding:74px 84px;overflow:hidden">
-  <div style="position:absolute;right:60px;bottom:52px;opacity:0.05">${inlineMark({ width: 320, ink: C.inkDark, accent: C.inkDark, mono: true })}</div>
-  <div style="position:relative;display:flex;align-items:center;gap:15px">
-    ${inlineMark({ width: 34, ink: C.inkDark, accent: C.accentDark })}
-    ${wordmark({ size: 33, ink: C.inkDark, accent: C.accentDark })}
-  </div>
-  <div style="position:relative;display:flex;flex-direction:column;gap:24px">
-    <div style="font-family:${SERIF};font-size:66px;font-weight:600;letter-spacing:-0.025em;line-height:1.1;color:${C.inkDark};max-width:900px">${taglineFirst}<br><span style="color:${C.accentDark}">${taglineRest.join(" ")}</span></div>
-    <div style="font-family:${SANS};font-size:23px;line-height:1.45;color:${C.mutedDark};max-width:790px">${description}</div>
-  </div>
-  <div style="position:relative;display:flex;align-items:center;gap:20px">
-    <span style="font-family:${MONO};font-size:19px;color:${C.accentDark};background:${C.surfaceDark};border:1px solid ${C.borderDark};border-radius:8px;padding:12px 16px">$ ${command}</span>
-    <span style="font-family:${MONO};font-size:17px;color:${C.mutedDark}">MIT · docxcelerate.com</span>
-  </div>
-</div>`,
-  }),
+  html: wideCard({ width: 1200, height: 630 }),
 });
 
-// The square crop, for anywhere that wants an avatar-shaped card. Reversed out
-// of brand green so it never has to compete with a timeline's own ground.
+// The repository's own social preview, at the size GitHub's settings form
+// states. Nothing in this build installs it — that is a manual upload under
+// Settings > General > Social preview — but committing the file turns the
+// upload into a file pick rather than an export.
+await shoot({
+  width: 1280,
+  height: 640,
+  out: join(brandDir, "github-social.png"),
+  html: wideCard({ width: 1280, height: 640 }),
+});
+
+// The square post card — not the avatar, which is brand/avatar.png above. That
+// one carries no type because it is read at 48px inside a circle; this one is a
+// 1:1 crop for a feed that lays posts out square, so it has the room for the
+// wordmark and the line under it. Reversed out of brand green either way, so
+// neither ever has to compete with a timeline's own ground.
 await shoot({
   width: 1200,
   height: 1200,
