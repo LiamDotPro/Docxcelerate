@@ -1,0 +1,154 @@
+{
+  "$comment": "Where Docxcelerate gets submitted, and what each destination asks for. `fields` are dot-paths into project.json - submit.mjs resolves them, so a target never carries its own copy. `limits` are character caps the renderer enforces; where a cap is unverified it is left out and called out in `notes` instead. `type`: pr = open a pull request, form = fill a web form, post = write a post, auto = happens without you.",
+
+  "targets": [
+    {
+      "id": "libraries-io",
+      "name": "Libraries.io",
+      "type": "auto",
+      "priority": 1,
+      "url": "https://libraries.io/npm/docxcelerate",
+      "fields": [],
+      "notes": "Indexes from the npm registry within a day of a publish. Nothing to submit - but it reads description, homepage, keywords and license straight from package.json, which is why those were fixed first. Verify the page looks right after the next release."
+    },
+    {
+      "id": "github-topics",
+      "name": "GitHub repository topics",
+      "type": "auto",
+      "priority": 1,
+      "url": "https://github.com/LiamDotPro/Docxcelerate",
+      "fields": ["topics", "tagline", "urls.homepage"],
+      "notes": "Already set: 10 topics, homepage points at docxcelerate.com. GitHub topic search and every scraper that reads the repo API key off these. Re-check against topics in project.json when that list changes."
+    },
+    {
+      "id": "awesome-nodejs",
+      "name": "awesome-nodejs",
+      "type": "pr",
+      "priority": 1,
+      "url": "https://github.com/sindresorhus/awesome-nodejs",
+      "fields": ["name", "urls.repo", "taglineShort"],
+      "limits": { "taglineShort": 100 },
+      "notes": "One line, in the form '- [name](repo) - Description.' Sentence case, ends with a period, no marketing adjectives - the maintainers reject copy that reads like a pitch. Read contributing.md before opening the PR; it is strict and the bar is real usage."
+    },
+    {
+      "id": "awesome-typescript",
+      "name": "awesome-typescript",
+      "type": "pr",
+      "priority": 2,
+      "url": "https://github.com/dzharii/awesome-typescript",
+      "fields": ["name", "urls.repo", "taglineShort"],
+      "limits": { "taglineShort": 100 },
+      "notes": "Same one-line format as awesome-nodejs. Lower traffic, but it is a cheap PR once the line is written."
+    },
+    {
+      "id": "openalternative",
+      "name": "OpenAlternative",
+      "type": "form",
+      "priority": 1,
+      "url": "https://openalternative.co/submit",
+      "fields": ["name", "urls.homepage", "urls.repo", "blurb", "alternativeTo", "categories"],
+      "notes": "Ranks open-source tools as alternatives to commercial ones, so the alternativeTo entries are the submission - not decoration. Requires a public repo with a detectable licence and real release history; it reads stars, commits and licence off the GitHub API."
+    },
+    {
+      "id": "alternativeto",
+      "name": "AlternativeTo",
+      "type": "form",
+      "priority": 2,
+      "url": "https://alternativeto.net/manage/create-software/",
+      "fields": ["name", "urls.homepage", "blurb", "alternativeTo", "platforms", "license", "pricing", "assets.logoSquare"],
+      "notes": "Needs an account with some standing before submissions get approved quickly. Each alternativeTo entry is added separately after the listing is live. Platform checkboxes come from platforms."
+    },
+    {
+      "id": "stackshare",
+      "name": "StackShare",
+      "type": "form",
+      "priority": 3,
+      "url": "https://stackshare.io/tools/new",
+      "fields": ["name", "urls.homepage", "urls.repo", "blurb", "categories", "assets.logoSquare"],
+      "notes": "Slow-moving and low-traffic now, but it is a durable backlink and takes five minutes once the copy pack is rendered."
+    },
+    {
+      "id": "saashub",
+      "name": "SaaSHub",
+      "type": "form",
+      "priority": 3,
+      "url": "https://www.saashub.com/submit",
+      "fields": ["name", "urls.homepage", "blurb", "categories", "alternativeTo", "assets.logoSquare"],
+      "notes": "Aggregates into a lot of 'alternatives to X' SEO pages. Same alternativeTo framing as OpenAlternative."
+    },
+    {
+      "id": "product-hunt",
+      "name": "Product Hunt",
+      "type": "post",
+      "priority": 2,
+      "url": "https://www.producthunt.com/posts/new",
+      "fields": ["name", "tagline", "blurb", "description", "urls.homepage", "assets.logoSquare", "assets.screenshots", "topics"],
+      "limits": { "tagline": 60 },
+      "notes": "Tagline is hard-capped at 60 characters. Needs at least three gallery images sized 1270x760 - assets.screenshots is empty, so this is blocked until those exist. Launch 12:01am PT; a developer tool with no screenshots gets buried."
+    },
+    {
+      "id": "show-hn",
+      "name": "Hacker News (Show HN)",
+      "type": "post",
+      "priority": 1,
+      "url": "https://news.ycombinator.com/submit",
+      "fields": ["name", "taglineShort", "urls.homepage", "blurb"],
+      "limits": { "taglineShort": 62 },
+      "notes": "Title form: 'Show HN: Docxcelerate - <what it does>', 80 characters including the 18-character prefix. Link to docxcelerate.com, then post the blurb as the first comment with what is genuinely unfinished. Weekday morning US Eastern. One shot - a flagged repost does not get a second."
+    },
+    {
+      "id": "lobsters",
+      "name": "Lobste.rs",
+      "type": "post",
+      "priority": 3,
+      "url": "https://lobste.rs/stories/new",
+      "fields": ["name", "taglineShort", "urls.homepage", "topics"],
+      "notes": "Invite-only to post. Tags: javascript, programming. Audience is hostile to anything that reads as marketing; the docs page is a better link than the landing page here."
+    },
+    {
+      "id": "reddit",
+      "name": "Reddit (r/javascript, r/node, r/typescript)",
+      "type": "post",
+      "priority": 2,
+      "url": "https://www.reddit.com/r/javascript/submit",
+      "fields": ["name", "taglineShort", "urls.repo", "blurb"],
+      "notes": "r/javascript allows self-promotion on Showoff Saturday only - check each subreddit's rules, they differ and they enforce. Space the three posts over days, not hours. Lead with the problem and the code sample, link second."
+    },
+    {
+      "id": "dev-to",
+      "name": "dev.to launch article",
+      "type": "post",
+      "priority": 2,
+      "url": "https://dev.to/new",
+      "fields": ["name", "tagline", "description", "urls.docs", "assets.banner", "topics"],
+      "notes": "Long-form is what this is for: the JSX-component-tree argument, with the tenancy-renewal example built end to end. Canonical-URL it to a post on docxcelerate.com so the site keeps the SEO. Tags: javascript, typescript, node, opensource."
+    },
+    {
+      "id": "javascript-weekly",
+      "name": "JavaScript Weekly / Node Weekly",
+      "type": "form",
+      "priority": 2,
+      "url": "https://cooperpress.com/publications/",
+      "fields": ["name", "taglineShort", "urls.homepage", "blurb"],
+      "notes": "Curated by a human, and a single mention moves more real developers than most of the directories above. Submit once the README, licence and a screenshot are all in place - one shot per project, effectively."
+    },
+    {
+      "id": "console-dev",
+      "name": "Console.dev",
+      "type": "form",
+      "priority": 3,
+      "url": "https://console.dev/submit-tool/",
+      "fields": ["name", "urls.homepage", "urls.repo", "blurb"],
+      "notes": "Newsletter for developer tools. Editorially selected, no cost, low effort to submit."
+    },
+    {
+      "id": "npm-keywords",
+      "name": "npm keyword surfaces",
+      "type": "auto",
+      "priority": 1,
+      "url": "https://www.npmjs.com/search?q=keywords:docx",
+      "fields": ["topics"],
+      "notes": "npm's own keyword pages, and every 'best docx library' listicle that scrapes them, rank on keywords in package.json. Now 16 terms wide. No action beyond publishing."
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "$comment": "Single source of truth for every directory, aggregator and launch-post submission. Nothing here is retyped by hand: scripts/submit.mjs renders each target's form from these fields. Edit the copy here, never in a form.",
+
+  "name": "Docxcelerate",
+  "slug": "docxcelerate",
+  "tagline": "Write Word documents like you write websites.",
+  "taglineShort": "Documents as components. DOCX as output.",
+
+  "blurb": "Docxcelerate turns DOCX generation into component work. You compose documents from small typed JSX components — the same JSX you already write for the web — and preview them in a local browser app as you edit. Hooks let a model write the paragraphs that change per recipient. Finished documents pack into reusable templates you can generate at volume.",
+
+  "description": "Docxcelerate is a TypeScript toolkit for producing DOCX files from code, built on the idea that a document is a component tree rather than a template string with holes punched in it.\n\nYou describe a document in JSX. A Document sets the page, the styles and the metadata; Section groups content; inside those live the nodes you write yourself — paragraphs, tables, images, clipart — each one an ordinary typed function component. Data flows in through a useState hook that selects from your own typed payload, so a document expecting a TenancyData object fails to compile when that shape changes rather than silently rendering a blank line. Components compose and re-use exactly the way they do on the web, because they are the same components: the same JSX runtime, the same mental model, the same editor tooling.\n\nWhere a document needs to say something different for each recipient, a useSetPrompts hook hands that one paragraph to a model along with the context it needs — so the AI writes a sentence, not the whole letter.\n\nThe CLI scaffolds a workspace with npx docxcelerate init, and npm run dev opens a local preview app where documents render as you edit them. Nothing leaves your machine: authoring, preview and DOCX packing all run locally on Node 20 or newer. When a document is ready it packs into a reusable template the generation engine runs at volume, so the thing you previewed is the thing that ships.\n\nThe package publishes to both npm and JSR with full type declarations, a nine-out-of-nine JSR documentation score, and every entrypoint documented. MIT licensed.",
+
+  "install": {
+    "primary": "npx docxcelerate init my-documents",
+    "npm": "npm install -g docxcelerate",
+    "jsr": "deno add jsr:@docxcelerate/docxcelerate"
+  },
+
+  "urls": {
+    "homepage": "https://docxcelerate.com",
+    "docs": "https://docxcelerate.com/docs/start-here/",
+    "repo": "https://github.com/LiamDotPro/Docxcelerate",
+    "issues": "https://github.com/LiamDotPro/Docxcelerate/issues",
+    "npm": "https://www.npmjs.com/package/docxcelerate",
+    "jsr": "https://jsr.io/@docxcelerate/docxcelerate",
+    "changelog": "https://github.com/LiamDotPro/Docxcelerate/releases"
+  },
+
+  "assets": {
+    "logoSquare": "website/public/brand/avatar.png",
+    "logoSvg": "website/public/brand/mark.svg",
+    "lockupLight": "website/public/brand/lockup-light.svg",
+    "lockupDark": "website/public/brand/lockup-dark.svg",
+    "banner": "website/public/brand/banner.png",
+    "socialCard": "website/public/brand/github-social.png",
+    "openGraph": "website/public/og.png",
+    "screenshots": []
+  },
+
+  "license": "MIT",
+  "pricing": "free-open-source",
+  "language": "TypeScript",
+  "platforms": ["Node.js", "Deno", "Self-Hosted", "Windows", "macOS", "Linux"],
+
+  "categories": [
+    "Developer Tools",
+    "Document Generation",
+    "Office & Productivity",
+    "Libraries & Frameworks",
+    "Command Line Tools"
+  ],
+
+  "topics": [
+    "docx", "document-generation", "report-generation", "ooxml", "office",
+    "word", "jsx", "react", "typescript", "cli", "nodejs", "templates"
+  ],
+
+  "alternativeTo": [
+    { "name": "docx (npm)", "url": "https://www.npmjs.com/package/docx", "why": "Docxcelerate builds on docx for the OOXML layer, and adds the component model, the typed data flow and the live preview on top of it." },
+    { "name": "docxtemplater", "url": "https://docxtemplater.com", "why": "Templating happens in code you can type-check and compose, rather than in placeholder tags inside a .docx a non-developer edits." },
+    { "name": "Pandoc", "url": "https://pandoc.org", "why": "Pandoc converts between finished formats. Docxcelerate generates documents per-record from typed data, with layout and styling authored in components." },
+    { "name": "Carbone", "url": "https://carbone.io", "why": "No template server and no service to call — authoring, preview and packing all run locally on Node." },
+    { "name": "python-docx", "url": "https://python-docx.readthedocs.io", "why": "The same imperative capability, expressed declaratively in JSX, in a TypeScript codebase that already has the data models." },
+    { "name": "Aspose.Words", "url": "https://products.aspose.com/words/", "why": "MIT licensed and free, against a per-developer commercial licence." }
+  ],
+
+  "author": {
+    "name": "Liam Read",
+    "github": "https://github.com/LiamDotPro",
+    "site": "https://liam.pro"
+  }
+}
