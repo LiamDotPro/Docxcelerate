@@ -1,24 +1,34 @@
 {
   "name": "docxcelerate",
   "version": "0.2.1",
-  "description": "TypeScript toolkit and CLI for building DOCX letter projects with a browser preview.",
+  "description": "Write DOCX documents like you write websites — compose Word files from typed JSX components, preview them locally, generate at scale.",
   "license": "MIT",
   "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/LiamDotPro/Docxcelerate.git"
   },
-  "homepage": "https://github.com/LiamDotPro/Docxcelerate#readme",
+  "homepage": "https://docxcelerate.com",
   "bugs": {
     "url": "https://github.com/LiamDotPro/Docxcelerate/issues"
   },
   "keywords": [
     "docx",
-    "letters",
+    "docx-generator",
+    "document-generation",
+    "report-generation",
+    "ooxml",
+    "office",
+    "word",
+    "word-document",
     "documents",
+    "letters",
     "templates",
+    "jsx",
+    "react",
+    "typescript",
     "cli",
-    "typescript"
+    "nodejs"
   ],
   "engines": {
     "node": ">=20"
