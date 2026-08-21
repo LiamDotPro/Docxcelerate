@@ -87,6 +87,8 @@
     "prepublishOnly": "npm run clean && npm run build",
     "typecheck": "npm run build && tsc -p tsconfig.json",
     "jsr:doc": "node scripts/jsr-doc-check.mjs",
+    "launch": "node scripts/submit.mjs",
+    "launch:check": "node scripts/submit.mjs check",
     "dxcl": "node ./bin/dxcl.mjs"
   },
   "devDependencies": {

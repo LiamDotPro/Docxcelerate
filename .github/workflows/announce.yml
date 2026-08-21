@@ -1,0 +1,108 @@
+# Keeps the launch copy honest, and turns each release into a submission list.
+#
+# Two jobs that look unrelated but are the same idea: the copy in .launch/ is
+# the source every directory listing is filled from, so it should be checked
+# like source, and it should be put in front of somebody at the moment it is
+# worth acting on.
+#
+# `check` runs on pull requests that touch the copy or the package metadata. It
+# is what catches a tagline edited past Product Hunt's 60-character cap, or an
+# asset path that points at a file somebody moved. Those are the failures worth
+# automating, because the alternative is finding out inside a form that silently
+# truncates.
+#
+# `checklist` opens an issue when a release is published, listing the
+# destinations that have not been submitted yet. Deliberately an issue rather
+# than an automated submission: every destination in targets.json is a web form
+# behind a login or a pull request against somebody else's repository. None of
+# them take a POST, and nothing here pretends otherwise — the job renders the
+# list, a human does the pasting.
+name: Announce
+
+on:
+  pull_request:
+    paths:
+      - ".launch/**"
+      - "scripts/submit.mjs"
+      - "package.json"
+  release:
+    types: [published]
+  # For re-opening the checklist for a release that already shipped.
+  workflow_dispatch:
+
+# Not the `release` group. release.yml holds that one while it publishes, and
+# this job has nothing to race with it over — it neither reads the registry nor
+# writes a tag.
+concurrency:
+  group: announce-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # No `npm ci`: submit.mjs is Node built-ins only, on purpose. The copy
+      # check should not be able to fail because a dependency did.
+      - name: Check the copy against every destination's limits
+        run: node scripts/submit.mjs check
+
+  checklist:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # A release with copy that does not fit is still worth a checklist — the
+      # check is here to put the problem in the issue body, not to stop it being
+      # written. Hence `|| true` on a step whose output is the point.
+      - name: Render the outstanding submissions
+        id: render
+        run: |
+          set -euo pipefail
+
+          node scripts/submit.mjs checklist > checklist.md
+
+          {
+            echo "## Problems with the copy"
+            echo
+            echo '```'
+            node scripts/submit.mjs check 2>&1 || true
+            echo '```'
+          } > problems.md
+
+      - name: Open the checklist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.event.release.tag_name || github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          {
+            echo "The release is out. These directories have not been submitted to yet."
+            echo
+            cat checklist.md
+            echo
+            cat problems.md
+          } > body.md
+
+          gh issue create \
+            --title "Submissions outstanding after $VERSION" \
+            --body-file body.md \
+            --label "launch" \
+            || gh issue create \
+              --title "Submissions outstanding after $VERSION" \
+              --body-file body.md
