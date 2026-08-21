@@ -18,6 +18,11 @@
     "docx": "npm:docx@^9.6.1"
   },
   "publish": {
-    "include": ["src", "README.md", "jsr.json"]
+    "include": [
+      "src",
+      "README.md",
+      "jsr.json",
+      "LICENSE"
+    ]
   }
 }
