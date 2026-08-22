@@ -6,6 +6,7 @@ import Toc from "../components/Toc.astro";
 import { DOC_GROUPS, GITHUB_URL, SITE } from "../site";
 import { asLocale, localizePath, ui } from "../i18n";
 import { localesForDocsSlug } from "../seo";
+import { markdownPath } from "../markdown";
 
 interface Props {
   title: string;
@@ -28,6 +29,11 @@ const t = ui(locale);
 // Points at the file on screen, so a reader fixing a German typo edits the
 // German source rather than the English original.
 const editUrl = `${GITHUB_URL}/edit/main/website/src/content/docs/${entryId}.mdx`;
+
+// This page with `.md` on the end: the source, without the chrome around it.
+// Worth a visible link rather than a rule only agents know — a reader handing
+// the page to one gets to see the address exists.
+const markdownUrl = localizePath(markdownPath(slug), locale);
 
 // Only the languages that have this page are offered as translations of it.
 // Where English is standing in, the page serves but stays out of the index —
@@ -104,13 +110,14 @@ const structuredData = [
       <slot />
 
       <hr class="my-12 border-0 border-t border-border" />
-      <p class="text-sm text-muted">
+      <p class="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted">
         <a
           href={editUrl}
           target="_blank"
           rel="noopener noreferrer"
           class="text-accent">{t.docs.editOnGithub}</a
         >
+        <a href={markdownUrl} class="text-accent">{t.docs.viewAsMarkdown}</a>
       </p>
     </article>
 

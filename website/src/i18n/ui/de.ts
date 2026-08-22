@@ -314,6 +314,7 @@ export const de: UiStrings = {
     tocLabel: "Auf dieser Seite",
     onThisPage: "Auf dieser Seite",
     editOnGithub: "Diese Seite auf GitHub bearbeiten ↗",
+    viewAsMarkdown: "Diese Seite als Markdown lesen",
     untranslatedNote:
       "Diese Seite ist noch nicht übersetzt und wird deshalb auf Englisch angezeigt.",
 

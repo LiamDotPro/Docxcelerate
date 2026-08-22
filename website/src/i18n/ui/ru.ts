@@ -305,6 +305,7 @@ export const ru: UiStrings = {
     tocLabel: "На этой странице",
     onThisPage: "На этой странице",
     editOnGithub: "Изменить эту страницу на GitHub ↗",
+    viewAsMarkdown: "Читать эту страницу в Markdown",
     untranslatedNote:
       "Эта страница ещё не переведена на ваш язык, поэтому показана на английском.",
 
