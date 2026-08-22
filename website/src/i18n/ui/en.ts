@@ -335,6 +335,11 @@ export const en = {
     onThisPage: "On this page",
     editOnGithub: "Edit this page on GitHub ↗",
     /**
+     * The same page at the same address with `.md` on the end — the source
+     * this one was built from, for anyone feeding it to an agent.
+     */
+    viewAsMarkdown: "Read this page as Markdown",
+    /**
      * Shown when a page has no translation yet and the English original is
      * standing in for it. Better than a 404, and better than pretending: the
      * reader is told why the language changed under them.

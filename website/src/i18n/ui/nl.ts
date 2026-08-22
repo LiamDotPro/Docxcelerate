@@ -304,6 +304,7 @@ export const nl: UiStrings = {
     tocLabel: "Op deze pagina",
     onThisPage: "Op deze pagina",
     editOnGithub: "Deze pagina bewerken op GitHub ↗",
+    viewAsMarkdown: "Deze pagina als Markdown lezen",
     untranslatedNote:
       "Deze pagina is nog niet vertaald en wordt daarom in het Engels getoond.",
 

@@ -308,6 +308,7 @@ export const es: UiStrings = {
     tocLabel: "En esta página",
     onThisPage: "En esta página",
     editOnGithub: "Editar esta página en GitHub ↗",
+    viewAsMarkdown: "Leer esta página en Markdown",
     untranslatedNote:
       "Esta página todavía no está traducida a tu idioma, así que se muestra en inglés.",
 
