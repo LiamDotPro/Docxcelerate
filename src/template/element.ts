@@ -19,6 +19,28 @@ import type { Condition, DeriverInvocation } from "../domain/types.ts";
 export const elementMarker: symbol = Symbol.for("docxcelerate.element");
 /** Brands a function as a {@linkcode HostElementType}, and records its kind. */
 export const hostMarker: symbol = Symbol.for("docxcelerate.host");
+/**
+ * Brands the children array of a tag whose children were written out in the
+ * source, as opposed to one produced by an expression at runtime.
+ *
+ * Two sibling paragraphs written by hand and two produced by a `.map()` are
+ * the same array by the time the renderer sees them. They are not the same
+ * mistake, though: the first pair sharing an id is a typo worth reporting, and
+ * the second pair sharing one is simply a loop. This is what tells them apart.
+ */
+export const staticChildrenMarker: symbol = Symbol.for("docxcelerate.staticChildren");
+
+/**
+ * Whether an array is the children of a tag as written, rather than a list an
+ * expression produced.
+ *
+ * @param value The value to test.
+ * @returns `true` when the array was written out in the source.
+ */
+export function isStaticChildren(value: unknown): boolean {
+  return Array.isArray(value) &&
+    (value as unknown as Record<symbol, unknown>)[staticChildrenMarker] === true;
+}
 
 /**
  * What a piece of the tree turns into.
@@ -33,7 +55,12 @@ export type HostKind =
   | "paragraph"
   | "image"
   | "graph"
+  | "table"
+  | "tableRow"
+  | "tableCell"
   | "tableOfContents"
+  | "pageBreak"
+  | "pageNumber"
   | "repeat"
   | "branch"
   | "fragment";
@@ -120,6 +147,12 @@ export interface CommonElementProps {
    * run per document, against data this build never sees.
    */
   derivers?: DeriverInvocation[];
+  /**
+   * Which block style the theme should draw this node in — `"band"`, `"panel"`,
+   * `"badge"`. A name for what the node is, never what it looks like: the
+   * colours live in the style, so a document restyles without a node changing.
+   */
+  variant?: string;
 }
 
 /**

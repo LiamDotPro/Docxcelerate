@@ -7,8 +7,8 @@ order: 1
 
 import NodeTypes from "../../../components/NodeTypes.astro";
 
-A document is a tree of nodes. Every node is three things: an **id**, a **kind**,
-and a rule for producing content.
+A document is a tree of nodes. Every node comes down to three things: an **id**,
+a **kind**, and a rule for producing its content.
 
 ```tsx
 <Paragraph          // the kind
@@ -24,7 +24,8 @@ Resolved against your data, it becomes plain JSON:
 { "id": "greeting", "kind": "paragraph", "mode": "static", "text": "Dear Adaeze Nkemelu," }
 ```
 
-No styling, no layout. Those belong to the renderer.
+No styling, no layout. Those get applied later, by whichever renderer you hand
+the document to.
 
 ## The catalog
 
@@ -35,39 +36,48 @@ each way it can be written.
 
 ## Ids are addresses
 
-A node's id is how a generation endpoint targets that paragraph, and how two
-build artifacts line up in a diff. Renaming one breaks whatever points at it
-from outside, the way renaming an API route does.
+A node's id is how a generation endpoint targets that particular paragraph, and
+how two build artifacts line up when you diff them. Rename one and you break
+whatever points at it from outside — much like renaming an API route.
 
-Keep them unique across the document. It costs nothing and makes logs readable.
+Keep them unique across the document. It costs you nothing and makes logs
+readable.
 
 ## Where content comes from
 
-Every node either has its content or has prompts for producing it, and that is
-decided by the component rather than declared anywhere. Give a paragraph text —
-or an `Image` a `src`, or a `Graph` its `data` — and it resolves on your
-machine. Give it prompts and a placeholder instead, and it is filled in at
-request time.
+Every node either holds its content or carries prompts for producing it. You
+don't declare which — the component decides by what it supplies.
 
-Both resolve to the same `kind`, differing by `mode` in the built document.
-`mode` is output, not input: the build derives it from what the component
-supplied, and the package tells an engine which nodes it has to resolve.
-Supplying both on one element is an error rather than a coin-toss.
+Give a paragraph text (or an `Image` a `src`, or a `Graph` its `data`) and it
+resolves on your machine. Give it prompts and a placeholder instead, and it gets
+filled in at request time.
+
+Both land as the same `kind`, and differ by `mode` in the built document. `mode`
+is output rather than input: the build works it out from what you supplied, then
+uses it to tell an engine which nodes it still has to resolve.
+
+Supplying both text and prompts on one element is an error, not a coin toss.
 
 [Writing nodes](/docs/writing-nodes/) covers the prompt slots and what previews
 show in their place.
 
 ## Nesting
 
-[`section`](/docs/nodes/section/) is the only node that holds children today,
-and it accepts any kind, including other sections. A table node with nodes in
-its cells is next, on the same principle: containers hold the components you
-already write, rather than a second content model beside them.
+[`Section`](/docs/nodes/section/) groups other nodes under a heading, and it
+accepts any kind — including other sections.
+
+[`Table`](/docs/nodes/table/) holds nodes too: rows, and cells with nodes inside
+them. Both work on the same principle. A container holds the components you
+already write, rather than introducing a second content model beside them.
 
 ## About these previews
 
-Every preview here is a real build. `src/nodes/` in this site's repository holds
-one file per variant, written against the published package; a build step
-resolves each through `buildDocument` and renders it with the renderer
-`dxcl dev` serves. The source shown is the file that ran, and the JSON is what
-came back — so these pages break loudly rather than going quietly out of date.
+Every preview on these pages is a real build.
+
+`src/nodes/` in this site's repository holds one file per variant, written
+against the published package. A build step resolves each one through
+`buildDocument` and renders it with the same renderer `dxcl dev` serves. The
+source you see is the file that ran, and the JSON is what came back.
+
+So when a node type changes, these pages break loudly rather than going quietly
+out of date.

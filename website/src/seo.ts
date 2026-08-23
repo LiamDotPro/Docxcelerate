@@ -18,6 +18,7 @@
  */
 import { getCollection } from "astro:content";
 import { docLocale, docSlug } from "./docs";
+import { COMPONENTS, THEMES } from "./registry";
 import { DEFAULT_LOCALE, LOCALES, localizePath, type Locale } from "./i18n";
 
 export interface LocalisedRoute {
@@ -66,9 +67,31 @@ export async function docsRoutes(): Promise<LocalisedRoute[]> {
     .sort((a, b) => a.canonical.localeCompare(b.canonical));
 }
 
+/**
+ * The theme and component galleries, and a page for every entry in them.
+ *
+ * Offered in all five languages on the same terms as the node catalog: the
+ * chrome is translated and the entries are generated from the toolkit, which
+ * makes them English everywhere rather than stale in four places.
+ */
+export function registryRoutes(): LocalisedRoute[] {
+  return [
+    { canonical: "/themes/", locales: [...LOCALES] },
+    ...THEMES.map((theme) => ({
+      canonical: `/themes/${theme.id}/`,
+      locales: [...LOCALES],
+    })),
+    { canonical: "/components/", locales: [...LOCALES] },
+    ...COMPONENTS.map((component) => ({
+      canonical: `/components/${component.id}/`,
+      locales: [...LOCALES],
+    })),
+  ];
+}
+
 /** Everything that belongs in the sitemap, homepage first. */
 export async function indexableRoutes(): Promise<LocalisedRoute[]> {
-  return [HOME_ROUTE, ...(await docsRoutes())];
+  return [HOME_ROUTE, ...registryRoutes(), ...(await docsRoutes())];
 }
 
 /**

@@ -51,7 +51,13 @@ herkenbare gezichten — en het slot sluit die in één keer uit, in de node.
 
 ## Aantekeningen
 
-- De node bevat een pad, nooit de bytes. Tijdens een build wordt er niets
-  opgehaald of gevalideerd; een kapot pad gaat mis bij het renderen.
-- `alt` is de moeite van het schrijven waard, ook al printen de renderers nu nog
-  kaders, want het kader print `alt`.
+- **Alleen een `data:`-URI reist mee.** Die draagt de bytes, dus een document
+  dat elders wordt geschreven heeft de afbeelding nog. Een pad of http-URL wordt
+  op het scherm getekend, waar een browser hem kan ophalen, maar belandt in een
+  `.docx` als een notitie: bij het inpakken wordt niets opgehaald of van schijf
+  gelezen, want de machine die het document schrijft is niet die waar het
+  bestand stond.
+- Word sluit een SVG niet alleen in — geef er een raster bij via `fallbackSrc`.
+  Het scherm tekent de SVG, het Word-bestand krijgt het raster.
+- `alt` is hoe dan ook de moeite waard: het beschrijft de afbeelding in het
+  Word-bestand, en het is wat een node zonder afbeelding in de plaats print.

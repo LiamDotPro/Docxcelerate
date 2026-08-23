@@ -7,7 +7,6 @@ import {
   Graph,
   Image,
   Paragraph,
-  Repeat,
   Section,
   TableOfContents,
   template,
@@ -62,15 +61,28 @@ test("a template must be a single Document element", () => {
   }
 });
 
-test("a Document needs both an id and a title", () => {
+test("a Document needs a title, which is also where its id comes from", () => {
   let message = "";
+
   try {
-    template<Data>(<Document id="" title="" />);
+    template<Data>(<Document title="" />);
   } catch (error) {
     message = error instanceof Error ? error.message : String(error);
   }
 
-  assertEquals(message.includes("needs both an id and a title"), true);
+  assertEquals(message.includes("<Document> needs a title"), true);
+});
+
+test("a Document with a title alone is named after it", () => {
+  const tree = template<Data>(<Document title="Tenancy Renewal" />);
+
+  assertEquals(tree.id, "tenancy-renewal");
+});
+
+test("a Document that says its own id keeps it", () => {
+  const tree = template<Data>(<Document id="renewal-2026" title="Tenancy Renewal" />);
+
+  assertEquals(tree.id, "renewal-2026");
 });
 
 test("a Document cannot be nested inside another element", async () => {
@@ -164,21 +176,6 @@ test("a dynamic node without the AI client it needs names the method", async () 
   );
 });
 
-test("a repeat over something that is not a collection says what it found", async () => {
-  await assertBuildRejects(
-    <Repeat over="name">
-      <Paragraph>x</Paragraph>
-    </Repeat>,
-    "instead of a collection",
-  );
-  await assertBuildRejects(
-    <Repeat over="missing">
-      <Paragraph>x</Paragraph>
-    </Repeat>,
-    "found nothing instead of a collection",
-  );
-});
-
 test("two explicit ids that collide name both positions", async () => {
   await assertBuildRejects(
     [
@@ -236,26 +233,82 @@ test("publishing refuses to read a value as a number, and says what to do", asyn
   );
 });
 
-test("publishing refuses to iterate, and names the Repeat to write", async () => {
+test("publishing turns a .map() into the loop the engine walks", async () => {
   const List: Section = () => {
     const [state] = useState((input: Data) => ({ items: input.items }));
 
     return (
       <Section id="list" title="List">
-        {state.items.map((item, index) => <Paragraph id={`i-${index}`}>{item}</Paragraph>)}
+        {state.items.map((item) => <Paragraph id="item">{item}</Paragraph>)}
       </Section>
     );
+  };
+
+  const published = await buildDocument(
+    template<Data>(<Document id="d" title="D"><List /></Document>),
+    createPublishData() as Data,
+    { branchMode: "publish", deriverMode: "preserve" },
+  );
+
+  const section = published.nodes[0];
+  assertEquals(section.kind, "section");
+
+  if (section.kind !== "section") return;
+
+  const loop = section.children[0];
+  assertEquals(loop.kind, "repeat");
+
+  if (loop.kind !== "repeat") return;
+
+  // The body is published once. Nobody knows how many entries a request will
+  // bring, and the body does not depend on knowing.
+  assertEquals(loop.source.path, "items");
+  assertEquals(loop.children.length, 1);
+  assertEquals(loop.children[0].kind === "paragraph" && loop.children[0].text, "{{ctx.items}}");
+});
+
+test("a collection operation that needs the entries says to use a deriver", async () => {
+  // `.map()` and `.filter()` survive publishing because neither has to see the
+  // entries. `.reduce()` does, so it belongs where the data is.
+  const Total: Section = () => {
+    const [state] = useState((input: Data) => ({ items: input.items }));
+    const total = state.items.reduce((sum, item) => sum + item, 0);
+
+    return <Section id="list" title="List"><Paragraph id="t">{total}</Paragraph></Section>;
   };
 
   await assertRejects(
     () =>
       buildDocument(
-        template<Data>(<Document id="d" title="D"><List /></Document>),
+        template<Data>(<Document id="d" title="D"><Total /></Document>),
         createPublishData() as Data,
         { branchMode: "publish", deriverMode: "preserve" },
       ),
     Error,
-    '<Repeat over="items">',
+    "belongs in a deriver",
+  );
+});
+test("a for-of over a collection nobody has yet points at .map()", async () => {
+  const Looped: Section = () => {
+    const [state] = useState((input: Data) => ({ items: input.items }));
+    const out = [];
+
+    for (const item of state.items) {
+      out.push(<Paragraph id="i">{item}</Paragraph>);
+    }
+
+    return <Section id="list" title="List">{out}</Section>;
+  };
+
+  await assertRejects(
+    () =>
+      buildDocument(
+        template<Data>(<Document id="d" title="D"><Looped /></Document>),
+        createPublishData() as Data,
+        { branchMode: "publish", deriverMode: "preserve" },
+      ),
+    Error,
+    "Use `.map()` instead",
   );
 });
 

@@ -28,6 +28,8 @@ export const de: UiStrings = {
   nav: {
     label: "Hauptnavigation",
     docs: "Doku",
+    themes: "Themes",
+    components: "Komponenten",
     cloud: "Cloud",
     github: "GitHub",
     switchTheme: "Design wechseln",
@@ -301,11 +303,13 @@ export const de: UiStrings = {
       education: "Bildung",
       housing: "Wohnen",
       insurance: "Versicherung",
+      consulting: "Dienstleistungen",
     },
     documents: {
       "offer-of-admission": "Zulassungsbescheid",
       "repairs-appointment": "Reparaturtermin",
       "policy-renewal": "Vertragsverlängerung",
+      invoice: "Rechnung",
     },
   },
 
@@ -364,6 +368,119 @@ export const de: UiStrings = {
       "stable": "Stabil",
       "no-helper": "Noch kein Helper",
       "planned": "Geplant",
+    },
+  },
+
+  registry: {
+    /** The detail pages, per design boards 2b and 2c. */
+    backToRegistry: "Registry",
+    renderedBy: "Von Docxcelerate beim Build gerendert",
+    openPreview: "Öffnen ↗",
+    specification: "Spezifikation",
+    specNote: "Werte stammen aus style.page und style.typography.",
+    margins: "Ränder",
+    body: "Fließtext",
+    titleLabel: "Titel",
+    sectionHeading: "Abschnittsüberschrift",
+    paragraphLabel: "Absatz",
+    after: "danach",
+    compare: "Vergleichen",
+    compareNote: "Derselbe Absatz in jedem Theme",
+    viewing: "angezeigt",
+    requires: "Benötigt",
+    requiresNothing: "Nichts. Es installiert allein.",
+    installsAlone: "Es installiert allein.",
+    stepData: "Vorschaudaten",
+    stepDataNote: "das JSON, mit dem diese Vorschau gebaut wurde",
+    stepPreview: "Gerenderte Vorschau",
+    stepPreviewNote: "die Komponente für sich gerendert",
+    stepNodes: "Aufgelöste Nodes",
+    /** {count} is a number of nodes. */
+    stepNodesNote: "was ein Renderer erhält — {count} Nodes",
+    stepFiles: "Die Dateien",
+    stepFilesNote: "was die Installation schreibt; die gewählte Datei ist die Komponente",
+    dataFieldsNote: "Fügen Sie diese nach der Installation Ihrer types.ts hinzu. Das ist der einzige Handgriff.",
+    copyFieldPaths: "Feldpfade kopieren",
+    /** {exports} is a list of names, {count} a number of nodes. */
+    exportsResolves: "exportiert {exports} · löst zu {count} Nodes auf",
+    categoryTags: "Kategorie · Tags",
+    nothingHere: "Hier ist noch nichts.",
+    nothingHereNote: "Die Registry wird aus dem Paket gebaut. Sobald ein Eintrag ausgeliefert wird, erscheint er hier.",
+    /** The one-page registry at /registry. */
+    browse: {
+      title: "Registry",
+      description:
+        "Fertige Themes und Dokumentkomponenten für Docxcelerate, mit einem Befehl in ein Projekt installiert.",
+      eyebrow: "Registry",
+      heading: "Registry",
+      lead:
+        "Fertige Themes und Komponenten für Ihre Dokumentprojekte. Mit einem einzigen Befehl installieren und dann wie eigenen Code bearbeiten.",
+      filterByTag: "Nach Tag filtern",
+      allTags: "Alle",
+      themesNote: "Ein Theme zu installieren schreibt document-style.ts",
+      componentsNote: "Eine Komponente zu installieren schreibt ihre Datei nach nodes/",
+      nodes: "Nodes",
+      noPreview: "Keine Vorschau",
+      /** {tag} is the tag that matched nothing. */
+      noMatches: "Keine Einträge passen zu {tag}.",
+      noMatchesTitle: "Keine Treffer",
+      noMatchesNote: "Probieren Sie ein anderes Tag oder setzen Sie den Filter zurück.",
+      clearFilter: "Filter zurücksetzen",
+    },
+    themes: {
+      title: "Themes",
+      description:
+        "Fertige Dokument-Themes für Docxcelerate: Schriften, Farben, Abstände " +
+        "und Seitenformat, mit einem Befehl im Projekt.",
+      heading: "Themes",
+      lead:
+        "Schriften, Farben, Abstände und Seite, unter einem Namen. Ein Theme " +
+        "ist ein Import im Projekt und reist mit dem gebauten Dokument mit — " +
+        "wer es rendert, muss nichts installieren.",
+      cta: "Themes ansehen",
+    },
+    components: {
+      title: "Komponenten",
+      description:
+        "Fertige Docxcelerate-Komponenten: Briefköpfe, Adressblöcke, " +
+        "Zahlungsübersichten und mehr, als Quellcode in Ihrem Projekt.",
+      heading: "Komponenten",
+      lead:
+        "Nodes, die jemand schon geschrieben und durchdacht hat. Hinzufügen " +
+        "kopiert den Quellcode in Ihr Projekt — keine Version, kein " +
+        "Upgrade-Pfad, nichts zu forken.",
+      cta: "Komponenten ansehen",
+    },
+    install: "Installieren",
+    preview: "Vorschau",
+    category: "Kategorie",
+    tags: "Schlagwörter",
+    fonts: "Schriften",
+    page: "Seite",
+    typography: "Typografie",
+    colours: "Farben",
+    spacing: "Abstände",
+    exports: "Exporte",
+    reads: "Was gelesen wird",
+    field: "Feld",
+    type: "Typ",
+    whatItDoes: "Wofür es da ist",
+    source: "Quellcode",
+    lands: "Landet unter",
+    resolvesTo: "Was dabei herauskommt",
+    previewData: "Vorschau mit",
+    drawnAgainst: "Entworfen für das Theme {theme}.",
+    allThemes: "Alle Themes",
+    allComponents: "Alle Komponenten",
+    ad: {
+      heading: "Verschaffen Sie Ihrem nächsten Dokument einen Vorsprung.",
+      body:
+        "Die Registry hält Themes und Dokumentkomponenten bereit. `dxcl add` kopiert die Datei in Ihr Projekt. Keine Abhängigkeit, keine Version zu verfolgen.",
+      browse: "Registry durchsehen",
+      howItWorks: "Wie das Installieren funktioniert",
+      written: "2 Dateien geschrieben · keine Abhängigkeit hinzugefügt",
+      afterInstall:
+        "Nach der Installation liegen die Dateien in Ihrem Repo. Bearbeiten Sie sie wie jeden anderen Quelltext.",
     },
   },
 

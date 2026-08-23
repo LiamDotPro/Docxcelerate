@@ -1,0 +1,223 @@
+---
+/**
+ * /themes/<id> — one theme: the document it produces, and the numbers behind it.
+ *
+ * Preview first, because a theme is a look and nobody chooses one from a table.
+ * The specification beside it is the style itself, printed rather than
+ * described — a theme *is* data, and the honest way to show data is to show it.
+ *
+ * The compare strip at the foot answers "but which one?" without a compare
+ * tool: the same sentence, set in each theme, each panel a link to its own page.
+ */
+import Base from "../layouts/Base.astro";
+import CopyField from "./CopyField.astro";
+import NodePreview from "./NodePreview.astro";
+import { addCommand, THEMES, themeHref, type ThemePageEntry } from "../registry";
+import { asLocale, localizePath, LOCALES, ui } from "../i18n";
+
+interface Props {
+  theme: ThemePageEntry;
+}
+
+const locale = asLocale(Astro.currentLocale);
+const t = ui(locale);
+const { theme } = Astro.props;
+const { page, typography, palette, paragraph, title, sectionHeading } = theme.style;
+
+const colour = (value: string | undefined, fallback = "#000000") =>
+  value && /^[0-9a-fA-F]{6}$/.test(value) ? `#${value}` : value ?? fallback;
+
+const weight = (value: string) => (value === "bold" ? "bold" : "regular");
+
+/** The specification, as label-and-value pairs a reader can scan down. */
+const spec = [
+  [t.registry.page, `${page.size} · ${page.orientation}`],
+  [
+    t.registry.margins,
+    `${page.margins.topMm} · ${page.margins.rightMm} · ${page.margins.bottomMm} · ` +
+    `${page.margins.leftMm} mm`,
+  ],
+  [
+    t.registry.body,
+    `${typography.bodyFont} · ${typography.bodySizePt} pt / ${typography.bodyLineHeight}`,
+  ],
+  [
+    t.registry.titleLabel,
+    `${typography.headingFont} · ${title.fontSizePt} pt · ${weight(title.weight)}`,
+  ],
+  [
+    t.registry.sectionHeading,
+    `${sectionHeading.fontSizePt} pt · ${weight(sectionHeading.weight)}` +
+    `${sectionHeading.transform === "uppercase" ? " · caps" : ""}`,
+  ],
+  [t.registry.paragraphLabel, `${paragraph.spacingAfterPt} pt ${t.registry.after}`],
+] as const;
+
+/** Named by the job each colour does, in the order a reader meets them. */
+const colours = (
+  [
+    ["heading", palette?.heading],
+    ["accent", palette?.accent],
+    ["muted", palette?.muted],
+    ["rule", palette?.rule],
+    ["page", palette?.page],
+  ] as const
+).filter(([, value]) => Boolean(value));
+
+/** Every theme, so the strip can set one sentence in each of them. */
+const compare = THEMES.map((entry) => ({
+  entry,
+  paper: colour(entry.style.palette?.page, "#ffffff"),
+  ink: colour(entry.style.typography.color, "#111827"),
+  heading: colour(entry.style.title.color ?? entry.style.palette?.heading, "#111827"),
+  body: `"${entry.style.typography.bodyFont}", Georgia, serif`,
+  size: `${entry.style.typography.bodySizePt}pt`,
+}));
+---
+
+<Base title={theme.title} description={theme.summary} hreflangLocales={LOCALES}>
+  <div class="mx-auto flex max-w-6xl flex-col gap-10 px-5 py-12 sm:px-8">
+    <p class="m-0">
+      <a
+        href={localizePath("/registry/#themes", locale)}
+        class="text-sm text-muted no-underline hover:text-accent"
+      >
+        ← {t.registry.backToRegistry}
+      </a>
+    </p>
+
+    <header class="flex max-w-3xl flex-col gap-3">
+      <div class="flex flex-wrap items-center gap-3">
+        <h1 class="m-0 font-serif text-3xl font-semibold">{theme.title}</h1>
+        <span
+          class="rounded-full border border-firm px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted"
+        >
+          {theme.category}
+        </span>
+      </div>
+      <p class="m-0 text-base leading-relaxed text-muted">{theme.detail}</p>
+      <div class="max-w-sm"><CopyField command={addCommand(theme.id)} /></div>
+    </header>
+
+    <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <!-- The document itself. -->
+      <div class="flex flex-col gap-2">
+        <NodePreview src={theme.previewUrl} title={theme.title} />
+      </div>
+
+      <!-- The numbers behind it. -->
+      <aside class="flex flex-col gap-7">
+        <section class="flex flex-col gap-2">
+          <h2
+            class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
+          >
+            {t.registry.specification}
+          </h2>
+          <dl class="m-0 flex flex-col">
+            {
+              spec.map(([label, value]) => (
+                <div class="flex items-baseline justify-between gap-4 border-b border-default py-1.5">
+                  <dt class="m-0 shrink-0 text-xs text-muted">{label}</dt>
+                  <dd class="m-0 text-right font-mono text-xs text-ink">{value}</dd>
+                </div>
+              ))
+            }
+          </dl>
+          <span class="text-[0.7rem] text-muted">{t.registry.specNote}</span>
+        </section>
+
+        {
+          colours.length > 0 && (
+            <section class="flex flex-col gap-2">
+              <h2 class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted">
+                {t.registry.colours}
+              </h2>
+              <div class="flex flex-col gap-1.5">
+                {colours.map(([name, value]) => (
+                  <div class="flex items-center gap-2">
+                    <span
+                      class="h-4 w-4 shrink-0 rounded-sm border border-black/10"
+                      style={`background:${colour(value)}`}
+                    />
+                    <span class="flex-1 text-xs text-muted">{name}</span>
+                    <code class="font-mono text-xs text-ink">{colour(value).toUpperCase()}</code>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )
+        }
+
+        <section class="flex flex-col gap-2">
+          <h2
+            class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
+          >
+            {t.registry.fonts}
+          </h2>
+          <span class="text-xs text-ink">{theme.fonts.join(" · ")}</span>
+        </section>
+
+        <section class="flex flex-col gap-2">
+          <h2
+            class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
+          >
+            {t.registry.tags}
+          </h2>
+          <div class="flex flex-wrap gap-1">
+            {
+              theme.tags.map((tag) => (
+                <span class="rounded-full border border-default px-1.5 py-0.5 text-[0.65rem] text-muted">
+                  {tag}
+                </span>
+              ))
+            }
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <!-- One sentence, set in every theme. -->
+    <section class="flex flex-col gap-3">
+      <div class="flex flex-wrap items-baseline justify-between gap-3 border-b border-default pb-2">
+        <h2
+          class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
+        >
+          {t.registry.compare}
+        </h2>
+        <span class="text-xs text-muted">{t.registry.compareNote}</span>
+      </div>
+      <!-- Scrolls sideways on a phone rather than becoming a carousel: five panels
+           the reader can flick through, with the scrollbar as the only cue needed. -->
+      <div class="-mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-5">
+        {
+          compare.map(({ entry, paper, ink, heading, body, size }) => (
+            <a
+              href={localizePath(themeHref(entry.id), locale)}
+              class:list={[
+                "flex w-[62vw] shrink-0 snap-start flex-col overflow-hidden rounded-md border no-underline sm:w-auto sm:shrink",
+                entry.id === theme.id ? "border-accent" : "border-default",
+              ]}
+            >
+              <div class="p-3" style={`background:${paper};font-family:${body};`}>
+                <div style={`color:${heading};font-size:0.8rem;font-weight:600;`}>
+                  Membership renewal
+                </div>
+                <p class="m-0 mt-1" style={`color:${ink};font-size:${size};line-height:1.35;`}>
+                  Your tenancy at 14 Glebe Road ends on 30 September.
+                </p>
+              </div>
+              <div class="flex items-center justify-between gap-2 border-t border-default bg-surface px-2 py-1">
+                <span class="font-mono text-[0.6rem] text-muted">{entry.id}</span>
+                {entry.id === theme.id && (
+                  <span class="font-mono text-[0.55rem] uppercase tracking-[0.1em] text-accent">
+                    {t.registry.viewing}
+                  </span>
+                )}
+              </div>
+            </a>
+          ))
+        }
+      </div>
+    </section>
+  </div>
+</Base>

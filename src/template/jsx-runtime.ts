@@ -20,6 +20,7 @@ import {
   type HostElementType,
   type HostKind,
   hostKindOf,
+  staticChildrenMarker,
   type TemplateElement,
   type Yield,
 } from "./element.ts";
@@ -75,12 +76,24 @@ export function jsx(
 }
 
 /**
- * What the compiler calls for a tag with more than one child.
+ * What the compiler calls for a tag whose children were written out.
  *
- * The same function as {@linkcode jsx}: children arrive as an array either way,
- * and nothing here needs to tell the two apart.
+ * It marks that array, which is the one thing {@linkcode jsx} cannot know. A
+ * `.map()` and a pair of hand-written siblings both arrive as an array; only
+ * the second was chosen element by element, so only the second has ids somebody
+ * picked and would want a collision reported for.
  */
-export const jsxs: typeof jsx = jsx;
+export const jsxs: typeof jsx = ((type: unknown, props: Record<string, unknown> | null, key?: string) => {
+  if (props && Array.isArray(props.children)) {
+    Object.defineProperty(props.children, staticChildrenMarker, { value: true });
+  }
+
+  return (jsx as (t: unknown, p: Record<string, unknown> | null, k?: string) => TemplateElement)(
+    type,
+    props,
+    key,
+  );
+}) as typeof jsx;
 
 /**
  * Groups nodes without adding one of its own, written as `<>...</>`.

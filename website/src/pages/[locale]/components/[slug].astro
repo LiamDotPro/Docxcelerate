@@ -1,0 +1,19 @@
+---
+// One component, under a language prefix.
+import ComponentDetail from "../../../components/ComponentDetail.astro";
+import { COMPONENTS } from "../../../registry";
+import { PREFIXED_LOCALES } from "../../../i18n";
+
+export function getStaticPaths() {
+  return PREFIXED_LOCALES.flatMap((locale) =>
+    COMPONENTS.map((component) => ({
+      params: { locale, slug: component.id },
+      props: { component },
+    }))
+  );
+}
+
+const { component } = Astro.props;
+---
+
+<ComponentDetail component={component} />

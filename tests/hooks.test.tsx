@@ -8,6 +8,7 @@ import {
   Section,
   template,
   useAvailableTokens,
+  deriver,
   useDeriver,
   useFormat,
   usePlaceholderData,
@@ -179,21 +180,40 @@ test("the build locale reaches useFormat", async () => {
   assertEquals(text, "1.234,5");
 });
 
-test("useDeriver runs a deriver and writes it where a token can read it", async () => {
-  // A deriver is async, so the component that awaits one becomes async — and
-  // its hooks have to be reached before that await.
-  const Probe: Paragraph = async () => {
-    const run = useDeriver("double");
-    await run("doubled", { type: "literal", value: 21 });
+const double = deriver({ name: "double", run: (value: number) => value * 2 });
 
-    return <Paragraph id="probe">{"{{derived.doubled}}"}</Paragraph>;
+test("useDeriver runs a deriver and hands back what it produced", async () => {
+  // A deriver may be async, so the component that awaits one becomes async —
+  // and its hooks have to be reached before that await.
+  const Probe: Paragraph = async () => {
+    const doubled = await useDeriver(double, [21]);
+
+    return <Paragraph id="probe">{`${doubled}`}</Paragraph>;
   };
 
-  const built = await build(<Probe />, {
-    derivers: { double: ([value]: unknown[]) => Number(value) * 2 },
-  });
+  assertEquals(texts((await build(<Probe />)).nodes), ["42"]);
+});
 
-  assertEquals(texts(built.nodes), ["42"]);
+test("what a deriver produced is also readable as a token", async () => {
+  const Probe: Paragraph = async () => {
+    await useDeriver(double, [21]);
+
+    return <Paragraph id="probe">{"{{derived.double}}"}</Paragraph>;
+  };
+
+  assertEquals(texts((await build(<Probe />)).nodes), ["42"]);
+});
+
+test("two calls to one deriver from one component get their own keys", async () => {
+  const Probe: Paragraph = async () => {
+    await Promise.all([useDeriver(double, [21]), useDeriver(double, [50])]);
+
+    return (
+      <Paragraph id="probe">{"{{derived.double}}"} and {"{{derived.double-2}}"}</Paragraph>
+    );
+  };
+
+  assertEquals(texts((await build(<Probe />)).nodes), ["42 and 100"]);
 });
 
 test("placeholder data is stable for a node and differs between nodes", async () => {

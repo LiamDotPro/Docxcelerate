@@ -40,12 +40,12 @@ The index. It records what was built, when, and where the other files are:
 ## preview.json
 
 The document resolved against `previewData`, with dynamic nodes rendered to their
-**placeholders**. This is the local development artifact — it is what the
+**placeholders**. This is your local development artifact — it's what the
 preview app shows, and it never needs a service.
 
 ## document.json
 
-The upload artifact. It is the same tree, but request-time values are kept as
+The upload artifact. It's the same tree, except request-time values are kept as
 tokens rather than baked in:
 
 ```json
@@ -57,7 +57,7 @@ tokens rather than baked in:
 }
 ```
 
-Dynamic nodes carry their prompts instead of text. This is the file you send to
+Dynamic nodes carry their prompts instead of text. This is the one you send to
 [the engine](/docs/generation/endpoint/), which substitutes real data and
 resolves the prompts.
 

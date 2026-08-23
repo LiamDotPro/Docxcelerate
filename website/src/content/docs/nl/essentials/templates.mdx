@@ -58,7 +58,7 @@ export const Enclosures: Section = () => {
 
   return (
     <Section id="enclosures" title="Enclosed">
-      {state.items.map((item) => <Paragraph key={item.id}>{item.label}</Paragraph>)}
+      {state.items.map((item) => <Paragraph>{item.label}</Paragraph>)}
     </Section>
   );
 };
@@ -68,9 +68,9 @@ Alles wat falsy is bij de children wordt overgeslagen, dus `{condition && <Node
 />}` leest zoals overal elders. Nodes zonder id krijgen er een van waar ze staan,
 en dat weerhoudt een `map` ervan namen te eisen die je niet hebt.
 
-Dit werkt omdat de lijst bekend is wanneer het document gebouwd wordt. Een lijst
-die pas per verzoek bekend is, is een ander probleem — zie [lussen worden als
-lussen gepubliceerd](#lussen-worden-als-lussen-gepubliceerd) hieronder.
+Dezelfde `.map()` werkt als de lijst pas per verzoek bekend is. Hier loopt hij door
+de collectie, en bij publiceren bereikt hij de engine als lus — zie [lussen worden
+als lussen gepubliceerd](#lussen-worden-als-lussen-gepubliceerd) hieronder.
 
 ## Herbruikbare onderdelen
 
@@ -177,22 +177,29 @@ zodra de waarde al bekend is. Grijp naar een deriver wanneer dat niet zo is.
 
 Een vertakking heeft twee takken en beide kunnen worden gepubliceerd. Een lus heeft
 er zoveel als de aanvraag items heeft, en dat aantal weet niemand tot er een document
-geschreven wordt — dus wat er opgeslagen wordt, is de lus zelf:
+geschreven wordt — dus wat er opgeslagen wordt, is de lus zelf. Wat je schrijft is de
+gewone `.map()`:
 
 ```tsx
-<Repeat over="visits" as="visit">
-  <Paragraph>Visit: {"{{ctx.visit.label}}"}</Paragraph>
-</Repeat>
+const [visits] = useState((data: TenancyData) => data.visits);
+
+return visits.map((visit) => <Paragraph id="visit">Visit: {visit.label}</Paragraph>);
 ```
 
-Met echte data loopt dit meteen door de collectie, dus previews tonen de herhaling in
-plaats van een beschrijving ervan. Gepubliceerd blijft het een lus en loopt de engine
-hem af, waarbij elk item onder `as` en zijn positie onder `indexAs` wordt gebonden, en
-de ids van de children een index krijgen zodat de ene ronde te onderscheiden blijft van
-de volgende.
+Met echte data is dit gewoon de `.map()` uit de standaardbibliotheek: hij loopt
+meteen door de collectie, dus previews tonen de herhaling in plaats van een
+beschrijving ervan. Publiceren kan dat niet, dus onderschept de plaatsvervanger
+diezelfde aanroep, draait de body één keer tegen een plaatsvervanger voor één item,
+en bereikt de lus de engine ongeschonden.
 
-`.map()` aanroepen op aanvraaggegevens is bij publiceren een fout die de `Repeat`
-noemt die je in plaats daarvan moet schrijven.
+Niemand schrijft hier een `{{ctx…}}`-token. Het item dat de body kreeg, kent het pad
+waar het voor staat, dus de verwijzing schrijft zichzelf — en de rondes worden op
+beide paden op positie benoemd, zodat een id hetzelfde betekent in een preview als in
+het document dat iemand ontvangt.
+
+Alles wat eerst naar de items moet kijken voordat de body geschreven kan worden —
+`.filter()`, `.sort()`, `.length`, een `for`-lus — is bij het publiceren niet te
+beantwoorden. Dat verwijst naar een deriver, die draait waar de data staat.
 
 ### Vertakkingen vermenigvuldigen
 

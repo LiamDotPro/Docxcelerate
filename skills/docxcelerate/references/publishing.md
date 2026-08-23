@@ -55,18 +55,21 @@ request has entries, and nobody knows that number until a document is written �
 so the loop itself is what gets stored:
 
 ```tsx
-<Repeat over="visits" as="visit">
-  <Paragraph>Visit: {"{{ctx.visit.label}}"}</Paragraph>
-</Repeat>
+const [visits] = useState((data: TenancyData) => data.visits);
+
+return visits.map((visit) => <Paragraph id="visit">Visit: {visit.label}</Paragraph>);
 ```
 
-With real data this walks the collection immediately, so previews show the
-repetition rather than a description of it. Published, it stays a loop: the
-engine binds each entry under `as`, its position under `indexAs`, and suffixes
-child ids with the index so one pass stays distinguishable from the next.
+With real data this is the `.map()` from the standard library: it walks the
+collection immediately, so previews show the repetition rather than a description
+of it. Publishing cannot walk it, so the stand-in intercepts the same call, runs
+the body once against a stand-in for one entry, and the loop reaches the engine
+intact.
 
-**Calling `.map()` on request data while publishing is an error** that names the
-`Repeat` to write instead.
+**Never hand-write a `{{ctx.…}}` token in a loop body.** The entry the body was
+handed knows the path it stands for, so the reference writes itself. Passes are
+named by position on both paths, so an id means the same thing in a preview and
+in the document a recipient receives.
 
 ### 3. A decision has to be written as a condition
 
@@ -80,14 +83,39 @@ one, and the engine decides per document:
   "when": { "type": "not", "ref": { "scope": "data", "path": "settled" } } }
 ```
 
-**A plain `if` does not produce that in the published package.** The intended
-authoring surface is an `if` in a component, compiled into a condition — but that
-compiler is not in the shipped package yet. An `if` decides at build time, and
-while publishing the stand-in is truthy for any path, so a truthy `if` silently
-publishes its **true** arm for every recipient.
+**Write it as an ordinary conditional.** That is the authoring surface: the build
+compiles it into the condition above. Three shapes are compiled, and they are the
+three a component actually writes —
 
-So for a document that ships to an engine, emit the condition — either with
-`branch`, which decides locally and publishes both arms:
+```tsx
+if (state.settled) { return <Paragraph id="balance-settled">Nothing outstanding.</Paragraph>; }
+return <Paragraph id="balance-arrears">A balance remains.</Paragraph>;
+```
+
+```tsx
+{state.settled ? <Paragraph id="settled">Nothing outstanding.</Paragraph>
+               : <Paragraph id="arrears">A balance remains.</Paragraph>}
+```
+
+```tsx
+{state.overdue && <Paragraph id="overdue">This account is overdue.</Paragraph>}
+```
+
+— along with `!`, `===`, `>`, `&&` and `||` in the test, which are read straight
+off the syntax. A conditional picking a *value* rather than a node is left alone:
+`<P text={state.paid ? "Paid" : "Due"} />` is a value that varies per document,
+and a deriver is what carries one.
+
+**This requires the transform in your build.** Add `docxcelerateTransform()` for
+Vite or `docxcelerateEsbuildTransform()` for esbuild, both from
+`docxcelerate/transform`. Without it the conditional still runs and still takes
+one arm — while publishing, the stand-in is truthy for any path, so it publishes
+its **true** arm for every recipient. `assertCompiledSources` refuses a build
+whose sources missed the transform, which is what turns that silent wrong into a
+failed build.
+
+The compiled form is below, for reading a build artifact rather than writing one.
+`branch` decides locally and publishes both arms:
 
 ```tsx
 import { branch, dataPath, Paragraph, truthy } from "docxcelerate/template";
@@ -116,9 +144,13 @@ Condition builders, all from `docxcelerate/template`: `truthy(ref)`,
 References: `dataPath(path)`, `ctxPath(path)`, `derivedPath(path)`.
 
 Both forms work locally too — with real data the condition is evaluated and one
-arm is taken, exactly as the `if` would have. **A document built only from data you
-hold can use a plain `if`;** reach for `branch` when the document will be
-published.
+arm is taken, exactly as the conditional would have. That is also why the
+compiled output is safe to run without an engine: a build holding real data
+settles the test immediately and behaves as the source read.
+
+**You should not need to write either by hand.** Reach for `when` when a node is
+conditional but nothing in the surrounding code is, and for `branch` when reading
+or generating a build artifact.
 
 Branches multiply: nesting them multiplies what a document carries, so
 `branchLimit` (32 by default) fails the build rather than producing a quietly
@@ -143,7 +175,8 @@ or `NaN` would publish a document that is wrong for every recipient:
 | --- | --- |
 | `` `${data.name}` `` or `{state.name}` in text | fine — becomes `{{data.name}}` |
 | `data.total > 0`, `Number(data.total)`, arithmetic | throws — branch with an `if`, or use a deriver |
-| `.map`, `.filter`, `.length`, `.join`, `.at`, spread, `for…of` | throws — write `<Repeat over="…">` |
+| `.map` | fine — published as the loop the engine walks |
+| `.filter`, `.sort`, `.length`, `.join`, `.at`, spread, `for…of` | throws — needs the entries; use a deriver |
 | `data.something()` | throws — request data holds values, not behaviour |
 | `await data.x` | resolves to `undefined` rather than hanging |
 

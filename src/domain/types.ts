@@ -20,7 +20,12 @@ export type NodeKind =
   | "paragraph"
   | "image"
   | "graph"
+  | "table"
+  | "tableRow"
+  | "tableCell"
   | "tableOfContents"
+  | "pageBreak"
+  | "pageNumber"
   | "repeat";
 
 /**
@@ -34,8 +39,16 @@ export type NodeMode = "static" | "dynamic";
 /** The chart a {@linkcode GraphNode} draws. */
 export type GraphType = "bar" | "line" | "pie";
 
-/** The named style bundle a document is built from. */
-export type DocumentStylePreset = "clean-minimal";
+/**
+ * The theme a style came from, by id.
+ *
+ * A string rather than a union of the shipped themes: the model is data that
+ * travels, and a document set in a theme someone wrote themselves should say so
+ * rather than claim to be one of ours. The shipped ids are listed by
+ * {@linkcode https://docxcelerate.com/themes | the theme catalog} and typed as
+ * `ShippedThemeId` in `docxcelerate/themes`.
+ */
+export type DocumentStylePreset = string;
 
 /** The paper a document is laid out for. */
 export type DocumentPageSize = "A4" | "LETTER";
@@ -45,6 +58,33 @@ export type DocumentPageOrientation = "portrait" | "landscape";
 
 /** The weight text is set in. */
 export type DocumentFontWeight = "regular" | "bold";
+
+/** Whether a block of text is printed as written or shifted to capitals. */
+export type DocumentTextTransform = "none" | "uppercase";
+
+/**
+ * The colours a theme sets, named by the job each one does rather than by the
+ * colour it is.
+ *
+ * Naming the job is what lets one document be re-themed without touching a
+ * node: a rule is drawn in `rule` whichever theme is on, and a theme that wants
+ * hairline grey rules says so once here instead of in every node that draws one.
+ *
+ * Every field is a CSS colour string without the leading `#`, which is the form
+ * OOXML wants and the form the web renderer can use unchanged.
+ */
+export interface DocumentPalette {
+  /** Ink for the title and section headings. */
+  heading: string;
+  /** The one colour the document uses to draw attention. */
+  accent: string;
+  /** Secondary text: captions, labels, anything set back from the body. */
+  muted: string;
+  /** Rules, borders and table lines. */
+  rule: string;
+  /** The paper itself. */
+  page: string;
+}
 
 /** Page margins, in millimetres. */
 export interface DocumentPageMargins {
@@ -98,6 +138,10 @@ export interface DocumentTextBlockStyle {
   spacingBeforePt: number;
   /** Space left below the block, in points. */
   spacingAfterPt: number;
+  /** Ink for this block. Falls back to the palette's heading colour. */
+  color?: string;
+  /** Whether the text is printed as written. Defaults to `none`. */
+  transform?: DocumentTextTransform;
 }
 
 /**
@@ -107,18 +151,82 @@ export interface DocumentTextBlockStyle {
  * with the model, so a renderer needs no access to the preset that produced it.
  */
 export interface DocumentStyle {
-  /** The preset this style was derived from. */
+  /** The theme this style was derived from. */
   preset: DocumentStylePreset;
   /** Page size, orientation and margins. */
   page: DocumentPageStyle;
   /** Fonts, sizes and colour for body text. */
   typography: DocumentTypographyStyle;
+  /**
+   * The document's colours, by the job each does.
+   *
+   * Optional because it arrived after the first documents did: a model written
+   * before themes existed carries none, and a renderer falls back to the body
+   * colour rather than refusing to draw it.
+   */
+  palette?: DocumentPalette;
   /** Spacing between paragraphs. */
   paragraph: DocumentParagraphStyle;
   /** How the document title is set. */
   title: DocumentTextBlockStyle;
+  /**
+   * Whether a renderer prints the document's title above the body.
+   *
+   * On by default, because most documents want their name at the top and
+   * should not have to say so. A document that sets its own — an invoice whose
+   * letterhead carries the wordmark beside the reference — turns this off, and
+   * the title goes on being the document's name for everything that reads the
+   * model without being printed twice.
+   */
+  showTitle?: boolean;
   /** How section headings are set. */
   sectionHeading: DocumentTextBlockStyle;
+  /**
+   * The block styles a node's `variant` can name.
+   *
+   * This is the half of the split that says what a name looks like. A component
+   * writes `variant="badge"` because the thing *is* a badge; the theme decides
+   * that a badge is amber, rounded and set in small capitals. Swapping themes
+   * then restyles a document without a node changing.
+   */
+  blocks?: Record<string, DocumentBlockStyle>;
+}
+
+/**
+ * How one named block is drawn.
+ *
+ * Everything is optional and everything omitted is inherited, so a variant that
+ * only tints a background says only that.
+ */
+export interface DocumentBlockStyle {
+  /** Background, as a hex string without the `#`. */
+  fill?: string;
+  /** Text colour, for a block whose fill is dark enough to need one. */
+  color?: string;
+  /** Border colour. Drawn only when this is set. */
+  border?: string;
+  /** Border width in points. Defaults to `1` when a border colour is set. */
+  borderWidthPt?: number;
+  /** Which edges the border is drawn on. Defaults to all four. */
+  borderSides?: Array<"top" | "right" | "bottom" | "left">;
+  /** Space between the block's edge and its content, in points. */
+  paddingPt?: number;
+  /**
+   * Whether the block runs the full width of the page rather than the text.
+   *
+   * A tinted strip of dates under a letterhead is a band across the sheet, not
+   * a box inside the margins — so it reaches past them, on screen by escaping
+   * the padding and in Word by indenting negatively.
+   */
+  bleed?: boolean;
+  /** Font size in points, for a block set apart from the body. */
+  fontSizePt?: number;
+  /** Weight, for a block that carries emphasis. */
+  weight?: DocumentFontWeight;
+  /** Casing. */
+  transform?: DocumentTextTransform;
+  /** Letter spacing in ems, for small capitals that need opening up. */
+  letterSpacingEm?: number;
 }
 
 /**
@@ -210,6 +318,16 @@ export interface BaseNode {
   kind: NodeKind;
   /** Heading shown for the node, where its kind renders one. */
   title?: string;
+  /**
+   * Which block style the document's theme should draw this node in.
+   *
+   * A name, not an appearance: `"band"`, `"panel"`, `"badge"`. What the name
+   * looks like is the style's business, which is what keeps a colour out of a
+   * component and lets one theme swap for another without touching a node.
+   * Unknown names draw as nothing, so a document is never broken by a theme
+   * that has not heard of one.
+   */
+  variant?: string;
   /** Whether the node may be dropped when there is nothing to say. */
   optional?: boolean;
   /** A test that decides, per document, whether the node is included. */
@@ -244,8 +362,21 @@ export interface ImageNode extends BaseNode {
   kind: "image";
   /** Whether the image is fixed or is to be produced per document. */
   mode: NodeMode;
-  /** Where the image file lives, relative to the document project. */
+  /**
+   * Where the picture comes from.
+   *
+   * A `data:` URI carries the bytes in the model, which is the only form that
+   * survives being handed to an engine. A path or URL still draws on screen,
+   * where a browser can fetch it, but cannot be packed into a Word file.
+   */
   path?: string;
+  /**
+   * A raster to pack in place of an SVG.
+   *
+   * Word will not embed an SVG without one. Screen renderers ignore this and
+   * draw the SVG itself, which is the sharper of the two.
+   */
+  fallbackPath?: string;
   /** Alternative text describing the image. */
   alt?: string;
   /** Rendered width, in points. */
@@ -272,10 +403,111 @@ export interface GraphNode extends BaseNode {
   placeholder?: string;
 }
 
+/** How a column's cells sit in the width they are given. */
+export type TableAlign = "left" | "center" | "right";
+
+/**
+ * One column's shape, which every row shares.
+ *
+ * Widths are declared once, on the table, rather than per cell. A row that set
+ * its own would be a row that disagrees with the row above it, and a table
+ * whose columns do not line up is not a table.
+ */
+export interface TableColumn {
+  /**
+   * Width in millimetres, or `"auto"` to share out what the fixed ones leave.
+   *
+   * Millimetres rather than points because a page is measured in them: a
+   * 26mm money column against a 210mm page is a proportion a reader can check.
+   */
+  width?: number | "auto";
+  /** How this column's cells are aligned. Left unless it is said. */
+  align?: TableAlign;
+}
+
+/**
+ * A grid of cells, with the columns declared once.
+ *
+ * The rows are children rather than a field, so everything that works on a
+ * node works on a row: a loop produces rows per entry, a condition drops one
+ * per document, and each carries an id. That is the whole reason a row is a
+ * node and not a tuple — an invoice's lines are a `.map()`, and the engine has
+ * to be able to walk them without the table being a special case.
+ */
+export interface TableNode extends BaseNode {
+  /** Discriminator. */
+  kind: "table";
+  /** The columns, left to right. */
+  columns: TableColumn[];
+  /** The rows, and any loops that produce them. */
+  children: DocumentNode[];
+}
+
+/** One row of a {@linkcode TableNode}. */
+export interface TableRowNode extends BaseNode {
+  /** Discriminator. */
+  kind: "tableRow";
+  /**
+   * Whether this row heads the table.
+   *
+   * A header row is drawn as one and repeats at the top of every page the
+   * table runs onto, which is a thing only the renderer can do — a second
+   * header written into the body would be a row of text that says the same
+   * words in the wrong place.
+   */
+  header?: boolean;
+  /** The cells, left to right. */
+  children: DocumentNode[];
+}
+
+/** One cell of a {@linkcode TableRowNode}. */
+export interface TableCellNode extends BaseNode {
+  /** Discriminator. */
+  kind: "tableCell";
+  /** How many columns this cell runs across. One unless it is said. */
+  span?: number;
+  /** Alignment, when this cell departs from its column's. */
+  align?: TableAlign;
+  /** What the cell holds — paragraphs, usually, but any node fits. */
+  children: DocumentNode[];
+}
+
 /** A table of contents, built from the sections around it. */
 export interface TableOfContentsNode extends BaseNode {
   /** Discriminator. */
   kind: "tableOfContents";
+}
+
+/**
+ * Where one page ends and the next begins.
+ *
+ * Only ever written where the break is part of what the document *is* — an
+ * invoice whose payment details belong on their own page, a contract whose
+ * signature block must not be orphaned. Breaking to control where a paragraph
+ * happens to land is a job for the margins, not for a node.
+ */
+export interface PageBreakNode extends BaseNode {
+  /** Discriminator. */
+  kind: "pageBreak";
+}
+
+/** Which page this is, counted while the document is laid out. */
+export type PageNumberFormat = "current" | "total" | "currentOfTotal";
+
+/**
+ * The page number, filled in by whatever lays the pages out.
+ *
+ * A build cannot know it: how many pages a document runs to depends on the
+ * page size, the font and how much the engine wrote into every dynamic node.
+ * So the node says which form it wants and the renderer counts.
+ */
+export interface PageNumberNode extends BaseNode {
+  /** Discriminator. */
+  kind: "pageNumber";
+  /** Which form to print. Defaults to `currentOfTotal`. */
+  format?: PageNumberFormat;
+  /** What sits between the two numbers in `currentOfTotal`. Defaults to ` / `. */
+  separator?: string;
 }
 
 /**
@@ -296,6 +528,14 @@ export interface RepeatNode extends BaseNode {
   as: string;
   /** The `ctx` key each entry's zero-based position is bound to. */
   indexAs: string;
+  /**
+   * A test each entry has to pass to be walked at all.
+   *
+   * This is what a `.filter()` before the `.map()` becomes. The build cannot
+   * apply it — which entries there are belongs to the request — so the test
+   * travels with the loop and the engine applies it per entry.
+   */
+  where?: Condition;
   /** The nodes repeated for every entry, in order. */
   children: DocumentNode[];
 }
@@ -306,7 +546,12 @@ export type DocumentNode =
   | ParagraphNode
   | ImageNode
   | GraphNode
+  | TableNode
+  | TableRowNode
+  | TableCellNode
   | TableOfContentsNode
+  | PageBreakNode
+  | PageNumberNode
   | RepeatNode;
 
 /**
@@ -340,6 +585,16 @@ export interface DocumentModel {
   metadata?: JsonObject;
   /** The body of the document, in order. */
   nodes: DocumentNode[];
+  /**
+   * Nodes drawn at the top of every page.
+   *
+   * Running furniture, not the first thing in the body: it repeats, and it sits
+   * outside the text the margins measure. A letterhead that should appear once
+   * belongs in `nodes`.
+   */
+  header?: DocumentNode[];
+  /** Nodes drawn at the foot of every page. */
+  footer?: DocumentNode[];
 }
 
 /** Everything a node can reach while a single document is being written. */

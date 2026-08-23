@@ -1,0 +1,358 @@
+---
+/**
+ * /registry — one page answering "what can I add?".
+ *
+ * Themes at 01, components at 02, because that is the order somebody asks the
+ * question in: what should this look like, then what is already written.
+ *
+ * Nothing here loads a preview frame. A theme card draws a **specimen** from
+ * that theme's own fonts, colours and page tint, and a component card shows the
+ * first few lines its nodes resolved to. Both come out of the generated
+ * registry, so eleven cards cost eleven divs rather than eleven iframes — the
+ * frames belong on the detail pages, where somebody is looking at one thing.
+ */
+import Base from "../layouts/Base.astro";
+import CopyField from "./CopyField.astro";
+import { addCommand, COMPONENTS, componentHref, THEMES, themeHref } from "../registry";
+import { asLocale, localizePath, LOCALES, ui } from "../i18n";
+import type { ComponentPageEntry, ThemePageEntry } from "../registry";
+
+const locale = asLocale(Astro.currentLocale);
+const t = ui(locale);
+
+/** A hex from the catalog, which stores them without the hash. */
+const colour = (value: string | undefined, fallback: string) =>
+  value && /^[0-9a-fA-F]{6}$/.test(value) ? `#${value}` : value ?? fallback;
+
+/**
+ * The type a theme sets its body in, as a CSS stack.
+ *
+ * The specimen has to be set in the theme's own face or it is not a specimen.
+ * The named font first, then a generic so a machine without it still shows the
+ * right *shape* of type rather than falling back to the site's sans.
+ */
+function fontStack(name: string): string {
+  const serif = /(Georgia|Garamond|Times|Cambria|Book|Palatino|Iowan)/i.test(name);
+
+  return `"${name}", ${serif ? "Georgia, serif" : "system-ui, sans-serif"}`;
+}
+
+/** Swatches in the order a reader meets them: heading, accent, muted, rule. */
+function swatches(theme: ThemePageEntry): string[] {
+  const palette = theme.style.palette ?? {};
+
+  return [palette.heading, palette.accent, palette.muted, palette.rule]
+    .filter(Boolean)
+    .map((value) => colour(value, "#000000"));
+}
+
+/** The specimen's own measurements, taken from the theme rather than guessed. */
+function specimen(theme: ThemePageEntry) {
+  const { typography, title, sectionHeading, page, palette } = theme.style;
+
+  return {
+    paper: colour(palette?.page, "#ffffff"),
+    ink: colour(typography.color, "#111827"),
+    heading: colour(title.color ?? palette?.heading, "#111827"),
+    accent: colour(palette?.accent, "#111827"),
+    rule: colour(palette?.rule, "#d5d9e0"),
+    body: fontStack(typography.bodyFont),
+    display: fontStack(typography.headingFont),
+    titleSize: `${Math.min(title.fontSizePt, 20)}pt`,
+    headingSize: `${sectionHeading.fontSizePt}pt`,
+    bodySize: `${typography.bodySizePt}pt`,
+    lineHeight: typography.bodyLineHeight,
+    caps: sectionHeading.transform === "uppercase" ? "uppercase" : "none",
+    size: `${page.size} · ${page.margins.topMm}mm`,
+  };
+}
+
+/** The first lines a component resolved to, for the card. */
+function lines(component: ComponentPageEntry, take = 3): string[] {
+  const texts: string[] = [];
+
+  const walk = (nodes: readonly Record<string, unknown>[]) => {
+    for (const node of nodes) {
+      if (texts.length >= take) return;
+      if (typeof node.text === "string" && node.text.trim() !== "") texts.push(node.text);
+      if (Array.isArray(node.children)) walk(node.children as Record<string, unknown>[]);
+    }
+  };
+
+  walk(component.resolved as unknown as Record<string, unknown>[]);
+
+  return texts;
+}
+
+/**
+ * The tags worth filtering by.
+ *
+ * Only those carried by more than one entry. A tag on a single entry filters
+ * eleven cards down to that one — which is a link to it, not a filter — and
+ * eighteen of those in a row buries the handful that actually group anything.
+ */
+const tagIndex = (() => {
+  const counts = new Map<string, number>();
+
+  for (const entry of [...THEMES, ...COMPONENTS]) {
+    for (const tag of entry.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .filter(([, count]) => count > 1)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([tag, count]) => ({ tag, count }));
+})();
+
+const themes = THEMES.map((theme) => ({ theme, spec: specimen(theme), swatches: swatches(theme) }));
+const components = COMPONENTS.map((component) => ({ component, lines: lines(component) }));
+---
+
+<Base title={t.registry.browse.title} description={t.registry.browse.description} hreflangLocales={LOCALES}>
+  <div class="mx-auto flex max-w-6xl flex-col gap-14 px-5 py-12 sm:px-8">
+    <header class="flex max-w-3xl flex-col gap-4">
+      <span class="font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent">
+        {t.registry.browse.eyebrow}
+      </span>
+      <h1 class="m-0 font-serif text-3xl font-semibold sm:text-4xl">{t.registry.browse.heading}</h1>
+      <p class="m-0 text-base leading-relaxed text-muted">{t.registry.browse.lead}</p>
+      <CopyField command="npx dxcl list" />
+
+      <div class="mt-2 flex flex-wrap items-center gap-2" data-tag-filter>
+        <span class="text-xs text-muted">{t.registry.browse.filterByTag}</span>
+        <button
+          type="button"
+          class="rounded-full border border-firm bg-accent-tint px-2.5 py-1 text-xs text-ink"
+          data-tag=""
+          aria-pressed="true"
+        >
+          {t.registry.browse.allTags}
+        </button>
+        {
+          tagIndex.map(({ tag, count }) => (
+            <button
+              type="button"
+              class="rounded-full border border-firm px-2.5 py-1 text-xs text-muted hover:text-ink"
+              data-tag={tag}
+              aria-pressed="false"
+            >
+              {tag} <span class="text-muted/70">{count}</span>
+            </button>
+          ))
+        }
+      </div>
+    </header>
+
+    <!-- 01 — Themes -->
+    <section class="flex flex-col gap-5" id="themes" data-section>
+      <div class="flex flex-wrap items-baseline justify-between gap-3 border-b border-default pb-2">
+        <h2 class="m-0 flex items-baseline gap-2 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted">
+          <span class="text-accent">01</span> {t.registry.themes.heading}
+        </h2>
+        <span class="text-xs text-muted">{t.registry.browse.themesNote}</span>
+      </div>
+
+      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {
+          themes.map(({ theme, spec, swatches }) => (
+            <article
+              class="flex flex-col overflow-hidden rounded-lg border border-default bg-paper"
+              data-entry
+              data-tags={theme.tags.join(" ")}
+            >
+              {/* The specimen: this theme's own type, colour and page tint. */}
+              <a
+                href={localizePath(themeHref(theme.id), locale)}
+                class="relative block border-b border-default p-4 no-underline"
+                style={`background:${spec.paper};color:${spec.ink};font-family:${spec.body};`}
+                aria-label={theme.title}
+              >
+                <span class="absolute right-2 top-2 rounded border border-black/10 bg-white/70 px-1.5 py-0.5 font-mono text-[0.55rem] text-black/50">
+                  {spec.size}
+                </span>
+                <div
+                  style={`font-family:${spec.display};font-size:${spec.titleSize};color:${spec.heading};line-height:1.15;font-weight:600;`}
+                >
+                  Membership renewal
+                </div>
+                <div style={`margin:6px 0;height:2px;width:34px;background:${spec.accent};`} />
+                <div
+                  style={`font-family:${spec.display};font-size:${spec.headingSize};color:${spec.accent};text-transform:${spec.caps};letter-spacing:.06em;font-weight:600;margin-bottom:3px;`}
+                >
+                  Your renewal
+                </div>
+                <p
+                  class="m-0"
+                  style={`font-size:${spec.bodySize};line-height:${spec.lineHeight};color:${spec.ink};`}
+                >
+                  Your tenancy at 14 Glebe Road ends on 30 September. This letter sets out what
+                  happens next, and what we need from you before then.
+                </p>
+              </a>
+
+              <div class="flex flex-1 flex-col gap-2 p-4">
+                <div class="flex items-baseline justify-between gap-2">
+                  <a
+                    href={localizePath(themeHref(theme.id), locale)}
+                    class="font-medium text-ink no-underline hover:text-accent"
+                  >
+                    {theme.title}
+                  </a>
+                  <span class="font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted">
+                    {theme.category}
+                  </span>
+                </div>
+                <p class="m-0 flex-1 text-sm leading-relaxed text-muted">{theme.summary}</p>
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-xs text-muted">{theme.fonts.join(" · ")}</span>
+                  <div class="flex gap-1">
+                    {swatches.map((value) => (
+                      <span
+                        class="h-3 w-3 rounded-sm border border-black/10"
+                        style={`background:${value}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <CopyField command={addCommand(theme.id)} compact />
+              </div>
+            </article>
+          ))
+        }
+      </div>
+    </section>
+
+    <!-- 02 — Components -->
+    <section class="flex flex-col gap-5" id="components" data-section>
+      <div class="flex flex-wrap items-baseline justify-between gap-3 border-b border-default pb-2">
+        <h2 class="m-0 flex items-baseline gap-2 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted">
+          <span class="text-accent">02</span> {t.registry.components.heading}
+        </h2>
+        <span class="text-xs text-muted">{t.registry.browse.componentsNote}</span>
+      </div>
+
+      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {
+          components.map(({ component, lines }) => (
+            <article
+              class="flex flex-col overflow-hidden rounded-lg border border-default bg-paper"
+              data-entry
+              data-tags={component.tags.join(" ")}
+            >
+              <a
+                href={localizePath(componentHref(component.id), locale)}
+                class="block border-b border-default bg-surface p-4 font-letter no-underline"
+                aria-label={component.title}
+              >
+                {
+                  lines.length === 0
+                    ? <span class="text-xs text-muted">{t.registry.browse.noPreview}</span>
+                    : lines.map((line, index) => (
+                      <div
+                        class={index === 0
+                          ? "truncate text-[0.8rem] font-semibold text-ink"
+                          : "truncate text-[0.75rem] text-muted"}
+                      >
+                        {line}
+                      </div>
+                    ))
+                }
+              </a>
+
+              <div class="flex flex-1 flex-col gap-2 p-4">
+                <div class="flex items-baseline justify-between gap-2">
+                  <a
+                    href={localizePath(componentHref(component.id), locale)}
+                    class="font-medium text-ink no-underline hover:text-accent"
+                  >
+                    {component.title}
+                  </a>
+                  <span class="font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted">
+                    {component.category}
+                  </span>
+                </div>
+                <p class="m-0 flex-1 text-sm leading-relaxed text-muted">{component.summary}</p>
+                <div class="flex flex-wrap gap-1">
+                  {component.tags.map((tag) => (
+                    <span class="rounded-full border border-default px-1.5 py-0.5 text-[0.65rem] text-muted">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <CopyField command={addCommand(component.id)} compact />
+                <span class="font-mono text-[0.6rem] text-muted">
+                  {component.exports.join(", ")} · {component.resolved.length}
+                  {" "}
+                  {t.registry.browse.nodes}
+                </span>
+              </div>
+            </article>
+          ))
+        }
+      </div>
+    </section>
+
+    <!-- Nothing matched the filter. One action, no apology copy. -->
+    <div class="hidden flex-col items-start gap-2 rounded-lg border border-default p-6" data-empty>
+      <span class="font-mono text-[0.65rem] uppercase tracking-[0.14em] text-muted">
+        {t.registry.browse.noMatchesTitle}
+      </span>
+      <p class="m-0 text-sm text-ink" data-empty-line data-template={t.registry.browse.noMatches}></p>
+      <p class="m-0 text-sm text-muted">{t.registry.browse.noMatchesNote}</p>
+      <button
+        type="button"
+        class="mt-1 min-h-[44px] rounded border border-firm bg-paper px-3 text-xs text-ink sm:min-h-0 sm:py-1"
+        data-clear-tags
+      >
+        {t.registry.browse.clearFilter}
+      </button>
+    </div>
+  </div>
+</Base>
+
+<script>
+  // Tag filtering, in the page rather than the URL: it is a way of looking at
+  // one list, not a place you would link somebody to.
+  const bar = document.querySelector("[data-tag-filter]");
+  const entries = [...document.querySelectorAll<HTMLElement>("[data-entry]")];
+  const empty = document.querySelector<HTMLElement>("[data-empty]");
+  const emptyLine = document.querySelector<HTMLElement>("[data-empty-line]");
+  const sections = [...document.querySelectorAll<HTMLElement>("[data-section]")];
+
+  function apply(tag: string) {
+    let shown = 0;
+
+    for (const button of bar?.querySelectorAll<HTMLButtonElement>("[data-tag]") ?? []) {
+      const on = (button.dataset.tag ?? "") === tag;
+      button.setAttribute("aria-pressed", String(on));
+      button.classList.toggle("bg-accent-tint", on);
+      button.classList.toggle("text-ink", on);
+      button.classList.toggle("text-muted", !on);
+    }
+
+    for (const entry of entries) {
+      const match = tag === "" || (entry.dataset.tags ?? "").split(" ").includes(tag);
+      entry.hidden = !match;
+      if (match) shown += 1;
+    }
+
+    // A section whose every card is filtered out is a heading over nothing, so
+    // it goes with them rather than sitting there empty.
+    for (const section of sections) {
+      const visible = [...section.querySelectorAll<HTMLElement>("[data-entry]")]
+        .some((entry) => !entry.hidden);
+      section.hidden = !visible;
+    }
+
+    if (empty) empty.classList.toggle("hidden", shown > 0);
+    if (empty) empty.classList.toggle("flex", shown === 0);
+    if (emptyLine) emptyLine.textContent = emptyLine.dataset.template?.replace("{tag}", tag) ?? "";
+  }
+
+  bar?.addEventListener("click", (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-tag]");
+    if (button) apply(button.dataset.tag ?? "");
+  });
+
+  document.querySelector("[data-clear-tags]")?.addEventListener("click", () => apply(""));
+</script>

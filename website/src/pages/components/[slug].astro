@@ -1,0 +1,16 @@
+---
+// One component, in English.
+import ComponentDetail from "../../components/ComponentDetail.astro";
+import { COMPONENTS } from "../../registry";
+
+export function getStaticPaths() {
+  return COMPONENTS.map((component) => ({
+    params: { slug: component.id },
+    props: { component },
+  }));
+}
+
+const { component } = Astro.props;
+---
+
+<ComponentDetail component={component} />

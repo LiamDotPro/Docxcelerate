@@ -5,9 +5,11 @@ group: Start Here
 order: 3
 ---
 
-A workspace holds one **document project** per document. Each is a directory
-under `documents/` with a single entrypoint, so a document can be moved, copied
-or reviewed as one thing.
+A workspace holds one **document project** per document. Each one is a directory
+under `documents/` with a single entrypoint.
+
+That means a document can be moved, copied or reviewed as one thing, rather than
+as files scattered across the workspace.
 
 ## Create one
 
@@ -15,7 +17,7 @@ or reviewed as one thing.
 dxcl document new tenancy-renewal --title "Tenancy Renewal"
 ```
 
-Run it with no arguments to be asked for the name and title instead.
+Run it with no arguments and it will ask you for the name and title instead.
 
 ```text
 documents/tenancy-renewal/
@@ -32,7 +34,7 @@ documents/tenancy-renewal/
     index.ts
 ```
 
-The split is the point. Each file answers one question:
+The split is deliberate — each file answers exactly one question:
 
 | File | What it holds |
 | --- | --- |
@@ -98,6 +100,44 @@ export const previewData: DocumentData = {
 
 Short names and placeholder cities hide layout problems that real data exposes.
 Use the longest name and the largest figure you actually expect.
+
+## Why the preview is quick
+
+A preview is rebuilt every time you save. That is the point of it — a document
+is written by looking at it, and anything the preview waits for is time you
+spend watching it fail to appear. So the two things that cost real time stand in
+rather than run:
+
+- **Generated nodes show their placeholder.** `useAi` requires one for exactly
+  this reason. A preview never calls a model, which also means it needs no
+  credentials and cannot be blocked by a rate limit.
+- **Derivers that declared a stand-in use it.** A deriver that renders a code,
+  reads a file, or asks a service says so by supplying a `placeholder`, and the
+  preview shows that instead.
+
+```ts
+// derivers/payment-qr.ts — costly, so it stands in while you write
+export default {
+  name: "paymentQr",
+  run: async ([iban, amount]) => renderQrPng(iban, amount),
+  placeholder: "[scan-to-pay code]",
+};
+
+// derivers/money.ts — cheap, so the preview shows the real figure
+export default {
+  name: "money",
+  run: ([amount]) => `£${Number(amount).toLocaleString("en-GB")}`,
+};
+```
+
+A deriver with no `placeholder` is cheap by construction — a total, a currency, a
+date — and runs everywhere, because a preview showing the real figure is worth
+more than the microsecond it took.
+
+Both are resolved for real when a document is actually written, which is the
+moment waiting is worth something. The stand-ins change what a value says, never
+whether it is there: a preview and a written document have the same nodes, so
+what you proofread is the document somebody receives.
 
 ## Workspace configuration
 

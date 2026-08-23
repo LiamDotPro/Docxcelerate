@@ -29,6 +29,8 @@ export const es: UiStrings = {
   nav: {
     label: "Principal",
     docs: "Docs",
+    themes: "Temas",
+    components: "Componentes",
     cloud: "Cloud",
     github: "GitHub",
     switchTheme: "Cambiar de tema",
@@ -295,11 +297,13 @@ export const es: UiStrings = {
       education: "Educación",
       housing: "Vivienda",
       insurance: "Seguros",
+      consulting: "Servicios profesionales",
     },
     documents: {
       "offer-of-admission": "Carta de admisión",
       "repairs-appointment": "Cita de reparación",
       "policy-renewal": "Renovación de póliza",
+      invoice: "Factura",
     },
   },
 
@@ -359,6 +363,119 @@ export const es: UiStrings = {
       "stable": "Estable",
       "no-helper": "Aún sin helper",
       "planned": "Planeado",
+    },
+  },
+
+  registry: {
+    /** The detail pages, per design boards 2b and 2c. */
+    backToRegistry: "Registro",
+    renderedBy: "Renderizado por Docxcelerate en tiempo de compilación",
+    openPreview: "Abrir ↗",
+    specification: "Especificación",
+    specNote: "Los valores vienen de style.page y style.typography.",
+    margins: "Márgenes",
+    body: "Cuerpo",
+    titleLabel: "Título",
+    sectionHeading: "Encabezado de sección",
+    paragraphLabel: "Párrafo",
+    after: "después",
+    compare: "Comparar",
+    compareNote: "El mismo párrafo en cada tema",
+    viewing: "viendo",
+    requires: "Requiere",
+    requiresNothing: "Nada. Se instala solo.",
+    installsAlone: "Se instala solo.",
+    stepData: "Datos de vista previa",
+    stepDataNote: "el JSON con el que se construyó esta vista previa",
+    stepPreview: "Vista previa renderizada",
+    stepPreviewNote: "el componente renderizado por su cuenta",
+    stepNodes: "Nodos resueltos",
+    /** {count} is a number of nodes. */
+    stepNodesNote: "lo que recibe un renderizador — {count} nodos",
+    stepFiles: "Los archivos",
+    stepFilesNote: "lo que escribe la instalación; el archivo seleccionado es el componente",
+    dataFieldsNote: "Añádelos a tu types.ts después de instalar. Es el único paso manual.",
+    copyFieldPaths: "Copiar rutas de campos",
+    /** {exports} is a list of names, {count} a number of nodes. */
+    exportsResolves: "exporta {exports} · se resuelve en {count} nodos",
+    categoryTags: "Categoría · etiquetas",
+    nothingHere: "Aquí todavía no hay nada.",
+    nothingHereNote: "El registro se construye desde el paquete. En cuanto se publique una entrada, aparecerá aquí.",
+    /** The one-page registry at /registry. */
+    browse: {
+      title: "Registro",
+      description:
+        "Temas y componentes de documento listos para Docxcelerate, instalados en un proyecto con un solo comando.",
+      eyebrow: "Registro",
+      heading: "Registro",
+      lead:
+        "Temas y componentes listos para tus proyectos de documento. Instala uno con un solo comando y edítalo como si fuera código tuyo.",
+      filterByTag: "Filtrar por etiqueta",
+      allTags: "Todo",
+      themesNote: "Instalar un tema escribe document-style.ts",
+      componentsNote: "Instalar un componente escribe su archivo en nodes/",
+      nodes: "nodos",
+      noPreview: "Sin vista previa",
+      /** {tag} is the tag that matched nothing. */
+      noMatches: "Ninguna entrada coincide con {tag}.",
+      noMatchesTitle: "Sin coincidencias",
+      noMatchesNote: "Prueba con otra etiqueta o quita el filtro.",
+      clearFilter: "Quitar filtro",
+    },
+    themes: {
+      title: "Temas",
+      description:
+        "Temas de documento listos para Docxcelerate: tipografías, colores, " +
+        "espaciado y tamaño de página, instalados con un solo comando.",
+      heading: "Temas",
+      lead:
+        "Tipografías, colores, espaciado y página, con nombre propio. Un tema " +
+        "es una importación en el proyecto y viaja con el documento generado: " +
+        "quien lo renderice no necesita instalar nada.",
+      cta: "Ver los temas",
+    },
+    components: {
+      title: "Componentes",
+      description:
+        "Componentes de Docxcelerate ya escritos: membretes, bloques de " +
+        "dirección, resúmenes de pago y más, copiados como código tuyo.",
+      heading: "Componentes",
+      lead:
+        "Nodos que alguien ya escribió y discutió. Añadir uno copia el código " +
+        "a tu proyecto y pasa a ser tuyo: sin versión, sin ruta de " +
+        "actualización, nada que bifurcar.",
+      cta: "Ver los componentes",
+    },
+    install: "Instalar",
+    preview: "Vista previa",
+    category: "Categoría",
+    tags: "Etiquetas",
+    fonts: "Tipografías",
+    page: "Página",
+    typography: "Tipografía",
+    colours: "Colores",
+    spacing: "Espaciado",
+    exports: "Exporta",
+    reads: "Qué lee",
+    field: "Campo",
+    type: "Tipo",
+    whatItDoes: "Para qué sirve",
+    source: "Código",
+    lands: "Se copia en",
+    resolvesTo: "En qué se resuelve",
+    previewData: "Vista previa con",
+    drawnAgainst: "Diseñado sobre el tema {theme}.",
+    allThemes: "Todos los temas",
+    allComponents: "Todos los componentes",
+    ad: {
+      heading: "Empieza tu próximo documento con ventaja.",
+      body:
+        "El registro reúne temas y componentes de documento. `dxcl add` copia el archivo en tu proyecto. No hay dependencia ni versión que seguir.",
+      browse: "Explorar el registro",
+      howItWorks: "Cómo funciona la instalación",
+      written: "2 archivos escritos · ninguna dependencia añadida",
+      afterInstall:
+        "Tras instalar, los archivos están en tu repositorio. Edítalos como cualquier otro código.",
     },
   },
 

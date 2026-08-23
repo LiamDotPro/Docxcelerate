@@ -11,6 +11,7 @@
  * Embedded in an iframe, so its styles stay isolated from the site's.
  */
 import { build } from "esbuild";
+import { docxcelerateEsbuildTransform } from "docxcelerate/transform";
 import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -57,6 +58,7 @@ async function main() {
       jsx: "automatic",
       jsxImportSource: "docxcelerate/template",
       packages: "external",
+      plugins: [docxcelerateEsbuildTransform()],
       logLevel: "warning",
     });
 

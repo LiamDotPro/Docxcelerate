@@ -1,18 +1,21 @@
 {
   "$schema": "https://jsr.io/schema/config-file.v1.json",
   "name": "@docxcelerate/docxcelerate",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "license": "MIT",
   "exports": {
     ".": "./src/public.ts",
     "./cli": "./src/project/scaffold_cli.ts",
     "./document": "./src/document.ts",
     "./docx": "./src/render/docx_document.ts",
+    "./registry": "./src/registry/mod.ts",
+    "./registry/install": "./src/registry/install.ts",
     "./renderer": "./src/renderer/mod.ts",
     "./scaffold": "./src/project/scaffold.ts",
     "./template": "./src/template.ts",
     "./template/jsx-dev-runtime": "./src/template/jsx-dev-runtime.ts",
-    "./template/jsx-runtime": "./src/template/jsx-runtime.ts"
+    "./template/jsx-runtime": "./src/template/jsx-runtime.ts",
+    "./themes": "./src/theme/mod.ts"
   },
   "imports": {
     "docx": "npm:docx@^9.6.1"
@@ -20,6 +23,7 @@
   "publish": {
     "include": [
       "src",
+      "registry",
       "README.md",
       "jsr.json",
       "LICENSE"

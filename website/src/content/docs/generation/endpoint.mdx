@@ -5,9 +5,11 @@ group: Generation
 order: 1
 ---
 
-The framework's job ends at the package. It renders your document and packages it;
-the package is a template with the recipient's details still missing. The
-**engine** is where that package goes, and what turns it into documents.
+The framework's job ends at the package.
+
+It renders your document and packages it up — and what you get is a template with
+the recipient's details still missing. The **engine** is where that package goes,
+and what turns it into finished documents.
 
 ## The three steps
 
@@ -18,17 +20,21 @@ the package is a template with the recipient's details still missing. The
 3. **Write.** Your application calls the API with a set of data. The engine
    writes the document and returns it.
 
-The important consequence is that publishing and writing are separate. You
-publish a package when the document's wording changes — a deploy-shaped event.
-You call the API every time somebody needs a document, which may be constantly,
-and which involves no build step and no workspace.
+The thing worth noticing is that publishing and writing are separate.
+
+You publish a package when the document's wording changes. That's a
+deploy-shaped event — occasional, deliberate.
+
+You call the API every time somebody needs a document, which might be constantly.
+That involves no build step and no workspace.
 
 ## Why it isn't in the package
 
-The engine is a service, not a library, and it is not part of the npm package.
-Authoring, preview and packing are local work with nothing behind them, so
-installing the framework pulls in nothing that wants API keys or a network, and
-the two version independently.
+The engine is a service, not a library, so it isn't part of the npm package.
+
+Authoring, preview and packing are all local work with nothing behind them. That
+means installing the framework pulls in nothing that wants API keys or a network
+connection — and the two can version independently.
 
 ## Pointing a workspace at it
 
@@ -36,7 +42,7 @@ the two version independently.
 dxcl init my-documents --api-endpoint https://documents.example.com/api/letters
 ```
 
-Or set up without one and decide later:
+Or set up without one and decide later — you can always add it afterwards:
 
 ```sh
 dxcl init my-documents --no-api-endpoint

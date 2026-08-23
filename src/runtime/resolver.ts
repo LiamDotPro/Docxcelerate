@@ -46,10 +46,17 @@ export async function resolveDocument(
 ): Promise<DocumentModel> {
   const derivers = options.derivers ?? createDefaultDeriverRegistry();
   const nodes = await resolveNodes(doc.nodes, state, derivers);
+  // The furniture is resolved too: a footer naming the recipient's reference
+  // is as much a published token as anything in the body, and it is the part
+  // that appears on every page if it is left unresolved.
+  const header = doc.header ? await resolveNodes(doc.header, state, derivers) : undefined;
+  const footer = doc.footer ? await resolveNodes(doc.footer, state, derivers) : undefined;
 
   return {
     ...doc,
     nodes,
+    header,
+    footer,
   };
 }
 
@@ -106,6 +113,13 @@ async function resolveNode(
     return await resolveGraph(node, state);
   }
 
+  // A table, a row and a cell all resolve the same way: they hold nodes and
+  // nothing else, so the work is entirely their children's. That is what lets
+  // a row carry a condition and a loop produce rows — neither is a case here.
+  if (node.kind === "table" || node.kind === "tableRow" || node.kind === "tableCell") {
+    return { ...node, children: await resolveNodes(node.children, state, derivers) };
+  }
+
   return node;
 }
 
@@ -128,17 +142,28 @@ async function resolveRepeat(
   const previousIndex = state.ctx[node.indexAs];
   const children: DocumentNode[] = [];
 
+  let pass = 0;
+
   for (const [index, entry] of (Array.isArray(entries) ? entries : []).entries()) {
     state.ctx[node.as] = entry;
     state.ctx[node.indexAs] = index;
 
+    // The test a `.filter()` left behind. Entries that fail it are not walked at
+    // all, so they take no pass number either — the passes a recipient sees are
+    // numbered from the entries that survived, not from the ones that did not.
+    if (node.where && !await evaluateCondition(node.where, state)) {
+      continue;
+    }
+
     for (const child of node.children) {
-      const resolved = await resolveNode(suffixIds(child, index), state, derivers);
+      const resolved = await resolveNode(suffixIds(child, pass), state, derivers);
 
       if (resolved) {
         children.push(...[resolved].flat());
       }
     }
+
+    pass += 1;
   }
 
   state.ctx[node.as] = previousEntry;
@@ -150,11 +175,13 @@ async function resolveRepeat(
 function suffixIds(node: DocumentNode, index: number): DocumentNode {
   const suffixed = { ...node, id: `${node.id}-${index}` };
 
-  if (suffixed.kind === "section") {
-    return { ...suffixed, children: suffixed.children.map((child) => suffixIds(child, index)) };
-  }
-
-  if (suffixed.kind === "repeat") {
+  // Every kind that holds nodes has to carry the suffix down, or a pass's
+  // children keep the ids of the pass before them. A row produced by a loop is
+  // the case that made this a list rather than two ifs.
+  if (
+    suffixed.kind === "section" || suffixed.kind === "repeat" || suffixed.kind === "table" ||
+    suffixed.kind === "tableRow" || suffixed.kind === "tableCell"
+  ) {
     return { ...suffixed, children: suffixed.children.map((child) => suffixIds(child, index)) };
   }
 

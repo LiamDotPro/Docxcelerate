@@ -24,6 +24,8 @@ import { VisitsByMonth } from "./graph/bar.node.tsx";
 import { CumulativeVisits } from "./graph/line.node.tsx";
 import { ClassMix } from "./graph/pie.node.tsx";
 import { PeakTimes } from "./graph/dynamic.node.tsx";
+import { VisitLog } from "./table/basic.node.tsx";
+import { PriceSummary } from "./table/totals.node.tsx";
 import { Contents } from "./table-of-contents/basic.node.tsx";
 
 /** Where a node type stands: shipped, authorable only by hand, or not yet built. */
@@ -88,6 +90,16 @@ const DERIVERS: NodeOption = {
     "`derived.*` and readable from a template token. Built with `derive()`. " +
     "These survive publishing and run per document — use them for anything " +
     "computed from request data. `useDeriver` runs one during the build instead.",
+};
+
+const VARIANT: NodeOption = {
+  name: "variant",
+  type: "string",
+  summary:
+    "A block style the theme looks up — `\"band\"`, `\"badge\"`, `\"panel\"`. Names " +
+    "what the node is, never what it looks like: the appearance lives in the " +
+    "style's `blocks`, so a document restyles without a node changing. A name " +
+    "the theme has not heard of draws as an ordinary block rather than failing.",
 };
 
 const ID: NodeOption = {
@@ -277,26 +289,34 @@ export const NODE_TYPES: NodeTypeEntry[] = [
         name: "src",
         type: "string",
         required: true,
-        summary: "Static only. Path or URL to the image; lands on the node as `path`.",
+        summary:
+          "Static only. Lands on the node as `path`. A `data:` URI carries the " +
+          "bytes and is the only form that survives into a DOCX; a path or URL " +
+          "draws on screen only.",
+      },
+      {
+        name: "fallbackSrc",
+        type: "string",
+        summary:
+          "Static only. A raster to embed in place of an SVG, which Word will " +
+          "not take alone. Screen renderers ignore it and draw the SVG.",
       },
       {
         name: "alt",
         type: "string",
         summary:
-          "Static only. Alternative text — and, while the renderers draw a " +
-          "frame rather than the picture, the words printed inside it.",
+          "Static only. Alternative text, carried into the DOCX — and the words " +
+          "printed in the frame when there is no picture yet.",
       },
       {
         name: "width",
         type: "number",
-        summary:
-          "Static only. Intended width. Carried onto the node untouched; no " +
-          "shipped renderer reads it yet.",
+        summary: "Static only. Rendered width in points, honoured by both renderers.",
       },
       {
         name: "height",
         type: "number",
-        summary: "Static only. Intended height, on the same terms as `width`.",
+        summary: "Static only. Rendered height in points, on the same terms as `width`.",
       },
       ...PROMPT_OPTIONS.map((option) => ({
         ...option,
@@ -394,6 +414,52 @@ export const NODE_TYPES: NodeTypeEntry[] = [
     ],
   },
   {
+    id: "table",
+    title: "Table",
+    kind: "table",
+    category: "Data",
+    status: "stable",
+    helpers: ["Table", "Row", "Cell"],
+    summary: "A grid of cells, with the columns declared once.",
+    detail:
+      "The columns belong to the table, because every row shares them — a " +
+      "table whose columns do not line up is not a table. Everything else is " +
+      "an ordinary node: a `.map()` produces rows, a condition drops one, and " +
+      "each names itself. That is what lets a published invoice carry one loop " +
+      "the engine walks rather than a table full of special cases.",
+    children: "`Row`s, and any `.map()` producing them. A `Row` holds `Cell`s.",
+    resolves: "Static",
+    renderNote: null,
+    options: [
+      ID,
+      {
+        name: "columns",
+        type: "TableColumn[]",
+        required: true,
+        summary:
+          "The columns, left to right. Each takes a `width` in millimetres or " +
+          "`\"auto\"` to share what the fixed ones leave, and an `align` of " +
+          "`left`, `center` or `right`.",
+      },
+      VARIANT,
+      DERIVERS,
+    ],
+    variants: [
+      {
+        id: "basic",
+        title: "Rows from data",
+        summary: "A header row, then one row per entry from a `.map()`.",
+        component: VisitLog as Component,
+      },
+      {
+        id: "totals",
+        title: "A closing row",
+        summary: "A cell holding two paragraphs, and a row marked as a heading.",
+        component: PriceSummary as Component,
+      },
+    ],
+  },
+  {
     id: "table-of-contents",
     title: "Table of contents",
     kind: "tableOfContents",
@@ -429,23 +495,6 @@ export const NODE_TYPES: NodeTypeEntry[] = [
         component: Contents,
       },
     ],
-  },
-  {
-    id: "table",
-    title: "Table",
-    kind: "table",
-    category: "Data",
-    status: "planned",
-    helpers: [],
-    summary: "Rows and columns, with cells that are themselves nodes.",
-    detail:
-      "Not built yet. The intent is a node whose cells hold other nodes, so a " +
-      "table composes the way a section does rather than becoming a second " +
-      "content model beside it.",
-    children: "Planned: paragraphs, images and graphs, per cell.",
-    resolves: "Locally",
-    options: [],
-    variants: [],
   },
   {
     id: "clip-art",

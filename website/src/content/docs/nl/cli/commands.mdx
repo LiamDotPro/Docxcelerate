@@ -64,3 +64,70 @@ plek in het document waar hij hoort.
 De node die hij schrijft begint met zijn content. Wat een node gegenereerd maakt
 is er prompts op zetten, en dat beslist een component met data in handen — hier
 valt dus niets te kiezen. Zie [nodes schrijven](/nl/docs/writing-nodes/).
+
+## dxcl list
+
+Drukt het register af: elk thema en elke kant-en-klare component die het package
+meelevert.
+
+```sh
+dxcl list
+dxcl list themes
+dxcl list components
+```
+
+Dezelfde catalogus is te doorbladeren bij [thema's](/nl/themes/) en
+[componenten](/nl/components/), waar elk item een preview draagt die is gemaakt
+door dezelfde renderer als die de CLI meelevert.
+
+## dxcl show
+
+Drukt één item volledig af — wat het is, wat het leest en waar zijn bestanden
+belanden.
+
+```sh
+dxcl show slate-report
+dxcl show payment-summary
+```
+
+## dxcl add
+
+Installeert thema's en componenten in een documentproject.
+
+```sh
+dxcl add slate-report
+dxcl add letterhead signature-block
+dxcl add payment-summary --project documents/arrears-notice
+```
+
+| Vlag | Effect |
+| --- | --- |
+| `--project <dir>` | Het documentproject om in te installeren |
+| `--force` | Overschrijf bestanden die er al staan |
+
+Zonder `--project` gebruikt het commando het documentproject waarin je staat, of
+het enige onder `documents/`. Zijn er meerdere en ligt geen ervan voor de hand,
+dan zegt het dat in plaats van te gokken.
+
+**Een component** wordt als broncode gekopieerd — `nodes/<name>.node.tsx` — en
+opnieuw geëxporteerd vanuit `nodes/index.ts`. Daarna is het jouw bestand: het
+heeft geen versie, het wordt nooit achter je rug om bijgewerkt, en het bewerken
+ervan is de bedoelde volgende stap en geen fork. Wat het niet doet is je
+datatype bewerken, dus de velden die de component leest worden afgedrukt zodat
+jij ze toevoegt. Hem in `document.tsx` plaatsen is ook aan jou, om dezelfde
+reden waarom de nodegenerator dat met rust laat.
+
+**Een thema** wordt weggeschreven als de `document-style.ts` van het project,
+die `document.project.ts` al doorgeeft — de volgende preview is dus getypeerd
+volgens het thema. Het bestand importeert het thema en spreidt het uit, zodat
+één marge overschrijven een regel is en geen fork:
+
+```ts
+export const documentStyle: DocumentStyle = themeStyle(slateReportTheme, {
+  page: { margins: { topMm: 20 } },
+});
+```
+
+Een tweede thema installeren vervangt een `document-style.ts` die niemand heeft
+aangeraakt. Zodra je erin geschreven hebt, vereist vervangen `--force` — het
+punt van het bestand is nu juist dat het van jou is.

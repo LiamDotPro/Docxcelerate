@@ -86,9 +86,12 @@ Distinct ids are what let a resolved document record which arm this recipient
 got, and they are *required* once a branch is published — an engine stores both
 arms, and an id addresses exactly one node.
 
-Both forms above decide **at build time**, which is right for a document produced
-from data you hold. A document that ships to an engine has to carry the decision
-instead: see [publishing.md](publishing.md#3-a-decision-has-to-be-written-as-a-condition).
+The **first** form publishes: the build compiles the `if` into a condition, so
+both arms travel and the engine picks one per recipient. A ternary and a
+`cond && <Node />` compile the same way. The **second** does not — it picks a
+*string*, and a value that varies per document is a deriver's job. That is the
+line: an arm has to yield a node. See
+[publishing.md](publishing.md#3-a-decision-has-to-be-written-as-a-condition).
 
 ## Structure computed from data
 
@@ -112,9 +115,77 @@ it out: a node without an id takes one from where it sits, which is what stops a
 `map` from demanding names you do not have. Falsy children are skipped, so
 `{state.overdue && <Reminder />}` works as written.
 
-This is correct only because the list is known when the document is built. A list
-known only per request needs `<Repeat>` — see
+The same `.map()` is correct whether the list is known now or only per request.
+It walks the collection here, and is published as a loop the engine walks — see
 [publishing.md](publishing.md).
+
+## A table of line items
+
+The columns are declared once; the rows are the same `.map()` as anywhere else,
+so an invoice with three lines and one with thirty are the same document:
+
+```tsx
+export const Charges: Section = () => {
+  const { currency, number } = useFormat("en-GB");
+  const [state] = useState((data: InvoiceData) => ({ lines: data.lines }));
+
+  return (
+    <Section id="charges" title="Charges">
+      <Table
+        id="lines"
+        columns={[
+          { width: "auto" },
+          { width: 16, align: "right" },
+          { width: 26, align: "right" },
+        ]}
+      >
+        <Row header>
+          <Cell>Description</Cell>
+          <Cell>Qty</Cell>
+          <Cell>Amount</Cell>
+        </Row>
+        {state.lines.map((line) => (
+          <Row>
+            <Cell>
+              <Paragraph>{line.desc}</Paragraph>
+              <Paragraph variant="muted">{line.meta}</Paragraph>
+            </Cell>
+            <Cell>{number(line.qty, { minimumFractionDigits: 1 })}</Cell>
+            <Cell>{currency(line.qty * line.rate)}</Cell>
+          </Row>
+        ))}
+      </Table>
+    </Section>
+  );
+};
+```
+
+A cell takes text directly; give it paragraphs only when one line is not enough,
+as the description does above. Mark a totals row `header` to draw it as one — it
+stays where it is, because only the rows a table *opens* with repeat onto a new
+page.
+
+## Running header, footer and page numbers
+
+Furniture goes on the `<Document>`, not in the body, because it repeats and sits
+outside the margins:
+
+```tsx
+export const documentTemplate = template<InvoiceData>(
+  <Document id="invoice" title="Invoice" header={<RunningHeader />} footer={<RunningFooter />}>
+    <Letterhead />
+    <Charges />
+    <PageBreak id="to-payment" />
+    <Payment />
+  </Document>,
+);
+```
+
+`<PageNumber />` goes in the footer and prints `1 / 2` by default. A build cannot
+know the count — an engine writing a longer paragraph changes it — so Word gets
+a field it recounts and the preview counts its own pages. Reach for `<PageBreak>`
+only when the break is part of what the document *is*; nudging a paragraph off
+the bottom of a page is the margins' job.
 
 ## Interpolate an engine value into prose
 
@@ -202,6 +273,20 @@ export const Signature: Image = () => {
   return <Image id="signature" src={state.src} alt={`Signed by ${state.manager}`} width={180} />;
 };
 ```
+
+**A `src` that is a URL draws on screen but does not pack.** Packing means
+embedding bytes, and nothing is fetched or read from disk while it happens — the
+engine writing the document is not on the machine the file was on. A picture
+that has to survive into the `.docx` travels as a `data:` URI:
+
+```tsx
+import { markPng, markSvg } from "../assets.ts";
+
+<Image id="mark" src={markSvg} fallbackSrc={markPng} alt="" width={8} height={8} />;
+```
+
+Word will not embed an SVG without a raster beside it, which is what
+`fallbackSrc` is for: the screen draws the sharp SVG, the `.docx` gets the PNG.
 
 A dynamic image takes the same four prompt slots. `negativePrompt` earns its
 place here more than anywhere: generated imagery fails in predictable ways —

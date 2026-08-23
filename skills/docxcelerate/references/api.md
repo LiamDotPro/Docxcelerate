@@ -21,16 +21,22 @@ than the nodes beside it.
 
 ## Elements
 
-Every element accepts `id`, and — written by the branch compiler rather than by
-hand — `when` and `derivers`.
+Every element accepts `id` and `variant`, and — written by the branch compiler
+rather than by hand — `when` and `derivers`.
 
 ```ts
 interface CommonElementProps {
   id?: string;
-  when?: Condition;                  // a decision left to the engine
+  variant?: string;                   // a block style the theme looks up
+  when?: Condition;                   // a decision left to the engine
   derivers?: DeriverInvocation[];     // derivers the engine runs before this node
 }
 ```
+
+`variant` names what a node *is* — `"band"`, `"badge"`, `"panel"` — never what
+it looks like. The appearance lives in the style's `blocks`, so a document
+restyles without a node changing, and a name the theme has not heard of draws as
+an ordinary block rather than failing. See **Block styles** below.
 
 `Paragraph`, `Image` and `Graph` also accept the prompt slots, which are what
 make a node dynamic:
@@ -47,21 +53,45 @@ interface PromptProps {
 
 | Element | Own props |
 | --- | --- |
-| `Document` | `id` (required), `title` (required), `metadata?`, `children?` |
+| `Document` | `id` (required), `title` (required), `metadata?`, `header?`, `footer?`, `children?` |
 | `Section` | `title` (required), `children?` |
 | `Paragraph` | `text?`, `children?` |
-| `Image` | `src?`, `alt?`, `width?`, `height?` |
+| `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` |
 | `Graph` | `graphType?` (`"bar" \| "line" \| "pie"`, default `bar`), `data?`, `caption?` |
+| `Table` | `columns` (required), `children?` |
+| `Row` | `header?`, `children?` |
+| `Cell` | `span?`, `align?`, `children?` |
 | `TableOfContents` | `title?` |
-| `Repeat` | `over` (required), `as?` (default `item`), `indexAs?` (default `index`), `children?` |
+| `PageBreak` | nothing beyond the common props |
+| `PageNumber` | `format?` (`"current" \| "total" \| "currentOfTotal"`, default the last), `separator?` (default `" / "`) |
 
 Notes worth knowing:
 
-- `Section` is the only element with children. Depth of a document is depth of
-  its sections — but both shipped renderers print every section title at one
-  level, so a three-deep document does not yet *look* three-deep.
-- `Image` takes a `src` prop and resolves to a node holding `path`. The node
-  holds a path, never bytes; nothing is fetched or validated during a build.
+- `Section` is the only *titled* container. Depth of a document is depth of its
+  sections — but both shipped renderers print every section title at one level,
+  so a three-deep document does not yet *look* three-deep. `Table`, `Row` and
+  `Cell` hold nodes too; they just do not head anything.
+- **A table's columns are declared once, on the table**, in millimetres or
+  `"auto"`, each with an optional `align`. Rows and cells are ordinary nodes, so
+  a `.map()` produces rows, a condition drops one, and every id names itself —
+  none of it is a special case. `header` on a row draws it as a heading; only
+  the rows a table *opens* with repeat across pages, so a totals row marked
+  `header` stays where it is rather than being lifted above its own figures.
+- **`Cell` takes text directly** — `<Cell>{line.qty}</Cell>` is the common case.
+  Give it paragraphs when one line is not enough.
+- `Image` takes `src` and resolves to a node holding `path`. **Only a `data:`
+  URI travels**: it carries the bytes, so an engine writing the document
+  elsewhere still has the picture. A path or URL draws on screen, where a
+  browser can fetch it, but packs into Word as a note — nothing is ever fetched
+  or read from disk while packing. Word will not embed an SVG alone, so give one
+  a `fallbackSrc` raster: the screen draws the SVG, the `.docx` gets the raster.
+- `PageBreak` is for a break that is part of what the document *is* — payment
+  details on their own page. Nudging a paragraph off the bottom of a page is the
+  margins' job.
+- `Document.header` and `.footer` are running furniture, drawn on every page and
+  sitting outside the margins. A letterhead meant to appear once goes in the
+  body. `PageNumber` belongs here; a build cannot know the count, so Word gets a
+  field it recounts and the preview counts its own pages.
 - `Graph.data` is a `JsonObject` the framework never looks inside.
   `{ labels, series: [{ name, values }] }` is a convention, not a schema — pick
   one shape and keep it consistent across a project. String values inside the
@@ -98,8 +128,8 @@ export const Opening: Section = () => <Section id="opening" title="Opening">…<
 export const Letterhead: Nodes = () => …;   // free to yield whatever fits
 ```
 
-`Document`, `Section`, `Paragraph`, `Image`, `Graph`, `TableOfContents` and
-`Repeat` are all available as types. `Nodes` is the loose one, for wrappers and
+`Document`, `Section`, `Paragraph`, `Image`, `Graph` and `TableOfContents` are
+all available as types. `Nodes` is the loose one, for wrappers and
 layout pieces. Each takes an optional props parameter:
 
 ```tsx
@@ -252,6 +282,8 @@ interface DocumentModel {
   style?: DocumentStyle;
   metadata?: JsonObject;
   nodes: DocumentNode[];
+  header?: DocumentNode[];   // running furniture, drawn on every page
+  footer?: DocumentNode[];
 }
 ```
 
@@ -261,7 +293,8 @@ A resolved paragraph:
 { "id": "greeting", "kind": "paragraph", "mode": "static", "text": "Dear Adaeze Nkemelu," }
 ```
 
-`kind` is `"section" | "paragraph" | "image" | "graph" | "tableOfContents" | "repeat"`.
+`kind` is `"section" | "paragraph" | "image" | "graph" | "table" | "tableRow" |
+"tableCell" | "tableOfContents" | "pageBreak" | "pageNumber" | "repeat"`.
 `mode` is `"static" | "dynamic"` and is **output, not input** — the build derives
 it from what the component supplied. Both modes resolve to the same `kind`; a
 renderer reads `mode` if it cares at all, and never branches on how the node was
@@ -288,4 +321,40 @@ margins in mm), `typography` (body and heading font, body size in pt, line
 height, colour), `paragraph` (spacing after, in pt), and `title` and
 `sectionHeading` text blocks (font size, weight, spacing before and after).
 `cleanMinimalDocumentStyle` is the one shipped preset — spread it and override
-what you need.
+what you need. `showTitle: false` stops a renderer printing the document's title
+above the body, for a document whose own letterhead already carries it; the
+title stays the document's name for everything reading the model.
+
+### Block styles
+
+`blocks` is what a node's `variant` looks up. The node names what it is; the
+theme decides what that means.
+
+```ts
+blocks: {
+  band:  { fill: "F4F6FD", bleed: true, border: "E3E7F5", borderSides: ["bottom"], paddingPt: 10 },
+  badge: { fill: "FBF0DC", border: "E5C78A", color: "8A5A06", fontSizePt: 7,
+           weight: "bold", transform: "uppercase", letterSpacingEm: 0.1, paddingPt: 5 },
+}
+```
+
+| Field | Means |
+| --- | --- |
+| `fill` | background, hex without the `#` |
+| `color` | text colour |
+| `border`, `borderWidthPt`, `borderSides` | a border, on all four edges unless sides are named |
+| `paddingPt` | space between the block's edge and its content |
+| `fontSizePt`, `weight`, `transform`, `letterSpacingEm` | how the text is set |
+| `bleed` | the block runs the full width of the page rather than the text |
+
+**Every one of these means the same thing on screen and in the `.docx`** — a
+fill is shading, a border is a real border, a bleed is a negative indent past
+the margin, letter spacing is character spacing. If a property cannot be
+expressed in Word it is not offered: a style that quietly did nothing in the
+format the framework produces would be worse than one that never existed. That
+is why there is no corner rounding — Word has no rounded blocks, so neither
+does this.
+
+A cell takes its block from its own `variant`, then its row's, then its table's
+— the narrower statement wins. A paragraph inside a cell is set by its own
+variant over the cell's, which is how a muted note sits inside a filled row.

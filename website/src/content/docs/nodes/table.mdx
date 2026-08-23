@@ -1,0 +1,113 @@
+---
+title: Table
+description: "A grid of cells, with the columns declared once and rows that are ordinary nodes."
+group: Nodes
+subgroup: Node types
+order: 15
+---
+
+import NodeSummary from "../../../components/NodeSummary.astro";
+import NodeVariants from "../../../components/NodeVariants.astro";
+
+<NodeSummary type="table" />
+
+## Writing one
+
+A table needs two things from you: the columns, and the rows. You declare the
+columns once on the `<Table>`, then fill it with `<Row>`s of `<Cell>`s.
+
+```tsx
+import { Cell, Row, Table, useFormat, useState } from "docxcelerate/template";
+
+export const VisitLog: Table = () => {
+  const { number } = useFormat("en-GB");
+  const [state] = useState((data: MemberData) => ({ months: data.visitsByMonth }));
+
+  return (
+    <Table id="visit-log" columns={[{ width: "auto" }, { width: 28, align: "right" }]}>
+      <Row header>
+        <Cell>Month</Cell>
+        <Cell>Visits</Cell>
+      </Row>
+      {state.months.map((entry) => (
+        <Row>
+          <Cell>{entry.month}</Cell>
+          <Cell>{number(entry.visits)}</Cell>
+        </Row>
+      ))}
+    </Table>
+  );
+};
+```
+
+Each column takes a `width` — in millimetres, or `"auto"` to share out whatever
+the fixed ones leave — and an optional `align`.
+
+**Why declare columns on the table instead of per cell?** Because every row
+shares them, so declaring them once is what makes the rows line up. It also means
+a cell only has to say what is in it.
+
+## Rows are ordinary nodes
+
+This is the part worth knowing, because it means there is less to learn than you
+might expect.
+
+Rows and cells are nodes, exactly like a paragraph or a section. So everything
+you already know works on them:
+
+- `.map()` over your data produces a row per entry, as above.
+- A condition drops a row, the same way it drops any other node.
+- Ids name themselves, so you don't have to invent one per row.
+
+None of that is special-cased for tables. It is also why a published invoice
+carries a single loop for the engine to walk, rather than a table full of
+exceptions.
+
+## What a cell holds
+
+Most cells hold a value, so text goes straight in:
+
+```tsx
+<Cell>{line.qty}</Cell>
+```
+
+When one line isn't enough — a description with a quieter note under it — give
+the cell paragraphs instead, and they stay on separate lines:
+
+```tsx
+<Cell>
+  <Paragraph>{line.desc}</Paragraph>
+  <Paragraph variant="muted">{line.meta}</Paragraph>
+</Cell>
+```
+
+## Header rows
+
+Marking a row `header` draws it as a heading:
+
+```tsx
+<Row header>
+  <Cell>Description</Cell>
+  <Cell>Amount</Cell>
+</Row>
+```
+
+Only the rows a table **starts** with repeat onto each new page. That matters if
+you mark a totals row as a header to give it emphasis: it still gets drawn as a
+heading, but it stays put at the bottom, under the figures it adds up. It won't
+be lifted to the top of page two.
+
+## Variants
+
+<NodeVariants type="table" />
+
+## Notes
+
+- An empty cell is still a cell. Word won't accept a truly empty one, so it packs
+  as a blank box rather than a column that has gone missing.
+- `span` runs a cell across several columns. `align` overrides its column's
+  alignment for that one cell.
+- If you set a `variant` on a cell, it wins over one on the row, which wins over
+  one on the table. The more specific one is usually the one you meant.
+- Both renderers draw a real table — a `<table>` on screen, and a Word table with
+  your declared column widths in the `.docx`.

@@ -28,6 +28,8 @@ export const ru: UiStrings = {
   nav: {
     label: "Основная навигация",
     docs: "Документация",
+    themes: "Темы",
+    components: "Компоненты",
     cloud: "Облако",
     github: "GitHub",
     switchTheme: "Сменить тему",
@@ -292,11 +294,13 @@ export const ru: UiStrings = {
       education: "Образование",
       housing: "Жильё",
       insurance: "Страхование",
+      consulting: "Профессиональные услуги",
     },
     documents: {
       "offer-of-admission": "Письмо о зачислении",
       "repairs-appointment": "Запись на ремонт",
       "policy-renewal": "Продление полиса",
+      invoice: "Счёт",
     },
   },
 
@@ -355,6 +359,119 @@ export const ru: UiStrings = {
       "stable": "Стабильно",
       "no-helper": "Хелпера пока нет",
       "planned": "В планах",
+    },
+  },
+
+  registry: {
+    /** The detail pages, per design boards 2b and 2c. */
+    backToRegistry: "Реестр",
+    renderedBy: "Отрисовано Docxcelerate во время сборки",
+    openPreview: "Открыть ↗",
+    specification: "Спецификация",
+    specNote: "Значения берутся из style.page и style.typography.",
+    margins: "Поля",
+    body: "Основной текст",
+    titleLabel: "Заголовок",
+    sectionHeading: "Заголовок раздела",
+    paragraphLabel: "Абзац",
+    after: "после",
+    compare: "Сравнить",
+    compareNote: "Один и тот же абзац в каждой теме",
+    viewing: "просмотр",
+    requires: "Требует",
+    requiresNothing: "Ничего. Устанавливается сам по себе.",
+    installsAlone: "Устанавливается сам по себе.",
+    stepData: "Данные предпросмотра",
+    stepDataNote: "JSON, на котором построен этот предпросмотр",
+    stepPreview: "Отрисованный предпросмотр",
+    stepPreviewNote: "компонент, отрисованный сам по себе",
+    stepNodes: "Разрешённые узлы",
+    /** {count} is a number of nodes. */
+    stepNodesNote: "что получает рендерер — узлов: {count}",
+    stepFiles: "Файлы",
+    stepFilesNote: "что записывает установка; выбранный файл и есть компонент",
+    dataFieldsNote: "Добавьте их в свой types.ts после установки. Это единственный ручной шаг.",
+    copyFieldPaths: "Скопировать пути полей",
+    /** {exports} is a list of names, {count} a number of nodes. */
+    exportsResolves: "экспортирует {exports} · разрешается в узлов: {count}",
+    categoryTags: "Категория · теги",
+    nothingHere: "Здесь пока ничего нет.",
+    nothingHereNote: "Реестр собирается из пакета. Как только запись появится в нём, она появится и здесь.",
+    /** The one-page registry at /registry. */
+    browse: {
+      title: "Реестр",
+      description:
+        "Готовые темы и компоненты документов для Docxcelerate, устанавливаемые в проект одной командой.",
+      eyebrow: "Реестр",
+      heading: "Реестр",
+      lead:
+        "Готовые темы и компоненты для ваших документных проектов. Установите одной командой, а дальше правьте как собственный код.",
+      filterByTag: "Фильтр по тегу",
+      allTags: "Все",
+      themesNote: "Установка темы записывает document-style.ts",
+      componentsNote: "Установка компонента записывает его файл в nodes/",
+      nodes: "узлов",
+      noPreview: "Без предпросмотра",
+      /** {tag} is the tag that matched nothing. */
+      noMatches: "Ни одна запись не подходит под {tag}.",
+      noMatchesTitle: "Совпадений нет",
+      noMatchesNote: "Попробуйте другой тег или сбросьте фильтр.",
+      clearFilter: "Сбросить фильтр",
+    },
+    themes: {
+      title: "Темы",
+      description:
+        "Готовые темы документов для Docxcelerate: шрифты, цвета, отступы и " +
+        "формат страницы — устанавливаются одной командой.",
+      heading: "Темы",
+      lead:
+        "Шрифты, цвета, отступы и страница — под одним именем. Тема — это один " +
+        "импорт в проекте, и она путешествует вместе с собранным документом: " +
+        "тому, кто его отрисует, ничего устанавливать не нужно.",
+      cta: "Посмотреть темы",
+    },
+    components: {
+      title: "Компоненты",
+      description:
+        "Готовые компоненты Docxcelerate: бланки, адресные блоки, сводки по " +
+        "платежам и другое — копируются в проект как ваш собственный код.",
+      heading: "Компоненты",
+      lead:
+        "Узлы, которые кто-то уже написал и продумал. Установка копирует " +
+        "исходный код в ваш проект — без версии, без пути обновления и без " +
+        "необходимости что-либо форкать.",
+      cta: "Посмотреть компоненты",
+    },
+    install: "Установка",
+    preview: "Предпросмотр",
+    category: "Категория",
+    tags: "Метки",
+    fonts: "Шрифты",
+    page: "Страница",
+    typography: "Типографика",
+    colours: "Цвета",
+    spacing: "Отступы",
+    exports: "Экспортирует",
+    reads: "Что читает",
+    field: "Поле",
+    type: "Тип",
+    whatItDoes: "Для чего это",
+    source: "Исходный код",
+    lands: "Куда попадёт",
+    resolvesTo: "Во что превращается",
+    previewData: "Предпросмотр на данных",
+    drawnAgainst: "Нарисован под тему {theme}.",
+    allThemes: "Все темы",
+    allComponents: "Все компоненты",
+    ad: {
+      heading: "Начните следующий документ с форой.",
+      body:
+        "В реестре есть темы и компоненты документов. `dxcl add` копирует файл в ваш проект. Никакой зависимости и никакой версии, за которой нужно следить.",
+      browse: "Посмотреть реестр",
+      howItWorks: "Как работает установка",
+      written: "записано файлов: 2 · зависимостей не добавлено",
+      afterInstall:
+        "После установки файлы лежат в вашем репозитории. Правьте их как любой другой код.",
     },
   },
 

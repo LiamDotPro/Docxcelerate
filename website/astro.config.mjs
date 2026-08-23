@@ -40,6 +40,10 @@ export default defineConfig({
   },
   redirects: {
     ...localised("/docs", "/docs/start-here/"),
+    // The two galleries became one page. Both addresses were published, so they
+    // land on the section they used to be rather than on a 404.
+    ...localised("/themes/", "/registry/#themes"),
+    ...localised("/components/", "/registry/#components"),
     // The page was called "letters and nodes" until the vocabulary settled on
     // documents. Anything already linking to the old slug still lands.
     ...localised(

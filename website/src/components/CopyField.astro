@@ -1,0 +1,79 @@
+---
+/**
+ * A command, with a button that copies it.
+ *
+ * The install command is the call to action on every registry surface, so it is
+ * a control rather than a line of prose you have to select by hand.
+ *
+ * The copy itself is progressive: the markup is a readable `<code>` on its own,
+ * and the script upgrades it. Without JavaScript you still see the command and
+ * can select it.
+ */
+interface Props {
+  /** The command to show and copy. */
+  command: string;
+  /** Tighter, for a card footer rather than a page header. */
+  compact?: boolean;
+  /** What the button says once it has copied. Defaults to a tick. */
+  copiedLabel?: string;
+}
+
+const { command, compact = false, copiedLabel = "Copied" } = Astro.props;
+---
+
+<div
+  class:list={[
+    "flex items-center justify-between gap-2 rounded-md border border-firm bg-surface",
+    "min-h-[44px] sm:min-h-0",
+    compact ? "px-2 py-1" : "px-3 py-2",
+  ]}
+  data-copy-field
+>
+  <code
+    class:list={[
+      "select-all truncate font-mono text-ink",
+      compact ? "text-[0.7rem]" : "text-sm",
+    ]}
+    data-copy-command>{command}</code>
+  <button
+    type="button"
+    class:list={[
+      "shrink-0 rounded border border-firm bg-paper text-muted transition-colors hover:text-ink",
+      // 44px is the smallest comfortable touch target; the visual size stays
+      // small on a card, so the padding does the work rather than the type.
+      "min-h-[44px] sm:min-h-0",
+      compact ? "px-2.5 py-0.5 text-[0.65rem]" : "px-3 py-1 text-xs",
+    ]}
+    data-copy-button
+    data-copied={copiedLabel}
+    aria-label={`Copy ${command}`}
+    hidden
+  >
+    Copy
+  </button>
+</div>
+
+<script>
+  for (const field of document.querySelectorAll<HTMLElement>("[data-copy-field]")) {
+    const button = field.querySelector<HTMLButtonElement>("[data-copy-button]");
+    const code = field.querySelector<HTMLElement>("[data-copy-command]");
+
+    // Only offered where it can actually work. A button that does nothing is
+    // worse than no button.
+    if (!button || !code || !navigator.clipboard) continue;
+
+    button.hidden = false;
+    const idle = button.textContent ?? "Copy";
+
+    button.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(code.textContent ?? "");
+        button.textContent = button.dataset.copied ?? "Copied";
+        setTimeout(() => (button.textContent = idle), 1600);
+      } catch {
+        // Denied permission, or an insecure origin. The command is still on
+        // screen and selectable, so there is nothing to report.
+      }
+    });
+  }
+</script>

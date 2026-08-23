@@ -1,0 +1,18 @@
+---
+// One theme, under a language prefix. Slugs are not translated — /de/themes/
+// slate-report/ is the German page at the English address, which is what makes
+// the language switcher a prefix swap.
+import ThemeDetail from "../../../components/ThemeDetail.astro";
+import { THEMES } from "../../../registry";
+import { PREFIXED_LOCALES } from "../../../i18n";
+
+export function getStaticPaths() {
+  return PREFIXED_LOCALES.flatMap((locale) =>
+    THEMES.map((theme) => ({ params: { locale, slug: theme.id }, props: { theme } }))
+  );
+}
+
+const { theme } = Astro.props;
+---
+
+<ThemeDetail theme={theme} />

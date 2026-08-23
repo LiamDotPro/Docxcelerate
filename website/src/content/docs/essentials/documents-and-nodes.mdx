@@ -5,11 +5,21 @@ group: Essentials
 order: 1
 ---
 
-A document is a template plus a data type. The template is a tree of
-**components**; each one returns **nodes**, and resolving the tree against data
-produces a `DocumentModel` — plain JSON, no rendering implied.
+A document in Docxcelerate is two things: a **template** and the **data type** it
+expects.
+
+The template is a tree of components, and each component returns **nodes** — a
+paragraph, a section, a table. When you build the template against some data, you
+get back a `DocumentModel`: plain JSON describing what the document says, with no
+styling and no layout in it. Turning that into a `.docx` or a preview page comes
+later, and is somebody else's job.
+
+If you have written a React or Vue component before, most of this will feel
+familiar. The parts that differ are called out as we go.
 
 ## A component takes its data as state
+
+Here is about the smallest useful component you can write:
 
 ```tsx
 import { Paragraph, useState } from "docxcelerate/template";
@@ -24,21 +34,25 @@ export const Greeting: Paragraph = () => {
 };
 ```
 
-`useState` is where data enters a component, and the only place it does.
-Everything after it reads state. That is a rule with a reason: because every
-dependency passes through one declaration, what a component needs is written
-down rather than scattered through the code that uses it.
+`useState` is where your data enters the component — and it is the only place it
+can. Everything after that line reads from `state`.
 
-The initializer is ordinary TypeScript. There is no template language, so
-conditionals, formatting and imports are all just available.
+**Why route everything through one call?** Because it puts everything the
+component depends on in one place. You can read the top of the file and know what
+data it needs, instead of hunting for it through the rest of the code.
 
-`Paragraph` names both the element and the component type — a value and a type
-may share a name — so `const Greeting: Paragraph` says what this yields, and
-returning a `<Section>` from it is a compile error.
+The initializer is ordinary TypeScript, so you can do whatever you like inside
+it. There is no template language to learn: conditionals, formatting, imports and
+`.map()` all work the way you already expect.
+
+One thing that might look odd: `Paragraph` is both the element and the component
+type. In TypeScript a value and a type can share a name, so writing
+`const Greeting: Paragraph` declares what this component yields. Try to return a
+`<Section>` from it and you get a compile error.
 
 ## Data can also arrive as props
 
-A component that is given what it needs does not have to reach for it:
+If a component is handed what it needs, it doesn't have to go and fetch it:
 
 ```tsx
 export const Arrears: Paragraph<{ amount: number }> = ({ amount }) => {
@@ -48,12 +62,16 @@ export const Arrears: Paragraph<{ amount: number }> = ({ amount }) => {
 };
 ```
 
-Something has to read the data first, so a props-only component sits under a
-parent that took it into state. Use props for components you want to reuse
-against different values, and state for components that know which document
-they belong to.
+Something still has to read the data first, so a props-only component sits under
+a parent that took it into state.
+
+**Which should you use?** Props for components you want to reuse against
+different values. State for components that know which document they belong to.
 
 ## Decisions are ordinary `if`
+
+You do not need a special construct to make a document conditional. Write the
+`if` you would write anywhere else:
 
 ```tsx
 export const Balance: Paragraph = () => {
@@ -69,27 +87,34 @@ export const Balance: Paragraph = () => {
 };
 ```
 
-Give each arm its own id. The resolved document then records which one this
-recipient got, which is the difference between a document you can audit and one
-you can only look at.
+A ternary works too, and so does `{condition && <Node />}` inside your JSX.
 
-There is one thing to know about branching before you publish to an engine:
-see [what changes when you publish](/docs/essentials/templates/#what-changes-when-you-publish).
+Give each arm its own id, as above. The resolved document then records which one
+this recipient actually got — which is the difference between a document you can
+audit later and one you can only look at.
+
+Something changes about branching when you publish a document to an engine, but
+you don't need it yet. We cover it in
+[what changes when you publish](/docs/essentials/templates/#what-changes-when-you-publish).
 
 ## Ids
 
-An id is how an engine addresses a node and how build artifacts stay diffable
-between runs, so treat a rename as a breaking change.
+An id is how an engine addresses a particular node, and how two build artifacts
+line up when you diff them. Renaming one is a breaking change for anything
+pointing at it, much like renaming an API route.
 
-You can leave it out. A node without an id takes one from where it sits, which
-is what keeps branches and loops from forcing you to invent names. What you
-cannot do is use one twice: two nodes claiming one id is an error, reported with
-both positions, rather than a race the later one wins.
+**You can usually leave ids out.** A node without one is named after what it is —
+its heading, or the component that produced it — so `<Greeting />` becomes
+`greeting`. That is what stops loops and branches from forcing you to invent
+names for nodes nobody refers to.
+
+The one thing you cannot do is use an id twice. Two nodes claiming the same id is
+an error, reported with both positions, rather than a race the later one wins.
 
 ## Sections nest, nodes don't
 
-`Section` is the only nesting construct. It carries a title into the document
-outline:
+`Section` is the only element that groups other nodes under a heading, and its
+title carries into the document outline:
 
 ```tsx
 <Section id="opening" title="Opening">
@@ -98,11 +123,13 @@ outline:
 </Section>
 ```
 
-See [Section](/docs/nodes/section/) for what a section may hold and how deeply.
+`Table` holds nodes too — rows, and cells inside them — but it doesn't head
+anything. See [Section](/docs/nodes/section/) for how deeply you can nest, and
+[Table](/docs/nodes/table/) for grids.
 
 ## Hooks
 
-Hooks are how a component reaches the build around it:
+Hooks are how a component reaches the build going on around it:
 
 | Hook | What it gives you |
 | --- | --- |
@@ -115,12 +142,16 @@ Hooks are how a component reaches the build around it:
 | `useAvailableTokens` | The token budget this build allotted |
 | `useDeriver` | Runs a registered deriver now |
 
-They run in call order, so every hook must be reached before the first `await`
-and before any branch — the same rule React uses, for the same reason. Calling
-one after an `await` is an error that says so rather than quietly attaching to
-whichever component renders next.
+There is one rule, and it is the same one React has: **call every hook before the
+first `await`, and before any branch or `return`.** Hooks are matched up by the
+order you call them in, so a hook reached only sometimes would attach itself to
+the wrong component.
+
+If you get this wrong, you get an error that says so. It will not fail quietly.
 
 ## Building the document
+
+Once you have a template, building it is one call:
 
 ```ts
 import { buildDocument } from "docxcelerate";
@@ -128,13 +159,13 @@ import { buildDocument } from "docxcelerate";
 const doc = await buildDocument(documentTemplate, data);
 ```
 
-The result is a `DocumentModel`: a `schemaVersion`, an `id`, a `title`, and a
-`nodes` array. It contains no styling and no layout — those are applied later by
-whichever renderer consumes it.
+What comes back is a `DocumentModel` — a `schemaVersion`, an `id`, a `title` and
+an array of `nodes`. There is no styling or layout in it. Those get applied later
+by whichever renderer you hand it to.
 
-For a document project defined with `defineDocumentProject`, prefer
-`buildProjectPreviewDocument`, which applies the project's style and resolves
-dynamic nodes to their placeholders:
+If you have a document project (one defined with `defineDocumentProject`), reach
+for `buildProjectPreviewDocument` instead. It applies the project's style and
+resolves dynamic nodes to their placeholders:
 
 ```ts
 import { buildProjectPreviewDocument } from "docxcelerate";
@@ -142,5 +173,5 @@ import { buildProjectPreviewDocument } from "docxcelerate";
 const doc = await buildProjectPreviewDocument(project);
 ```
 
-That is exactly what the preview app calls, so what you build in code matches
-what you saw in the browser.
+This is exactly what the preview app calls, so what you build in code matches what
+you saw in the browser.

@@ -7,7 +7,13 @@
  * @module
  */
 
-import type { GraphType, JsonObject } from "../domain/types.ts";
+import type {
+  GraphType,
+  JsonObject,
+  PageNumberFormat,
+  TableAlign,
+  TableColumn,
+} from "../domain/types.ts";
 import {
   type CommonElementProps,
   type Component,
@@ -38,12 +44,27 @@ export interface PromptProps {
 
 /** Props for the `<Document>` element, the root every template is built around. */
 export interface DocumentProps extends CommonElementProps {
-  /** Identifier for the document. */
-  id: string;
+  /**
+   * Identifier for the document. Taken from the title when it is left out.
+   *
+   * Worth writing once the document is being generated somewhere, because it
+   * is the name a request asks for. Until then the title says the same thing.
+   */
+  id?: string;
   /** The document's title. */
   title: string;
   /** Anything to carry alongside the document. */
   metadata?: JsonObject;
+  /**
+   * Nodes drawn at the top of every page.
+   *
+   * Running furniture, not the first thing in the body. A letterhead meant to
+   * appear once goes in the body; a strip naming the document on every page
+   * goes here.
+   */
+  header?: Yield;
+  /** Nodes drawn at the foot of every page — the place a `<PageNumber>` goes. */
+  footer?: Yield;
   /** The body of the document. */
   children?: Yield;
 }
@@ -66,8 +87,15 @@ export interface ParagraphProps extends CommonElementProps, PromptProps {
 
 /** Props for the `<Image>` element. */
 export interface ImageProps extends CommonElementProps, PromptProps {
-  /** Where the image file lives, relative to the document project. */
+  /**
+   * Where the picture comes from — a `data:` URI, a path, or a URL.
+   *
+   * Only a `data:` URI travels: it carries the bytes, so an engine writing the
+   * document somewhere else still has the picture.
+   */
   src?: string;
+  /** A raster to pack in place of an SVG, which Word will not embed alone. */
+  fallbackSrc?: string;
   /** Alternative text describing the image. */
   alt?: string;
   /** Rendered width, in points. */
@@ -86,29 +114,58 @@ export interface GraphProps extends CommonElementProps, PromptProps {
   caption?: string;
 }
 
+/** Props for the `<Table>` element. */
+export interface TableProps extends CommonElementProps {
+  /**
+   * The columns, left to right.
+   *
+   * Declared once here rather than per cell, because every row shares them.
+   * A table whose columns do not line up is not a table.
+   */
+  columns: TableColumn[];
+  /** The rows, and any `.map()` producing them. */
+  children?: Yield;
+}
+
+/** Props for the `<Row>` element. */
+export interface RowProps extends CommonElementProps {
+  /** Whether this row heads the table, and repeats onto each new page. */
+  header?: boolean;
+  /** The cells, left to right. */
+  children?: Yield;
+}
+
+/** Props for the `<Cell>` element. */
+export interface CellProps extends CommonElementProps {
+  /** How many columns this cell runs across. */
+  span?: number;
+  /** Alignment, when this cell departs from its column's. */
+  align?: TableAlign;
+  /**
+   * What the cell holds.
+   *
+   * Text goes straight in, so `<Cell>{line.qty}</Cell>` is the common case and
+   * reads as one. Anything needing more than a line — a description above a
+   * muted note — writes its paragraphs out instead.
+   */
+  children?: Yield;
+}
+
 /** Props for the `<TableOfContents>` element. */
 export interface TableOfContentsProps extends CommonElementProps {
   /** The heading printed above the contents. */
   title?: string;
 }
 
-/**
- * A body written once and walked per entry at request time.
- *
- * This is the one structure a build cannot unroll into plain nodes. A branch
- * has two arms and both can be published; a loop has as many arms as the
- * request has entries, and nobody knows that number until a document is
- * written. So the loop is published as a loop.
- */
-export interface RepeatProps extends CommonElementProps {
-  /** Path to the collection, relative to the request data. */
-  over: string;
-  /** Name the entry is bound to, readable as `{{ctx.<as>}}`. Defaults to `item`. */
-  as?: string;
-  /** Name the position is bound to. Defaults to `index`. */
-  indexAs?: string;
-  /** The body repeated for every entry. */
-  children?: Yield;
+/** Props for the `<PageBreak>` element. */
+export type PageBreakProps = CommonElementProps;
+
+/** Props for the `<PageNumber>` element. */
+export interface PageNumberProps extends CommonElementProps {
+  /** Which form to print. Defaults to `currentOfTotal`. */
+  format?: PageNumberFormat;
+  /** What sits between the two numbers. Defaults to ` / `. */
+  separator?: string;
 }
 
 // The types below are written out rather than inferred from `host`. Both
@@ -144,23 +201,45 @@ export const Paragraph: HostElementType<ParagraphProps, "paragraph"> = host(
 export const Image: HostElementType<ImageProps, "image"> = host("image", "Image");
 /** A chart, either given its data or left for the engine to produce one. */
 export const Graph: HostElementType<GraphProps, "graph"> = host("graph", "Graph");
+/**
+ * A grid of cells, with the columns declared once.
+ *
+ * @example
+ * ```tsx
+ * <Table id="lines" columns={[{ width: "auto" }, { width: 26, align: "right" }]}>
+ *   <Row header><Cell>Description</Cell><Cell>Amount</Cell></Row>
+ *   {state.lines.map((line) => (
+ *     <Row><Cell>{line.desc}</Cell><Cell>{currency(line.amount)}</Cell></Row>
+ *   ))}
+ * </Table>
+ * ```
+ */
+export const Table: HostElementType<TableProps, "table"> = host("table", "Table");
+/** One row of a `<Table>`. */
+export const Row: HostElementType<RowProps, "tableRow"> = host("tableRow", "Row");
+/** One cell of a `<Row>`. */
+export const Cell: HostElementType<CellProps, "tableCell"> = host("tableCell", "Cell");
+/**
+ * Where one page ends and the next begins.
+ *
+ * For a break that is part of what the document is — an invoice whose payment
+ * details belong on their own page. Nudging a paragraph off the bottom of a
+ * page is the margins' job, not a node's.
+ */
+export const PageBreak: HostElementType<PageBreakProps, "pageBreak"> = host(
+  "pageBreak",
+  "PageBreak",
+);
+/** The page number, counted by whatever lays the pages out. */
+export const PageNumber: HostElementType<PageNumberProps, "pageNumber"> = host(
+  "pageNumber",
+  "PageNumber",
+);
 /** A table of contents, built from the sections around it. */
 export const TableOfContents: HostElementType<TableOfContentsProps, "tableOfContents"> = host(
   "tableOfContents",
   "TableOfContents",
 );
-/**
- * A body walked once per entry in a request-time collection.
- *
- * @example
- * ```tsx
- * <Repeat id="charges" over="charges" as="charge">
- *   <Paragraph id="line" text="{{ctx.charge.label}}" />
- * </Repeat>
- * ```
- */
-export const Repeat: HostElementType<RepeatProps, "repeat"> = host("repeat", "Repeat");
-
 // The component types below share a name with the element each one yields.
 // `const Balance: Paragraph = () => <Paragraph/>` reads as what it is, because
 // a value and a type may share a name. Naming the kind is what rejects
@@ -202,18 +281,41 @@ export type Image<P = Record<never, never>> = Component<P, "image">;
  */
 export type Graph<P = Record<never, never>> = Component<P, "graph">;
 /**
+ * A component that yields a `<Table>`.
+ *
+ * @typeParam P The props the component takes.
+ */
+export type Table<P = Record<never, never>> = Component<P, "table">;
+/**
+ * A component that yields a `<Row>`, for a row a document builds in one place.
+ *
+ * @typeParam P The props the component takes.
+ */
+export type Row<P = Record<never, never>> = Component<P, "tableRow">;
+/**
+ * A component that yields a `<Cell>`.
+ *
+ * @typeParam P The props the component takes.
+ */
+export type Cell<P = Record<never, never>> = Component<P, "tableCell">;
+/**
+ * A component that yields a `<PageBreak>`.
+ *
+ * @typeParam P The props the component takes.
+ */
+export type PageBreak<P = Record<never, never>> = Component<P, "pageBreak">;
+/**
+ * A component that yields a `<PageNumber>`.
+ *
+ * @typeParam P The props the component takes.
+ */
+export type PageNumber<P = Record<never, never>> = Component<P, "pageNumber">;
+/**
  * A component that yields a `<TableOfContents>`.
  *
  * @typeParam P The props the component takes.
  */
 export type TableOfContents<P = Record<never, never>> = Component<P, "tableOfContents">;
-/**
- * A component that yields a `<Repeat>`.
- *
- * @typeParam P The props the component takes.
- */
-export type Repeat<P = Record<never, never>> = Component<P, "repeat">;
-
 /**
  * A component free to yield whatever fits, for wrappers and layout pieces.
  *

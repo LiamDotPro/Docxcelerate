@@ -32,6 +32,8 @@ export const en = {
   nav: {
     label: "Main",
     docs: "Docs",
+    themes: "Themes",
+    components: "Components",
     cloud: "Cloud",
     github: "GitHub",
     switchTheme: "Switch theme",
@@ -321,11 +323,13 @@ export const en = {
       education: "Education",
       housing: "Housing",
       insurance: "Insurance",
+      consulting: "Professional services",
     },
     documents: {
       "offer-of-admission": "Offer of Admission",
       "repairs-appointment": "Repair Appointment",
       "policy-renewal": "Policy Renewal",
+      invoice: "Invoice",
     },
   },
 
@@ -401,6 +405,126 @@ export const en = {
       "stable": "Stable",
       "no-helper": "No helper yet",
       "planned": "Planned",
+    },
+  },
+
+  /**
+   * The theme and component galleries. The entries themselves are generated
+   * from the package's registry and stay English — see src/registry.ts. These
+   * are the labels around them.
+   */
+  registry: {
+    /** The detail pages, per design boards 2b and 2c. */
+    backToRegistry: "Registry",
+    renderedBy: "Rendered by Docxcelerate at build time",
+    openPreview: "Open ↗",
+    specification: "Specification",
+    specNote: "Values come from style.page and style.typography.",
+    margins: "Margins",
+    body: "Body",
+    titleLabel: "Title",
+    sectionHeading: "Section heading",
+    paragraphLabel: "Paragraph",
+    after: "after",
+    compare: "Compare",
+    compareNote: "The same paragraph in each theme",
+    viewing: "viewing",
+    requires: "Requires",
+    requiresNothing: "Nothing. It installs alone.",
+    installsAlone: "It installs alone.",
+    stepData: "Preview data",
+    stepDataNote: "the JSON this preview was built with",
+    stepPreview: "Rendered preview",
+    stepPreviewNote: "the component rendered on its own",
+    stepNodes: "Resolved nodes",
+    /** {count} is a number of nodes. */
+    stepNodesNote: "what a renderer receives — {count} nodes",
+    stepFiles: "The files",
+    stepFilesNote: "what installing writes; the selected file is the component",
+    dataFieldsNote: "Add these to your types.ts after installing. It is the one manual step.",
+    copyFieldPaths: "Copy field paths",
+    /** {exports} is a list of names, {count} a number of nodes. */
+    exportsResolves: "exports {exports} · resolves to {count} nodes",
+    categoryTags: "Category · tags",
+    nothingHere: "Nothing here yet.",
+    nothingHereNote: "The registry is built from the package. Once an entry ships, it appears here.",
+    /** The one-page registry at /registry. */
+    browse: {
+      title: "Registry",
+      description:
+        "Ready-made themes and document components for Docxcelerate, installed into a project with one command.",
+      eyebrow: "Registry",
+      heading: "Registry",
+      lead:
+        "Ready-made themes and components for your document projects. Install one with a single command, then edit it like your own code.",
+      filterByTag: "Filter by tag",
+      allTags: "All",
+      themesNote: "Installing a theme writes document-style.ts",
+      componentsNote: "Installing a component writes its file into nodes/",
+      nodes: "nodes",
+      noPreview: "No preview",
+      /** {tag} is the tag that matched nothing. */
+      noMatches: "No entries match {tag}.",
+      noMatchesTitle: "No matches",
+      noMatchesNote: "Try a different tag, or clear the filter.",
+      clearFilter: "Clear filter",
+    },
+    themes: {
+      title: "Themes",
+      description:
+        "Ready-made document themes for Docxcelerate: fonts, colours, spacing " +
+        "and page size, installed into a project with one command.",
+      heading: "Themes",
+      lead:
+        "Fonts, colours, spacing and page, under a name. A theme is one import " +
+        "in a project, and it travels with the built document — so whatever " +
+        "renders it needs nothing installed.",
+      cta: "Browse themes",
+    },
+    components: {
+      title: "Components",
+      description:
+        "Prebuilt Docxcelerate components: letterheads, address blocks, " +
+        "payment summaries and more, copied into your project as source you own.",
+      heading: "Components",
+      lead:
+        "Nodes somebody has already written and argued with. Adding one copies " +
+        "it into your project as source you own — no version, no upgrade path, " +
+        "nothing to fork.",
+      cta: "Browse components",
+    },
+    install: "Install",
+    preview: "Preview",
+    category: "Category",
+    tags: "Tags",
+    fonts: "Fonts",
+    page: "Page",
+    typography: "Typography",
+    colours: "Colours",
+    spacing: "Spacing",
+    exports: "Exports",
+    reads: "What it reads",
+    field: "Field",
+    type: "Type",
+    whatItDoes: "What it does",
+    source: "Source",
+    lands: "Lands at",
+    resolvesTo: "What it resolves to",
+    previewData: "Previewed against",
+    /** {theme} is a theme title, linked to its own page. */
+    drawnAgainst: "Drawn against the {theme} theme.",
+    allThemes: "All themes",
+    allComponents: "All components",
+    /** The band on the homepage. */
+    ad: {
+      heading: "Get a head start on your next document.",
+      body:
+        "The registry holds themes and document components. `dxcl add` copies the file into your project. There is no dependency and no version to track.",
+      browse: "Browse the registry",
+      howItWorks: "How installing works",
+      written: "2 files written · no dependency added",
+      afterInstall:
+        "After install, the files are in your repo. Edit them like any other source.",
     },
   },
 
