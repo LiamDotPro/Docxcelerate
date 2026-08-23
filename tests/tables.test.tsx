@@ -2,7 +2,7 @@ import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { buildDocument } from "docxcelerate";
 import { createDocxDocument } from "docxcelerate/docx";
-import { renderDocumentWebsite } from "docxcelerate/renderer";
+import { documentXml } from "./docx.ts";
 import type { DocumentModel, DocumentNode, TableNode, TableRowNode } from "docxcelerate";
 import { Cell, Document, Paragraph, Row, Section, Table, template } from "docxcelerate/template";
 
@@ -178,11 +178,10 @@ test("a totals row stays under the figures it adds up", async () => {
     </Table>
   ));
 
-  const html = renderDocumentWebsite(doc);
-  const body = html.slice(html.indexOf("<tbody>"));
+  const xml = await documentXml(doc as DocumentModel);
 
-  assertStringIncludes(body, "Subtotal");
-  assertEquals(body.indexOf("Subtotal") < body.indexOf("Total due"), true);
+  assertStringIncludes(xml, "Subtotal");
+  assertEquals(xml.indexOf("Subtotal") < xml.indexOf("Total due"), true);
 });
 
 test("the heading a table opens with is the one that repeats across pages", async () => {
@@ -197,17 +196,21 @@ test("the heading a table opens with is the one that repeats across pages", asyn
     </Table>
   ));
 
-  const head = renderDocumentWebsite(doc).match(/<thead>[\s\S]*?<\/thead>/)?.[0] ?? "";
+  const rows = (await documentXml(doc as DocumentModel)).split("<w:tr>");
 
-  assertStringIncludes(head, "Description");
-  assertEquals(head.includes("API build"), false);
+  // `tblHeader` is what makes Word repeat a row at the top of every page the
+  // table runs onto, so it belongs to the row the table opens with and to no
+  // other — a totals row carrying it would print the total on every page,
+  // above the figures it adds up.
+  assertStringIncludes(rows[1], "<w:tblHeader/>");
+  assertStringIncludes(rows[2], '<w:tblHeader w:val="false"/>');
 });
 
 // ---------------------------------------------------------------------------
 // What comes out the other end
 // ---------------------------------------------------------------------------
 
-test("the preview draws a real table, with the declared widths on the columns", async () => {
+test("a declared width comes out that wide on the page", async () => {
   const doc = await build(() => (
     <Table id="lines" columns={[{ width: "auto" }, { width: 26, align: "right" }]}>
       <Row>
@@ -217,11 +220,12 @@ test("the preview draws a real table, with the declared widths on the columns", 
     </Table>
   ));
 
-  const html = renderDocumentWebsite(doc);
+  const xml = await documentXml(doc as DocumentModel);
 
-  assertStringIncludes(html, `<table class="doc-table" data-node-id="lines">`);
-  assertStringIncludes(html, `<col style="width:26mm">`);
-  assertStringIncludes(html, "text-align:right");
+  // 26mm in twips, exactly — a money column lining up is the whole reason a
+  // column was given a width rather than left to share out what is spare.
+  assertStringIncludes(xml, '<w:gridCol w:w="1474"/>');
+  assertStringIncludes(xml, '<w:jc w:val="right"/>');
 });
 
 test("the DOCX packer accepts a table rather than falling through to text", async () => {

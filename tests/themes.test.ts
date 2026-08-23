@@ -10,15 +10,15 @@ import {
   themeById,
   themeStyle,
 } from "docxcelerate/themes";
-import { renderDocumentWebsite } from "docxcelerate/renderer";
+import { documentXml, partXml } from "./docx.ts";
 
 /**
  * Themes as data.
  *
  * A theme is only worth having if a document carries it to whatever renders
  * one — otherwise it is a decision made in a project and lost on the way out.
- * So these tests care about two things: the style a theme resolves to, and that
- * a renderer can be seen honouring it.
+ * So these tests care about two things: the style a theme resolves to, and
+ * that the packed file can be seen honouring it.
  */
 
 test("a theme names itself in the style it resolves to", () => {
@@ -69,36 +69,43 @@ test("overriding one group leaves the rest of the style alone", () => {
   assertEquals(style.title.fontSizePt, boldBriefTheme.style.title.fontSizePt);
 });
 
-test("the web renderer sets the page from the document style", () => {
-  const page = renderDocumentWebsite(themedDocument(legalSerifTheme.id));
+test("the packed file is set from the document style", async () => {
+  const doc = themedDocument(legalSerifTheme.id);
+  const styles = await partXml(doc, "word/styles.xml");
+  const body = await documentXml(doc);
 
-  // Legal Serif is 12pt Times on a wider left margin — all three come through
-  // as custom properties rather than as the renderer's own defaults.
-  assertStringIncludes(page, "--body-size: 12pt;");
-  assertStringIncludes(page, `--body-font: "Times New Roman", serif;`);
-  assertStringIncludes(page, "--page-padding: 25.4mm 25.4mm 25.4mm 31.75mm;");
-  assertStringIncludes(page, "--heading-transform: uppercase;");
+  // Legal Serif is 12pt Times on a wider left margin. All three reach the file
+  // rather than the packer's own defaults — half-points for the size, twips
+  // for the margin.
+  assertStringIncludes(styles, 'w:ascii="Times New Roman"');
+  assertStringIncludes(styles, '<w:sz w:val="24"/>');
+  assertStringIncludes(body, 'w:left="1800"');
 });
 
-test("US Letter and landscape change the page the preview draws", () => {
-  const letter = renderDocumentWebsite(themedDocument(boldBriefTheme.id));
-  assertStringIncludes(letter, "--page-width: 215.9mm;");
-  assertStringIncludes(letter, "--page-height: 279.4mm;");
+test("US Letter and landscape change the page that is packed", async () => {
+  const letter = await documentXml(themedDocument(boldBriefTheme.id));
+
+  // 215.9mm by 279.4mm, in twips.
+  assertStringIncludes(letter, 'w:w="12240"');
+  assertStringIncludes(letter, 'w:h="15840"');
 
   const turned: DocumentModel = {
     ...themedDocument(boldBriefTheme.id),
     style: themeStyle(boldBriefTheme, { page: { orientation: "landscape" } }),
   };
+  const sideways = await documentXml(turned);
 
-  assertStringIncludes(renderDocumentWebsite(turned), "--page-width: 279.4mm;");
-  assertStringIncludes(renderDocumentWebsite(turned), "--page-height: 215.9mm;");
+  assertStringIncludes(sideways, 'w:w="15840"');
+  assertStringIncludes(sideways, 'w:h="12240"');
+  assertStringIncludes(sideways, 'w:orient="landscape"');
 });
 
-test("a document with no style still renders, on the fallback", () => {
-  const page = renderDocumentWebsite(themedDocument(undefined));
+test("a document with no style still packs, on the fallback", async () => {
+  const body = await documentXml(themedDocument(undefined));
 
-  assertStringIncludes(page, "--page-width: 210mm;");
-  assertStringIncludes(page, "--body-size: 11pt;");
+  // A4, and the default theme's 11pt body.
+  assertStringIncludes(body, 'w:w="11906"');
+  assertStringIncludes(await partXml(themedDocument(undefined), "word/styles.xml"), '<w:sz w:val="22"/>');
 });
 
 /** One paragraph, set in whichever theme was asked for. */

@@ -69,16 +69,19 @@ De bijbehorende JSX-runtime staat op `docxcelerate/template/jsx-runtime` (en
 
 ## docxcelerate/renderer
 
-Renderers die een `DocumentModel` omzetten in iets wat je kunt bekijken.
+De renderer die een `DocumentModel` omzet in het bestand waarvoor het bedoeld is,
+opnieuw geëxporteerd onder één ingang.
 
 ```ts
-import { renderDocumentWebsite } from "docxcelerate/renderer";
+import { createDocxBlob } from "docxcelerate/renderer";
 ```
 
-`renderDocumentWebsite` geeft een **compleet, op zichzelf staand HTML-document**
-terug — met een eigen `<html>` en `<style>` — en niet een fragment. Zet het in een
-iframe als je het binnen een andere pagina nodig hebt; zo werkt de preview op de
-homepage van deze site.
+Er is één renderer, en die schrijft Word-bestanden. Om een document op een scherm
+te tonen pak je het in en lees je het bestand terug met een DOCX-viewer — dat is
+wat de preview-app van je workspace doet via `docx-preview`, en ook de previews
+op deze site. Een tweede renderer die het model in HTML zet zou een tweede
+antwoord zijn op hoe een document eruitziet, en degene die niemand in Word opent
+is degene die afdrijft.
 
 ## docxcelerate/docx
 

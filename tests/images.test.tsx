@@ -2,7 +2,6 @@ import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { buildDocument, imageSourceOf, isSvg, rasterTypeOf } from "docxcelerate";
 import { createDocxBlob, createDocxDocument } from "docxcelerate/docx";
-import { renderDocumentWebsite } from "docxcelerate/renderer";
 
 import { Document, Image, template } from "docxcelerate/template";
 
@@ -73,46 +72,32 @@ test("the media types Word takes directly are the raster ones", () => {
 });
 
 // ---------------------------------------------------------------------------
-// On screen
+// What a node says about a picture it does not have yet
 // ---------------------------------------------------------------------------
 
-test("a picture the page can show is shown, not described", async () => {
+test("a node with no picture yet says what will stand there, and how big", async () => {
   const doc = await build(
     <Document id="d" title="D">
-      <Image id="mark" src={pngPixel} alt="The mark" width={8} height={8} />
+      <Image
+        id="qr"
+        generalPrompt="A payment QR code."
+        placeholder="Scan-to-pay code"
+        alt="Scan to pay"
+        width={108}
+        height={108}
+      />
     </Document>,
   );
 
-  const html = renderDocumentWebsite(doc);
+  const node = doc.nodes[0];
 
-  assertStringIncludes(html, '<img class="doc-image"');
-  assertStringIncludes(html, 'alt="The mark"');
-  assertStringIncludes(html, "width:8pt;");
-  // The class also names a CSS rule, so the check is for the box itself.
-  assertEquals(html.includes('<div class="image-placeholder"'), false);
-});
-
-test("a path still draws on screen, where a browser can fetch it", async () => {
-  const doc = await build(
-    <Document id="d" title="D">
-      <Image id="mark" src="./logo.png" alt="Logo" />
-    </Document>,
-  );
-
-  assertStringIncludes(renderDocumentWebsite(doc), 'src="./logo.png"');
-});
-
-test("a node with no picture yet keeps the box that says so", async () => {
-  const doc = await build(
-    <Document id="d" title="D">
-      <Image id="qr" generalPrompt="A payment QR code." placeholder="Scan-to-pay code" />
-    </Document>,
-  );
-
-  const html = renderDocumentWebsite(doc);
-
-  assertStringIncludes(html, "image-placeholder");
-  assertStringIncludes(html, "Scan-to-pay code");
+  // The size and the description belong to the node, not to the picture an
+  // engine will draw into it. Dropping them left whatever renders the document
+  // reserving no room for a picture whose dimensions the template had stated.
+  assertEquals(node.kind === "image" ? node.width : undefined, 108);
+  assertEquals(node.kind === "image" ? node.height : undefined, 108);
+  assertEquals(node.kind === "image" ? node.alt : undefined, "Scan to pay");
+  assertEquals(node.kind === "image" ? node.placeholder : undefined, "Scan-to-pay code");
 });
 
 // ---------------------------------------------------------------------------

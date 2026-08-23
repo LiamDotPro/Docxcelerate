@@ -29,7 +29,6 @@
     "src/render/**/*.ts",
     "src/renderer/mod.ts",
     "src/renderer/docx_renderer.ts",
-    "src/renderer/web_renderer.ts",
     "src/runtime/**/*.ts",
     "src/template/**/*.ts",
     "src/theme/**/*.ts",

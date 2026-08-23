@@ -10,8 +10,8 @@ nothing else is required for authoring, preview or DOCX packing.
 | `docxcelerate/template` | The authoring surface: elements, hooks, `template`, branch helpers |
 | `docxcelerate/document` | `defineDocumentProject`, `DocumentStyle`, `cleanMinimalDocumentStyle`, `DeriverDefinitions` — plus a re-export of everything in `/template` |
 | `docxcelerate` | `buildDocument`, the `buildProject*` functions, artifact helpers, deriver helpers, every domain type |
-| `docxcelerate/renderer` | `renderDocumentWebsite` — returns a **complete standalone HTML document**, not a fragment |
-| `docxcelerate/docx` | `createDocxDocument` |
+| `docxcelerate/renderer` | `createDocxDocument`, `createDocxBlob` — the one renderer, re-exported |
+| `docxcelerate/docx` | `createDocxDocument`, `createDocxBlob` |
 | `docxcelerate/scaffold`, `/cli` | The workspace generator and its command-line front end |
 | `docxcelerate/template/jsx-runtime` | What `jsxImportSource` resolves to; never imported by hand |
 

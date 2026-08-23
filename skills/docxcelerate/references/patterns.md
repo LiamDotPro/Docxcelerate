@@ -374,11 +374,13 @@ That is exactly what the preview app calls. For a template without a project,
 ## Render one
 
 ```ts
-import { renderDocumentWebsite } from "docxcelerate/renderer";
+import { createDocxBlob } from "docxcelerate/docx";
 
-const html = renderDocumentWebsite(doc);   // a complete standalone HTML document
+const blob = await createDocxBlob(doc);   // the .docx itself
 ```
 
-It returns its own `<html>` and `<style>`, not a fragment — embed it in an iframe
-if it needs to sit inside another page. For a `.docx`, use `createDocxDocument`
-from `docxcelerate/docx`.
+There is one renderer, and it writes Word files. To show a document on a screen,
+pack it and read the file back with a DOCX viewer — the preview app a workspace
+is scaffolded with does exactly that, over `docx-preview`. A second renderer
+laying the model out in HTML would be a second answer to what the document looks
+like, and the one nobody opens in Word is the one that drifts.

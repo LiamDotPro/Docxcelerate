@@ -71,16 +71,19 @@ Su runtime de JSX está expuesto en `docxcelerate/template/jsx-runtime` (y
 
 ## docxcelerate/renderer
 
-Renderizadores que convierten un `DocumentModel` en algo visualizable.
+El renderizador que convierte un `DocumentModel` en el archivo para el que
+existe, reexportado bajo un solo punto de entrada.
 
 ```ts
-import { renderDocumentWebsite } from "docxcelerate/renderer";
+import { createDocxBlob } from "docxcelerate/renderer";
 ```
 
-`renderDocumentWebsite` devuelve un **documento HTML completo e independiente**,
-con su propio `<html>` y su propio `<style>`, en vez de un fragmento. Insértalo en
-un iframe si lo necesitas dentro de otra página; así funciona la vista previa de
-la página de inicio de este sitio.
+Hay un solo renderizador y escribe archivos de Word. Para mostrar un documento en
+pantalla, empaquétalo y vuelve a leer el archivo con un visor DOCX: eso es lo que
+hace la app de vista previa de tu workspace mediante `docx-preview`, y también
+las vistas previas de este sitio. Un segundo renderizador que maquetara el modelo
+en HTML sería una segunda respuesta a qué aspecto tiene un documento, y la que
+nadie abre en Word es la que se desvía.
 
 ## docxcelerate/docx
 

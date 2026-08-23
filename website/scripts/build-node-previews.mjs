@@ -5,8 +5,8 @@
  * variant, described by src/nodes/catalog.ts. This script resolves every
  * variant through the framework itself and emits two things:
  *
- *   public/demo/nodes/<type>/<variant>.html   the rendered node, from the
- *                                             renderer the CLI ships
+ *   public/demo/nodes/<type>/<variant>.html   the node as the packed .docx
+ *                                             renders it
  *   src/generated/node-catalog.json           what each variant resolved to,
  *                                             plus the catalog's own metadata
  *
@@ -17,7 +17,7 @@ import { build } from "esbuild";
 import { access, mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, posix, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { extractPage, NODE_ONLY_STYLE } from "./lib/preview-page.mjs";
+import { NODE_ONLY_STYLE, renderDocxPage } from "./lib/docx-page.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -41,7 +41,6 @@ async function main() {
 
   const { NODE_CATEGORIES, NODE_TYPES, sampleData } = await loadCatalog();
   const { buildDocument } = await import("docxcelerate");
-  const { renderDocumentWebsite } = await import("docxcelerate/renderer");
   const one = await singleNodeTemplate();
 
   const types = [];
@@ -63,15 +62,11 @@ async function main() {
         { dynamicMode: "placeholder" },
       );
 
-      const rendered = renderDocumentWebsite(document, {
-        title: `${type.title}: ${variant.title}`,
-      });
-
       const out = resolve(OUT_DIR, type.id, `${variant.id}.html`);
       await mkdir(dirname(out), { recursive: true });
       await writeFile(
         out,
-        extractPage(rendered, { title: variant.title, style: NODE_ONLY_STYLE }),
+        await renderDocxPage(document, { title: variant.title, style: NODE_ONLY_STYLE }),
         "utf8",
       );
       previews += 1;
