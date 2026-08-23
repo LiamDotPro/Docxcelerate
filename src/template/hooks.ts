@@ -1,4 +1,6 @@
-import type { ValueExpression } from "../domain/types.ts";
+import type { DeriverModule } from "../runtime/deriver_module.ts";
+import { setPath } from "../runtime/object_path.ts";
+import { createDerivedStandIn, expr } from "./publish.ts";
 import {
   type ComponentInstance,
   nextCell,
@@ -287,20 +289,98 @@ export function useFormat(locale?: string): Formatters {
 }
 
 /**
- * Runs a registered deriver now and hands back what it produced.
+ * Runs a deriver and hands back what it produced.
  *
- * The result also lands in `derived`, so `{{derived.<output>}}` in any text
- * resolves to it. A deriver is async, so this returns a promise — the component
- * that awaits it becomes async, and its hooks must all have been called first.
+ * A deriver is the part of a document that runs where the data is, so this is
+ * the one hook whose answer depends on which build is asking. With data in
+ * hand it runs and returns the value. Publishing cannot run it — the inputs
+ * belong to a request nobody has made — so the invocation is recorded on the
+ * node instead and what comes back is a stand-in that knows where the real
+ * value will be. Either way the component reads one value and never learns
+ * which build it is in.
+ *
+ * Nobody writes an output key. The result lands under the deriver's own name,
+ * numbered if one component asks for the same deriver twice, so the token in
+ * a published document writes itself the way a loop's does.
+ *
+ * @typeParam TInputs What the deriver is called with.
+ * @typeParam TResult What it produces.
+ * @param deriver The deriver to run, imported from its own file.
+ * @param inputs What to call it with.
+ * @returns What it produced, or a stand-in for what it will produce. Awaited
+ * either way — a deriver may be async, and awaiting a stand-in hands back the
+ * stand-in, so one `await` reads correctly in both builds.
+ *
+ * @example
+ * ```tsx
+ * import invoiceTotals from "../../derivers/invoice-totals.ts";
+ *
+ * export const Total: Paragraph = async () => {
+ *   const [lines] = useState((data: InvoiceData) => data.lines);
+ *   const totals = await useDeriver(invoiceTotals, [lines]);
+ *
+ *   return <Paragraph>Total due {totals.due}.</Paragraph>;
+ * };
+ * ```
  */
-export function useDeriver(
-  name: string,
-): (output: string, ...inputs: ValueExpression[]) => Promise<unknown> {
+export function useDeriver<TInputs extends readonly unknown[], TResult>(
+  deriver: DeriverModule<TInputs, TResult>,
+  inputs: TInputs,
+): Promise<TResult> {
+  const instance = requireInstance("useDeriver");
   const context = requireContext("useDeriver");
-  requireInstance("useDeriver");
+  const output = outputKeyFor(instance, deriver.name);
 
-  return (output, ...inputs) =>
-    context.derivers.run({ name, output, inputs }, context.state);
+  // Publishing cannot run it: the inputs belong to a request nobody has made.
+  // So the invocation travels on the node instead, and what comes back is a
+  // stand-in that already knows where the real value will be — which is what
+  // lets `{{derived.…}}` write itself the way a loop's tokens do.
+  // Recorded in every mode, because the count is what keeps a second call to
+  // the same deriver from landing on the first one's key. Only a publish build
+  // carries them onto the node — elsewhere the answer is already in the
+  // document and there is nothing for an engine to run.
+  instance.derivers.push({
+    name: deriver.name,
+    output,
+    inputs: context.deriverMode === "preserve" ? inputs.map((input) => expr(input)) : [],
+  });
+
+  if (context.deriverMode === "preserve") {
+    context.derivers.register(deriver.name, deriver.run, deriver.placeholder);
+
+    return Promise.resolve(createDerivedStandIn([output]) as TResult);
+  }
+
+  // A preview stands in for anything that costs time, the same way it stands in
+  // for a generated node. Waiting here is a person waiting.
+  if (context.deriverMode === "placeholder" && deriver.placeholder !== undefined) {
+    setPath(context.state.derived, output, deriver.placeholder);
+
+    return Promise.resolve(deriver.placeholder);
+  }
+
+  // With data in hand the values are right there, so the deriver is called with
+  // them rather than with expressions standing for them. Nothing is recorded on
+  // the node: the answer is already in the document.
+  return Promise.resolve(deriver.run(inputs as unknown as unknown[], context.state)).then((value) => {
+    setPath(context.state.derived, output, value);
+
+    return value as TResult;
+  });
+}
+
+/**
+ * Where one component's call to a deriver puts its result.
+ *
+ * The deriver's own name, so a published token reads as what produced it. A
+ * second call to the same deriver from the same component is numbered, because
+ * two results cannot share a key — and numbering by call order keeps the key
+ * the same on every build of the same component.
+ */
+function outputKeyFor(instance: ComponentInstance, name: string): string {
+  const already = instance.derivers.filter((invocation) => invocation.name === name).length;
+
+  return already === 0 ? name : `${name}-${already + 1}`;
 }
 
 function assign(target: PromptDraft, source: PromptDraft): void {

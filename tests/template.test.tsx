@@ -12,7 +12,6 @@ import {
   Image,
   literal,
   Paragraph,
-  Repeat,
   Section,
   template,
   truthy,
@@ -313,12 +312,23 @@ test("nested branches are capped rather than published in silence", async () => 
   );
 });
 
-test("a repeat is walked with real data and published as a loop without it", async () => {
+test("a .map() is walked with real data and published as a loop without it", async () => {
+  // One source, read two ways. With data in hand this is the `.map()` from the
+  // standard library; without it, the stand-in intercepts the same call and the
+  // loop travels to the engine intact.
+  const Visits: Section = () => {
+    const [visits] = useState((data: TenancyData) => data.visits);
+
+    return (
+      <Section id="visits" title="Visits">
+        {visits.map((visit) => <Paragraph id="visit">Visit {visit.label}.</Paragraph>)}
+      </Section>
+    );
+  };
+
   const tree = template<TenancyData>(
     <Document id="tenancy" title="Tenancy">
-      <Repeat over="visits" as="visit">
-        <Paragraph id="visit">Visit {"{{ctx.visit.label}}"}.</Paragraph>
-      </Repeat>
+      <Visits />
     </Document>,
   );
 
@@ -331,18 +341,21 @@ test("a repeat is walked with real data and published as a loop without it", asy
   // id means the same thing in a preview and in a written document.
   assertEquals(paragraphs(walked.nodes).map((node) => node.id), ["visit-0", "visit-1"]);
 
-  const published = await buildDocument(tree, tenancy, {
+  const published = await buildDocument(tree, createPublishData() as TenancyData, {
     branchMode: "publish",
     deriverMode: "preserve",
   });
+  const section = published.nodes[0];
 
-  assertEquals(published.nodes[0].kind, "repeat");
-  if (published.nodes[0].kind === "repeat") {
-    assertEquals(published.nodes[0].source.path, "visits");
-    assertEquals(published.nodes[0].children.length, 1);
-  }
+  if (section.kind !== "section") throw new Error("expected a section");
+
+  const loop = section.children[0];
+
+  if (loop.kind !== "repeat") throw new Error("expected the loop to survive publishing");
+
+  assertEquals(loop.source.path, "visits");
+  assertEquals(loop.children.length, 1);
 });
-
 test("two nodes claiming one id is reported, not resolved by whoever came last", async () => {
   await assertRejects(
     () =>
@@ -442,35 +455,46 @@ test("computing on a value nobody has yet is refused, with what to do instead", 
   );
 });
 
-test("iterating a collection nobody has yet points at the loop that survives", async () => {
+test("a .map() over a collection nobody has yet publishes as a loop", async () => {
   const Visits: Section = () => {
     const [state] = useState((data: TenancyData) => ({ visits: data.visits }));
 
     return (
       <Section id="visits" title="Visits">
-        {state.visits.map((visit, index) => (
-          <Paragraph id={`visit-${index}`}>{visit.label}</Paragraph>
-        ))}
+        {state.visits.map((visit) => <Paragraph id="visit">{visit.label}</Paragraph>)}
       </Section>
     );
   };
 
-  await assertRejects(
-    () =>
-      buildDocument(
-        template<TenancyData>(
-          <Document id="tenancy" title="Tenancy">
-            <Visits />
-          </Document>,
-        ),
-        createPublishData() as TenancyData,
-        { branchMode: "publish", deriverMode: "preserve" },
-      ),
-    Error,
-    '<Repeat over="visits">',
+  const published = await buildDocument(
+    template<TenancyData>(
+      <Document id="tenancy" title="Tenancy">
+        <Visits />
+      </Document>,
+    ),
+    createPublishData() as TenancyData,
+    { branchMode: "publish", deriverMode: "preserve" },
+  );
+
+  const section = published.nodes[0];
+
+  if (section.kind !== "section") throw new Error("expected a section");
+
+  const loop = section.children[0];
+
+  if (loop.kind !== "repeat") throw new Error("expected the loop to survive publishing");
+
+  assertEquals(loop.source.path, "visits");
+  assertEquals(loop.as, "visits");
+  assertEquals(loop.children.length, 1);
+
+  // Nobody wrote this token. The stand-in the callback was handed knows which
+  // entry it stands for, so the reference writes itself.
+  assertEquals(
+    loop.children[0].kind === "paragraph" && loop.children[0].text,
+    "{{ctx.visits.label}}",
   );
 });
-
 test("hooks called after an await say so instead of landing on another component", async () => {
   const Late: Paragraph = async () => {
     await Promise.resolve();

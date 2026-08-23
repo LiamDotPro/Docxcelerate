@@ -1,6 +1,6 @@
 {
   "name": "docxcelerate",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Write DOCX documents like you write websites — compose Word files from typed JSX components, preview them locally, generate at scale.",
   "license": "MIT",
   "type": "module",
@@ -39,6 +39,7 @@
   "files": [
     "bin/dxcl.mjs",
     "dist/",
+    "registry/",
     "README.md"
   ],
   "exports": {
@@ -62,6 +63,14 @@
       "types": "./dist/renderer/mod.d.ts",
       "default": "./dist/renderer/mod.js"
     },
+    "./registry": {
+      "types": "./dist/registry/mod.d.ts",
+      "default": "./dist/registry/mod.js"
+    },
+    "./registry/install": {
+      "types": "./dist/registry/install.d.ts",
+      "default": "./dist/registry/install.js"
+    },
     "./scaffold": {
       "types": "./dist/project/scaffold.d.ts",
       "default": "./dist/project/scaffold.js"
@@ -77,6 +86,14 @@
     "./template/jsx-runtime": {
       "types": "./dist/template/jsx-runtime.d.ts",
       "default": "./dist/template/jsx-runtime.js"
+    },
+    "./themes": {
+      "types": "./dist/theme/mod.d.ts",
+      "default": "./dist/theme/mod.js"
+    },
+    "./transform": {
+      "types": "./dist/transform/mod.d.ts",
+      "default": "./dist/transform/mod.js"
     }
   },
   "scripts": {
@@ -97,5 +114,13 @@
   },
   "dependencies": {
     "docx": "^9.6.1"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.4"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
   }
 }

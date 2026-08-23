@@ -5,7 +5,7 @@
  * @module
  */
 
-import type { AiClient, PromptKind, RuntimeState } from "../domain/types.ts";
+import type { AiClient, DeriverInvocation, PromptKind, RuntimeState } from "../domain/types.ts";
 import type { DeriverRegistry } from "../runtime/derivers.ts";
 
 /**
@@ -16,12 +16,20 @@ import type { DeriverRegistry } from "../runtime/derivers.ts";
  */
 export type DynamicMode = "resolve" | "placeholder";
 /**
- * Whether derivers run during this build or are published for the engine to run.
+ * Whether derivers run during this build, stand in, or travel to the engine.
  *
  * `resolve` runs them against the data at hand. `preserve` keeps the invocation
  * on the node, because the data it needs does not exist yet.
+ *
+ * `placeholder` is what a preview uses. A preview is rebuilt on every save, so
+ * anything it waits for is something a person waits for while writing a
+ * document — which is why generated nodes show their placeholder rather than
+ * calling a model. A deriver that costs something is the same problem, so one
+ * that declared a stand-in gets used instead of run. Derivers that declared
+ * none are cheap by construction and still run, because a total nobody computed
+ * is less useful in a preview than a total that is right.
  */
-export type DeriverMode = "resolve" | "preserve";
+export type DeriverMode = "resolve" | "preserve" | "placeholder";
 
 /**
  * Whether a decision belongs to this build or to every document written later.
@@ -62,6 +70,15 @@ export interface ComponentInstance {
   readonly cells: unknown[];
   cursor: number;
   readonly prompts: PromptDraft;
+  /**
+   * The derivers this component asked for, in the order it asked.
+   *
+   * They end up on the node the component yields, the same way its prompts do.
+   * A build holding real data has already run them, but the node still has to
+   * say it wants them: a published document is read by an engine that was not
+   * here when it was built.
+   */
+  readonly derivers: DeriverInvocation[];
 }
 
 export interface RenderContext {

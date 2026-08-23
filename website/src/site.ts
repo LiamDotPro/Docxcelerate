@@ -65,7 +65,7 @@ export const NPM_LATEST_URL = `https://registry.npmjs.org/${PACKAGE_NAME}/latest
 
 export interface NavLink {
   /** Key into `nav` in the UI dictionaries — the label is per-language. */
-  key: "docs" | "cloud" | "github";
+  key: "docs" | "themes" | "components" | "cloud" | "github";
   /**
    * Internal links are written canonically, without a language prefix; the Nav
    * adds the reader's prefix. External URLs are used as they stand.
@@ -80,6 +80,8 @@ export interface NavLink {
 
 export const NAV: NavLink[] = [
   { key: "docs", href: "/docs/start-here/" },
+  { key: "themes", href: "/themes/" },
+  { key: "components", href: "/components/" },
   { key: "cloud", href: CLOUD_URL, external: true, soon: !CLOUD_AVAILABLE },
   { key: "github", href: GITHUB_URL, external: true, icon: "github" },
 ];

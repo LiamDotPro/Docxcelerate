@@ -65,3 +65,71 @@ Der erzeugte Node beginnt mit seinem Inhalt. Generiert wird ein Node dadurch,
 dass Prompts auf ihm gesetzt werden, und das entscheidet eine Komponente mit
 Daten in der Hand — hier gibt es also nichts zu wählen. Siehe
 [Nodes schreiben](/de/docs/writing-nodes/).
+
+## dxcl list
+
+Gibt die Registry aus: jedes Theme und jede vorgefertigte Komponente, die das
+Paket mitbringt.
+
+```sh
+dxcl list
+dxcl list themes
+dxcl list components
+```
+
+Derselbe Katalog lässt sich unter [Themes](/de/themes/) und
+[Komponenten](/de/components/) durchblättern, wo jeder Eintrag eine Vorschau
+trägt, die von demselben Renderer erzeugt wurde, den auch die CLI mitbringt.
+
+## dxcl show
+
+Gibt einen Eintrag vollständig aus — was er ist, was er liest und wo seine
+Dateien landen.
+
+```sh
+dxcl show slate-report
+dxcl show payment-summary
+```
+
+## dxcl add
+
+Installiert Themes und Komponenten in ein Dokumentprojekt.
+
+```sh
+dxcl add slate-report
+dxcl add letterhead signature-block
+dxcl add payment-summary --project documents/arrears-notice
+```
+
+| Flag | Wirkung |
+| --- | --- |
+| `--project <dir>` | Das Dokumentprojekt, in das installiert wird |
+| `--force` | Bereits vorhandene Dateien überschreiben |
+
+Ohne `--project` nimmt der Befehl das Dokumentprojekt, in dem Sie stehen, oder
+das einzige unterhalb von `documents/`. Gibt es mehrere und ist keines gemeint,
+sagt er das, statt zu raten.
+
+**Eine Komponente** wird als Quelltext hineinkopiert — `nodes/<name>.node.tsx` —
+und aus `nodes/index.ts` re-exportiert. Danach ist es Ihre Datei: sie hat keine
+Version, sie wird nicht hinter Ihrem Rücken aktualisiert, und sie zu bearbeiten
+ist der vorgesehene nächste Schritt und kein Fork. Was der Befehl nicht tut, ist
+Ihren Datentyp zu bearbeiten — die Felder, die die Komponente liest, werden
+deshalb zum Nachtragen ausgegeben. Sie in `document.tsx` zu platzieren, bleibt
+ebenfalls Ihnen überlassen, aus demselben Grund, aus dem der Node-Generator das
+nicht anfasst.
+
+**Ein Theme** wird als `document-style.ts` des Projekts geschrieben, das
+`document.project.ts` ohnehin durchreicht — die nächste Vorschau ist also
+themed. Die Datei importiert das Theme und spreizt es, sodass das Überschreiben
+eines einzelnen Rands eine Zeile ist und kein Fork:
+
+```ts
+export const documentStyle: DocumentStyle = themeStyle(slateReportTheme, {
+  page: { margins: { topMm: 20 } },
+});
+```
+
+Ein zweites Theme ersetzt eine `document-style.ts`, die niemand angefasst hat.
+Sobald Sie hineingeschrieben haben, braucht das Ersetzen `--force` — der Sinn
+der Datei ist ja, dass sie Ihnen gehört.

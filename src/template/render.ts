@@ -1,15 +1,21 @@
 import type {
   Condition,
+  DeriverInvocation,
   DocumentNode,
   GraphNode,
   ImageNode,
   JsonObject,
+  PageBreakNode,
+  PageNumberNode,
   ParagraphNode,
   PromptKind,
   PromptSpec,
   RepeatNode,
   SectionNode,
+  TableCellNode,
+  TableNode,
   TableOfContentsNode,
+  TableRowNode,
 } from "../domain/types.ts";
 import { evaluateCondition, invertCondition } from "../runtime/conditions.ts";
 import { runDerivers } from "../runtime/derivers.ts";
@@ -25,20 +31,25 @@ import {
 import {
   type CommonElementProps,
   hostKindOf,
+  isStaticChildren,
   isTemplateElement,
   type TemplateElement,
   type Yield,
 } from "./element.ts";
 import type {
+  CellProps,
   DocumentProps,
   GraphProps,
   ImageProps,
+  PageNumberProps,
   ParagraphProps,
   PromptProps,
-  RepeatProps,
+  RowProps,
   SectionProps,
   TableOfContentsProps,
+  TableProps,
 } from "./elements.ts";
+import type { LoopProps } from "./loop.ts";
 
 interface Frame {
   /** Where this sits in the tree. Identity for hooks, and a fallback id. */
@@ -47,6 +58,10 @@ interface Frame {
   readonly when?: Condition;
   /** Prompts set by the component that yielded this element. */
   readonly prompts?: PromptDraft;
+  /** The component this came out of, which is what names the node it yields. */
+  readonly componentName?: string;
+  /** Derivers a component asked for, to be carried onto the node it yields. */
+  readonly derivers?: readonly DeriverInvocation[];
   /**
    * Which pass of a loop this is.
    *
@@ -64,6 +79,30 @@ export async function renderDocumentChildren(
   return await renderYield(props.children, context, { path: "" });
 }
 
+/**
+ * The running header and footer, rendered apart from the body.
+ *
+ * Their own paths, so the ids they claim do not collide with the body's, and
+ * so a component in the footer gets its own hook state rather than sharing
+ * with whatever happens to sit first in the document.
+ */
+export async function renderDocumentFurniture(
+  props: DocumentProps,
+  context: RenderContext,
+): Promise<{ header?: DocumentNode[]; footer?: DocumentNode[] }> {
+  const header = props.header === undefined
+    ? undefined
+    : await renderYield(props.header, context, { path: "@header" });
+  const footer = props.footer === undefined
+    ? undefined
+    : await renderYield(props.footer, context, { path: "@footer" });
+
+  return {
+    header: header && header.length > 0 ? header : undefined,
+    footer: footer && footer.length > 0 ? footer : undefined,
+  };
+}
+
 export async function renderYield(
   value: Yield,
   context: RenderContext,
@@ -77,9 +116,16 @@ export async function renderYield(
 
   if (Array.isArray(resolved)) {
     const nodes: DocumentNode[] = [];
+    const passes = isLoopPasses(resolved);
 
     for (const [index, child] of resolved.entries()) {
-      nodes.push(...await renderYield(child, context, childFrame(frame, index)));
+      const childsFrame = childFrame(frame, index);
+
+      nodes.push(...await renderYield(
+        child,
+        context,
+        passes ? indexedFrame(childsFrame, index) : childsFrame,
+      ));
     }
 
     return nodes;
@@ -150,6 +196,10 @@ async function renderComponent(
     path,
     when: frame.when,
     idSuffix: frame.idSuffix,
+    componentName: name,
+    derivers: context.deriverMode === "preserve"
+      ? [...(frame.derivers ?? []), ...instance.derivers]
+      : frame.derivers,
     prompts: mergePrompts(frame.prompts, instance.prompts),
   });
 }
@@ -167,12 +217,19 @@ async function renderBranch(
   context: RenderContext,
   frame: Frame,
 ): Promise<DocumentNode[]> {
-  if (context.branchMode === "decide") {
-    const taken = await evaluateCondition(props.condition, context.state);
+  // A condition the build already settled has no request in it, so there is
+  // nothing for the engine to decide and nothing to publish. Taking the arm now
+  // is what an `if` on a local variable is supposed to mean, in either mode.
+  if (context.branchMode === "decide" || typeof props.condition === "boolean") {
+    const taken = typeof props.condition === "boolean"
+      ? props.condition
+      : await evaluateCondition(props.condition, context.state);
     const arm = taken ? props.whenTrue : props.whenFalse;
 
     return arm ? await renderYield(arm(), context, childFrame(frame, taken ? 0 : 1)) : [];
   }
+
+  const condition = props.condition;
 
   context.branchesEmitted += 1;
 
@@ -190,14 +247,14 @@ async function renderBranch(
   if (props.whenTrue) {
     nodes.push(...await renderYield(props.whenTrue(), context, {
       ...childFrame(frame, 0),
-      when: allOf(frame.when, props.condition),
+      when: allOf(frame.when, condition),
     }));
   }
 
   if (props.whenFalse) {
     nodes.push(...await renderYield(props.whenFalse(), context, {
       ...childFrame(frame, 1),
-      when: allOf(frame.when, invertCondition(props.condition)),
+      when: allOf(frame.when, invertCondition(condition)),
     }));
   }
 
@@ -211,15 +268,33 @@ async function renderHost(
 ): Promise<DocumentNode | DocumentNode[]> {
   const kind = hostKindOf(element.type);
   const props = element.props as CommonElementProps;
-  const id = claimId(context, props.id, frame, kind ?? "node");
+  const id = claimId(context, props, frame, kind ?? "node");
   const when = allOf(frame.when, props.when);
 
   await runNodeDerivers(props, context);
 
   return withDerivers(
-    await renderHostKind(kind, element, context, frame, id, when),
-    props.derivers,
+    withVariant(await renderHostKind(kind, element, context, frame, id, when), props.variant),
+    [...(frame.derivers ?? []), ...(props.derivers ?? [])],
   );
+}
+
+/**
+ * Carries a node's variant onto it, whatever kind it turned out to be.
+ *
+ * Done once here rather than in each kind's renderer, because the variant says
+ * nothing about the kind — it is a name the style looks up, and every node can
+ * carry one.
+ */
+function withVariant(
+  rendered: DocumentNode | DocumentNode[],
+  variant: string | undefined,
+): DocumentNode | DocumentNode[] {
+  if (variant === undefined || Array.isArray(rendered)) {
+    return rendered;
+  }
+
+  return { ...rendered, variant };
 }
 
 async function renderHostKind(
@@ -253,7 +328,35 @@ async function renderHostKind(
   }
 
   if (kind === "repeat") {
-    return await renderRepeat(element.props as unknown as RepeatProps, context, frame, id, when);
+    return await renderLoop(element.props as unknown as LoopProps, context, frame, id, when);
+  }
+
+  if (kind === "table") {
+    return await renderTable(element.props as unknown as TableProps, context, frame, id, when);
+  }
+
+  if (kind === "tableRow") {
+    return await renderRow(element.props as unknown as RowProps, context, frame, id, when);
+  }
+
+  if (kind === "tableCell") {
+    return await renderCell(element.props as unknown as CellProps, context, frame, id, when);
+  }
+
+  if (kind === "pageBreak") {
+    return prune<PageBreakNode>({ id, kind: "pageBreak", when });
+  }
+
+  if (kind === "pageNumber") {
+    const pageProps = element.props as unknown as PageNumberProps;
+
+    return prune<PageNumberNode>({
+      id,
+      kind: "pageNumber",
+      format: pageProps.format,
+      separator: pageProps.separator,
+      when,
+    });
   }
 
   const tocProps = element.props as unknown as TableOfContentsProps;
@@ -276,13 +379,13 @@ async function renderHostKind(
  */
 function withDerivers(
   rendered: DocumentNode | DocumentNode[],
-  derivers: CommonElementProps["derivers"],
+  derivers: readonly DeriverInvocation[],
 ): DocumentNode | DocumentNode[] {
   if (!derivers || derivers.length === 0 || Array.isArray(rendered)) {
     return rendered;
   }
 
-  return { ...rendered, derivers };
+  return { ...rendered, derivers: [...derivers] };
 }
 
 async function renderSection(
@@ -307,71 +410,163 @@ async function renderSection(
 }
 
 /**
- * A loop, kept as a loop.
+ * A table, whose rows are ordinary nodes.
  *
- * With real data the collection is known, so the body is walked now and the
- * entries become ordinary nodes — a preview shows the repetition rather than a
- * description of it. Publishing cannot do that, because the number of entries
- * belongs to a request nobody has made, so the body is published once and the
- * engine walks it.
+ * The columns are the only thing the table itself carries. Everything else is
+ * a child, which is what makes a loop of rows work without the table knowing
+ * anything about loops: `.map()` over the lines yields rows, and whether those
+ * became nodes here or a `repeat` for the engine to walk is settled by the
+ * same code that settles it anywhere else.
  */
-async function renderRepeat(
-  props: RepeatProps,
+async function renderTable(
+  props: TableProps,
   context: RenderContext,
   frame: Frame,
   id: string,
   when: Condition | undefined,
-): Promise<DocumentNode | DocumentNode[]> {
-  const as = props.as ?? "item";
-  const indexAs = props.indexAs ?? "index";
+): Promise<TableNode> {
+  const table: TableNode = {
+    id,
+    kind: "table",
+    columns: props.columns.map((column) => prune({ ...column })),
+    when,
+    children: await renderYield(props.children, context, {
+      path: `${frame.path}/${id}`,
+      idSuffix: frame.idSuffix,
+    }),
+  };
 
-  if (context.branchMode === "publish") {
-    const repeat: RepeatNode = {
-      id,
-      kind: "repeat",
-      source: { scope: "data", path: props.over },
-      as,
-      indexAs,
-      when,
-      children: await renderYield(props.children, context, {
-        path: `${frame.path}/${id}`,
-        idSuffix: frame.idSuffix,
-      }),
-    };
+  return prune(table);
+}
 
-    return prune(repeat);
+async function renderRow(
+  props: RowProps,
+  context: RenderContext,
+  frame: Frame,
+  id: string,
+  when: Condition | undefined,
+): Promise<TableRowNode> {
+  const row: TableRowNode = {
+    id,
+    kind: "tableRow",
+    header: props.header ? true : undefined,
+    when,
+    children: await renderYield(props.children, context, {
+      path: `${frame.path}/${id}`,
+      idSuffix: frame.idSuffix,
+    }),
+  };
+
+  return prune(row);
+}
+
+/**
+ * A cell, which holds text directly or nodes when a line is not enough.
+ *
+ * `<Cell>{line.qty}</Cell>` is what most cells are, so text goes straight in
+ * and becomes the paragraph it would have had to be written as. A cell holding
+ * elements is taken at its word instead — that is the description above a
+ * muted note, and wrapping it would flatten the two into one line.
+ */
+async function renderCell(
+  props: CellProps,
+  context: RenderContext,
+  frame: Frame,
+  id: string,
+  when: Condition | undefined,
+): Promise<TableCellNode> {
+  const childFrame = { path: `${frame.path}/${id}`, idSuffix: frame.idSuffix };
+  const cell: TableCellNode = {
+    id,
+    kind: "tableCell",
+    span: props.span,
+    align: props.align,
+    when,
+    children: holdsElements(props.children)
+      ? await renderYield(props.children, context, childFrame)
+      : await cellText(props.children, context, childFrame, id),
+  };
+
+  return prune(cell);
+}
+
+/** The single paragraph a cell's text becomes. */
+async function cellText(
+  children: Yield,
+  context: RenderContext,
+  frame: Frame,
+  id: string,
+): Promise<DocumentNode[]> {
+  const body = joinText(children, frame);
+
+  if (body === "") {
+    return [];
   }
 
-  const entries = await context.state.dataProvider.get(props.over);
+  return [prune<ParagraphNode>({
+    id: `${id}-text`,
+    kind: "paragraph",
+    mode: "static",
+    text: await requiredText(body, context),
+  })];
+}
 
-  if (!Array.isArray(entries)) {
-    throw new Error(
-      `<Repeat over="${props.over}"> found ${
-        entries === undefined ? "nothing" : typeof entries
-      } instead of a collection.`,
-    );
-  }
+/** Whether a cell was given nodes rather than something to print. */
+function holdsElements(children: Yield): boolean {
+  let found = false;
 
-  const nodes: DocumentNode[] = [];
-  const previousItem = context.state.ctx[as];
-  const previousIndex = context.state.ctx[indexAs];
+  const walk = (value: Yield): void => {
+    if (found || value === false || value === null || value === undefined) {
+      return;
+    }
 
-  for (const [index, entry] of entries.entries()) {
-    context.state.ctx[as] = entry;
-    context.state.ctx[indexAs] = index;
-    nodes.push(
-      ...await renderYield(props.children, context, {
-        path: `${frame.path}/${id}/${index}`,
-        when,
-        idSuffix: frame.idSuffix === undefined ? String(index) : `${frame.idSuffix}-${index}`,
-      }),
-    );
-  }
+    if (Array.isArray(value)) {
+      value.forEach(walk);
+      return;
+    }
 
-  context.state.ctx[as] = previousItem;
-  context.state.ctx[indexAs] = previousIndex;
+    if (isTemplateElement(value)) {
+      found = true;
+    }
+  };
 
-  return nodes;
+  walk(children);
+
+  return found;
+}
+
+/**
+ * A loop, kept as a loop.
+ *
+ * Only a publish build ever reaches this. Building against real data walks the
+ * collection with the `.map()` in the standard library, and the entries become
+ * ordinary nodes — a preview shows the repetition rather than a description of
+ * it. Publishing cannot, because the number of entries belongs to a request
+ * nobody has made, so the stand-in intercepts `.map()` and the body it walked
+ * once arrives here to be published as the loop the engine walks.
+ */
+async function renderLoop(
+  props: LoopProps,
+  context: RenderContext,
+  frame: Frame,
+  id: string,
+  when: Condition | undefined,
+): Promise<DocumentNode> {
+  const loop: RepeatNode = {
+    id,
+    kind: "repeat",
+    source: { scope: props.overScope, path: props.over },
+    as: props.as,
+    indexAs: props.indexAs,
+    where: props.where,
+    when,
+    children: await renderYield(props.children, context, {
+      path: `${frame.path}/${id}`,
+      idSuffix: frame.idSuffix,
+    }),
+  };
+
+  return prune(loop);
 }
 
 async function renderParagraph(
@@ -446,6 +641,7 @@ async function renderImage(
       mode: "static",
       when,
       path: await requiredText(props.src, context),
+      fallbackPath: await text(props.fallbackSrc, context),
       alt: await text(props.alt, context),
       width: props.width,
       height: props.height,
@@ -553,7 +749,8 @@ function instanceAt(context: RenderContext, path: string): ComponentInstance {
     return existing;
   }
 
-  const created: ComponentInstance = { path, cells: [], cursor: 0, prompts: {} };
+  const created: ComponentInstance = { path, cells: [], cursor: 0, prompts: {},
+      derivers: [] };
   context.instances.set(path, created);
 
   return created;
@@ -567,13 +764,27 @@ function instanceAt(context: RenderContext, path: string): ComponentInstance {
  * anybody to invent names. Two nodes answering to the same id is always a
  * mistake, and it is reported here rather than resolved by whichever came last.
  */
+/**
+ * Names a node, and makes sure nothing else has that name.
+ *
+ * An id is an address: an engine targets a node by it, and two builds of the
+ * same document line up in a diff by it. So an id nobody wrote still has to be
+ * worth having. One taken from where a node sits is not — it changes the moment
+ * a paragraph is inserted above it, quietly repointing every address below.
+ *
+ * The name comes from whatever already says what the node is: the id if one was
+ * written, then the heading, then the component that yielded it, and only then
+ * the kind. Each of those survives a node being moved, and changes only when
+ * somebody deliberately renames something.
+ */
 function claimId(
   context: RenderContext,
-  explicit: string | undefined,
+  props: CommonElementProps,
   frame: Frame,
   kind: string,
 ): string {
-  const base = explicit ?? `${frame.path.replace(/^\//, "").replaceAll("/", "-") || kind}`;
+  const explicit = props.id;
+  const base = explicit ?? derivedId(props, frame, kind);
   const id = frame.idSuffix === undefined ? base : `${base}-${frame.idSuffix}`;
   const owner = context.usedIds.get(id);
 
@@ -588,6 +799,37 @@ function claimId(
   context.usedIds.set(unique, describe(frame));
 
   return unique;
+}
+
+/**
+ * The name a node takes when nobody wrote one.
+ *
+ * A heading is already the human name of the thing it heads, and a component is
+ * already named after the node it yields. So a `<Greeting />` becomes `greeting`
+ * and a section titled "Fees and funding" becomes `fees-and-funding`, and
+ * neither has to be said twice.
+ */
+function derivedId(props: CommonElementProps, frame: Frame, kind: string): string {
+  const title = (props as { title?: unknown }).title;
+  const fromTitle = typeof title === "string" ? slug(title) : "";
+
+  return fromTitle || slug(frame.componentName ?? "") || slug(kind) || "node";
+}
+
+/**
+ * Turns a name people read into one an engine can address.
+ *
+ * The word boundary in `SignOff` and the one in `Sign off` are the same
+ * boundary, so both arrive as `sign-off` and renaming between the two styles
+ * leaves the address alone.
+ */
+function slug(value: string): string {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function uniqueId(context: RenderContext, id: string): string {
@@ -624,6 +866,53 @@ function allOf(...conditions: Array<Condition | undefined>): Condition | undefin
 
 function childFrame(frame: Frame, index: number): Frame {
   return { ...frame, path: `${frame.path}/${index}` };
+}
+
+/**
+ * Whether a list of siblings is the passes of a loop.
+ *
+ * Two things arrive here as the same array: children written out in the source,
+ * and a list an expression produced. A repeated id means something different in
+ * each. Children were chosen one at a time, so a repeat there is a typo and is
+ * reported. A `.map()` is one body written once, so every pass is the same
+ * element with the same id, and naming them by position is the only thing that
+ * could be meant.
+ *
+ * Every entry has to match, not merely two of them. A loop over one entry is
+ * still a loop, and the engine names its single pass by position — so a build
+ * that waited to see a repetition would name that node one thing in a preview
+ * and another in the document a recipient gets.
+ */
+function isLoopPasses(children: readonly unknown[]): boolean {
+  if (children.length === 0 || isStaticChildren(children)) {
+    return false;
+  }
+
+  const first = siblingKey(children[0]);
+
+  return first !== undefined && children.every((child) => siblingKey(child) === first);
+}
+
+/** What makes two siblings the same element, written once and walked twice. */
+function siblingKey(child: unknown): string | undefined {
+  if (!isTemplateElement(child)) {
+    return undefined;
+  }
+
+  const typeName = typeof child.type === "function" ? child.type.name : String(child.type);
+
+  return `${child.kind}:${typeName}:${(child.props as CommonElementProps).id ?? ""}`;
+}
+
+/**
+ * Names one pass of a loop, the same way a published loop is walked — so a
+ * previewed id and a written one stay the same string.
+ */
+function indexedFrame(frame: Frame, index: number): Frame {
+  return {
+    ...frame,
+    idSuffix: frame.idSuffix === undefined ? String(index) : `${frame.idSuffix}-${index}`,
+  };
 }
 
 function describe(frame: Frame): string {
@@ -756,7 +1045,12 @@ async function runNodeDerivers(
     return;
   }
 
-  await runDerivers(props.derivers, context.state, context.derivers);
+  await runDerivers(
+    props.derivers,
+    context.state,
+    context.derivers,
+    context.deriverMode === "placeholder",
+  );
 }
 
 async function text(

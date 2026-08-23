@@ -1,0 +1,61 @@
+---
+title: Tabla
+description: "Una cuadrícula de celdas, con las columnas declaradas una vez y filas que son nodos corrientes."
+group: Nodes
+subgroup: Node types
+order: 15
+---
+
+import NodeSummary from "../../../../components/NodeSummary.astro";
+import NodeVariants from "../../../../components/NodeVariants.astro";
+
+<NodeSummary type="table" />
+
+## Cómo se escribe
+
+```tsx
+import { Cell, Row, Table, useFormat, useState } from "docxcelerate/template";
+
+export const VisitLog: Table = () => {
+  const { number } = useFormat("en-GB");
+  const [state] = useState((data: MemberData) => ({ months: data.visitsByMonth }));
+
+  return (
+    <Table id="visit-log" columns={[{ width: "auto" }, { width: 28, align: "right" }]}>
+      <Row header>
+        <Cell>Mes</Cell>
+        <Cell>Visitas</Cell>
+      </Row>
+      {state.months.map((entry) => (
+        <Row>
+          <Cell>{entry.month}</Cell>
+          <Cell>{number(entry.visits)}</Cell>
+        </Row>
+      ))}
+    </Table>
+  );
+};
+```
+
+**Las columnas pertenecen a la tabla**, en milímetros o `"auto"` para repartir lo que dejan las fijas, cada una con un `align` opcional. Se declaran una sola vez porque todas las filas las comparten: una tabla cuyas columnas no se alinean no es una tabla.
+
+**Todo lo demás es un nodo corriente.** Un `.map()` produce filas, una condición elimina alguna, y cada una se nombra sola. Eso es lo que permite que una factura publicada lleve un bucle que el motor recorre en lugar de una tabla llena de casos especiales.
+
+## Qué contiene una celda
+
+El texto entra directamente, así que `<Cell>{line.qty}</Cell>` es el caso habitual y se lee como tal. Dale párrafos a una celda cuando una línea no baste — una descripción sobre una nota atenuada — y se mantendrán en líneas separadas.
+
+## Filas de cabecera
+
+`header` en una fila la dibuja como cabecera. Solo las filas con las que **empieza** una tabla se repiten en cada página nueva, así que una fila de totales marcada como `header` se dibuja como tal pero se queda donde está, bajo las cifras que suma.
+
+## Variantes
+
+<NodeVariants type="table" />
+
+## Notas
+
+- Una celda vacía sigue siendo una celda. Word no acepta ninguna vacía, así que se empaqueta como un recuadro en blanco y no como una columna que falta.
+- `span` extiende una celda por varias columnas; `align` anula la alineación de su columna solo para esa celda.
+- Un `variant` en una celda gana al de su fila, que gana al de la tabla: la afirmación más concreta es la más deliberada.
+- Ambos renderizadores dibujan una tabla de verdad: una `<table>` en pantalla y una tabla de Word con los anchos de columna declarados en el `.docx`.

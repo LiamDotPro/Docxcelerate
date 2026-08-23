@@ -28,6 +28,8 @@ export const de: UiStrings = {
   nav: {
     label: "Hauptnavigation",
     docs: "Doku",
+    themes: "Themes",
+    components: "Komponenten",
     cloud: "Cloud",
     github: "GitHub",
     switchTheme: "Design wechseln",
@@ -301,11 +303,13 @@ export const de: UiStrings = {
       education: "Bildung",
       housing: "Wohnen",
       insurance: "Versicherung",
+      consulting: "Dienstleistungen",
     },
     documents: {
       "offer-of-admission": "Zulassungsbescheid",
       "repairs-appointment": "Reparaturtermin",
       "policy-renewal": "Vertragsverlängerung",
+      invoice: "Rechnung",
     },
   },
 
@@ -364,6 +368,61 @@ export const de: UiStrings = {
       "stable": "Stabil",
       "no-helper": "Noch kein Helper",
       "planned": "Geplant",
+    },
+  },
+
+  registry: {
+    themes: {
+      title: "Themes",
+      description:
+        "Fertige Dokument-Themes für Docxcelerate: Schriften, Farben, Abstände " +
+        "und Seitenformat, mit einem Befehl im Projekt.",
+      heading: "Themes",
+      lead:
+        "Schriften, Farben, Abstände und Seite, unter einem Namen. Ein Theme " +
+        "ist ein Import im Projekt und reist mit dem gebauten Dokument mit — " +
+        "wer es rendert, muss nichts installieren.",
+      cta: "Themes ansehen",
+    },
+    components: {
+      title: "Komponenten",
+      description:
+        "Fertige Docxcelerate-Komponenten: Briefköpfe, Adressblöcke, " +
+        "Zahlungsübersichten und mehr, als Quellcode in Ihrem Projekt.",
+      heading: "Komponenten",
+      lead:
+        "Nodes, die jemand schon geschrieben und durchdacht hat. Hinzufügen " +
+        "kopiert den Quellcode in Ihr Projekt — keine Version, kein " +
+        "Upgrade-Pfad, nichts zu forken.",
+      cta: "Komponenten ansehen",
+    },
+    install: "Installieren",
+    preview: "Vorschau",
+    category: "Kategorie",
+    tags: "Schlagwörter",
+    fonts: "Schriften",
+    page: "Seite",
+    typography: "Typografie",
+    colours: "Farben",
+    spacing: "Abstände",
+    exports: "Exporte",
+    reads: "Was gelesen wird",
+    field: "Feld",
+    type: "Typ",
+    whatItDoes: "Wofür es da ist",
+    source: "Quellcode",
+    lands: "Landet unter",
+    resolvesTo: "Was dabei herauskommt",
+    previewData: "Vorschau mit",
+    drawnAgainst: "Entworfen für das Theme {theme}.",
+    allThemes: "Alle Themes",
+    allComponents: "Alle Komponenten",
+    ad: {
+      heading: "Mit etwas anfangen, das schon funktioniert",
+      body:
+        "Themes bestimmen Schrift, Farbe und Seite; Komponenten sind fertig " +
+        "durchdachte Nodes. Ein Befehl bringt beides ins Projekt — als " +
+        "Dateien, die Ihnen gehören.",
     },
   },
 

@@ -5,7 +5,8 @@ group: Projects
 order: 1
 ---
 
-`dxcl init` produces an ordinary Vite project. Nothing about it is magic — you
+`dxcl init` gives you an ordinary Vite project. There's nothing magic about it —
+you
 can open it in your editor, add dependencies, and commit it like any other
 repository.
 
@@ -47,7 +48,7 @@ preview app that runs on `npm run dev`.
 }
 ```
 
-`activePreset` selects which one applies. Presets are the mechanism for having
+`activePreset` picks which one applies. Presets are how you have
 a local setup and a staging or production endpoint side by side without editing
 configuration between runs:
 
@@ -94,7 +95,7 @@ documents/offer-of-admission/
     index.ts
 ```
 
-The split is the point: `types.ts` is the contract, `preview-data.ts` is one
+The split is deliberate. `types.ts` is the contract, `preview-data.ts` is one
 instance of it, `document.tsx` is structure only, and each node is a small module
 under `nodes/`. Documents get long, and a template that inlines its prose becomes
 unreadable quickly.

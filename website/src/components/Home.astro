@@ -13,6 +13,7 @@ import HeroDemo from "./HeroDemo.astro";
 import LicenceSheet from "./LicenceSheet.astro";
 import PointFigure from "./PointFigure.astro";
 import RegistryMark from "./RegistryMark.astro";
+import { COMPONENTS as REGISTRY_COMPONENTS, THEMES as REGISTRY_THEMES } from "../registry";
 import ScaleFigure from "./ScaleFigure.astro";
 import {
   CLOUD_URL,
@@ -333,6 +334,82 @@ const CARDS = [
             ))
           }
         </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- Themes and components. Sits mid-page on purpose: by here a reader has
+       been told what the toolkit is and how a document reaches an engine, and
+       the next honest question is how much of this they have to write
+       themselves. The entries are real registry entries, so the band cannot
+       advertise something that is not installable.
+
+       Structural markup pending a visual pass. -->
+  <section class="border-t border-border bg-surface">
+    <div class="mx-auto max-w-6xl px-5 py-24 sm:px-8 sm:py-28">
+      <div class="grid gap-10 lg:grid-cols-2 lg:gap-16">
+        <div class="flex max-w-xl flex-col gap-5">
+          <h2 class="m-0 text-3xl font-semibold sm:text-4xl">{t.registry.ad.heading}</h2>
+          <p class="m-0 leading-relaxed text-muted">{t.registry.ad.body}</p>
+          <div class="flex flex-wrap gap-3">
+            <a
+              href={localizePath("/themes/", locale)}
+              class="rounded bg-accent-solid px-5 py-2.5 text-sm font-medium text-on-accent no-underline transition-colors hover:bg-accent-deep"
+              >{t.registry.themes.cta} →</a
+            >
+            <a
+              href={localizePath("/components/", locale)}
+              class="rounded border border-border-firm px-5 py-2.5 text-sm font-medium text-accent no-underline transition-colors hover:bg-accent-tint"
+              >{t.registry.components.cta} →</a
+            >
+          </div>
+        </div>
+
+        <div class="grid gap-5 sm:grid-cols-2">
+          <div class="flex flex-col gap-2">
+            <h3
+              class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
+            >
+              {t.registry.themes.heading}
+            </h3>
+            <ul class="m-0 flex list-none flex-col gap-1.5 p-0">
+              {
+                REGISTRY_THEMES.map((theme) => (
+                  <li class="m-0">
+                    <a
+                      href={localizePath(`/themes/${theme.id}/`, locale)}
+                      class="text-sm text-ink no-underline hover:text-accent"
+                    >
+                      {theme.title}
+                    </a>
+                  </li>
+                ))
+              }
+            </ul>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <h3
+              class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
+            >
+              {t.registry.components.heading}
+            </h3>
+            <ul class="m-0 flex list-none flex-col gap-1.5 p-0">
+              {
+                REGISTRY_COMPONENTS.map((component) => (
+                  <li class="m-0">
+                    <a
+                      href={localizePath(`/components/${component.id}/`, locale)}
+                      class="text-sm text-ink no-underline hover:text-accent"
+                    >
+                      {component.title}
+                    </a>
+                  </li>
+                ))
+              }
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   </section>

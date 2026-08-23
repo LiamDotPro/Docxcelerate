@@ -1,0 +1,61 @@
+---
+title: Tabelle
+description: "Ein Raster aus Zellen, mit einmal deklarierten Spalten und Zeilen, die gewöhnliche Nodes sind."
+group: Nodes
+subgroup: Node types
+order: 15
+---
+
+import NodeSummary from "../../../../components/NodeSummary.astro";
+import NodeVariants from "../../../../components/NodeVariants.astro";
+
+<NodeSummary type="table" />
+
+## So schreibt man eine
+
+```tsx
+import { Cell, Row, Table, useFormat, useState } from "docxcelerate/template";
+
+export const VisitLog: Table = () => {
+  const { number } = useFormat("en-GB");
+  const [state] = useState((data: MemberData) => ({ months: data.visitsByMonth }));
+
+  return (
+    <Table id="visit-log" columns={[{ width: "auto" }, { width: 28, align: "right" }]}>
+      <Row header>
+        <Cell>Monat</Cell>
+        <Cell>Besuche</Cell>
+      </Row>
+      {state.months.map((entry) => (
+        <Row>
+          <Cell>{entry.month}</Cell>
+          <Cell>{number(entry.visits)}</Cell>
+        </Row>
+      ))}
+    </Table>
+  );
+};
+```
+
+**Die Spalten gehören der Tabelle** — in Millimetern oder `"auto"`, um aufzuteilen, was die festen übrig lassen, jede mit optionalem `align`. Sie werden einmal deklariert, weil jede Zeile sie teilt: eine Tabelle, deren Spalten nicht fluchten, ist keine Tabelle.
+
+**Alles andere ist ein gewöhnlicher Node.** Ein `.map()` erzeugt Zeilen, eine Bedingung lässt eine weg, und jede benennt sich selbst. Genau das lässt eine veröffentlichte Rechnung eine Schleife tragen, die die Engine abläuft, statt einer Tabelle voller Sonderfälle.
+
+## Was eine Zelle enthält
+
+Text kommt direkt hinein, also ist `<Cell>{line.qty}</Cell>` der Normalfall und liest sich auch so. Gib einer Zelle Absätze, wenn eine Zeile nicht reicht — eine Beschreibung über einer leisen Notiz — und sie bleiben auf getrennten Zeilen.
+
+## Kopfzeilen
+
+`header` an einer Zeile zeichnet sie als Kopfzeile. Nur die Zeilen, mit denen eine Tabelle **beginnt**, wiederholen sich auf jeder neuen Seite — eine als `header` markierte Summenzeile wird also als solche gezeichnet, bleibt aber unter den Zahlen, die sie addiert.
+
+## Varianten
+
+<NodeVariants type="table" />
+
+## Anmerkungen
+
+- Eine leere Zelle ist immer noch eine Zelle. Word nimmt keine leere an, also wird sie als leeres Feld gepackt statt als fehlende Spalte.
+- `span` zieht eine Zelle über mehrere Spalten; `align` überschreibt die Ausrichtung der Spalte für genau diese Zelle.
+- Ein `variant` an einer Zelle sticht eines an ihrer Zeile, und das eines an der Tabelle — die engere Aussage ist die bewusstere.
+- Beide mitgelieferten Renderer zeichnen eine echte Tabelle: eine `<table>` am Bildschirm und eine Word-Tabelle mit den deklarierten Spaltenbreiten in der `.docx`.

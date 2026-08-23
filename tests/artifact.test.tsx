@@ -2,12 +2,11 @@ import { test } from "node:test";
 import { assertEquals, assertRejects } from "./assert.ts";
 import {
   createDocumentProjectArtifact,
-  ctxRef,
   dataRef,
   defineDocumentProject,
   derive,
 } from "docxcelerate";
-import { Document, Paragraph, Repeat, Section, template } from "docxcelerate/template";
+import { Document, Paragraph, Section, template, useState } from "docxcelerate/template";
 
 /**
  * What gets published.
@@ -33,6 +32,20 @@ const derivers = {
   money: ([amount]: unknown[]) => `£${Number(amount ?? 0).toFixed(2)}`,
   shout: ([text]: unknown[]) => String(text ?? "").toUpperCase(),
 };
+
+/** A loop written the way a document writes one: a `.map()` in a component. */
+function Visits({ deriverName }: { deriverName: string }) {
+  const [visits] = useState((data: Data) => data.visits);
+
+  return visits.map((visit) => (
+    <Paragraph
+      id="visit"
+      derivers={[derive(deriverName, { output: "cost", inputs: [visit.cost] })]}
+    >
+      {`${visit.cost}`}
+    </Paragraph>
+  ));
+}
 
 function projectWith(children: unknown) {
   return defineDocumentProject<Data>({
@@ -80,20 +93,11 @@ test("a deriver nested in a section is collected", async () => {
   assertEquals(artifact.manifest.deriverNames, ["money"]);
 });
 
-test("a deriver inside a repeat is collected too", async () => {
+test("a deriver inside a loop is collected too", async () => {
   // The loop is published as a loop, so its body is a place derivers live that
   // no section encloses.
   const artifact = await createDocumentProjectArtifact(
-    projectWith(
-      <Repeat over="visits" as="visit">
-        <Paragraph
-          id="visit"
-          derivers={[derive("money", { output: "cost", inputs: [ctxRef("visit.cost")] })]}
-        >
-          {"{{derived.cost}}"}
-        </Paragraph>
-      </Repeat>,
-    ),
+    projectWith(<Visits deriverName="money" />),
   );
 
   assertEquals(artifact.manifest.deriverNames, ["money"]);
@@ -102,24 +106,11 @@ test("a deriver inside a repeat is collected too", async () => {
 
 test("a deriver the project never registered fails the build, not the document", async () => {
   await assertRejects(
-    () =>
-      createDocumentProjectArtifact(
-        projectWith(
-          <Repeat over="visits" as="visit">
-            <Paragraph
-              id="visit"
-              derivers={[derive("notRegistered", { output: "x", inputs: [] })]}
-            >
-              {"{{derived.x}}"}
-            </Paragraph>
-          </Repeat>,
-        ),
-      ),
+    () => createDocumentProjectArtifact(projectWith(<Visits deriverName="notRegistered" />)),
     Error,
     "notRegistered",
   );
 });
-
 test("only the derivers a document names are bundled", async () => {
   const artifact = await createDocumentProjectArtifact(
     projectWith(

@@ -1,0 +1,23 @@
+/**
+ * The pictures this document carries, as data URIs.
+ *
+ * A path would not survive. The model is JSON handed to an engine that writes
+ * the document somewhere else, and `../assets/mark.svg` means nothing there —
+ * a data URI carries the bytes, so the picture travels with the document.
+ *
+ * Each mark comes in two forms. The SVG is what a screen draws, because it
+ * stays sharp at any size. The PNG is what Word embeds, because Word will not
+ * take an SVG without a raster beside it.
+ */
+
+/** Fernhill's own mark: a navy tile with the initial cut out of it. */
+export const senderMarkSvg = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4IiB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcm9sZT0iaW1nIj48dGl0bGU+RmVybmhpbGwgU3lzdGVtczwvdGl0bGU+PHJlY3Qgd2lkdGg9IjEyOCIgaGVpZ2h0PSIxMjgiIHJ4PSIxMCIgZmlsbD0iIzJjM2Q4ZiIvPjxyZWN0IHg9IjQ0IiB5PSIzMCIgd2lkdGg9IjEzIiBoZWlnaHQ9IjY4IiBmaWxsPSIjZmZmZmZmIi8+PHJlY3QgeD0iNDQiIHk9IjMwIiB3aWR0aD0iNDIiIGhlaWdodD0iMTIiIGZpbGw9IiNmZmZmZmYiLz48cmVjdCB4PSI0NCIgeT0iNTYiIHdpZHRoPSIzMiIgaGVpZ2h0PSIxMiIgZmlsbD0iI2ZmZmZmZiIvPjwvc3ZnPg==";
+
+/** The same tile as a raster, for the Word file. */
+export const senderMarkPng = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAABjElEQVR4nO3SwU3EQBBFQQdECsS4IYO4gRbM8a39q6V3n+mu4ziZt/fHh67f2Y0dfiiH198Q6kcpRlA/SCGA+jGKEdQPUQigfoRiBPUDBIAAEAACQAAIAAEgAASAABAAAkAACAABIAAEgAAQAAJAAGgNwFWm3hMA8dR7AiCeek8AxFPvCYB46j0BEE+9JwDiqfcEQDz1ngCIp94TAPHUewIgnnpPAMRT7wmACx4DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKKf+PwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABw/6MBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPAC737VABgPgPEAGA+A8QAYD4DxABgPgPEAGA+A8QAYD4DxLgdAAAgAASAABIAAEAACQAAIAAEgAASAABAAAkAACAABIAAEgADQDwBfUz9C4fEB2O34PvVjFB4fgL2eAECw06/HB+H+/Xt4EO7Z2Y0/AXUJp3Hr+VEhAAAAAElFTkSuQmCC";
+
+/** The Docxcelerate mark, reversed out for the dark footer. */
+export const markSvg = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9Ii0xIC0zLjA3IDQ5LjE0IDQ5LjE0IiB3aWR0aD0iNDkuMTQiIGhlaWdodD0iNDkuMTQiIHJvbGU9ImltZyI+PHRpdGxlPkRvY3hjZWxlcmF0ZTwvdGl0bGU+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTIuMzA5NCAtMTIpIHNrZXdYKC0xMikiPjxyZWN0IHg9IjE0IiB5PSIxMiIgd2lkdGg9IjM4IiBoZWlnaHQ9IjciIGZpbGw9IiNmZmZmZmYiLz48cmVjdCB4PSIxNCIgeT0iMjQiIHdpZHRoPSIyOCIgaGVpZ2h0PSI3IiBmaWxsPSIjZmZmZmZmIi8+PHJlY3QgeD0iMTQiIHk9IjM2IiB3aWR0aD0iNDIiIGhlaWdodD0iNyIgZmlsbD0iI2ZmZmZmZiIvPjxyZWN0IHg9IjE0IiB5PSI0OCIgd2lkdGg9IjIxIiBoZWlnaHQ9IjciIGZpbGw9IiNmZmZmZmYiLz48L2c+PC9zdmc+";
+
+/** The same mark as a raster, for the Word file. */
+export const markPng = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAABn0lEQVR4nO3ZwVEFAQgFQfNPWlPQquXPIt0hvOHG1xcAAADAw755DQdwnAM4zgEcJ/5hH4/vAN7FARznAI5zAMeJf9jH4zuAd3EAxzmA4xzAceIf9vH4DuBdHMBxDuC45AAAAAAAAAD4Z+qv1wZ1o1H1uG9X9xlVj7tB3WhUPe4GdaNR9bgb1I1G1eNuUDcaUw+7Qd1oVD3uBnWjUfW4G9SNRtXjblA3GlWPu0HdaEw97AZ1o1H1uBvUjUbV425QNxpVj7tB3WhUPe7b1X1G1eNuUDcaVY+7Qd0IAAAAAAAA4Jfq9yp/5wCOE/84B3CcAzjssfgOYCcHcJz4xzmA4xzAYY/FdwA7OYDjxD/OARznAA57LL4D2MkBHCf+cY8dAAAAAAAAAP9M/cmaVG+7Qh1pUr3tCnWkSfW2K9SRptS7rlBHmlRvu0IdaVK97Qp1pEn1tivUkSbV265QR5pS77pCHWlSve0KdaRJ9bYr1JEm1duuUEeaUu+6Rh1qSr3rCnWkSfW2K9SRJtXbrlBHmlRvu0IdaUq9KwAAAMAb/AC6wCcDReOi2wAAAABJRU5ErkJggg==";

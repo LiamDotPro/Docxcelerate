@@ -65,3 +65,69 @@ El nodo que escribe empieza con su contenido. Lo que hace que un nodo sea
 generado es ponerle prompts, y eso lo decide un componente con los datos en la
 mano — así que aquí no hay nada que elegir. Mira
 [escribir nodos](/es/docs/writing-nodes/).
+
+## dxcl list
+
+Imprime el registro: todos los temas y todos los componentes prefabricados que
+trae el paquete.
+
+```sh
+dxcl list
+dxcl list themes
+dxcl list components
+```
+
+El mismo catálogo se puede recorrer en [temas](/es/themes/) y
+[componentes](/es/components/), donde cada entrada lleva una vista previa
+generada por el mismo renderizador que trae la CLI.
+
+## dxcl show
+
+Imprime una entrada completa — qué es, qué lee y dónde acaban sus archivos.
+
+```sh
+dxcl show slate-report
+dxcl show payment-summary
+```
+
+## dxcl add
+
+Instala temas y componentes en un proyecto de documento.
+
+```sh
+dxcl add slate-report
+dxcl add letterhead signature-block
+dxcl add payment-summary --project documents/arrears-notice
+```
+
+| Flag | Efecto |
+| --- | --- |
+| `--project <dir>` | El proyecto de documento en el que instalar |
+| `--force` | Sobrescribir archivos que ya estén ahí |
+
+Sin `--project`, el comando usa el proyecto de documento en el que estás, o el
+único que haya bajo `documents/`. Cuando hay varios y ninguno está implícito, lo
+dice en lugar de adivinar.
+
+**Un componente** se copia como código fuente — `nodes/<name>.node.tsx` — y se
+re-exporta desde `nodes/index.ts`. A partir de ahí es tu archivo: no tiene
+versión, nunca se actualiza a tus espaldas, y editarlo es el siguiente paso
+previsto y no un fork. Lo que no hace es editar tu tipo de datos, así que los
+campos que el componente lee se imprimen para que los añadas. Colocarlo en
+`document.tsx` también es cosa tuya, por la misma razón por la que el generador
+de nodos no lo toca.
+
+**Un tema** se escribe como el `document-style.ts` del proyecto, que
+`document.project.ts` ya pasa a través — así que la siguiente vista previa sale
+con el tema puesto. El archivo importa el tema y lo expande, de modo que
+sobrescribir un margen es una línea y no un fork:
+
+```ts
+export const documentStyle: DocumentStyle = themeStyle(slateReportTheme, {
+  page: { margins: { topMm: 20 } },
+});
+```
+
+Instalar un segundo tema reemplaza un `document-style.ts` que nadie ha tocado.
+Una vez que has escrito en él, reemplazarlo requiere `--force` — la gracia del
+archivo es justamente que es tuyo.

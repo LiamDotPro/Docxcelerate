@@ -1,0 +1,128 @@
+---
+/**
+ * /themes/<id> — one theme, the document it produces, and the numbers behind
+ * it.
+ *
+ * The preview is a real document rendered by the renderer the CLI ships, set
+ * in this theme and nothing else, so what is on the page is what a project
+ * would get. The table under it is the style itself: a theme is data, and the
+ * honest way to show data is to print it.
+ *
+ * Structural layout, pending a visual pass.
+ */
+import Base from "../layouts/Base.astro";
+import NodePreview from "./NodePreview.astro";
+import { addCommand, type ThemePageEntry } from "../registry";
+import { LOCALES } from "../i18n";
+import { asLocale, localizePath, ui } from "../i18n";
+
+interface Props {
+  theme: ThemePageEntry;
+}
+
+const locale = asLocale(Astro.currentLocale);
+const t = ui(locale);
+const { theme } = Astro.props;
+const { page, typography, palette, paragraph, title, sectionHeading } = theme.style;
+
+const colour = (value: string) => (/^[0-9a-fA-F]{6}$/.test(value) ? `#${value}` : value);
+
+const specs = [
+  {
+    label: t.registry.page,
+    values: [
+      `${page.size} ${page.orientation}`,
+      `margins ${page.margins.topMm} / ${page.margins.rightMm} / ` +
+      `${page.margins.bottomMm} / ${page.margins.leftMm} mm`,
+    ],
+  },
+  {
+    label: t.registry.typography,
+    values: [
+      `body ${typography.bodyFont} ${typography.bodySizePt}pt / ${typography.bodyLineHeight}`,
+      `headings ${typography.headingFont}`,
+      `title ${title.fontSizePt}pt ${title.weight}`,
+      `section heading ${sectionHeading.fontSizePt}pt ${sectionHeading.weight}`,
+    ],
+  },
+  {
+    label: t.registry.spacing,
+    values: [
+      `paragraph ${paragraph.spacingAfterPt}pt after`,
+      `title ${title.spacingBeforePt}/${title.spacingAfterPt}pt`,
+      `section ${sectionHeading.spacingBeforePt}/${sectionHeading.spacingAfterPt}pt`,
+    ],
+  },
+];
+---
+
+<Base
+  title={theme.title}
+  description={theme.summary}
+  hreflangLocales={LOCALES}
+>
+  <div class="mx-auto flex max-w-4xl flex-col gap-8 px-5 py-12 sm:px-8">
+    <p class="m-0">
+      <a
+        href={localizePath("/themes/", locale)}
+        class="text-sm text-muted no-underline hover:text-accent"
+      >
+        ← {t.registry.allThemes}
+      </a>
+    </p>
+
+    <header class="flex flex-col gap-3">
+      <h1 class="m-0 text-3xl font-semibold">{theme.title}</h1>
+      <p class="m-0 max-w-2xl text-base leading-relaxed text-muted">{theme.detail}</p>
+      <p class="m-0 font-mono text-sm">{addCommand(theme.id)}</p>
+    </header>
+
+    <section class="flex flex-col gap-3">
+      <h2 class="m-0 text-lg font-semibold">{t.registry.preview}</h2>
+      <NodePreview src={theme.previewUrl} title={`${theme.title} sample document`} />
+    </section>
+
+    <section class="flex flex-col gap-3">
+      <h2 class="m-0 text-lg font-semibold">{t.registry.colours}</h2>
+      <dl class="m-0 grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {
+          palette &&
+            Object.entries(palette).map(([name, value]) => (
+              <div class="flex flex-col gap-1.5">
+                <span
+                  class="h-10 rounded-sm border border-border"
+                  style={`background: ${colour(value)}`}
+                  aria-hidden="true"
+                />
+                <dt class="font-mono text-xs text-muted">{name}</dt>
+                <dd class="m-0 font-mono text-xs">{colour(value)}</dd>
+              </div>
+            ))
+        }
+      </dl>
+    </section>
+
+    <section class="flex flex-col gap-3">
+      <h2 class="m-0 text-lg font-semibold">{t.registry.fonts}</h2>
+      <p class="m-0 font-mono text-sm text-muted">{theme.fonts.join(", ")}</p>
+
+      <dl class="m-0 flex flex-col gap-3">
+        {
+          specs.map((spec) => (
+            <div class="flex flex-col gap-1 border-t border-border pt-3">
+              <dt class="font-mono text-[0.65rem] uppercase tracking-[0.14em] text-muted">
+                {spec.label}
+              </dt>
+              <dd class="m-0 font-mono text-sm text-muted">{spec.values.join(" · ")}</dd>
+            </div>
+          ))
+        }
+      </dl>
+    </section>
+
+    <section class="flex flex-col gap-2">
+      <h2 class="m-0 text-lg font-semibold">{t.registry.category}</h2>
+      <p class="m-0 text-sm text-muted">{theme.category} · {theme.tags.join(", ")}</p>
+    </section>
+  </div>
+</Base>

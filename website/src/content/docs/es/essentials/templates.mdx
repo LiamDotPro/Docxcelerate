@@ -59,7 +59,7 @@ export const Enclosures: Section = () => {
 
   return (
     <Section id="enclosures" title="Enclosed">
-      {state.items.map((item) => <Paragraph key={item.id}>{item.label}</Paragraph>)}
+      {state.items.map((item) => <Paragraph>{item.label}</Paragraph>)}
     </Section>
   );
 };
@@ -69,9 +69,9 @@ Cualquier hijo falsy se omite, así que `{condition && <Node />}` se lee como en
 cualquier otro sitio. Los nodos sin id toman uno de donde están, y eso impide que
 un `map` exija nombres que no tienes.
 
-Esto funciona porque la lista se conoce al compilar el documento. Una lista que
-solo se conoce por petición es otro problema — mira [los bucles se publican como
-bucles](#los-bucles-se-publican-como-bucles) más abajo.
+El mismo `.map()` sirve cuando la lista solo se conoce por petición. Aquí recorre
+la colección, y al publicar llega al motor como un bucle — mira [los bucles se
+publican como bucles](#los-bucles-se-publican-como-bucles) más abajo.
 
 ## Piezas reutilizables
 
@@ -178,22 +178,29 @@ siempre que el valor ya se conozca. Echa mano de un deriver cuando no.
 
 Una bifurcación tiene dos ramas y las dos se pueden publicar. Un bucle tiene
 tantas como entradas traiga la petición, y ese número no lo sabe nadie hasta que
-se escribe un documento — así que lo que se guarda es el bucle en sí:
+se escribe un documento — así que lo que se guarda es el bucle en sí. Lo que se
+escribe es el `.map()` de siempre:
 
 ```tsx
-<Repeat over="visits" as="visit">
-  <Paragraph>Visit: {"{{ctx.visit.label}}"}</Paragraph>
-</Repeat>
+const [visits] = useState((data: TenancyData) => data.visits);
+
+return visits.map((visit) => <Paragraph id="visit">Visit: {visit.label}</Paragraph>);
 ```
 
-Con datos reales esto recorre la colección de inmediato, así que las vistas previas
-enseñan la repetición en vez de una descripción de ella. Publicado, sigue siendo un
-bucle y lo recorre el motor, ligando cada entrada bajo `as` y su posición bajo
-`indexAs`, y añadiendo el índice a los ids de los hijos para que una pasada siga
-siendo distinguible de la siguiente.
+Con datos reales esto es el `.map()` de la biblioteca estándar: recorre la
+colección de inmediato, así que las vistas previas enseñan la repetición en vez de
+una descripción de ella. Al publicar no se puede recorrer, así que el sustituto
+intercepta esa misma llamada, ejecuta el cuerpo una vez contra un sustituto de una
+entrada, y el bucle llega intacto al motor.
 
-Llamar a `.map()` sobre datos de la petición al publicar es un error que nombra el
-`Repeat` que hay que escribir en su lugar.
+Aquí nadie escribe un token `{{ctx…}}`. La entrada que recibió el cuerpo sabe la
+ruta que representa, así que la referencia se escribe sola — y las pasadas se
+nombran por posición en ambos caminos, de modo que un id significa lo mismo en una
+vista previa y en el documento que recibe alguien.
+
+Todo lo que tenga que mirar las entradas antes de poder escribir el cuerpo —
+`.filter()`, `.sort()`, `.length`, un bucle `for` — no se puede responder al
+publicar. Eso remite a un deriver, que se ejecuta donde están los datos.
 
 ### Las bifurcaciones multiplican
 

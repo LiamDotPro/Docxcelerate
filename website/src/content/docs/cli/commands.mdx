@@ -64,3 +64,68 @@ point in the document where it belongs.
 The node it writes starts with its content. What makes a node generated is
 setting prompts on it, which a component decides with data in hand — so there is
 nothing to choose here. See [writing nodes](/docs/writing-nodes/).
+
+## dxcl list
+
+Prints the registry: every theme and every prebuilt component the package
+ships.
+
+```sh
+dxcl list
+dxcl list themes
+dxcl list components
+```
+
+The same catalog is browsable at [themes](/themes/) and
+[components](/components/), where each entry carries a preview rendered by the
+renderer the CLI ships.
+
+## dxcl show
+
+Prints one entry in full — what it is, what it reads, and where its files land.
+
+```sh
+dxcl show slate-report
+dxcl show payment-summary
+```
+
+## dxcl add
+
+Installs themes and components into a document project.
+
+```sh
+dxcl add slate-report
+dxcl add letterhead signature-block
+dxcl add payment-summary --project documents/arrears-notice
+```
+
+| Flag | Effect |
+| --- | --- |
+| `--project <dir>` | The document project to install into |
+| `--force` | Overwrite files that are already there |
+
+With no `--project`, the command uses the document project you are standing in,
+or the only one under `documents/`. Where there are several and none is
+implied, it says so rather than guessing.
+
+**A component** is copied in as source — `nodes/<name>.node.tsx` — and
+re-exported from `nodes/index.ts`. It is then your file: it has no version, it
+is never upgraded behind you, and editing it is the expected next step rather
+than a fork. What it does not do is edit your data type, so the fields the
+component reads are printed for you to add. Placing it in `document.tsx` is
+yours too, for the same reason the node generator leaves that alone.
+
+**A theme** is written out as the project's `document-style.ts`, which
+`document.project.ts` already passes through — so the next preview is themed.
+The file imports the theme and spreads it, so overriding one margin is a line
+rather than a fork:
+
+```ts
+export const documentStyle: DocumentStyle = themeStyle(slateReportTheme, {
+  page: { margins: { topMm: 20 } },
+});
+```
+
+Installing a second theme replaces a `document-style.ts` that nothing has
+touched. Once you have written into it, replacing it needs `--force` — the
+point of the file is that it is yours.

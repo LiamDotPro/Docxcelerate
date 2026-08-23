@@ -51,7 +51,13 @@ erkennbare Gesichter — und der Slot schließt das einmalig aus, im Node.
 
 ## Anmerkungen
 
-- Der Node hält einen Pfad, nie die Bytes. Während eines Builds wird nichts
-  geladen und nichts geprüft; ein kaputter Pfad scheitert beim Rendern.
-- `alt` lohnt sich auch, solange die Renderer nur Rahmen drucken — denn der
-  Rahmen druckt `alt`.
+- **Nur eine `data:`-URI reist mit.** Sie trägt die Bytes, also hat auch ein
+  anderswo geschriebenes Dokument das Bild noch. Ein Pfad oder eine http-URL
+  wird am Bildschirm gezeichnet, wo ein Browser sie laden kann, landet in einer
+  `.docx` aber nur als Notiz: beim Packen wird nichts geladen und nichts von
+  der Platte gelesen, denn die Maschine, die das Dokument schreibt, ist nicht
+  die, auf der die Datei lag.
+- Word bettet ein SVG nicht allein ein — gib ihm ein Raster über `fallbackSrc`.
+  Der Bildschirm zeichnet das SVG, die Word-Datei bekommt das Raster.
+- `alt` lohnt sich in beiden Fällen: es beschreibt das Bild in der Word-Datei,
+  und ein Node, der noch kein Bild hat, druckt es an dessen Stelle.

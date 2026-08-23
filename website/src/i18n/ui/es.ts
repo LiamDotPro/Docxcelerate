@@ -29,6 +29,8 @@ export const es: UiStrings = {
   nav: {
     label: "Principal",
     docs: "Docs",
+    themes: "Temas",
+    components: "Componentes",
     cloud: "Cloud",
     github: "GitHub",
     switchTheme: "Cambiar de tema",
@@ -295,11 +297,13 @@ export const es: UiStrings = {
       education: "Educación",
       housing: "Vivienda",
       insurance: "Seguros",
+      consulting: "Servicios profesionales",
     },
     documents: {
       "offer-of-admission": "Carta de admisión",
       "repairs-appointment": "Cita de reparación",
       "policy-renewal": "Renovación de póliza",
+      invoice: "Factura",
     },
   },
 
@@ -359,6 +363,61 @@ export const es: UiStrings = {
       "stable": "Estable",
       "no-helper": "Aún sin helper",
       "planned": "Planeado",
+    },
+  },
+
+  registry: {
+    themes: {
+      title: "Temas",
+      description:
+        "Temas de documento listos para Docxcelerate: tipografías, colores, " +
+        "espaciado y tamaño de página, instalados con un solo comando.",
+      heading: "Temas",
+      lead:
+        "Tipografías, colores, espaciado y página, con nombre propio. Un tema " +
+        "es una importación en el proyecto y viaja con el documento generado: " +
+        "quien lo renderice no necesita instalar nada.",
+      cta: "Ver los temas",
+    },
+    components: {
+      title: "Componentes",
+      description:
+        "Componentes de Docxcelerate ya escritos: membretes, bloques de " +
+        "dirección, resúmenes de pago y más, copiados como código tuyo.",
+      heading: "Componentes",
+      lead:
+        "Nodos que alguien ya escribió y discutió. Añadir uno copia el código " +
+        "a tu proyecto y pasa a ser tuyo: sin versión, sin ruta de " +
+        "actualización, nada que bifurcar.",
+      cta: "Ver los componentes",
+    },
+    install: "Instalar",
+    preview: "Vista previa",
+    category: "Categoría",
+    tags: "Etiquetas",
+    fonts: "Tipografías",
+    page: "Página",
+    typography: "Tipografía",
+    colours: "Colores",
+    spacing: "Espaciado",
+    exports: "Exporta",
+    reads: "Qué lee",
+    field: "Campo",
+    type: "Tipo",
+    whatItDoes: "Para qué sirve",
+    source: "Código",
+    lands: "Se copia en",
+    resolvesTo: "En qué se resuelve",
+    previewData: "Vista previa con",
+    drawnAgainst: "Diseñado sobre el tema {theme}.",
+    allThemes: "Todos los temas",
+    allComponents: "Todos los componentes",
+    ad: {
+      heading: "Empieza con algo que ya funciona",
+      body:
+        "Los temas fijan la tipografía, el color y la página; los componentes " +
+        "son nodos ya resueltos. Un comando pone cualquiera de los dos en tu " +
+        "proyecto, como archivos tuyos.",
     },
   },
 

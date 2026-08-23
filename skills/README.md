@@ -4,7 +4,7 @@ A skill teaches a coding agent how to use Docxcelerate properly — the node mod
 the hook rules, and the difference between building a document locally and
 publishing one to the engine. Without it, agents guess: they add JSX pragmas that
 are not needed, read data outside `useState`, reuse ids across branch arms, and
-call `.map()` where a `<Repeat>` belongs.
+hand-write `{{ctx.…}}` tokens inside a loop.
 
 ```text
 skills/docxcelerate/

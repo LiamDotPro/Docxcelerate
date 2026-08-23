@@ -21,7 +21,7 @@ import type {
 import type { TemplateElement } from "./template/element.ts";
 import type { DocumentProps } from "./template/elements.ts";
 import { isPublishValue } from "./template/publish.ts";
-import { renderDocumentChildren } from "./template/render.ts";
+import { renderDocumentChildren, renderDocumentFurniture } from "./template/render.ts";
 
 /**
  * Turning a template into a document: what a build is given, and what it hands
@@ -101,12 +101,19 @@ export async function buildDocument<TData>(
   const context = createRenderContext(data, availableTokens, options);
   const props = template.element.props as unknown as DocumentProps;
 
+  // The body first, so ids are claimed in the order a reader meets them and a
+  // collision is reported against the node that actually repeated one.
+  const nodes = await renderDocumentChildren(props, context);
+  const { header, footer } = await renderDocumentFurniture(props, context);
+
   return {
     schemaVersion: "docxcelerate.letter/v0",
     id: template.id,
     title: template.title,
     metadata: template.metadata,
-    nodes: await renderDocumentChildren(props, context),
+    nodes,
+    header,
+    footer,
   };
 }
 

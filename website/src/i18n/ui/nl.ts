@@ -25,6 +25,8 @@ export const nl: UiStrings = {
   nav: {
     label: "Hoofdnavigatie",
     docs: "Docs",
+    themes: "Thema's",
+    components: "Componenten",
     cloud: "Cloud",
     github: "GitHub",
     switchTheme: "Thema wisselen",
@@ -291,11 +293,13 @@ export const nl: UiStrings = {
       education: "Onderwijs",
       housing: "Wonen",
       insurance: "Verzekeringen",
+      consulting: "Zakelijke dienstverlening",
     },
     documents: {
       "offer-of-admission": "Toelatingsbrief",
       "repairs-appointment": "Reparatieafspraak",
       "policy-renewal": "Polisverlenging",
+      invoice: "Factuur",
     },
   },
 
@@ -354,6 +358,61 @@ export const nl: UiStrings = {
       "stable": "Stabiel",
       "no-helper": "Nog geen helper",
       "planned": "Gepland",
+    },
+  },
+
+  registry: {
+    themes: {
+      title: "Thema's",
+      description:
+        "Kant-en-klare documentthema's voor Docxcelerate: lettertypen, " +
+        "kleuren, witruimte en paginaformaat, met één commando geïnstalleerd.",
+      heading: "Thema's",
+      lead:
+        "Lettertypen, kleuren, witruimte en pagina, onder één naam. Een thema " +
+        "is één import in een project en reist mee met het gebouwde document — " +
+        "wie het rendert hoeft niets te installeren.",
+      cta: "Bekijk de thema's",
+    },
+    components: {
+      title: "Componenten",
+      description:
+        "Kant-en-klare Docxcelerate-componenten: briefhoofden, adresblokken, " +
+        "betalingsoverzichten en meer, als broncode in je eigen project.",
+      heading: "Componenten",
+      lead:
+        "Nodes die iemand al geschreven en doordacht heeft. Toevoegen kopieert " +
+        "de broncode naar je project — geen versie, geen upgradepad, niets om " +
+        "te forken.",
+      cta: "Bekijk de componenten",
+    },
+    install: "Installeren",
+    preview: "Voorbeeld",
+    category: "Categorie",
+    tags: "Labels",
+    fonts: "Lettertypen",
+    page: "Pagina",
+    typography: "Typografie",
+    colours: "Kleuren",
+    spacing: "Witruimte",
+    exports: "Exporteert",
+    reads: "Wat het leest",
+    field: "Veld",
+    type: "Type",
+    whatItDoes: "Waar het voor is",
+    source: "Broncode",
+    lands: "Komt terecht in",
+    resolvesTo: "Wat eruit komt",
+    previewData: "Voorbeeld met",
+    drawnAgainst: "Ontworpen op het thema {theme}.",
+    allThemes: "Alle thema's",
+    allComponents: "Alle componenten",
+    ad: {
+      heading: "Begin met iets dat al werkt",
+      body:
+        "Thema's bepalen letter, kleur en pagina; componenten zijn nodes die " +
+        "al doordacht zijn. Eén commando zet ze in een project, als bestanden " +
+        "die van jou zijn.",
     },
   },
 

@@ -5,9 +5,10 @@ group: Start Here
 order: 1
 ---
 
-Docxcelerate needs **Node.js 20 or newer** and nothing else. Authoring, preview
-and DOCX packing all run locally — there is no account to create and no service
-to reach before you see a document.
+You need **Node.js 20 or newer**, and nothing else.
+
+Authoring, preview and DOCX packing all run on your machine. There's no account
+to create and no service to reach before you see a document.
 
 ## Install the CLI
 
@@ -17,22 +18,22 @@ cd my-documents
 npm run dev
 ```
 
-That is the whole first run. If you would rather have the command on your path:
+That's the whole first run. If you'd rather have the command on your path:
 
 ```sh
 npm install -g docxcelerate
 dxcl init my-documents
 ```
 
-Or add it to an existing repository, where `npx dxcl` then resolves locally:
+Or add it to a repository you already have, so `npx dxcl` resolves locally:
 
 ```sh
 npm install --save-dev docxcelerate
 npx dxcl init my-documents
 ```
 
-The command is `npx docxcelerate`, not `npx dxcl` — npx resolves the package
-name, and the binary inside it is called `dxcl`.
+Note the first command is `npx docxcelerate`, not `npx dxcl`. npx resolves the
+*package* name; the binary inside it is what's called `dxcl`.
 
 ## Scaffold a workspace
 

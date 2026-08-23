@@ -24,6 +24,17 @@ import {
   scaffoldWorkspaceProject,
   type WorkspaceProjectTemplate,
 } from "./scaffold.ts";
+import {
+  findDocumentProjects,
+  installRegistryEntry,
+  resolveInstallOrder,
+} from "../registry/install.ts";
+import {
+  COMPONENT_CATEGORIES,
+  COMPONENTS,
+  REGISTRY_THEMES,
+  registryEntry,
+} from "../registry/mod.ts";
 import { spawn } from "node:child_process";
 import { readFile, stat as statPath, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
@@ -121,9 +132,160 @@ if (command === "node" || command === "generate-node") {
   process.exit(0);
 }
 
+if (command === "add") {
+  const args = parseArgs(commandArgs);
+  const guided = args.positionals.length === 0;
+  const refs = guided ? await askForRegistryEntries() : args.positionals;
+  const projectDir = await resolveTargetProject(args.options.project, guided);
+  const force = args.flags.has("force");
+
+  for (const id of resolveInstallOrder(refs)) {
+    const result = await installRegistryEntry({ ref: id, projectDir, force });
+
+    console.log(`Added ${result.kind} ${result.title} -> ${projectDir}`);
+    for (const file of result.files) {
+      console.log(`  ${file}`);
+    }
+    for (const note of result.followUp) {
+      console.log(`  - ${note}`);
+    }
+  }
+
+  process.exit(0);
+}
+
+if (command === "list" || command === "registry") {
+  const args = parseArgs(commandArgs);
+  const filter = args.positionals[0];
+
+  if (filter !== undefined && filter !== "themes" && filter !== "components") {
+    fail(`Unknown registry listing: ${filter}. Expected "themes" or "components".`);
+  }
+
+  if (filter !== "components") {
+    console.log("Themes");
+    for (const entry of REGISTRY_THEMES) {
+      console.log(`  ${entry.id.padEnd(18)} ${entry.theme.summary}`);
+    }
+  }
+
+  if (filter !== "themes") {
+    if (filter === undefined) {
+      console.log("");
+    }
+
+    console.log("Components");
+    for (const category of COMPONENT_CATEGORIES) {
+      for (const component of COMPONENTS.filter((entry) => entry.category === category)) {
+        console.log(`  ${component.id.padEnd(18)} ${component.summary}`);
+      }
+    }
+  }
+
+  console.log("");
+  console.log("Add one with: dxcl add <id> [--project documents/<name>]");
+  console.log("Browse them at: https://docxcelerate.com/themes and /components");
+  process.exit(0);
+}
+
+if (command === "show") {
+  const args = parseArgs(commandArgs);
+  const id = args.positionals[0] ?? await askRequired("Theme or component id");
+  const entry = registryEntry(id);
+
+  if (entry.kind === "theme") {
+    const { theme } = entry;
+    console.log(`${theme.title} (theme ${theme.id})`);
+    console.log(theme.detail);
+    console.log(`Category: ${theme.category}`);
+    console.log(`Tags: ${theme.tags.join(", ")}`);
+    console.log(`Fonts: ${theme.fonts.join(", ")}`);
+    console.log(`Page: ${theme.style.page.size} ${theme.style.page.orientation}`);
+    console.log(
+      `Body: ${theme.style.typography.bodyFont} ${theme.style.typography.bodySizePt}pt`,
+    );
+  } else {
+    console.log(`${entry.title} (component ${entry.id})`);
+    console.log(entry.detail);
+    console.log(`Category: ${entry.category}`);
+    console.log(`Tags: ${entry.tags.join(", ")}`);
+    console.log(`Exports: ${entry.exports.join(", ")}`);
+    console.log("Reads:");
+    for (const field of entry.dataFields) {
+      console.log(`  ${field.path}: ${field.type} — ${field.summary}`);
+    }
+    console.log("Files:");
+    for (const file of entry.files) {
+      console.log(`  ${file.target}`);
+    }
+  }
+
+  console.log("");
+  console.log(`Add it with: dxcl add ${entry.id}`);
+  process.exit(0);
+}
+
 console.error(`Unknown scaffold command: ${command}`);
 printHelp();
 process.exit(1);
+
+/**
+ * Which document project an install lands in.
+ *
+ * A workspace usually holds one document project, and typing `--project` for
+ * the only candidate is the kind of ceremony that makes a tool feel slow. So
+ * one is used without asking, several are offered, and none is an error that
+ * says what to run instead.
+ */
+async function resolveTargetProject(
+  explicit: string | undefined,
+  guided: boolean,
+): Promise<string> {
+  if (explicit !== undefined) {
+    return explicit;
+  }
+
+  const projects = await findDocumentProjects(".");
+
+  if (projects.length === 1) {
+    return projects[0];
+  }
+
+  if (projects.length === 0) {
+    fail(
+      "No document project here. Run dxcl document new to make one, " +
+        "or pass --project with the directory holding document.project.ts.",
+    );
+  }
+
+  if (!guided) {
+    fail(
+      `Several document projects here: ${projects.join(", ")}. ` +
+        "Say which one with --project.",
+    );
+  }
+
+  return await askChoice("Document project", projects, projects[0]);
+}
+
+/** The catalog, printed so a guided install can be answered without leaving. */
+async function askForRegistryEntries(): Promise<string[]> {
+  console.log("Themes");
+  for (const entry of REGISTRY_THEMES) {
+    console.log(`  ${entry.id.padEnd(18)} ${entry.theme.summary}`);
+  }
+
+  console.log("");
+  console.log("Components");
+  for (const component of COMPONENTS) {
+    console.log(`  ${component.id.padEnd(18)} ${component.summary}`);
+  }
+
+  console.log("");
+  const answer = await askRequired("What to add (ids, space separated)");
+
+  return answer.split(/\s+/).filter(Boolean);
+}
 
 /**
  * Strips the namespace off `dxcl document new` and friends, leaving the bare
@@ -455,6 +617,9 @@ Usage:
   dxcl init [project-name] [--dir <parent-dir>] [--sample|--blank] [--official-server|--api-endpoint <url>|--no-api-endpoint]
   dxcl document new [name] [--title <title>] [--dir documents]
   dxcl document node [project-dir] [name] [--type paragraph|image|graph]
+  dxcl add [ids...] [--project documents/<name>] [--force]
+  dxcl list [themes|components]
+  dxcl show <id>
 
 Examples:
   dxcl init
@@ -465,10 +630,15 @@ Examples:
   dxcl document new arrears-notice --title "Arrears Notice"
   dxcl document node
   dxcl document node documents/arrears-notice repayment-summary --type paragraph
+  dxcl list
+  dxcl add slate-report
+  dxcl add letterhead signature-block --project documents/arrears-notice
+  dxcl show payment-summary
 
 Aliases:
   dxcl new       -> dxcl document new
   dxcl node      -> dxcl document node
+  dxcl registry  -> dxcl list
   dxcl letter .. -> dxcl document ..   (the old spelling, still accepted)
 `);
 }

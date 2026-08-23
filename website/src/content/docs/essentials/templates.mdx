@@ -5,9 +5,12 @@ group: Essentials
 order: 3
 ---
 
-A template names a document tree so a project can point at it. Nothing in it is
-rendered when it is written — evaluating the JSX only builds elements, which is
-what lets a component decide what it is later, with data in hand.
+A template is the tree that describes your document, given a name so a project
+can point at it.
+
+Nothing is rendered when you write it. Evaluating the JSX only builds elements —
+which is what lets a component decide what it is later, once it actually has
+data.
 
 ## The shape
 
@@ -28,7 +31,8 @@ export const documentTemplate = template<DocumentData>(
 );
 ```
 
-What wires that JSX to Docxcelerate rather than to React is `tsconfig.json`:
+What wires that JSX to Docxcelerate rather than React is one setting in
+`tsconfig.json`:
 
 ```json
 {
@@ -39,15 +43,16 @@ What wires that JSX to Docxcelerate rather than to React is `tsconfig.json`:
 }
 ```
 
-Scaffolded workspaces have this already, so there is nothing to add at the top of
-a file. If you are adding Docxcelerate to a project that points
-`jsxImportSource` somewhere else, a `/** @jsxImportSource docxcelerate/template */`
-comment on line one overrides it for that file.
+Scaffolded workspaces already have this, so you don't need a pragma at the top of
+any file. If you're adding Docxcelerate to a project that points
+`jsxImportSource` somewhere else, put
+`/** @jsxImportSource docxcelerate/template */` on line one of the file to
+override it just there.
 
 ## Computed structure
 
-A template is written at module scope, where no data exists yet, so structure
-that depends on data belongs in a component rather than in the template:
+A template is written at module scope, where no data exists yet. So if your
+structure depends on data, it belongs in a component:
 
 ```tsx
 export const Enclosures: Section = () => {
@@ -55,37 +60,58 @@ export const Enclosures: Section = () => {
 
   return (
     <Section id="enclosures" title="Enclosed">
-      {state.items.map((item) => <Paragraph key={item.id}>{item.label}</Paragraph>)}
+      {state.items.map((item) => <Paragraph>{item.label}</Paragraph>)}
     </Section>
   );
 };
 ```
 
-Anything falsy in the children is skipped, so `{condition && <Node />}` reads
-the way it does anywhere else. Nodes without ids take one from where they sit,
-which is what stops a `map` from demanding names you do not have.
+`{condition && <Node />}` works the way you'd expect too — anything falsy in the
+children is skipped.
 
-This works because the list is known when the document is built. A list that is
-only known per request is a different problem — see
+### Ids name themselves
+
+You rarely need to write one. A node with no `id` gets named after whatever
+already says what it is — its heading, or the component that produced it:
+
+```tsx
+<Section title="Fees and funding">   {/* fees-and-funding */}
+  <Greeting />                        {/* greeting        */}
+  <SignOff />                         {/* sign-off        */}
+  <Paragraph>Plain.</Paragraph>       {/* paragraph       */}
+</Section>
+```
+
+If two nodes derive the same name they get numbered: `greeting`, `greeting-2`.
+Two ids you **wrote** that collide are still an error, because that's a typo
+rather than a repetition.
+
+Names come from what a node is, never from where it sits. Insert a paragraph
+above another and nothing below it gets renamed.
+
+**When should you write one?** When you want to pin an address — a node a request
+asks for by name, or one you expect to reference later. Otherwise leave it out.
+
+The same `.map()` works whether the list is known now or only per request. See
 [loops are published as loops](#loops-are-published-as-loops) below.
 
 ## Reusable pieces
 
 A component is a plain function, so a house-style wrapper is a plain function
-too. Components accept children like anything else:
+too. Components take children like anything else:
 
 ```tsx
 export const Letterhead: Section<{ children?: Yield }> = ({ children }) => (
   <Section id="letterhead" title="">
-    <Image id="logo" src="assets/logo.png" alt="Ashcroft Housing" />
+    <Image id="logo" src={logoDataUri} alt="Ashcroft Housing" />
     {children}
   </Section>
 );
 ```
 
-A shared hook is the other half of this. Because `useSetPrompts` sets prompts on
-whatever the calling component yields, house style can be applied to a node the
-hook does not own:
+A shared hook is the other half of this. `useSetPrompts` sets prompts on whatever
+the *calling* component yields, so you can apply house style to a node the hook
+doesn't own:
 
 ```tsx
 export function useHouseVoice() {
@@ -95,8 +121,8 @@ export function useHouseVoice() {
 }
 ```
 
-Any component that calls `useHouseVoice()` gets that system prompt on the node
-it returns, and can still override it with a prop.
+Any component that calls `useHouseVoice()` gets that system prompt on the node it
+returns — and can still override it with a prop.
 
 ## Document projects
 
@@ -122,34 +148,35 @@ export default defineDocumentProject<DocumentData>({
 });
 ```
 
-`previewData` is what the preview app resolves against. Keep it realistic —
-short names and placeholder cities hide layout problems that real data exposes.
+`previewData` is what the preview app resolves against. Keep it realistic — short
+names and placeholder cities hide the layout problems that real data will find.
 
 ## What changes when you publish
 
-Everything above assumes you hold the data. When you build with data in hand — a
-preview, a local pack, a document written on the spot — an `if` means exactly
-what it says, and a `.map()` walks the list it was given.
+Everything above assumes you hold the data. That's true for a preview, a local
+pack, or a document you write on the spot.
 
 Publishing to [an engine](/docs/generation/endpoint/) is different. The artifact
-is built **once**, against stand-in values for a request nobody has made yet,
-and stored. A decision that depends on request data cannot be settled during
-that build; it has to travel to the engine and be made per document.
+gets built **once**, against stand-in values for a request nobody has made yet,
+and then stored. Anything that depends on request data can't be settled during
+that build — it has to travel to the engine and happen per document.
 
-Three rules follow, and the build enforces all three rather than letting a wrong
-document reach a recipient.
+That sounds like it would change how you write components. Mostly it doesn't:
+you keep writing ordinary `if`s and ordinary `.map()`s, and the build works out
+what has to travel. There are three things worth understanding, and the build
+enforces all three rather than letting a wrong document reach a recipient.
 
 ### Compute per document, not per build
 
-Interpolating a value works while publishing: it becomes the token the engine
-substitutes.
+Interpolating a value is fine while publishing. It becomes the token the engine
+substitutes:
 
 ```tsx
 <Paragraph id="greeting">Hello {state.name},</Paragraph>
 // published as: "Hello {{data.name}},"
 ```
 
-Computing on one does not, because the value is not known yet. Formatting a
+*Computing* on one isn't, because the value doesn't exist yet. Formatting a
 currency, totalling a list, comparing a date — those need a **deriver**, which
 the engine runs per document:
 
@@ -164,34 +191,66 @@ the engine runs per document:
 </Paragraph>
 ```
 
-`useFormat` and `useDeriver` compute during the build instead, which is right
-whenever the value is already known. Reach for a deriver when it is not.
+`useFormat` and `useDeriver` compute during the build instead, which is what you
+want whenever the value is already known. Reach for a deriver when it isn't.
+
+### Decisions travel, and you still write `if`
+
+Write the conditional you'd write anywhere:
+
+```tsx
+if (state.overdue) {
+  return <Paragraph id="overdue">This account is overdue.</Paragraph>;
+}
+
+return <Paragraph id="clear">Nothing outstanding.</Paragraph>;
+```
+
+The build compiles that into a condition the engine evaluates per recipient, so
+both arms travel with the document. Ternaries and `{cond && <Node />}` compile the
+same way.
+
+One distinction to know: an arm has to yield a **node**. A conditional that picks
+between two *strings* is a value, not a decision, and a value that varies per
+document is a deriver's job.
+
+**This needs the Docxcelerate transform in your build** — `docxcelerateTransform()`
+for Vite, or `docxcelerateEsbuildTransform()` for esbuild, both from
+`docxcelerate/transform`. Scaffolded workspaces already have it. Without it the
+conditional still runs, but it decides once at build time, for everybody.
 
 ### Loops are published as loops
 
 A branch has two arms and both can be published. A loop has as many as the
 request has entries, and nobody knows that number until a document is written —
-so the loop itself is what gets stored:
+so the loop itself gets stored.
+
+What you write is the ordinary `.map()`:
 
 ```tsx
-<Repeat over="visits" as="visit">
-  <Paragraph>Visit: {"{{ctx.visit.label}}"}</Paragraph>
-</Repeat>
+const [visits] = useState((data: TenancyData) => data.visits);
+
+return visits.map((visit) => <Paragraph id="visit">Visit: {visit.label}</Paragraph>);
 ```
 
-With real data this walks the collection immediately, so previews show the
-repetition rather than a description of it. Published, it stays a loop and the
-engine walks it, binding each entry under `as` and its position under `indexAs`,
-and suffixing child ids with the index so one pass stays distinguishable from
-the next.
+With real data this is just `Array.prototype.map`. It walks the collection
+immediately, so previews show the actual repetition rather than a description of
+it. Publishing can't walk it, so the stand-in intercepts the same call, runs the
+body once, and the loop travels to the engine intact.
 
-Calling `.map()` on request data while publishing is an error that names the
-`Repeat` to write instead.
+You never write a `{{ctx…}}` token here. The entry your body was handed knows the
+path it stands for, so the reference writes itself.
+
+Anything that has to look at the entries before the body can be written —
+`.filter()`, `.sort()`, `.length`, a `for` loop — can't be answered while
+publishing. Those raise an error telling you to use a deriver, which runs where
+the data is.
 
 ### Branches multiply
 
-Publishing a branch stores both arms, each under the condition that selects it.
-Nesting branches multiplies what a document carries, so there is a limit —
-`branchLimit`, 32 by default — and passing it fails the build rather than
-producing a quietly enormous artifact. Lift the decision into a deriver that
-yields one value, or raise the limit if the document really is that conditional.
+Publishing a branch stores both arms. Nesting branches multiplies what the
+document carries, so there's a limit: `branchLimit`, 32 by default. Passing it
+fails the build rather than producing a quietly enormous artifact.
+
+If you hit it, lift the decision into a deriver that yields one value — or raise
+the limit, if the document really is that conditional.

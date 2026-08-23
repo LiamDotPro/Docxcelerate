@@ -1,0 +1,11 @@
+---
+// The component gallery in every language except English.
+import ComponentGallery from "../../../components/ComponentGallery.astro";
+import { PREFIXED_LOCALES } from "../../../i18n";
+
+export function getStaticPaths() {
+  return PREFIXED_LOCALES.map((locale) => ({ params: { locale } }));
+}
+---
+
+<ComponentGallery />

@@ -13,8 +13,8 @@ import NodeVariants from "../../../components/NodeVariants.astro";
 
 ## Writing one
 
-The text is the element's children, interpolated the way any JSX children are.
-There is no template language, so formatting, branching and pluralisation are
+The text is the element's children, interpolated the way JSX children always
+are. There's no template language, so formatting, branching and pluralisation are
 all ordinary TypeScript — done in the state initializer, which is where a
 component does its thinking:
 
@@ -49,7 +49,8 @@ useSetPrompts({
 
 ## Branching
 
-A document that says one of three things is one component with three outcomes.
+If a document says one of three things, that's one component with three
+outcomes — not three components.
 Give each arm its own id:
 
 ```tsx
@@ -60,7 +61,8 @@ if (state.settled) {
 return <Paragraph id="balance-arrears">A balance remains.</Paragraph>;
 ```
 
-Distinct ids are what let the resolved document record which arm this recipient
+Giving each arm its own id is what lets the resolved document record which one
+this recipient
 got, and they are required once the branch is published — an engine stores both
 arms, and an id addresses exactly one node.
 

@@ -6,6 +6,7 @@ import type {
   RuntimeState,
   ValueExpression,
 } from "../domain/types.ts";
+import { expr } from "../template/publish.ts";
 import { setPath } from "./object_path.ts";
 import { resolveValueExpression } from "./templates.ts";
 
@@ -39,6 +40,20 @@ export interface DeriverDefinition {
   name: string;
   /** The computation itself. */
   run: DeriverFunction;
+  /**
+   * What a preview shows instead of running this.
+   *
+   * Supplying one is how a deriver says it costs something. A preview is
+   * rebuilt every time a file is saved, so anything it waits for is time
+   * somebody spends watching a document fail to appear — a code to render, a
+   * file to read, a service to ask. Those stand in while a document is being
+   * written, and run for real when one is.
+   *
+   * A deriver without one is cheap by construction — a total, a currency, a
+   * date — and runs everywhere, because a preview showing the real figure is
+   * worth more than the microsecond it took.
+   */
+  placeholder?: unknown;
 }
 
 /** A set of derivers, written either as an object or as a list of definitions. */
@@ -78,6 +93,7 @@ export interface CreateDeriverBundleOptions {
 /** The derivers available while a document is being written, by name. */
 export class DeriverRegistry {
   readonly #derivers = new Map<string, DeriverFunction>();
+  readonly #placeholders = new Map<string, unknown>();
 
   /**
    * Adds a deriver, replacing any already registered under the name.
@@ -86,9 +102,34 @@ export class DeriverRegistry {
    * @param deriver The computation to run.
    * @returns This registry, so registrations can be chained.
    */
-  register(name: string, deriver: DeriverFunction): this {
+  register(name: string, deriver: DeriverFunction, placeholder?: unknown): this {
     this.#derivers.set(name, deriver);
+
+    if (placeholder !== undefined) {
+      this.#placeholders.set(name, placeholder);
+    }
+
     return this;
+  }
+
+  /**
+   * What a preview shows instead of running one of these.
+   *
+   * @param name The deriver to ask about.
+   * @returns The stand-in, or `undefined` when the deriver is cheap enough to run.
+   */
+  placeholderFor(name: string): unknown {
+    return this.#placeholders.get(name);
+  }
+
+  /**
+   * Whether a preview should stand in for a deriver rather than run it.
+   *
+   * @param name The deriver to ask about.
+   * @returns `true` when it declared a stand-in.
+   */
+  standsInForPreview(name: string): boolean {
+    return this.#placeholders.has(name);
   }
 
   /**
@@ -99,6 +140,25 @@ export class DeriverRegistry {
    */
   has(name: string): boolean {
     return this.#derivers.has(name);
+  }
+
+  /**
+   * Writes a deriver's stand-in where its result would have gone.
+   *
+   * The shape is the same as the real thing, so anything downstream reads it
+   * the same way — a preview differs from a document in what the value says,
+   * never in whether it is there.
+   *
+   * @param invocation Which deriver to stand in for, and where to put it.
+   * @param state The state to write into.
+   * @returns The stand-in that was written.
+   */
+  standIn(invocation: DeriverInvocation, state: RuntimeState): unknown {
+    const placeholder = this.#placeholders.get(invocation.name);
+
+    setPath(state.derived, invocation.output, placeholder);
+
+    return placeholder;
   }
 
   /**
@@ -310,13 +370,38 @@ export function collectDocumentDeriverNames(doc: DocumentModel): string[] {
  */
 export function derive(
   name: string,
-  options: { output: string; inputs?: ValueExpression[] },
+  options: { output: string; inputs?: readonly unknown[] },
 ): DeriverInvocation {
   return {
     name,
     output: options.output,
-    inputs: options.inputs ?? [],
+    inputs: (options.inputs ?? []).map(toValueExpression),
   };
+}
+
+/**
+ * An input as written: either an expression built by hand, or the value itself.
+ *
+ * Passing the value is the shorter road and the only one that works inside a
+ * `.map()`, where what the component holds is a real entry on one build and a
+ * stand-in on the other.
+ */
+function toValueExpression(input: unknown): ValueExpression {
+  if (isValueExpression(input)) {
+    return input;
+  }
+
+  return expr(input);
+}
+
+function isValueExpression(input: unknown): input is ValueExpression {
+  if (typeof input !== "object" || input === null) {
+    return false;
+  }
+
+  const type = (input as { type?: unknown }).type;
+
+  return type === "literal" || type === "ref";
 }
 
 /**
@@ -366,14 +451,21 @@ export function literalValue(value: string | number | boolean): ValueExpression 
  * @param invocations The node's derivers, if it has any.
  * @param state The state to resolve against and write into.
  * @param registry Where the derivers are looked up.
+ * @param previewing Whether a deriver that declared a stand-in should use it.
  * @throws If an invocation names a deriver the registry does not hold.
  */
 async function runDerivers(
   invocations: DeriverInvocation[] | undefined,
   state: RuntimeState,
   registry: DeriverRegistry,
+  previewing = false,
 ): Promise<void> {
   for (const invocation of invocations ?? []) {
+    if (previewing && registry.standsInForPreview(invocation.name)) {
+      registry.standIn(invocation, state);
+      continue;
+    }
+
     await registry.run(invocation, state);
   }
 }
@@ -389,7 +481,7 @@ function registerDeriverDefinitions(
   }
 
   for (const definition of normalizeDeriverDefinitions(definitions)) {
-    registry.register(definition.name, definition.run);
+    registry.register(definition.name, definition.run, definition.placeholder);
   }
 }
 
@@ -398,6 +490,7 @@ function normalizeDeriverDefinitions(definitions: DeriverDefinitions): DeriverDe
     return definitions.map((definition) => ({
       name: definition.name,
       run: definition.run,
+      placeholder: definition.placeholder,
     }));
   }
 

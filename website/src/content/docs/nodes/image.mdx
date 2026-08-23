@@ -51,7 +51,12 @@ and the slot rules them out once, in the node.
 
 ## Notes
 
-- The node holds a path, never the bytes. Nothing is fetched or validated during
-  a build; a broken path fails at render time.
-- `alt` is worth writing even while the renderers print frames, because the
-  frame prints `alt`.
+- **Only a `data:` URI travels.** It carries the bytes, so a document written
+  by an engine somewhere else still has the picture. A path or an http URL draws
+  on screen, where a browser can fetch it, but packs into a `.docx` as a note:
+  nothing is ever fetched or read from disk while packing, because the machine
+  writing the document is not the machine the file was on.
+- Word will not embed an SVG on its own, so give one a `fallbackSrc` raster. The
+  screen draws the SVG and the Word file gets the raster.
+- `alt` is worth writing either way: it describes the picture in the Word file,
+  and it is what a node with no picture yet prints in its place.

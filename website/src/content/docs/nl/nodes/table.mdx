@@ -1,0 +1,61 @@
+---
+title: Tabel
+description: "Een raster van cellen, met kolommen die één keer worden gedeclareerd en rijen die gewone nodes zijn."
+group: Nodes
+subgroup: Node types
+order: 15
+---
+
+import NodeSummary from "../../../../components/NodeSummary.astro";
+import NodeVariants from "../../../../components/NodeVariants.astro";
+
+<NodeSummary type="table" />
+
+## Zo schrijf je er een
+
+```tsx
+import { Cell, Row, Table, useFormat, useState } from "docxcelerate/template";
+
+export const VisitLog: Table = () => {
+  const { number } = useFormat("en-GB");
+  const [state] = useState((data: MemberData) => ({ months: data.visitsByMonth }));
+
+  return (
+    <Table id="visit-log" columns={[{ width: "auto" }, { width: 28, align: "right" }]}>
+      <Row header>
+        <Cell>Maand</Cell>
+        <Cell>Bezoeken</Cell>
+      </Row>
+      {state.months.map((entry) => (
+        <Row>
+          <Cell>{entry.month}</Cell>
+          <Cell>{number(entry.visits)}</Cell>
+        </Row>
+      ))}
+    </Table>
+  );
+};
+```
+
+**De kolommen horen bij de tabel**, in millimeters of `"auto"` om te verdelen wat de vaste overlaten, elk met een optionele `align`. Ze worden één keer gedeclareerd omdat elke rij ze deelt: een tabel waarvan de kolommen niet uitlijnen is geen tabel.
+
+**Al het andere is een gewone node.** Een `.map()` maakt rijen, een voorwaarde laat er een weg, en elke noemt zichzelf. Dat is wat een gepubliceerde factuur één lus laat dragen die de engine doorloopt, in plaats van een tabel vol uitzonderingen.
+
+## Wat een cel bevat
+
+Tekst gaat er rechtstreeks in, dus `<Cell>{line.qty}</Cell>` is het gewone geval en leest ook zo. Geef een cel alinea's wanneer één regel niet genoeg is — een omschrijving boven een gedempte notitie — en ze blijven op aparte regels.
+
+## Koprijen
+
+`header` op een rij tekent hem als kop. Alleen de rijen waarmee een tabel **begint** herhalen op elke nieuwe pagina, dus een totaalrij met `header` wordt als kop getekend maar blijft staan waar hij staat, onder de cijfers die hij optelt.
+
+## Varianten
+
+<NodeVariants type="table" />
+
+## Aantekeningen
+
+- Een lege cel is nog steeds een cel. Word accepteert geen lege, dus hij wordt als blanco vak ingepakt in plaats van als ontbrekende kolom.
+- `span` laat een cel over meerdere kolommen lopen; `align` overschrijft de uitlijning van de kolom voor alleen die cel.
+- Een `variant` op een cel wint van die op zijn rij, en die van die op de tabel — de smallere uitspraak is de bewustere.
+- Beide meegeleverde renderers tekenen een echte tabel: een `<table>` op het scherm en een Word-tabel met de gedeclareerde kolombreedtes in de `.docx`.

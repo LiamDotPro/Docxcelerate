@@ -13,7 +13,8 @@ import NodeVariants from "../../../components/NodeVariants.astro";
 
 ## Writing one
 
-A section takes its options and its children — node components, the same values
+A section takes its options and its children. Those children are node
+components — the same values
 you would place at the top level of a document:
 
 ```ts
@@ -42,12 +43,12 @@ each form earns its keep.
 Paragraphs, images, graphs, a contents marker, or further sections. No other
 node has children, so the depth of a document is the depth of its sections.
 
-Nothing about a node changes because it moved inside one: it resolves the same
+Moving a node inside a section changes nothing about it. It resolves the same
 way at any depth, and its id gains no prefix.
 
 ## Titles carry into the outline
 
-`title` is required, and it is not decoration — it becomes the heading above the
+`title` is required, and it isn't decoration. It becomes the heading above the
 children and the entry a contents list is built from. A group that wants no
 heading wants no section; put the nodes in the document directly.
 

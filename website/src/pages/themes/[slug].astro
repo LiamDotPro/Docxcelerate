@@ -1,0 +1,14 @@
+---
+// One theme, in English. Slugs come from the registry, so a theme that leaves
+// it takes its route with it rather than leaving a page nothing generates.
+import ThemeDetail from "../../components/ThemeDetail.astro";
+import { THEMES } from "../../registry";
+
+export function getStaticPaths() {
+  return THEMES.map((theme) => ({ params: { slug: theme.id }, props: { theme } }));
+}
+
+const { theme } = Astro.props;
+---
+
+<ThemeDetail theme={theme} />

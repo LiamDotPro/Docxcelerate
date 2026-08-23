@@ -19,6 +19,7 @@
  */
 import type { APIRoute } from "astro";
 import { byOrder, docsFor } from "../docs";
+import { addCommand, COMPONENTS, componentHref, themeHref, THEMES } from "../registry";
 import { absolute, markdownPath, MARKDOWN_HEADERS } from "../markdown";
 import { DEFAULT_LOCALE, ui } from "../i18n";
 import {

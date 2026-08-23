@@ -32,6 +32,8 @@ export const en = {
   nav: {
     label: "Main",
     docs: "Docs",
+    themes: "Themes",
+    components: "Components",
     cloud: "Cloud",
     github: "GitHub",
     switchTheme: "Switch theme",
@@ -321,11 +323,13 @@ export const en = {
       education: "Education",
       housing: "Housing",
       insurance: "Insurance",
+      consulting: "Professional services",
     },
     documents: {
       "offer-of-admission": "Offer of Admission",
       "repairs-appointment": "Repair Appointment",
       "policy-renewal": "Policy Renewal",
+      invoice: "Invoice",
     },
   },
 
@@ -401,6 +405,68 @@ export const en = {
       "stable": "Stable",
       "no-helper": "No helper yet",
       "planned": "Planned",
+    },
+  },
+
+  /**
+   * The theme and component galleries. The entries themselves are generated
+   * from the package's registry and stay English — see src/registry.ts. These
+   * are the labels around them.
+   */
+  registry: {
+    themes: {
+      title: "Themes",
+      description:
+        "Ready-made document themes for Docxcelerate: fonts, colours, spacing " +
+        "and page size, installed into a project with one command.",
+      heading: "Themes",
+      lead:
+        "Fonts, colours, spacing and page, under a name. A theme is one import " +
+        "in a project, and it travels with the built document — so whatever " +
+        "renders it needs nothing installed.",
+      cta: "Browse themes",
+    },
+    components: {
+      title: "Components",
+      description:
+        "Prebuilt Docxcelerate components: letterheads, address blocks, " +
+        "payment summaries and more, copied into your project as source you own.",
+      heading: "Components",
+      lead:
+        "Nodes somebody has already written and argued with. Adding one copies " +
+        "it into your project as source you own — no version, no upgrade path, " +
+        "nothing to fork.",
+      cta: "Browse components",
+    },
+    install: "Install",
+    preview: "Preview",
+    category: "Category",
+    tags: "Tags",
+    fonts: "Fonts",
+    page: "Page",
+    typography: "Typography",
+    colours: "Colours",
+    spacing: "Spacing",
+    exports: "Exports",
+    reads: "What it reads",
+    field: "Field",
+    type: "Type",
+    whatItDoes: "What it does",
+    source: "Source",
+    lands: "Lands at",
+    resolvesTo: "What it resolves to",
+    previewData: "Previewed against",
+    /** {theme} is a theme title, linked to its own page. */
+    drawnAgainst: "Drawn against the {theme} theme.",
+    allThemes: "All themes",
+    allComponents: "All components",
+    /** The band on the homepage. */
+    ad: {
+      heading: "Start from something that already works",
+      body:
+        "Themes set the type, colour and page; components are nodes already " +
+        "written and argued with. One command puts either into a project, as " +
+        "files you own.",
     },
   },
 

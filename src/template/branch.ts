@@ -13,12 +13,20 @@ import type {
   DataReference,
   ValueExpression,
 } from "../domain/types.ts";
+import type { CompiledTest } from "./compiled.ts";
 import { createElement, host, type TemplateElement, type Yield } from "./element.ts";
 
 export const Branch = host<BranchProps, "branch">("branch", "Branch");
 
 export interface BranchProps {
-  condition: Condition;
+  /**
+   * The test that selects an arm.
+   *
+   * A boolean is one the build already settled, because nothing in it depended
+   * on request data. That arm is simply taken, publishing or not — a decision
+   * with no request in it is not a decision the engine should be asked to make.
+   */
+  condition: CompiledTest;
   whenTrue?: () => Yield;
   whenFalse?: () => Yield;
 }
@@ -36,7 +44,7 @@ export interface BranchProps {
  * condition that selects it, and the engine decides per document.
  */
 export function branch(
-  condition: Condition,
+  condition: CompiledTest,
   whenTrue?: () => Yield,
   whenFalse?: () => Yield,
 ): TemplateElement<"branch"> {

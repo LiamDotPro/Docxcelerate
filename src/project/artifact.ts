@@ -190,9 +190,19 @@ function assertReferencedDeriversAreAvailable<TData>(
 }
 
 /**
- * Builds the document you read on a screen: the template resolved against the
- * project's preview data, with dynamic nodes standing in as placeholders rather
- * than calling an AI client.
+ * Builds the document you read on a screen.
+ *
+ * A preview is rebuilt every time a file is saved, so it is built to be quick
+ * before it is built to be complete. Anything it waits for is time a person
+ * spends watching a document fail to appear, and a preview nobody waits for is
+ * one they keep open while they write.
+ *
+ * So the two things that cost time stand in rather than run. A generated node
+ * shows the placeholder `useAi` required, instead of calling a model. A deriver
+ * that declared a stand-in — a code to render, a file to read, a service to ask
+ * — uses it, while the cheap ones still run so the figures on the page are the
+ * real ones. Both are resolved for real when a document is actually written,
+ * which is the moment waiting is worth something.
  *
  * @typeParam TData The shape the project's template reads.
  * @param project The project to build.
@@ -207,7 +217,7 @@ export async function buildProjectPreviewDocument<TData>(
     ...project.previewOptions,
     ...options,
     derivers: project.derivers,
-    deriverMode: "resolve",
+    deriverMode: "placeholder",
     dynamicMode: "placeholder",
   });
 

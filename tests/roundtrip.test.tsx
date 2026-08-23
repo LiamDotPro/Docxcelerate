@@ -4,7 +4,6 @@ import {
   buildProjectEngineDocument,
   buildProjectFinalDocument,
   createDeriverRegistry,
-  ctxRef,
   dataRef,
   defineDocumentProject,
   derive,
@@ -20,7 +19,6 @@ import {
   Document,
   literal,
   Paragraph,
-  Repeat,
   Section,
   template,
   useSetPlaceholders,
@@ -71,6 +69,26 @@ const Summary: Paragraph = () => {
   return <Paragraph id="summary" />;
 };
 
+/**
+ * The loop, written as ordinary TypeScript.
+ *
+ * The engine walks a published loop and the build walks a real one, and this
+ * test exists to prove the two agree — so the loop has to be the same source
+ * either way, which is what a `.map()` in a component is.
+ */
+const Visits = () => {
+  const [visits] = useState((data: TenancyData) => data.visits);
+
+  return visits.map((visit) => (
+    <Paragraph
+      id="visit"
+      derivers={[derive("money", { output: "visitLabel", inputs: [visit.cost] })]}
+    >
+      {visit.label} cost {"{{derived.visitLabel}}"}
+    </Paragraph>
+  ));
+};
+
 const documentTemplate = template<TenancyData>(
   <Document id="tenancy" title="Tenancy">
     <Section id="opening" title="Opening">
@@ -79,14 +97,7 @@ const documentTemplate = template<TenancyData>(
       <Summary />
     </Section>
     <Section id="visits" title="Visits">
-      <Repeat over="visits" as="visit">
-        <Paragraph
-          id="visit"
-          derivers={[derive("money", { output: "visitLabel", inputs: [ctxRef("visit.cost")] })]}
-        >
-          {"{{ctx.visit.label}}"} cost {"{{derived.visitLabel}}"}
-        </Paragraph>
-      </Repeat>
+      <Visits />
     </Section>
     {branch(
       compare({ type: "ref", ref: dataPath("balanceDue") }, "gt", literal(0)),

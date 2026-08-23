@@ -9,11 +9,12 @@
     "nodes": "node scripts/build-node-previews.mjs",
     "release-info": "node scripts/build-release-info.mjs",
     "brand": "node scripts/build-brand-assets.mjs",
-    "prep": "npm run lib && npm run demo && npm run nodes && npm run release-info",
+    "prep": "npm run lib && npm run demo && npm run nodes && npm run registry && npm run release-info",
     "dev": "npm run prep && astro dev",
     "build": "npm run prep && astro build",
     "preview": "astro preview",
-    "check": "astro check"
+    "check": "astro check",
+    "registry": "node scripts/build-registry.mjs"
   },
   "dependencies": {
     "docxcelerate": "file:.."

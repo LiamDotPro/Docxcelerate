@@ -1,0 +1,144 @@
+---
+/**
+ * /components/<id> — one component: what it draws, what it reads, and the file
+ * `dxcl add` would copy in.
+ *
+ * The source shown is the file itself, read out of the package at build time,
+ * so nobody has to trust that the page and the install agree.
+ *
+ * Structural layout, pending a visual pass.
+ */
+import { Code } from "astro:components";
+import Base from "../layouts/Base.astro";
+import NodePreview from "./NodePreview.astro";
+import { addCommand, type ComponentPageEntry, themeEntry, themeHref } from "../registry";
+import { LOCALES } from "../i18n";
+import { asLocale, fill, localizePath, ui } from "../i18n";
+
+interface Props {
+  component: ComponentPageEntry;
+}
+
+const locale = asLocale(Astro.currentLocale);
+const t = ui(locale);
+const { component } = Astro.props;
+const drawnAgainst = component.themeHint ? themeEntry(component.themeHint) : undefined;
+---
+
+<Base
+  title={component.title}
+  description={component.summary}
+  hreflangLocales={LOCALES}
+>
+  <div class="mx-auto flex max-w-4xl flex-col gap-8 px-5 py-12 sm:px-8">
+    <p class="m-0">
+      <a
+        href={localizePath("/components/", locale)}
+        class="text-sm text-muted no-underline hover:text-accent"
+      >
+        ← {t.registry.allComponents}
+      </a>
+    </p>
+
+    <header class="flex flex-col gap-3">
+      <h1 class="m-0 text-3xl font-semibold">{component.title}</h1>
+      <p class="m-0 max-w-2xl text-base leading-relaxed text-muted">{component.detail}</p>
+      <p class="m-0 font-mono text-sm">{addCommand(component.id)}</p>
+      {
+        drawnAgainst && (
+          <p class="m-0 text-sm text-muted">
+            <a
+              href={localizePath(themeHref(drawnAgainst.id), locale)}
+              class="text-accent no-underline hover:underline"
+            >
+              {fill(t.registry.drawnAgainst, { theme: drawnAgainst.title })}
+            </a>
+          </p>
+        )
+      }
+    </header>
+
+    <section class="flex flex-col gap-3">
+      <h2 class="m-0 text-lg font-semibold">{t.registry.preview}</h2>
+      <NodePreview src={component.previewUrl} title={`${component.title}, rendered`} />
+    </section>
+
+    <section class="flex flex-col gap-3">
+      <h2 class="m-0 text-lg font-semibold">{t.registry.reads}</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse text-left text-sm">
+          <thead>
+            <tr class="border-b border-border">
+              <th class="py-2 pr-4 font-medium">{t.registry.field}</th>
+              <th class="py-2 pr-4 font-medium">{t.registry.type}</th>
+              <th class="py-2 font-medium">{t.registry.whatItDoes}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              component.dataFields.map((field) => (
+                <tr class="border-b border-border align-top">
+                  <td class="py-2 pr-4 font-mono text-xs">{field.path}</td>
+                  <td class="py-2 pr-4 font-mono text-xs text-muted">{field.type}</td>
+                  <td class="py-2 text-muted">{field.summary}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="flex flex-col gap-3">
+      <h2 class="m-0 text-lg font-semibold">{t.registry.source}</h2>
+      {
+        component.files.map((file) => (
+          <div class="flex flex-col gap-2">
+            <p class="m-0 font-mono text-xs text-muted">
+              {t.registry.lands}: {file.target}
+            </p>
+            <div class="snippet">
+              <Code
+                code={file.code}
+                lang="tsx"
+                themes={{ light: "github-light", dark: "github-dark-dimmed" }}
+              />
+            </div>
+          </div>
+        ))
+      }
+    </section>
+
+    <section class="flex flex-col gap-3">
+      <h2 class="m-0 text-lg font-semibold">{t.registry.resolvesTo}</h2>
+      <p class="m-0 font-mono text-xs text-muted">
+        {t.registry.previewData}: {JSON.stringify(component.previewData)}
+      </p>
+      <div class="snippet">
+        <Code
+          code={JSON.stringify(component.resolved, null, 2)}
+          lang="json"
+          themes={{ light: "github-light", dark: "github-dark-dimmed" }}
+        />
+      </div>
+    </section>
+
+    <section class="flex flex-col gap-2">
+      <h2 class="m-0 text-lg font-semibold">{t.registry.exports}</h2>
+      <p class="m-0 font-mono text-sm text-muted">{component.exports.join(", ")}</p>
+      <p class="m-0 text-sm text-muted">{component.category} · {component.tags.join(", ")}</p>
+    </section>
+  </div>
+</Base>
+
+<style>
+  .snippet :global(pre) {
+    margin: 0;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow-x: auto;
+    font-size: 0.76rem;
+    line-height: 1.6;
+  }
+</style>

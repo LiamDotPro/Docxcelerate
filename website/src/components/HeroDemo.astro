@@ -27,6 +27,14 @@ const sources = import.meta.glob("../demo/documents/**/*.{ts,tsx}", {
 // are built from src/demo/documents by the real renderer, and translating them
 // would mean maintaining five copies of the demo sources.
 const DOCUMENTS = [
+  // The invoice opens the hero. It is the one that shows the most of the
+  // framework at a glance — a table of line items from a `.map()`, two pages
+  // with running furniture, a generated summary and a conditional status.
+  {
+    id: "invoice",
+    name: t.demo.documents.invoice,
+    sector: t.demo.sectors.consulting,
+  },
   {
     id: "offer-of-admission",
     name: t.demo.documents["offer-of-admission"],

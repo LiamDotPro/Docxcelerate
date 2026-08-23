@@ -51,7 +51,13 @@ caras reconocibles — y la ranura las descarta de una vez, en el nodo.
 
 ## Notas
 
-- El nodo guarda una ruta, nunca los bytes. Durante una compilación no se
-  descarga ni se valida nada; una ruta rota falla en el momento de renderizar.
-- Vale la pena escribir `alt` incluso mientras los renderizadores solo dibujan
-  marcos, porque el marco imprime `alt`.
+- **Solo viaja una URI `data:`.** Lleva los bytes, así que un documento escrito
+  por un motor en otra parte sigue teniendo la imagen. Una ruta o una URL http
+  se dibuja en pantalla, donde un navegador puede descargarla, pero en un
+  `.docx` queda como una nota: al empaquetar no se descarga ni se lee nada del
+  disco, porque la máquina que escribe el documento no es aquella donde estaba
+  el archivo.
+- Word no incrusta un SVG por sí solo: dale un ráster con `fallbackSrc`. La
+  pantalla dibuja el SVG y el archivo de Word recibe el ráster.
+- Vale la pena escribir `alt` en cualquier caso: describe la imagen en el
+  archivo de Word, y es lo que imprime un nodo que aún no tiene imagen.

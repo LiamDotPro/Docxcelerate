@@ -7,8 +7,9 @@ order: 2
 
 A document is a tree of **components**. Each one returns a **node** — a
 paragraph, an image, a graph — and each lives in its own file under `nodes/`.
-Documents get long, and a template that inlines its prose stops being readable
-about halfway down.
+
+Why one file each? Because documents get long. A template with all its prose
+inlined stops being readable about halfway down.
 
 ## Generate one
 
@@ -17,11 +18,11 @@ dxcl document node documents/welcome next-steps --type paragraph
 ```
 
 That writes `nodes/next-steps.node.tsx` and adds it to `nodes/index.ts`.
-`--type` takes `paragraph`, `image` or `graph`; run the command with no
-arguments to be asked instead.
+`--type` takes `paragraph`, `image` or `graph`. Run the command with no
+arguments and it will ask you instead.
 
-Placement is left to you on purpose. Open `document.tsx` and add the component
-at the point in the document where it belongs:
+It deliberately doesn't place the node for you — only you know where it belongs.
+Open `document.tsx` and add the component at the right point:
 
 ```tsx
 import { Document, Section, template } from "docxcelerate/template";
@@ -57,23 +58,24 @@ export const Greeting: Paragraph = () => {
 };
 ```
 
-`useState` is where data enters a component, and the only place it does — so
-what a node depends on is written down in one declaration rather than scattered
-through the code that reads it.
+`useState` is where your data enters the component, and the only place it can.
 
-The initializer is ordinary TypeScript. There is no template language, so
-conditionals, formatting and imports are all just available, and an `if` that
-returns a different paragraph is exactly what it looks like.
+The payoff is that everything a node depends on is written down in one
+declaration, instead of being scattered through the code that reads it.
 
-`Paragraph` names both the element and the component type, so
-`const Greeting: Paragraph` says what this node yields — and returning a
-`<Section>` from it is a compile error.
+The initializer is ordinary TypeScript. There's no template language to learn, so
+conditionals, formatting and imports all just work — and an `if` that returns a
+different paragraph does exactly what it looks like.
+
+One thing that might look odd: `Paragraph` is both the element and the component
+type. So `const Greeting: Paragraph` declares what this node yields, and
+returning a `<Section>` from it is a compile error.
 
 ## Prose you want generated
 
-Some paragraphs cannot be written in advance, because what they should say
-depends on the person receiving them. Set **prompts** instead of text, and a
-**placeholder** so the preview stays readable:
+Some paragraphs can't be written in advance, because what they should say
+depends on who is receiving them. For those, set **prompts** instead of text —
+plus a **placeholder**, so your preview stays readable:
 
 ```tsx
 export const TutorNote: Paragraph = () => {
@@ -91,14 +93,17 @@ export const TutorNote: Paragraph = () => {
 };
 ```
 
-There is nothing to declare and no mode to pick. A node that has its text can be
-produced on your machine; a node that has only prompts needs the engine. The
-component decides which it is by what it supplies, the build works it out, and
-the package it produces says which nodes the engine has to resolve.
+There's nothing to declare and no mode to pick.
 
-Supplying both on one element is an error rather than a coin-toss. Prompts can
-also be given as props, which reads better when they are short, and props win
-over the hook — so a caller can override what a shared hook set around it.
+A node that has its text can be produced on your machine. A node that has only
+prompts needs the engine. Your component decides which it is simply by what it
+supplies, the build works the rest out, and the package tells the engine which
+nodes it has to resolve.
+
+Supplying both on one element is an error, not a coin toss.
+
+You can also pass prompts as props, which reads better when they're short. Props
+win over the hook, so a caller can override whatever a shared hook set around it.
 
 Four prompt slots are available. Only `generalPrompt` is required:
 
@@ -115,25 +120,28 @@ locally; give it prompts and it does not.
 ## What the preview shows
 
 Building for preview resolves prompted nodes to their **placeholders**, never to
-generated prose. Preview stays deterministic and free, so you can iterate on
+generated prose. That keeps previews deterministic and free: you can iterate on
 structure and styling without a single request leaving your machine.
 
-The placeholder is also a useful discipline: if a document is unreadable with
-placeholders in place, its structure is doing too little work.
+Placeholders are a useful discipline, too. If a document reads badly with
+placeholders in place, that's usually a sign its structure is doing too little
+work.
 
 `usePlaceholderData` gives you stand-in names, dates and figures, seeded from
 where the component sits — so the same node shows the same values every time. A
-preview that reshuffles itself on each build is one nobody can proofread.
+preview that reshuffles itself on every build is one nobody can proofread.
 
 ## Ids
 
-An id is how an engine addresses a node and how two build artifacts line up in a
-diff, so treat a rename as a breaking change.
+An id is how an engine addresses a node, and how two build artifacts line up when
+you diff them. Treat renaming one as a breaking change.
 
-You can leave it out. A node without an id takes one from where it sits, which
-is what keeps branches and lists from forcing you to invent names. What you
-cannot do is use one twice: two nodes claiming one id is an error, reported with
-both positions, rather than a race the later one wins.
+**You can usually leave it out.** A node without an id is named after what it is,
+which is what stops branches and lists from forcing you to invent names for
+nodes nobody refers to.
+
+The one thing you can't do is use an id twice. Two nodes claiming the same id is
+an error, reported with both positions, rather than a race the later one wins.
 
 ## Where to go next
 

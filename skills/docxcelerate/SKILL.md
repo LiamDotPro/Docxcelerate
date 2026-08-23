@@ -86,9 +86,10 @@ export const Balance: Paragraph = () => {
 from it is a compile error. Give each branch arm **its own id**: that is what
 lets a resolved document record which one this recipient got.
 
-That node is written for data you hold. Both the `if` and the `currency()` call
-work locally and neither survives publishing to an engine — see
-[references/publishing.md](references/publishing.md) for the versions that do.
+The `if` publishes: the build compiles it into a condition, so both arms travel
+to the engine and it decides per recipient. The `currency()` call does not —
+computing on request data needs a deriver. See
+[references/publishing.md](references/publishing.md).
 
 ## A node whose prose is generated
 
@@ -129,23 +130,55 @@ Nothing leaves the machine, and the same build gives the same page every time.
 
 | Element | Holds | Notes |
 | --- | --- | --- |
-| `Document` | sections and nodes | `id` and `title` both required; one per template |
+| `Document` | sections and nodes | `id` and `title` both required; one per template; `header`/`footer` take running furniture |
 | `Section` | any nodes, including sections | the **only** container; `title` required and becomes a heading |
 | `Paragraph` | text children, or prompts | `text` prop says the same as children |
-| `Image` | `src`, `alt`, `width`, `height`, or prompts | `src` becomes `path` in the built JSON |
+| `Image` | `src`, `alt`, `width`, `height`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below |
 | `Graph` | `graphType`, `data`, `caption`, or prompts | figures, never a picture |
+| `Table` | `Row`s, and any `.map()` producing them | `columns` declared once, in mm or `"auto"`, with `align` |
+| `Row` | `Cell`s | `header` marks a heading row; only *leading* ones repeat across pages |
+| `Cell` | text, or paragraphs when a line is not enough | `span`, and `align` when it departs from its column |
 | `TableOfContents` | nothing | a marker; renderers print the title and stop |
-| `Repeat` | a body walked per entry | `over`, `as` (default `item`), `indexAs` (default `index`) |
+| `PageBreak` | nothing | for a break that is part of what the document *is* |
+| `PageNumber` | nothing | `format` (`current`/`total`/`currentOfTotal`) and `separator`; counted by the renderer |
+
+**An `<Image>` only travels if it carries its bytes.** A `data:` URI does; a
+path or a URL draws on screen, where a browser can fetch it, but packs into Word
+as a note rather than a picture — the packer never reaches for a file, because
+the engine writing the document is not on the machine the file was on. Word will
+not embed an SVG alone either, so give one a `fallbackSrc` raster: the screen
+draws the SVG and the Word file gets the raster.
+
+Every element also takes **`variant`** — a name the theme looks up, never an
+appearance: `<Cell variant="badge">`, `<Paragraph variant="band">`. The colours
+live in the style's `blocks`, so a document restyles without a node changing,
+and a name the theme has not heard of draws as an ordinary block rather than
+failing. Never write a colour into a component.
+
+A block style says `fill`, `color`, `border` (with `borderWidthPt`,
+`borderSides`), `paddingPt`, `fontSizePt`, `weight`, `transform`,
+`letterSpacingEm` and `bleed`. **All of them mean the same thing on screen and
+in the `.docx`** — a fill is shading, a border is a real border, a bleed is a
+negative indent past the margin. If a property cannot be expressed in Word it
+does not exist here, because a style that quietly did nothing in the format the
+framework produces is worse than one that was never offered.
 
 Ids are addresses: an engine targets a node by id and two build artifacts line
-up in a diff by id, so **treat a rename as a breaking change**. You may omit
-one — a node without an id takes one from where it sits, which is what keeps
+up in a diff by id, so **treat a rename as a breaking change**. **Do not write
+ids by default.** A node without one is named after its heading, or after the
+component that yielded it — `<Greeting />` becomes `greeting`, a section titled
+"Fees and funding" becomes `fees-and-funding` — and repeats are numbered
+(`greeting-2`). Those names come from what a node is rather than where it sits,
+so they survive insertion and reordering. Write one only to pin an address a
+request asks for by name. This also keeps
 `.map()` and branches from demanding names you do not have. Reusing an id is an
 error reported with both positions.
 
-Falsy children are skipped, so `{condition && <Node />}` reads the way it does
-everywhere else. There is no `key` prop — an element accepts only its own props,
-so `key={…}` from React habit is a type error. Text lives only inside a
+`{condition && <Node />}` reads the way it does everywhere else, and publishes
+the way an `if` does — the build compiles it into a condition rather than
+deciding once. Falsy children are skipped, so a `&&` yielding anything other
+than a node still just drops out. There is no `key` prop — an element accepts
+only its own props, so `key={…}` is a type error. Text lives only inside a
 `<Paragraph>`, and a paragraph holds text rather than elements.
 
 ## Commands
@@ -167,6 +200,35 @@ after generating one, add it to `document.tsx` where it belongs.
 
 Every flag is in [references/cli.md](references/cli.md).
 
+## Before writing a node from scratch
+
+The package ships a small registry of themes and prebuilt nodes. `dxcl list`
+prints it, `dxcl show <id>` prints one entry in full, and `dxcl add <id>`
+installs it.
+
+```sh
+dxcl list                               # 5 themes, 6 components
+dxcl show payment-summary               # what it does and what it reads
+dxcl add slate-report letterhead        # a theme and a node, into this project
+```
+
+A component is **copied in as source** — `nodes/<name>.node.tsx`, re-exported
+from `nodes/index.ts`. It has no version and is never upgraded behind you, so
+editing it afterwards is the expected next step rather than a fork. Two things
+it leaves to you, both printed as follow-up when it installs: the fields it
+reads have to be added to `types.ts` and `preview-data.ts`, and the node itself
+has to be placed in `document.tsx`.
+
+A theme is written out as `document-style.ts`, which `document.project.ts`
+already passes through — so the next preview is themed. It replaces a
+`document-style.ts` nothing has touched; once you have edited that file,
+replacing it needs `--force`.
+
+Reach for the registry first when a request names something ordinary — a
+letterhead, an address block, a signature, small print. Every entry is listed in
+[references/cli.md](references/cli.md) and browsable at
+[docxcelerate.com/components](https://docxcelerate.com/components/).
+
 ## Publishing changes the rules
 
 Everything above assumes you hold the data. Publishing to the engine builds the
@@ -176,11 +238,23 @@ decision that depends on request data has to travel to the engine instead:
 - **Interpolating** a value publishes fine — it becomes a `{{data.x}}` token.
   **Computing** on one does not; use a **deriver**, which the engine runs per
   document. Never hand-write a `{{data.…}}` token; interpolation produces it.
-- **`.map()` over request data is an error while publishing.** Write `<Repeat>`,
-  which is published as a loop the engine walks.
-- **A decision must be written as a condition.** A plain `if` decides at build
-  time; in a published document it silently takes one arm. Use `branch(...)` or a
-  `when` prop so both arms travel with the condition that selects them.
+- **A preview never waits.** It is rebuilt on every save, so generated nodes show
+  the placeholder `useAi` required and derivers that declared a `placeholder`
+  stand in rather than run. Cheap derivers still run, so the figures are real.
+  Give any deriver that renders, reads or fetches a `placeholder`; leave it off
+  for a total or a currency format.
+- **`.map()` over request data is how a loop is written.** It walks the list when
+  the data is real and is published as a loop the engine walks when it is not.
+  Never hand-write a `{{ctx.…}}` token inside one — the entry writes its own
+  references. Anything needing the entries first (`.filter`, `.length`, `for…of`)
+  belongs in a deriver.
+- **A decision is written as an ordinary conditional.** An `if` that returns, a
+  ternary, and `cond && <Node />` are all compiled into the condition the engine
+  evaluates per document, so both arms travel with the test that selects them.
+  A conditional picking a *value* rather than a node is a deriver's job. This
+  needs the transform in the build — `docxcelerateTransform()` for Vite,
+  `docxcelerateEsbuildTransform()` for esbuild, from `docxcelerate/transform`.
+  Without it the decision is made once, at build time, for every recipient.
 
 Read [references/publishing.md](references/publishing.md) before touching a
 document that ships to an engine, or when a document is right in preview and
