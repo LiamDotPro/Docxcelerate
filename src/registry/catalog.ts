@@ -84,6 +84,14 @@ function node(id: string): RegistryFile[] {
   return [{ source: `components/${id}/${id}.node.tsx`, target: `nodes/${id}.node.tsx` }];
 }
 
+/**
+ * Every component `dxcl add` can install, in the order the catalog lists them.
+ *
+ * Each entry describes what the component does, what it reads from a project's
+ * data, and which files installing writes. The source itself is not here — it
+ * lives under `registry/` and is read from disk, so the catalog and the file
+ * that gets copied cannot disagree about what a component is.
+ */
 export const COMPONENTS: RegistryComponent[] = [
   {
     kind: "component",
