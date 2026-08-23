@@ -41,9 +41,9 @@ const { src, title, label } = Astro.props;
 
   /** Same origin, so the rendered height is readable rather than guessed. */
   function fit(frame: HTMLIFrameElement) {
-    const page = frame.contentDocument?.querySelector(".a4-page");
-    if (!page) return;
-    const height = Math.ceil(page.getBoundingClientRect().height);
+    const body = frame.contentDocument?.body;
+    if (!body) return;
+    const height = Math.ceil(body.scrollHeight);
     if (height > 0) frame.style.height = `${height}px`;
   }
 

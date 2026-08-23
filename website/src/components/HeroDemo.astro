@@ -530,9 +530,11 @@ const totalFiles = FILES.length;
 
   // Same origin, so the real rendered height is readable.
   frame?.addEventListener("load", () => {
-    const page = frame.contentDocument?.querySelector(".a4-page");
-    if (!page) return;
-    const measured = Math.ceil(page.getBoundingClientRect().height);
+    // The whole document, not its first sheet: an invoice is two pages, and
+    // measuring one of them sized the frame to hide the other.
+    const body = frame.contentDocument?.body;
+    if (!body) return;
+    const measured = Math.ceil(body.scrollHeight);
     if (measured > 0) {
       pageH = Math.max(1123, measured);
       frame.style.height = `${pageH}px`;

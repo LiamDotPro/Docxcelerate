@@ -97,7 +97,7 @@ export function createDocxDocument(doc: DocumentModel): Document {
  * running furniture is the one place a surprise is printed on every page.
  */
 function paragraphsOf(nodes: readonly DocumentNode[], style: DocumentStyle): (Paragraph | Table)[] {
-  const content = nodes.flatMap((node) => renderNode(node, style));
+  const content = nodes.flatMap((node) => renderNode(node, style, true));
 
   return content.length === 0 ? [new Paragraph({})] : content;
 }
@@ -118,14 +118,18 @@ export async function createDocxBlob(doc: DocumentModel): Promise<Blob> {
   return await Packer.toBlob(createDocxDocument(doc));
 }
 
-function renderNode(node: DocumentNode, style: DocumentStyle): (Paragraph | Table)[] {
+function renderNode(
+  node: DocumentNode,
+  style: DocumentStyle,
+  furniture = false,
+): (Paragraph | Table)[] {
   if (node.kind === "section") {
     return [
       new Paragraph({
         text: node.title ?? node.id,
         heading: HeadingLevel.HEADING_1,
       }),
-      ...node.children.flatMap((child) => renderNode(child, style)),
+      ...node.children.flatMap((child) => renderNode(child, style, furniture)),
     ];
   }
 
@@ -163,7 +167,7 @@ function renderNode(node: DocumentNode, style: DocumentStyle): (Paragraph | Tabl
   }
 
   if (node.kind === "table") {
-    return [renderTable(node, style)];
+    return [renderTable(node, style, furniture)];
   }
 
   if (node.kind === "pageBreak") {
@@ -185,7 +189,7 @@ function renderNode(node: DocumentNode, style: DocumentStyle): (Paragraph | Tabl
   // A row or a cell reaching here is one outside the table it belongs to, and
   // its content is still content — printing it beats dropping it silently.
   if (node.kind === "repeat" || node.kind === "tableRow" || node.kind === "tableCell") {
-    return node.children.flatMap((child) => renderNode(child, style));
+    return node.children.flatMap((child) => renderNode(child, style, furniture));
   }
 
   return [
@@ -264,6 +268,36 @@ function blockBorders(block: DocumentBlockStyle | undefined) {
   const sides = block.borderSides ?? ["top", "right", "bottom", "left"];
 
   return Object.fromEntries(sides.map((side) => [side, edge]));
+}
+
+/**
+ * The hairline a row is separated from the next one by.
+ *
+ * One line under each body cell, in the palette's rule colour, and nothing
+ * else: a heading already has its fill to set it apart, a cell that draws its
+ * own ground would be cut across by a rule at its foot, and running furniture
+ * is not prose being separated into rows.
+ */
+function separatorBorder(
+  row: TableRowNode,
+  fill: string | undefined,
+  furniture: boolean,
+  style: DocumentStyle,
+) {
+  if (row.header === true || fill !== undefined || furniture) {
+    return undefined;
+  }
+
+  return {
+    bottom: {
+      style: BorderStyle.SINGLE,
+      color: style.palette?.rule ?? "9AA6B8",
+      // A screen pixel is three quarters of a point, and Word counts a border
+      // in eighths of one.
+      size: 6,
+      space: 0,
+    },
+  };
 }
 
 /**
@@ -365,7 +399,7 @@ function pageNumberRuns(node: PageNumberNode): TextRun[] {
  * money column lining up is the whole reason it was given a width. Whatever
  * the fixed columns leave is shared between the `"auto"` ones.
  */
-function renderTable(node: TableNode, style: DocumentStyle): Table {
+function renderTable(node: TableNode, style: DocumentStyle, furniture: boolean): Table {
   const widths = columnWidths(node.columns, style);
   const rows = tableRows(node.children);
 
@@ -379,9 +413,23 @@ function renderTable(node: TableNode, style: DocumentStyle): Table {
   return new Table({
     columnWidths: widths,
     width: { size: widths.reduce((total, width) => total + width, 0), type: WidthType.DXA },
-    rows: rows.map((row, index) => renderRow(row, node, style, index < headers)),
+    // Word's own default is a black grid around every cell, which no theme
+    // ever asked for and the screen never draws. The lines a table shows are
+    // the ones decided below, one per row and in the palette's rule colour.
+    borders: gridlessBorders,
+    rows: rows.map((row, index) => renderRow(row, node, style, index < headers, furniture)),
   });
 }
+
+/** No lines at all, so the only ones drawn are the ones a cell asks for. */
+const gridlessBorders = {
+  top: { style: BorderStyle.NONE, size: 0, color: "auto" },
+  bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
+  left: { style: BorderStyle.NONE, size: 0, color: "auto" },
+  right: { style: BorderStyle.NONE, size: 0, color: "auto" },
+  insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "auto" },
+  insideVertical: { style: BorderStyle.NONE, size: 0, color: "auto" },
+};
 
 /** The rows a table holds, walking through any loop that produces them. */
 function tableRows(children: readonly DocumentNode[]): TableRowNode[] {
@@ -406,6 +454,7 @@ function renderRow(
   table: TableNode,
   style: DocumentStyle,
   repeats: boolean,
+  furniture: boolean,
 ): TableRow {
   const cells: TableCell[] = [];
   let column = 0;
@@ -422,22 +471,33 @@ function renderRow(
     // the narrower statement is the more deliberate one.
     const block = blockOf(style, child.variant) ?? blockOf(style, row.variant) ??
       blockOf(style, table.variant);
-    const fill = block?.fill ?? (row.header ? style.palette?.accent ?? "1F2933" : undefined);
+    // The accent bar over a heading is what a header row looks like when the
+    // theme has not named one. Once it has — for the cell, its row or its
+    // table — that naming is the whole answer, and the default steps aside
+    // rather than showing through the half of it the theme left unsaid.
+    const fill = block?.fill ??
+      (row.header && block === undefined ? style.palette?.accent ?? "1F2933" : undefined);
+    // The theme's padding, or the room a cell is given when it says nothing —
+    // the same room the screen leaves, since a column that lines up in the
+    // preview and not in Word is the preview lying about the document.
     const padding = block?.paddingPt;
+    const inset = padding === undefined
+      ? { vertical: row.header ? 6 : 5, horizontal: 8 }
+      : { vertical: padding, horizontal: padding };
 
     cells.push(
       new TableCell({
         columnSpan: span > 1 ? span : undefined,
         shading: fill === undefined ? undefined : { type: ShadingType.CLEAR, fill },
-        borders: blockBorders(block),
-        margins: padding === undefined ? undefined : {
+        borders: blockBorders(block) ?? separatorBorder(row, fill, furniture, style),
+        margins: {
           marginUnitType: WidthType.DXA,
-          top: ptToTwips(padding),
-          bottom: ptToTwips(padding),
-          left: ptToTwips(padding),
-          right: ptToTwips(padding),
+          top: ptToTwips(inset.vertical),
+          bottom: ptToTwips(inset.vertical),
+          left: ptToTwips(inset.horizontal),
+          right: ptToTwips(inset.horizontal),
         },
-        children: cellContent(child, align, row.header === true, block, style),
+        children: cellContent(child, align, row.header === true, block, style, furniture),
       }),
     );
     column += span;
@@ -463,16 +523,35 @@ function cellContent(
   header: boolean,
   block: DocumentBlockStyle | undefined,
   style: DocumentStyle,
+  furniture: boolean,
 ): (Paragraph | Table)[] {
   const content = cell.children.flatMap((child): (Paragraph | Table)[] => {
+    // A picture in a cell is a picture, not a paragraph of prose: Word gives
+    // it a line and a space after out of the body style, which drops a
+    // letterhead's mark below the name beside it and makes a one-line footer
+    // bar two lines deep.
+    if (child.kind === "image") {
+      return [
+        new Paragraph({
+          alignment: alignments[align],
+          spacing: { after: 0, line: 240 },
+          children: [imageRunOf(child)],
+        }),
+      ];
+    }
+
     if (child.kind !== "paragraph") {
-      return renderNode(child, style);
+      return renderNode(child, style, furniture);
     }
 
     // The cell's own block, then the paragraph's — a muted note inside a
     // filled cell is set by its own variant, not the cell's.
     const inner = blockOf(style, child.variant);
     const run = { ...blockRun(block, style), ...blockRun(inner, style) };
+    const heading: Partial<ReturnType<typeof headingRun>> = header
+      ? headingRun(block, style)
+      : {};
+    const size = run.size ?? heading.size;
 
     return [
       new Paragraph({
@@ -481,11 +560,14 @@ function cellContent(
         children: [
           new TextRun({
             text: child.text ?? "",
-            bold: run.bold ?? header ?? undefined,
-            color: run.color ?? (header ? style.palette?.page ?? "FFFFFF" : undefined),
-            size: run.size,
-            allCaps: run.allCaps,
-            characterSpacing: run.characterSpacing,
+            bold: run.bold ?? heading.bold,
+            color: run.color ?? heading.color,
+            size,
+            allCaps: run.allCaps ?? heading.allCaps,
+            characterSpacing: run.characterSpacing ??
+              (heading.trackedEm === undefined
+                ? undefined
+                : trackingOf(heading.trackedEm, size, style)),
           }),
         ],
       }),
@@ -493,6 +575,36 @@ function cellContent(
   });
 
   return content.length === 0 ? [new Paragraph({})] : content;
+}
+
+/**
+ * How a heading row is set when the theme has not said otherwise.
+ *
+ * Small tracked capitals, reversed out of the accent — the same face the
+ * screen gives a `<th>`, written here so that the two agree. Anything the
+ * theme does name for the row wins over all of it, which is why the ink and
+ * the size are only offered when no variant is in play.
+ */
+function headingRun(
+  block: DocumentBlockStyle | undefined,
+  style: DocumentStyle,
+): { bold: boolean; allCaps: boolean; trackedEm: number; color?: string; size?: number } {
+  return {
+    bold: true,
+    allCaps: true,
+    trackedEm: 0.1,
+    color: block === undefined ? style.palette?.page ?? "FFFFFF" : undefined,
+    size: block === undefined
+      ? ptToHalfPoints(style.typography.bodySizePt * 0.72)
+      : undefined,
+  };
+}
+
+/** Tracking in ems, as the twentieths of a point Word counts it in. */
+function trackingOf(em: number, size: number | undefined, style: DocumentStyle): number {
+  const sizePt = size === undefined ? style.typography.bodySizePt : size / 2;
+
+  return Math.round(em * sizePt * 20);
 }
 
 const alignments: Record<TableAlign, (typeof AlignmentType)[keyof typeof AlignmentType]> = {

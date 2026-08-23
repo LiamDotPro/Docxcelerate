@@ -34,7 +34,11 @@ export const InvoiceMeta: SectionComponent = () => {
       <Table
         id="meta-band"
         variant="band"
-        columns={[{ width: 38 }, { width: 42 }, { width: 40 }, { width: "auto", align: "right" }]}
+        // The status is a pill, so its column is measured rather than left to
+        // take up the slack: an `"auto"` column here made the box as wide as
+        // whatever the three dates did not use. The slack goes to the PO
+        // reference instead, which is plain text and does not mind.
+        columns={[{ width: 38 }, { width: 42 }, { width: "auto" }, { width: 44, align: "right" }]}
       >
         <Row header>
           <Cell>Issue date</Cell>

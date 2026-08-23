@@ -54,10 +54,17 @@ export const invoiceStyle: DocumentStyle = {
     transform: "uppercase",
   },
   blocks: {
-    /** The tinted strip of dates under the letterhead. */
+    /**
+     * The tinted strip of dates under the letterhead.
+     *
+     * It stands on the text column rather than bleeding into the margins. A
+     * table that reaches past them carries its first label out to the paper's
+     * edge and leaves the status pill ending where no other column does —
+     * and Word will not indent a table out of its margins in any case, so a
+     * band that bled would be a band only the preview could draw.
+     */
     band: {
       fill: "F4F6FD",
-      bleed: true,
       borderSides: ["bottom"],
       border: "E3E7F5",
       paddingPt: 10,
@@ -94,9 +101,10 @@ export const invoiceStyle: DocumentStyle = {
       transform: "uppercase",
       letterSpacingEm: 0.1,
     },
-    /** The line under the letterhead. */
+    /** The line under the letterhead, drawn edge to edge of the paper. */
     rule: {
       fill: "2C3D8F",
+      bleed: true,
       paddingPt: 1.5,
     },
     /** The dark strip at the foot of every page. */

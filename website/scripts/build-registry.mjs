@@ -20,7 +20,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, posix, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { extractPage, NODE_ONLY_STYLE, PAGE_ONLY_STYLE } from "./lib/preview-page.mjs";
+import { NODE_ONLY_STYLE, PAGE_ONLY_STYLE, renderDocxPage } from "./lib/docx-page.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -40,7 +40,7 @@ const MANIFEST = resolve(ROOT, "src/generated/registry.json");
  * Getting it wrong serves a stale manifest, so move it whenever the output
  * shape changes.
  */
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 
 /** Where previews are addressed from in the browser. */
 const THEME_BASE = "/demo/themes";
@@ -67,7 +67,6 @@ async function main() {
   } = await import("docxcelerate");
   const { registryRoot } = await import("docxcelerate/registry/install");
   const { buildDocument } = await import("docxcelerate");
-  const { renderDocumentWebsite } = await import("docxcelerate/renderer");
 
   const framework = await frameworkVersion();
   const themes = [];
@@ -82,11 +81,8 @@ async function main() {
       framework,
     });
     const cached = await readCache(key);
-    const page = cached?.page ?? extractPage(
-      renderDocumentWebsite(
-        { ...SAMPLE_DOCUMENT, title: `${theme.title} sample`, style: theme.style },
-        { title: theme.title },
-      ),
+    const page = cached?.page ?? await renderDocxPage(
+      { ...SAMPLE_DOCUMENT, title: `${theme.title} sample`, style: theme.style },
       { title: theme.title, style: PAGE_ONLY_STYLE },
     );
 
@@ -174,10 +170,10 @@ async function main() {
       const style = themeById(component.themeHint ?? "clean-minimal").style;
 
       nodes = document.nodes;
-      page = extractPage(
-        renderDocumentWebsite({ ...document, style }, { title: component.title }),
-        { title: component.title, style: NODE_ONLY_STYLE },
-      );
+      page = await renderDocxPage({ ...document, style }, {
+        title: component.title,
+        style: NODE_ONLY_STYLE,
+      });
 
       await writeCache(key, { page, nodes });
     } else {

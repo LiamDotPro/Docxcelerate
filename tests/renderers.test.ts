@@ -1,15 +1,15 @@
 import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { cleanMinimalDocumentStyle, type DocumentModel } from "docxcelerate";
-import { renderDocumentWebsite } from "docxcelerate/renderer";
 import { createDocxBlob } from "docxcelerate/docx";
+import { documentXml } from "./docx.ts";
 
 /**
- * What the renderers do with every node kind, including the ones a build
+ * What the packer does with every node kind, including the ones a build
  * normally resolves away.
  *
- * A renderer that meets an unfamiliar kind and falls through to its default
- * prints the wrong thing rather than failing, so each kind is asserted by name.
+ * A packer that meets an unfamiliar kind and falls through to its default
+ * writes the wrong thing rather than failing, so each kind is asserted by name.
  */
 const everyKind: DocumentModel = {
   schemaVersion: "docxcelerate.letter/v0",
@@ -37,8 +37,8 @@ const everyKind: DocumentModel = {
       ],
     },
     {
-      // Only a published document carries one of these, but the preview app can
-      // be pointed at a published document, so both renderers meet it.
+      // Only a published document carries one of these, but a published
+      // document can be packed directly, so the packer meets it.
       id: "visits",
       kind: "repeat",
       source: { scope: "data", path: "visits" },
@@ -51,28 +51,21 @@ const everyKind: DocumentModel = {
   ],
 };
 
-test("the web renderer prints every node kind rather than falling through", () => {
-  const html = renderDocumentWebsite(everyKind);
+test("the packer writes every node kind rather than falling through", async () => {
+  const xml = await documentXml(everyKind);
 
-  assertStringIncludes(html, "Hello Avery,");
-  assertStringIncludes(html, "A generated note.");
-  assertStringIncludes(html, "A signature");
-  assertStringIncludes(html, "A trend");
-  assertStringIncludes(html, "What is here");
-  // The loop says it is a loop, and shows its body.
-  assertStringIncludes(html, "Repeats per visits");
-  assertStringIncludes(html, "A visit.");
+  assertStringIncludes(xml, "Hello Avery,");
+  assertStringIncludes(xml, "A generated note.");
+  assertStringIncludes(xml, "A signature");
+  assertStringIncludes(xml, "A trend");
+  assertStringIncludes(xml, "What is here");
+  // A loop reaching the packer has its body written once, standing for however
+  // many passes the request will ask for.
+  assertStringIncludes(xml, "A visit.");
 });
 
-test("the web renderer marks a dynamic paragraph as dynamic", () => {
-  const html = renderDocumentWebsite(everyKind);
-
-  assertStringIncludes(html, "paragraph-dynamic");
-  assertStringIncludes(html, "paragraph-static");
-});
-
-test("the web renderer escapes text rather than letting it become markup", () => {
-  const html = renderDocumentWebsite({
+test("the packer escapes text rather than letting it become markup", async () => {
+  const xml = await documentXml({
     ...everyKind,
     nodes: [{
       id: "hostile",
@@ -82,8 +75,8 @@ test("the web renderer escapes text rather than letting it become markup", () =>
     }],
   });
 
-  assertEquals(html.includes("<script>alert"), false);
-  assertStringIncludes(html, "&lt;script&gt;");
+  assertEquals(xml.includes("<script>alert"), false);
+  assertStringIncludes(xml, "&lt;script&gt;");
 });
 
 test("the DOCX packer accepts every node kind and produces a file", async () => {

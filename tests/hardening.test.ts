@@ -17,7 +17,7 @@ import type {
 } from "docxcelerate";
 import { expr } from "docxcelerate/template";
 import { transformDocumentSource } from "docxcelerate/transform";
-import { renderDocumentWebsite } from "docxcelerate/renderer";
+import { documentXml } from "./docx.ts";
 
 /**
  * The edges, and what happens at them.
@@ -583,39 +583,41 @@ const injections: Array<[string, string]> = [
 ];
 
 for (const [label, text] of injections) {
-  test(`${label} in the text reaches the page as text`, () => {
-    const html = renderDocumentWebsite(documentOf(text));
+  test(`${label} in the text is packed as text, not as markup`, async () => {
+    const xml = await documentXml(documentOf(text));
 
-    assertEquals(html.includes(text), false);
+    // The characters that would make the text into XML are escaped, so what
+    // was written reaches the page as the words somebody typed.
+    assertEquals(xml.includes(text), false);
   });
 
-  test(`${label} in the title reaches the page as text`, () => {
-    const html = renderDocumentWebsite(documentOf("safe", text));
+  test(`${label} in the title is packed as text, not as markup`, async () => {
+    const xml = await documentXml(documentOf("safe", text));
 
-    assertEquals(html.includes(text), false);
+    assertEquals(xml.includes(text), false);
   });
 }
 
-test("a document with no nodes still renders a page", () => {
-  const html = renderDocumentWebsite({
+test("a document with no nodes still packs a file", async () => {
+  const xml = await documentXml({
     schemaVersion: "docxcelerate.letter/v0",
     id: "d",
     title: "Empty",
     nodes: [],
   });
 
-  assertStringIncludes(html, "<!doctype html>");
+  assertStringIncludes(xml, "<w:body>");
 });
 
-test("a paragraph with no text renders without printing undefined", () => {
-  const html = renderDocumentWebsite({
+test("a paragraph with no text packs without printing undefined", async () => {
+  const xml = await documentXml({
     schemaVersion: "docxcelerate.letter/v0",
     id: "d",
     title: "Doc",
     nodes: [{ id: "p", kind: "paragraph", mode: "static" }],
   });
 
-  assertEquals(html.includes("undefined"), false);
+  assertEquals(xml.includes("undefined"), false);
 });
 
 // ---------------------------------------------------------------------------

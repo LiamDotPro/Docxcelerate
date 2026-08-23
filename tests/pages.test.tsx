@@ -2,7 +2,7 @@ import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { buildDocument } from "docxcelerate";
 import { createDocxDocument } from "docxcelerate/docx";
-import { renderDocumentWebsite } from "docxcelerate/renderer";
+import { documentXml, partNames, partXml } from "./docx.ts";
 import type { DocumentModel, DocumentStyle } from "docxcelerate";
 import {
   Cell,
@@ -22,7 +22,7 @@ import {
  * build cannot settle on its own — how many pages a document runs to depends on
  * what an engine writes into it, and what a `band` looks like depends on the
  * theme it is read under. What the build can do is say which is which, and that
- * is what these check.
+ * is what these check, in the model and then in the file it packs into.
  */
 
 const styleWithBlocks: DocumentStyle = {
@@ -48,67 +48,60 @@ const styleWithBlocks: DocumentStyle = {
   },
 };
 
-function build(node: unknown, style?: DocumentStyle) {
+function build(node: unknown, style?: DocumentStyle): Promise<DocumentModel> {
   return buildDocument(
     template<Record<string, never>>(node as never),
     {},
     { branchMode: "decide", dynamicMode: "placeholder" },
-  ).then((doc) => (style ? { ...doc, style } : doc));
+  ).then((doc) => (style ? { ...doc, style } : doc)) as Promise<DocumentModel>;
 }
 
-function pagesIn(html: string): number {
-  return (html.match(/class="a4-page"/g) ?? []).length;
+/** How many breaks the packed document turns a page on. */
+function breaksIn(xml: string): number {
+  return (xml.match(/w:type="page"/g) ?? []).length;
 }
 
 // ---------------------------------------------------------------------------
 // Where a page ends
 // ---------------------------------------------------------------------------
 
-test("a document with no break is one page", async () => {
-  const doc = await build(
-    <Document id="d" title="D">
-      <Paragraph id="a">One.</Paragraph>
-      <Paragraph id="b">Two.</Paragraph>
-    </Document>,
+test("a document with no break runs on rather than turning a page", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a">One.</Paragraph>
+        <Paragraph id="b">Two.</Paragraph>
+      </Document>,
+    ),
   );
 
-  assertEquals(pagesIn(renderDocumentWebsite(doc)), 1);
+  assertEquals(breaksIn(xml), 0);
 });
 
-test("a break starts the next page, and is not printed itself", async () => {
-  const doc = await build(
-    <Document id="d" title="D">
-      <Paragraph id="owed">What is owed.</Paragraph>
-      <PageBreak id="turn" />
-      <Paragraph id="pay">How to pay it.</Paragraph>
-    </Document>,
+test("a break turns the page where the document said, and prints nothing itself", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="owed">What is owed.</Paragraph>
+        <PageBreak id="turn" />
+        <Paragraph id="pay">How to pay it.</Paragraph>
+      </Document>,
+    ),
   );
 
-  const html = renderDocumentWebsite(doc);
-  const [first, second] = html.split('class="a4-page"').slice(1);
-
-  assertEquals(pagesIn(html), 2);
-  assertStringIncludes(first, "What is owed.");
-  assertEquals(first.includes("How to pay it."), false);
-  assertStringIncludes(second, "How to pay it.");
-});
-
-test("a trailing break does not leave a sheet with nothing on it", async () => {
-  const doc = await build(
-    <Document id="d" title="D">
-      <Paragraph id="a">One.</Paragraph>
-      <PageBreak id="turn" />
-    </Document>,
-  );
-
-  assertEquals(pagesIn(renderDocumentWebsite(doc)), 1);
+  assertEquals(breaksIn(xml), 1);
+  // Between the two, which is the whole of what a break says.
+  assertEquals(xml.indexOf("What is owed.") < xml.indexOf('w:type="page"'), true);
+  assertEquals(xml.indexOf('w:type="page"') < xml.indexOf("How to pay it."), true);
+  // And it is a break, not a run of empty paragraphs standing in for one.
+  assertEquals(xml.includes("turn"), false);
 });
 
 // ---------------------------------------------------------------------------
 // What repeats
 // ---------------------------------------------------------------------------
 
-test("the running header and footer are drawn on every page", async () => {
+test("running furniture is packed as Word's own, so it repeats on every page", async () => {
   const doc = await build(
     <Document
       id="d"
@@ -122,11 +115,17 @@ test("the running header and footer are drawn on every page", async () => {
     </Document>,
   );
 
-  const html = renderDocumentWebsite(doc);
+  const names = await partNames(doc);
 
-  assertEquals((html.match(/class="page-header"/g) ?? []).length, 2);
-  assertEquals((html.match(/class="page-footer"/g) ?? []).length, 2);
-  assertEquals((html.match(/INV-2026-0142/g) ?? []).length, 2);
+  // A header part and a footer part, written once. Word draws them on each
+  // page it repaginates to — which is why the count of pages is never a number
+  // this framework has to guess at.
+  assertEquals(names.includes("word/header1.xml"), true);
+  assertEquals(names.includes("word/footer1.xml"), true);
+  assertStringIncludes(await partXml(doc, "word/header1.xml"), "INV-2026-0142");
+  assertStringIncludes(await partXml(doc, "word/footer1.xml"), "Fernhill Systems Ltd");
+  // Not folded into the body, where it would print once and in the wrong place.
+  assertEquals((await documentXml(doc)).includes("INV-2026-0142"), false);
 });
 
 test("furniture is kept apart from the body, not folded into it", async () => {
@@ -151,18 +150,18 @@ test("a document with no furniture carries none, rather than carrying nothing", 
   assertEquals(doc.footer, undefined);
 });
 
-test("the title is the document's name, so it appears once and not per page", async () => {
-  const doc = await build(
-    <Document id="d" title="Invoice">
-      <Paragraph id="a">One.</Paragraph>
-      <PageBreak id="turn" />
-      <Paragraph id="b">Two.</Paragraph>
-    </Document>,
+test("the title is the document's name, so it is written once and not per page", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="Invoice">
+        <Paragraph id="a">One.</Paragraph>
+        <PageBreak id="turn" />
+        <Paragraph id="b">Two.</Paragraph>
+      </Document>,
+    ),
   );
 
-  const html = renderDocumentWebsite(doc);
-
-  assertEquals((html.match(/class="document-title"/g) ?? []).length, 1);
+  assertEquals((xml.match(/w:val="Title"/g) ?? []).length, 1);
 });
 
 test("a document that prints its own title is not given a second one", async () => {
@@ -176,22 +175,22 @@ test("a document that prints its own title is not given a second one", async () 
     { ...styleWithBlocks, showTitle: false },
   );
 
-  const html = renderDocumentWebsite(doc);
-
-  assertEquals(html.includes('<h1 class="document-title"'), false);
+  assertEquals((await documentXml(doc)).includes('w:val="Title"'), false);
   assertEquals(doc.title, "Invoice");
-  assertEquals(typeof createDocxDocument(doc as DocumentModel), "object");
+  assertEquals(typeof createDocxDocument(doc), "object");
 });
 
 test("a document that says nothing about its title still gets one", async () => {
-  const doc = await build(
-    <Document id="d" title="Invoice">
-      <Paragraph id="a">One.</Paragraph>
-    </Document>,
-    styleWithBlocks,
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="Invoice">
+        <Paragraph id="a">One.</Paragraph>
+      </Document>,
+      styleWithBlocks,
+    ),
   );
 
-  assertStringIncludes(renderDocumentWebsite(doc), '<h1 class="document-title"');
+  assertStringIncludes(xml, 'w:val="Title"');
 });
 
 // ---------------------------------------------------------------------------
@@ -208,10 +207,10 @@ test("a page number says which form it wants rather than carrying a digit", asyn
   const foot = doc.footer?.[0];
 
   assertEquals(foot?.kind, "pageNumber");
-  assertStringIncludes(renderDocumentWebsite(doc), 'data-separator=" of "');
+  assertEquals(foot?.kind === "pageNumber" ? foot.separator : undefined, " of ");
 });
 
-test("each page knows its own number, which is what the count is drawn from", async () => {
+test("the number is a field Word recounts, both halves of it", async () => {
   const doc = await build(
     <Document id="d" title="D" footer={<PageNumber id="n" />}>
       <Paragraph id="a">One.</Paragraph>
@@ -220,11 +219,13 @@ test("each page knows its own number, which is what the count is drawn from", as
     </Document>,
   );
 
-  const html = renderDocumentWebsite(doc);
+  const foot = await partXml(doc, "word/footer1.xml");
 
-  assertStringIncludes(html, "--page-current:'1'");
-  assertStringIncludes(html, "--page-current:'2'");
-  assertStringIncludes(html, "--page-total:'2'");
+  // "1 of 2" written in at build time is a number that stops being true the
+  // moment an engine writes a longer paragraph. These are instructions Word
+  // re-evaluates whenever it repaginates.
+  assertStringIncludes(foot, "PAGE");
+  assertStringIncludes(foot, "NUMPAGES");
 });
 
 // ---------------------------------------------------------------------------
@@ -242,98 +243,63 @@ test("a variant travels on the node as the name the component wrote", async () =
 });
 
 test("the theme decides what the name looks like, and the node never says", async () => {
-  const doc = await build(
-    <Document id="d" title="D">
-      <Paragraph id="a" variant="band">Dates.</Paragraph>
-    </Document>,
-    styleWithBlocks,
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a" variant="band">Dates.</Paragraph>
+      </Document>,
+      styleWithBlocks,
+    ),
   );
 
-  const html = renderDocumentWebsite(doc);
-
-  assertStringIncludes(html, '[data-variant="band"]');
-  assertStringIncludes(html, "background: #F4F6FD;");
-  assertStringIncludes(html, 'data-variant="band"');
+  assertStringIncludes(xml, 'w:fill="F4F6FD"');
 });
 
 test("a variant the theme has never heard of draws as an ordinary block", async () => {
-  const doc = await build(
-    <Document id="d" title="D">
-      <Paragraph id="a" variant="nonesuch">Text.</Paragraph>
-    </Document>,
-    styleWithBlocks,
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a" variant="nonesuch">Text.</Paragraph>
+      </Document>,
+      styleWithBlocks,
+    ),
   );
 
-  const html = renderDocumentWebsite(doc);
-
-  assertEquals(html.includes('[data-variant="nonesuch"]'), false);
-  assertStringIncludes(html, "Text.");
-});
-
-test("a bleeding block escapes the margins, so a band crosses the whole sheet", async () => {
-  const bleeding: DocumentStyle = {
-    ...styleWithBlocks,
-    blocks: { band: { fill: "F4F6FD", bleed: true } },
-  };
-  const doc = await build(
-    <Document id="d" title="D">
-      <Paragraph id="a" variant="band">Dates.</Paragraph>
-    </Document>,
-    bleeding,
-  );
-
-  assertStringIncludes(
-    renderDocumentWebsite(doc),
-    "margin-left: calc(-1 * var(--page-margin-left));",
-  );
+  assertEquals(xml.includes("<w:shd"), false);
+  assertStringIncludes(xml, "Text.");
 });
 
 test("a block that does not bleed stays inside the text column", async () => {
-  const doc = await build(
-    <Document id="d" title="D">
-      <Paragraph id="a" variant="band">Dates.</Paragraph>
-    </Document>,
-    styleWithBlocks,
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a" variant="band">Dates.</Paragraph>
+      </Document>,
+      styleWithBlocks,
+    ),
   );
 
-  assertEquals(renderDocumentWebsite(doc).includes("calc(-1 * var(--page-margin-left))"), false);
-});
-
-test("a filled cell drops the rule that separates rows, so a band is one strip", async () => {
-  const doc = await build(
-    <Document id="d" title="D">
-      <Table id="t" columns={[{ width: "auto" }, { width: 30 }]}>
-        <Row>
-          <Cell variant="band">Issue date</Cell>
-          <Cell variant="band">Due date</Cell>
-        </Row>
-      </Table>
-    </Document>,
-    styleWithBlocks,
-  );
-
-  assertStringIncludes(renderDocumentWebsite(doc), 'td[data-variant="band"]');
+  assertEquals(xml.includes('w:left="-907"'), false);
 });
 
 // ---------------------------------------------------------------------------
-// What Word is handed
+// A table is furniture too
 // ---------------------------------------------------------------------------
 
-test("the DOCX packer takes a break, a header, a footer and a page number", async () => {
-  const doc = await build(
-    <Document
-      id="d"
-      title="D"
-      header={<Paragraph id="head">INV-2026-0142</Paragraph>}
-      footer={<PageNumber id="n" />}
-    >
-      <Paragraph id="a" variant="band">One.</Paragraph>
-      <PageBreak id="turn" />
-      <Paragraph id="b">Two.</Paragraph>
-    </Document>,
-    styleWithBlocks,
+test("a cell's variant reaches the cell, not the row it happens to sit in", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }, { width: "auto" }]}>
+          <Row>
+            <Cell id="plain">Due</Cell>
+            <Cell id="status" variant="badge">Awaiting</Cell>
+          </Row>
+        </Table>
+      </Document>,
+      styleWithBlocks,
+    ),
   );
 
-  // Packing is the assertion: docx refuses a malformed header, footer or field.
-  assertEquals(typeof createDocxDocument(doc as DocumentModel), "object");
+  assertEquals((xml.match(/w:fill="FBF0DC"/g) ?? []).length, 1);
 });

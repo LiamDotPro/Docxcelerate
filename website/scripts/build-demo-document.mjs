@@ -6,16 +6,17 @@
  * executes it; the page imports the same files with ?raw to display them in
  * tabs. They cannot drift, and if the renderer changes, the site changes.
  *
- * Output: public/demo/document.html — the renderer's own standalone document,
- * with the Word-style app chrome hidden so the pane shows only the page.
- * Embedded in an iframe, so its styles stay isolated from the site's.
+ * Output: public/demo/<id>.html — the packed .docx, read back and laid out by
+ * docx-preview, so the pane shows the file itself rather than a second
+ * renderer's idea of it. Embedded in an iframe, so its styles stay isolated
+ * from the site's.
  */
 import { build } from "esbuild";
 import { docxcelerateEsbuildTransform } from "docxcelerate/transform";
 import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { extractPage, PAGE_ONLY_STYLE } from "./lib/preview-page.mjs";
+import { PAGE_ONLY_STYLE, renderDocxPage } from "./lib/docx-page.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -36,10 +37,7 @@ async function main() {
     throw new Error(`No document projects found in ${DOCUMENTS_DIR}`);
   }
 
-  const [{ buildProjectPreviewDocument }, { renderDocumentWebsite }] = await Promise.all([
-    import("docxcelerate"),
-    import("docxcelerate/renderer"),
-  ]);
+  const { buildProjectPreviewDocument } = await import("docxcelerate");
 
   for (const dir of dirs) {
     const source = resolve(DOCUMENTS_DIR, dir, "document.project.ts");
@@ -73,9 +71,10 @@ async function main() {
     }
 
     const document = await buildProjectPreviewDocument(project);
-    const rendered = renderDocumentWebsite(document, { title: project.name });
-
-    const html = extractPage(rendered, { title: project.name, style: PAGE_ONLY_STYLE });
+    const html = await renderDocxPage(document, {
+      title: project.name,
+      style: PAGE_ONLY_STYLE,
+    });
 
     await writeFile(resolve(OUT_DIR, `${dir}.html`), html, "utf8");
     console.log(

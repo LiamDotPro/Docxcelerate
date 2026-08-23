@@ -649,17 +649,32 @@ async function renderImage(
   }
 
   if (context.dynamicMode === "placeholder") {
+    // The size and the description belong to the node, not to the picture an
+    // engine will draw into it. Dropping them left a preview reserving no
+    // room for a picture whose dimensions the template had just stated.
     return prune({
       id,
       kind: "image",
       mode: "dynamic",
       when,
+      alt: await text(props.alt, context),
+      width: props.width,
+      height: props.height,
       placeholder: await placeholderText(prompts, id, context),
     });
   }
 
   const specs = await promptSpecs(prompts, context);
-  const node: ImageNode = { id, kind: "image", mode: "dynamic", when, prompts: specs };
+  const node: ImageNode = {
+    id,
+    kind: "image",
+    mode: "dynamic",
+    when,
+    alt: await text(props.alt, context),
+    width: props.width,
+    height: props.height,
+    prompts: specs,
+  };
 
   if (!context.aiClient?.generateImage) {
     throw new Error(`Dynamic image "${id}" requires an aiClient.generateImage method.`);
