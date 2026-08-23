@@ -22,7 +22,12 @@ import CopyField from "./CopyField.astro";
 import Eyebrow from "./Eyebrow.astro";
 import { addCommand, COMPONENTS, componentHref, THEMES, themeHref } from "../registry";
 import { asLocale, localizePath, LOCALES, ui } from "../i18n";
-import type { ComponentPageEntry, ResolvedNode, ThemePageEntry } from "../registry";
+import type {
+  ComponentPageEntry,
+  ResolvedNode,
+  ThemeHeadingStyle,
+  ThemePageEntry,
+} from "../registry";
 
 const locale = asLocale(Astro.currentLocale);
 const t = ui(locale);
@@ -57,30 +62,65 @@ function swatches(theme: ThemePageEntry): string[] {
 }
 
 /**
+ * Which of the two headings carries the theme's character.
+ *
+ * A theme that sets anything in capitals is recognised by that before it is
+ * recognised by its title — "small-cap headings on slate" is the whole of Slate
+ * Report's summary line — so the transform decides. Where the title itself is
+ * transformed, or neither is, the title wins, because a title is what a reader
+ * meets first on the page this stands in for.
+ */
+function characteristicHeading(theme: ThemePageEntry): ThemeHeadingStyle {
+  const { title, sectionHeading } = theme.style;
+
+  if (title.transform) return title;
+
+  return sectionHeading.transform ? sectionHeading : title;
+}
+
+/**
  * The specimen's own measurements, taken from the theme rather than guessed.
  *
- * The padding is the theme's own margins brought down to card scale, so Warm
- * Letter's generous page and Slate Report's tight one are visible as the thing
- * that actually differs between them rather than as a number in a caption.
+ * Two conversions matter. Point sizes become **pixels one for one**, not CSS
+ * points: a card is a drawing of a page rather than a page, and 12pt rendered
+ * at its true 16px would set a specimen half again as large as the boards. And
+ * the padding is the theme's own margins brought down to card scale, so Warm
+ * Letter's generous page and Slate Report's tight one differ on the card by the
+ * thing that actually differs between them rather than by a number in a caption.
  */
 function specimen(theme: ThemePageEntry) {
   const { typography, title, page, palette } = theme.style;
+  const heading = characteristicHeading(theme);
+  const caps = heading.transform === "uppercase";
 
   return {
     paper: colour(palette?.page, "#ffffff"),
     ink: colour(typography.color, "#111827"),
+    // Always the title's colour, even when the size comes from the section
+    // heading: a section heading's accent read as a title would make Slate
+    // Report's teal look like the theme's ink.
     heading: colour(title.color ?? palette?.heading, "#111827"),
     rule: colour(palette?.rule, "#d5d9e0"),
     muted: colour(palette?.muted, "#6b7280"),
     body: fontStack(typography.bodyFont),
     display: fontStack(typography.headingFont),
-    // Capped: a 26pt title set at card width would be the whole specimen.
-    titleSize: `${Math.min(title.fontSizePt, 19)}pt`,
-    bodySize: `${typography.bodySizePt}pt`,
-    lineHeight: typography.bodyLineHeight,
-    padY: clamp(page.margins.topMm * 0.55, 12, 20),
-    padX: clamp(page.margins.leftMm * 0.62, 14, 24),
-    size: `${page.size} · ${page.margins.topMm}mm`,
+    // Clamped at both ends: 30pt would be the whole specimen, 10pt would not
+    // read as a heading at all.
+    titleSize: `${clamp(heading.fontSizePt * 0.9, 11, 22)}px`,
+    titleWeight: heading.weight === "bold" ? 700 : 600,
+    titleTransform: caps ? "uppercase" : "none",
+    titleSpacing: caps ? "0.07em" : "0",
+    bodySize: `${Math.min(Math.max(typography.bodySizePt, 9.5), 11)}px`,
+    // Loosened a notch. The theme's figure was chosen for 11pt on paper; the
+    // specimen sets it at 11px on a screen, where the same ratio reads tight.
+    // An offset rather than a floor, so Slate Report stays tighter than Warm
+    // Letter — which is most of what separates them.
+    lineHeight: Math.round((typography.bodyLineHeight + 0.15) * 100) / 100,
+    padY: clamp(page.margins.topMm * 0.88, 14, 26),
+    padX: clamp(page.margins.leftMm * 0.92, 16, 30),
+    // The page size alone. The margin belongs on the detail page, and spelling
+    // it out here is what put a chip the width of the card over the title.
+    size: page.size === "LETTER" ? "LTR" : page.size,
   };
 }
 
@@ -192,7 +232,7 @@ const band = "mx-auto flex max-w-6xl flex-col px-5 sm:px-8 lg:px-16";
                 </span>
                 <div
                   class="max-w-[88%]"
-                  style={`font-family:${spec.display};font-size:${spec.titleSize};color:${spec.heading};line-height:1.15;font-weight:600;`}
+                  style={`font-family:${spec.display};font-size:${spec.titleSize};font-weight:${spec.titleWeight};color:${spec.heading};text-transform:${spec.titleTransform};letter-spacing:${spec.titleSpacing};line-height:1.15;`}
                 >
                   Membership renewal
                 </div>
