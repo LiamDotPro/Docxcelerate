@@ -363,6 +363,61 @@ export const ru: UiStrings = {
   },
 
   registry: {
+    /** The detail pages, per design boards 2b and 2c. */
+    backToRegistry: "Реестр",
+    renderedBy: "Отрисовано Docxcelerate во время сборки",
+    openPreview: "Открыть ↗",
+    specification: "Спецификация",
+    specNote: "Значения берутся из style.page и style.typography.",
+    margins: "Поля",
+    body: "Основной текст",
+    titleLabel: "Заголовок",
+    sectionHeading: "Заголовок раздела",
+    paragraphLabel: "Абзац",
+    after: "после",
+    compare: "Сравнить",
+    compareNote: "Один и тот же абзац в каждой теме",
+    viewing: "просмотр",
+    requires: "Требует",
+    requiresNothing: "Ничего. Устанавливается сам по себе.",
+    installsAlone: "Устанавливается сам по себе.",
+    stepData: "Данные предпросмотра",
+    stepDataNote: "JSON, на котором построен этот предпросмотр",
+    stepPreview: "Отрисованный предпросмотр",
+    stepPreviewNote: "компонент, отрисованный сам по себе",
+    stepNodes: "Разрешённые узлы",
+    /** {count} is a number of nodes. */
+    stepNodesNote: "что получает рендерер — узлов: {count}",
+    stepFiles: "Файлы",
+    stepFilesNote: "что записывает установка; выбранный файл и есть компонент",
+    dataFieldsNote: "Добавьте их в свой types.ts после установки. Это единственный ручной шаг.",
+    copyFieldPaths: "Скопировать пути полей",
+    /** {exports} is a list of names, {count} a number of nodes. */
+    exportsResolves: "экспортирует {exports} · разрешается в узлов: {count}",
+    categoryTags: "Категория · теги",
+    nothingHere: "Здесь пока ничего нет.",
+    nothingHereNote: "Реестр собирается из пакета. Как только запись появится в нём, она появится и здесь.",
+    /** The one-page registry at /registry. */
+    browse: {
+      title: "Реестр",
+      description:
+        "Готовые темы и компоненты документов для Docxcelerate, устанавливаемые в проект одной командой.",
+      eyebrow: "Реестр",
+      heading: "Реестр",
+      lead:
+        "Готовые темы и компоненты для ваших документных проектов. Установите одной командой, а дальше правьте как собственный код.",
+      filterByTag: "Фильтр по тегу",
+      allTags: "Все",
+      themesNote: "Установка темы записывает document-style.ts",
+      componentsNote: "Установка компонента записывает его файл в nodes/",
+      nodes: "узлов",
+      noPreview: "Без предпросмотра",
+      /** {tag} is the tag that matched nothing. */
+      noMatches: "Ни одна запись не подходит под {tag}.",
+      noMatchesTitle: "Совпадений нет",
+      noMatchesNote: "Попробуйте другой тег или сбросьте фильтр.",
+      clearFilter: "Сбросить фильтр",
+    },
     themes: {
       title: "Темы",
       description:
@@ -409,11 +464,14 @@ export const ru: UiStrings = {
     allThemes: "Все темы",
     allComponents: "Все компоненты",
     ad: {
-      heading: "Начните с того, что уже работает",
+      heading: "Начните следующий документ с форой.",
       body:
-        "Темы задают шрифт, цвет и страницу; компоненты — уже продуманные " +
-        "узлы. Одна команда добавляет и то и другое в проект — файлами, " +
-        "которые принадлежат вам.",
+        "В реестре есть темы и компоненты документов. `dxcl add` копирует файл в ваш проект. Никакой зависимости и никакой версии, за которой нужно следить.",
+      browse: "Посмотреть реестр",
+      howItWorks: "Как работает установка",
+      written: "записано файлов: 2 · зависимостей не добавлено",
+      afterInstall:
+        "После установки файлы лежат в вашем репозитории. Правьте их как любой другой код.",
     },
   },
 

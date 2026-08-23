@@ -16,6 +16,7 @@
  */
 import { build } from "esbuild";
 import { docxcelerateEsbuildTransform } from "docxcelerate/transform";
+import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, posix, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -25,9 +26,21 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
 
 const TEMP_DIR = resolve(ROOT, ".registry-build");
+const CACHE_DIR = resolve(ROOT, ".registry-cache");
 const THEME_OUT = resolve(ROOT, "public/demo/themes");
 const COMPONENT_OUT = resolve(ROOT, "public/demo/components");
 const MANIFEST = resolve(ROOT, "src/generated/registry.json");
+
+/**
+ * Bumped when this script changes what it produces.
+ *
+ * The cache is keyed on the inputs — a component's source, its preview data,
+ * the framework version. None of those change when the *script* starts writing
+ * a different shape of entry, so this is the part that has to be moved by hand.
+ * Getting it wrong serves a stale manifest, so move it whenever the output
+ * shape changes.
+ */
+const CACHE_VERSION = 1;
 
 /** Where previews are addressed from in the browser. */
 const THEME_BASE = "/demo/themes";
@@ -43,6 +56,8 @@ async function main() {
   await mkdir(THEME_OUT, { recursive: true });
   await mkdir(COMPONENT_OUT, { recursive: true });
   await mkdir(dirname(MANIFEST), { recursive: true });
+  // Not wiped: it is the whole point that it survives a build.
+  await mkdir(CACHE_DIR, { recursive: true });
 
   const {
     COMPONENT_CATEGORIES,
@@ -54,19 +69,34 @@ async function main() {
   const { buildDocument } = await import("docxcelerate");
   const { renderDocumentWebsite } = await import("docxcelerate/renderer");
 
+  const framework = await frameworkVersion();
   const themes = [];
+  let reused = 0;
 
   for (const theme of THEMES) {
-    const rendered = renderDocumentWebsite(
-      { ...SAMPLE_DOCUMENT, title: `${theme.title} sample`, style: theme.style },
-      { title: theme.title },
+    const key = cacheKey({
+      kind: "theme",
+      id: theme.id,
+      style: theme.style,
+      sample: SAMPLE_DOCUMENT,
+      framework,
+    });
+    const cached = await readCache(key);
+    const page = cached?.page ?? extractPage(
+      renderDocumentWebsite(
+        { ...SAMPLE_DOCUMENT, title: `${theme.title} sample`, style: theme.style },
+        { title: theme.title },
+      ),
+      { title: theme.title, style: PAGE_ONLY_STYLE },
     );
 
-    await writeFile(
-      resolve(THEME_OUT, `${theme.id}.html`),
-      extractPage(rendered, { title: theme.title, style: PAGE_ONLY_STYLE }),
-      "utf8",
-    );
+    if (cached) {
+      reused += 1;
+    } else {
+      await writeCache(key, { page });
+    }
+
+    await writeFile(resolve(THEME_OUT, `${theme.id}.html`), page, "utf8");
 
     themes.push({
       id: theme.id,
@@ -82,7 +112,10 @@ async function main() {
       previewUrl: posix.join(THEME_BASE, `${theme.id}.html`),
     });
 
-    console.log(`registry: theme ${theme.id.padEnd(16)} ${theme.fonts.join(", ")}`);
+    console.log(
+      `registry: theme ${theme.id.padEnd(16)} ${theme.fonts.join(", ")}` +
+        `${cached ? " (cached)" : ""}`,
+    );
   }
 
   const wrap = await documentTemplate();
@@ -99,36 +132,59 @@ async function main() {
       });
     }
 
-    const module = await loadComponent(component, registryRoot());
-    const exported = component.exports.map((name) => {
-      if (typeof module[name] !== "function") {
-        throw new Error(
-          `Component "${component.id}" says it exports ${name}, but ` +
-            `${component.files[0].source} does not.`,
-        );
-      }
-
-      return module[name];
+    // Everything the preview is built from. Bundling and rendering a component
+    // is the expensive half of this script — an esbuild pass each — and none of
+    // it has to happen again while the inputs are the same.
+    const key = cacheKey({
+      kind: "component",
+      id: component.id,
+      files: files.map((file) => file.code),
+      previewData: component.previewData,
+      exports: component.exports,
+      themeHint: component.themeHint ?? null,
+      framework,
     });
+    const cached = await readCache(key);
+    let page = cached?.page;
+    let nodes = cached?.nodes;
 
-    // Placeholder mode, so a generated node shows what an author sees rather
-    // than requiring an endpoint to build the docs.
-    const document = await buildDocument(
-      wrap(component.id, component.title, exported),
-      component.previewData,
-      { dynamicMode: "placeholder" },
-    );
+    if (!cached) {
+      const module = await loadComponent(component, registryRoot());
+      const exported = component.exports.map((name) => {
+        if (typeof module[name] !== "function") {
+          throw new Error(
+            `Component "${component.id}" says it exports ${name}, but ` +
+              `${component.files[0].source} does not.`,
+          );
+        }
 
-    // Components drawn against a theme are previewed in it; the rest get the
-    // default, which is what a project has before it chooses one.
-    const style = themeById(component.themeHint ?? "clean-minimal").style;
-    const rendered = renderDocumentWebsite({ ...document, style }, { title: component.title });
+        return module[name];
+      });
 
-    await writeFile(
-      resolve(COMPONENT_OUT, `${component.id}.html`),
-      extractPage(rendered, { title: component.title, style: NODE_ONLY_STYLE }),
-      "utf8",
-    );
+      // Placeholder mode, so a generated node shows what an author sees rather
+      // than requiring an endpoint to build the docs.
+      const document = await buildDocument(
+        wrap(component.id, component.title, exported),
+        component.previewData,
+        { dynamicMode: "placeholder" },
+      );
+
+      // Components drawn against a theme are previewed in it; the rest get the
+      // default, which is what a project has before it chooses one.
+      const style = themeById(component.themeHint ?? "clean-minimal").style;
+
+      nodes = document.nodes;
+      page = extractPage(
+        renderDocumentWebsite({ ...document, style }, { title: component.title }),
+        { title: component.title, style: NODE_ONLY_STYLE },
+      );
+
+      await writeCache(key, { page, nodes });
+    } else {
+      reused += 1;
+    }
+
+    await writeFile(resolve(COMPONENT_OUT, `${component.id}.html`), page, "utf8");
 
     components.push({
       id: component.id,
@@ -145,12 +201,13 @@ async function main() {
       previewData: component.previewData,
       // What the component resolved to, so the page can show the nodes an
       // engine or a renderer would be handed.
-      resolved: document.nodes,
+      resolved: nodes,
       previewUrl: posix.join(COMPONENT_BASE, `${component.id}.html`),
     });
 
     console.log(
-      `registry: component ${component.id.padEnd(16)} ${document.nodes.length} nodes`,
+      `registry: component ${component.id.padEnd(16)} ${nodes.length} nodes` +
+        `${cached ? " (cached)" : ""}`,
     );
   }
 
@@ -172,8 +229,9 @@ async function main() {
   );
 
   console.log(
-    `registry: ${themes.length} themes, ${components.length} components -> ` +
-      `public/demo/, manifest -> src/generated/registry.json`,
+    `registry: ${themes.length} themes, ${components.length} components ` +
+      `(${reused} reused from cache) -> public/demo/, ` +
+      `manifest -> src/generated/registry.json`,
   );
 
   await rm(TEMP_DIR, { recursive: true, force: true });
@@ -202,6 +260,47 @@ async function documentTemplate() {
         children: components.map((component) => jsx(component, {})),
       }),
     );
+}
+
+/**
+ * What a preview was built from, as one string.
+ *
+ * Everything that could change the output goes in: the sources, the data they
+ * were resolved against, the framework that resolved them, and the version of
+ * this script. Anything left out is a way for the cache to serve something that
+ * no longer matches what the registry holds.
+ */
+function cacheKey(parts) {
+  return createHash("sha256")
+    .update(JSON.stringify({ version: CACHE_VERSION, ...parts }))
+    .digest("hex")
+    .slice(0, 16);
+}
+
+/** A cached build, or null when this is the first time these inputs were seen. */
+async function readCache(key) {
+  try {
+    return JSON.parse(await readFile(resolve(CACHE_DIR, `${key}.json`), "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+async function writeCache(key, value) {
+  await writeFile(resolve(CACHE_DIR, `${key}.json`), JSON.stringify(value), "utf8");
+}
+
+/**
+ * The installed framework's version, so upgrading it invalidates every preview.
+ *
+ * A renderer that starts drawing tables differently has to redraw the previews,
+ * and nothing in a component's own source would say so.
+ */
+async function frameworkVersion() {
+  // Read from the package directory rather than resolved through the exports
+  // map, which does not expose package.json — and the site depends on the
+  // package as `file:..`, so this is the one being previewed.
+  return JSON.parse(await readFile(resolve(ROOT, "..", "package.json"), "utf8")).version;
 }
 
 /**

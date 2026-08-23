@@ -1,19 +1,21 @@
 ---
 /**
- * /components/<id> — one component: what it draws, what it reads, and the file
- * `dxcl add` would copy in.
+ * /components/<id> — one component, read as a sequence.
  *
- * The source shown is the file itself, read out of the package at build time,
- * so nobody has to trust that the page and the install agree.
+ * Data, preview, nodes, source — 01 to 04, in the order the question is asked:
+ * what does it need, what does it look like, what does a renderer get, and what
+ * lands in my repo. The data fields sit beside all four, because they are the
+ * one manual step after installing.
  *
- * Structural layout, pending a visual pass.
+ * The source is the file itself, read out of the package at build time, so
+ * nobody has to trust that the page and the install agree.
  */
 import { Code } from "astro:components";
 import Base from "../layouts/Base.astro";
+import CopyField from "./CopyField.astro";
 import NodePreview from "./NodePreview.astro";
 import { addCommand, type ComponentPageEntry, themeEntry, themeHref } from "../registry";
-import { LOCALES } from "../i18n";
-import { asLocale, fill, localizePath, ui } from "../i18n";
+import { asLocale, fill, localizePath, LOCALES, ui } from "../i18n";
 
 interface Props {
   component: ComponentPageEntry;
@@ -23,122 +25,278 @@ const locale = asLocale(Astro.currentLocale);
 const t = ui(locale);
 const { component } = Astro.props;
 const drawnAgainst = component.themeHint ? themeEntry(component.themeHint) : undefined;
+const nodeCount = component.resolved.length;
+
+/** The steps, numbered, so the page reads as one sequence rather than four stacks. */
+const steps = [
+  { n: "01", title: t.registry.stepData, note: t.registry.stepDataNote },
+  { n: "02", title: t.registry.stepPreview, note: t.registry.stepPreviewNote },
+  { n: "03", title: t.registry.stepNodes, note: fill(t.registry.stepNodesNote, { count: nodeCount }) },
+  { n: "04", title: t.registry.stepFiles, note: t.registry.stepFilesNote },
+];
+
+/** Newlines inside a node's text are line breaks a reader should see as such. */
+const shown = (text: string | undefined) => (text ?? "").split("\n");
+
+const fieldPaths = component.dataFields.map((field) => field.path).join("\n");
 ---
 
-<Base
-  title={component.title}
-  description={component.summary}
-  hreflangLocales={LOCALES}
->
-  <div class="mx-auto flex max-w-4xl flex-col gap-8 px-5 py-12 sm:px-8">
+<Base title={component.title} description={component.summary} hreflangLocales={LOCALES}>
+  <div class="mx-auto flex max-w-6xl flex-col gap-10 px-5 py-12 sm:px-8">
     <p class="m-0">
       <a
-        href={localizePath("/components/", locale)}
+        href={localizePath("/registry/#components", locale)}
         class="text-sm text-muted no-underline hover:text-accent"
       >
-        ← {t.registry.allComponents}
+        ← {t.registry.backToRegistry}
       </a>
     </p>
 
-    <header class="flex flex-col gap-3">
-      <h1 class="m-0 text-3xl font-semibold">{component.title}</h1>
-      <p class="m-0 max-w-2xl text-base leading-relaxed text-muted">{component.detail}</p>
-      <p class="m-0 font-mono text-sm">{addCommand(component.id)}</p>
-      {
-        drawnAgainst && (
-          <p class="m-0 text-sm text-muted">
-            <a
-              href={localizePath(themeHref(drawnAgainst.id), locale)}
-              class="text-accent no-underline hover:underline"
-            >
-              {fill(t.registry.drawnAgainst, { theme: drawnAgainst.title })}
-            </a>
-          </p>
-        )
-      }
+    <header class="flex max-w-3xl flex-col gap-3">
+      <div class="flex flex-wrap items-center gap-3">
+        <h1 class="m-0 font-serif text-3xl font-semibold">{component.title}</h1>
+        <span
+          class="rounded-full border border-firm px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted"
+        >
+          {component.category}
+        </span>
+      </div>
+      <p class="m-0 text-base leading-relaxed text-muted">{component.detail}</p>
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="min-w-[16rem]"><CopyField command={addCommand(component.id)} /></div>
+        <span class="font-mono text-xs text-muted">
+          {fill(t.registry.exportsResolves, {
+            exports: component.exports.join(", "),
+            count: nodeCount,
+          })}
+        </span>
+      </div>
     </header>
 
-    <section class="flex flex-col gap-3">
-      <h2 class="m-0 text-lg font-semibold">{t.registry.preview}</h2>
-      <NodePreview src={component.previewUrl} title={`${component.title}, rendered`} />
-    </section>
-
-    <section class="flex flex-col gap-3">
-      <h2 class="m-0 text-lg font-semibold">{t.registry.reads}</h2>
-      <div class="overflow-x-auto">
-        <table class="w-full border-collapse text-left text-sm">
-          <thead>
-            <tr class="border-b border-border">
-              <th class="py-2 pr-4 font-medium">{t.registry.field}</th>
-              <th class="py-2 pr-4 font-medium">{t.registry.type}</th>
-              <th class="py-2 font-medium">{t.registry.whatItDoes}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {
-              component.dataFields.map((field) => (
-                <tr class="border-b border-border align-top">
-                  <td class="py-2 pr-4 font-mono text-xs">{field.path}</td>
-                  <td class="py-2 pr-4 font-mono text-xs text-muted">{field.type}</td>
-                  <td class="py-2 text-muted">{field.summary}</td>
-                </tr>
-              ))
-            }
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="flex flex-col gap-3">
-      <h2 class="m-0 text-lg font-semibold">{t.registry.source}</h2>
-      {
-        component.files.map((file) => (
-          <div class="flex flex-col gap-2">
-            <p class="m-0 font-mono text-xs text-muted">
-              {t.registry.lands}: {file.target}
-            </p>
-            <div class="snippet">
+    <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <div class="flex flex-col gap-8">
+        <!-- 01 — what it was built with -->
+        <section class="flex gap-4">
+          <span class="font-mono text-xs text-accent">{steps[0].n}</span>
+          <div class="flex min-w-0 flex-1 flex-col gap-2">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <h2 class="m-0 text-sm font-semibold text-ink">{steps[0].title}</h2>
+              <span class="text-xs text-muted">{steps[0].note}</span>
+            </div>
+            <div class="overflow-x-auto rounded-md border border-default">
               <Code
-                code={file.code}
-                lang="tsx"
-                themes={{ light: "github-light", dark: "github-dark-dimmed" }}
+                code={JSON.stringify(component.previewData, null, 2)}
+                lang="json"
+                theme="github-light"
               />
             </div>
           </div>
-        ))
-      }
-    </section>
+        </section>
 
-    <section class="flex flex-col gap-3">
-      <h2 class="m-0 text-lg font-semibold">{t.registry.resolvesTo}</h2>
-      <p class="m-0 font-mono text-xs text-muted">
-        {t.registry.previewData}: {JSON.stringify(component.previewData)}
-      </p>
-      <div class="snippet">
-        <Code
-          code={JSON.stringify(component.resolved, null, 2)}
-          lang="json"
-          themes={{ light: "github-light", dark: "github-dark-dimmed" }}
-        />
+        <!-- 02 — what it looks like -->
+        <section class="flex gap-4">
+          <span class="font-mono text-xs text-accent">{steps[1].n}</span>
+          <div class="flex min-w-0 flex-1 flex-col gap-2">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <h2 class="m-0 text-sm font-semibold text-ink">{steps[1].title}</h2>
+              <span class="text-xs text-muted">{steps[1].note}</span>
+            </div>
+            <NodePreview src={component.previewUrl} title={component.title} label="" />
+            <div class="flex items-baseline justify-between gap-3">
+              <span class="text-xs text-muted">
+                {t.registry.renderedBy}
+                {
+                  drawnAgainst && (
+                    <>
+                      {" · "}
+                      <a
+                        href={localizePath(themeHref(drawnAgainst.id), locale)}
+                        class="text-accent no-underline hover:underline"
+                      >
+                        {fill(t.registry.drawnAgainst, { theme: drawnAgainst.title })}
+                      </a>
+                    </>
+                  )
+                }
+              </span>
+              <a
+                href={component.previewUrl}
+                target="_blank"
+                rel="noreferrer"
+                class="text-xs text-accent no-underline hover:underline"
+              >
+                {t.registry.openPreview}
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <!-- 03 — what a renderer receives -->
+        <section class="flex gap-4">
+          <span class="font-mono text-xs text-accent">{steps[2].n}</span>
+          <div class="flex min-w-0 flex-1 flex-col gap-2">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <h2 class="m-0 text-sm font-semibold text-ink">{steps[2].title}</h2>
+              <span class="text-xs text-muted">{steps[2].note}</span>
+            </div>
+            <div class="flex flex-col rounded-md border border-default">
+              {
+                component.resolved.map((node) => (
+                  <div class="flex flex-col gap-1 border-b border-default p-3 last:border-b-0 sm:flex-row sm:items-baseline sm:gap-3">
+                    <code class="shrink-0 font-mono text-xs text-accent">{node.id}</code>
+                    <span class="shrink-0 font-mono text-[0.65rem] text-muted">
+                      {node.kind}
+                      {node.mode ? ` · ${node.mode}` : ""}
+                    </span>
+                    <span class="min-w-0 flex-1 text-xs text-ink">
+                      {
+                        shown(node.text).map((line, index) => (
+                          <>
+                            {index > 0 && <span class="px-1 text-muted">⏎</span>}
+                            {line}
+                          </>
+                        ))
+                      }
+                    </span>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+        </section>
+
+        <!-- 04 — what lands in the repo -->
+        <section class="flex gap-4">
+          <span class="font-mono text-xs text-accent">{steps[3].n}</span>
+          <div class="flex min-w-0 flex-1 flex-col gap-3">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <h2 class="m-0 text-sm font-semibold text-ink">{steps[3].title}</h2>
+              <span class="text-xs text-muted">{steps[3].note}</span>
+            </div>
+            {
+              component.files.map((file) => (
+                <figure class="m-0 overflow-hidden rounded-md border border-default">
+                  <figcaption class="flex items-center justify-between gap-3 border-b border-default bg-surface px-3 py-2">
+                    <code class="truncate font-mono text-xs text-ink">{file.target}</code>
+                    <span class="shrink-0 font-mono text-[0.6rem] text-muted">{t.registry.source}</span>
+                  </figcaption>
+                  <div class="overflow-x-auto">
+                    <Code code={file.code} lang="tsx" theme="github-light" />
+                  </div>
+                </figure>
+              ))
+            }
+          </div>
+        </section>
       </div>
-    </section>
 
-    <section class="flex flex-col gap-2">
-      <h2 class="m-0 text-lg font-semibold">{t.registry.exports}</h2>
-      <p class="m-0 font-mono text-sm text-muted">{component.exports.join(", ")}</p>
-      <p class="m-0 text-sm text-muted">{component.category} · {component.tags.join(", ")}</p>
-    </section>
+      <!-- Beside all four: what you have to add yourself. -->
+      <aside class="flex flex-col gap-7">
+        <section class="flex flex-col gap-2">
+          <h2
+            class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
+          >
+            {t.registry.reads}
+          </h2>
+          <p class="m-0 text-xs leading-relaxed text-muted">{t.registry.dataFieldsNote}</p>
+          <div class="flex flex-col gap-2">
+            {
+              component.dataFields.map((field) => (
+                <div class="flex flex-col gap-0.5 border-b border-default pb-2 last:border-b-0">
+                  <div class="flex flex-wrap items-baseline justify-between gap-2">
+                    <code class="font-mono text-xs text-accent">{field.path}</code>
+                    <span class="font-mono text-[0.6rem] text-muted">{field.type}</span>
+                  </div>
+                  <span class="text-xs leading-relaxed text-muted">{field.summary}</span>
+                </div>
+              ))
+            }
+          </div>
+          {
+            component.dataFields.length > 0 && (
+              <button
+                type="button"
+                class="self-start rounded border border-firm bg-paper px-2 py-1 text-xs text-muted transition-colors hover:text-ink"
+                data-copy-paths={fieldPaths}
+              >
+                {t.registry.copyFieldPaths}
+              </button>
+            )
+          }
+        </section>
+
+        <section class="flex flex-col gap-2">
+          <h2
+            class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
+          >
+            {t.registry.exports}
+          </h2>
+          <div class="flex flex-wrap gap-1">
+            {
+              component.exports.map((name) => (
+                <code class="rounded border border-default px-1.5 py-0.5 font-mono text-xs text-ink">
+                  {name}
+                </code>
+              ))
+            }
+          </div>
+        </section>
+
+        <section class="flex flex-col gap-2">
+          <h2
+            class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
+          >
+            {t.registry.categoryTags}
+          </h2>
+          <div class="flex flex-wrap gap-1">
+            <span class="rounded-full border border-firm px-1.5 py-0.5 text-[0.65rem] text-ink">
+              {component.category}
+            </span>
+            {
+              component.tags.map((tag) => (
+                <span class="rounded-full border border-default px-1.5 py-0.5 text-[0.65rem] text-muted">
+                  {tag}
+                </span>
+              ))
+            }
+          </div>
+        </section>
+
+        <section class="flex flex-col gap-2">
+          <h2
+            class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
+          >
+            {t.registry.requires}
+          </h2>
+          <span class="text-xs text-muted">
+            {
+              component.requires.length === 0
+                ? t.registry.requiresNothing
+                : component.requires.join(", ")
+            }
+          </span>
+        </section>
+      </aside>
+    </div>
   </div>
 </Base>
 
-<style>
-  .snippet :global(pre) {
-    margin: 0;
-    padding: 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    overflow-x: auto;
-    font-size: 0.76rem;
-    line-height: 1.6;
+<script>
+  // The field paths, as a block ready to paste into types.ts. Same progressive
+  // rule as the install command: no clipboard, no button.
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-copy-paths]")) {
+    if (!navigator.clipboard) continue;
+
+    const idle = button.textContent ?? "";
+
+    button.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(button.dataset.copyPaths ?? "");
+        button.textContent = "Copied";
+        setTimeout(() => (button.textContent = idle), 1600);
+      } catch {
+        // Denied, or an insecure origin. The paths are listed above either way.
+      }
+    });
   }
-</style>
+</script>

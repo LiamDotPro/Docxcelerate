@@ -372,6 +372,61 @@ export const de: UiStrings = {
   },
 
   registry: {
+    /** The detail pages, per design boards 2b and 2c. */
+    backToRegistry: "Registry",
+    renderedBy: "Von Docxcelerate beim Build gerendert",
+    openPreview: "Öffnen ↗",
+    specification: "Spezifikation",
+    specNote: "Werte stammen aus style.page und style.typography.",
+    margins: "Ränder",
+    body: "Fließtext",
+    titleLabel: "Titel",
+    sectionHeading: "Abschnittsüberschrift",
+    paragraphLabel: "Absatz",
+    after: "danach",
+    compare: "Vergleichen",
+    compareNote: "Derselbe Absatz in jedem Theme",
+    viewing: "angezeigt",
+    requires: "Benötigt",
+    requiresNothing: "Nichts. Es installiert allein.",
+    installsAlone: "Es installiert allein.",
+    stepData: "Vorschaudaten",
+    stepDataNote: "das JSON, mit dem diese Vorschau gebaut wurde",
+    stepPreview: "Gerenderte Vorschau",
+    stepPreviewNote: "die Komponente für sich gerendert",
+    stepNodes: "Aufgelöste Nodes",
+    /** {count} is a number of nodes. */
+    stepNodesNote: "was ein Renderer erhält — {count} Nodes",
+    stepFiles: "Die Dateien",
+    stepFilesNote: "was die Installation schreibt; die gewählte Datei ist die Komponente",
+    dataFieldsNote: "Fügen Sie diese nach der Installation Ihrer types.ts hinzu. Das ist der einzige Handgriff.",
+    copyFieldPaths: "Feldpfade kopieren",
+    /** {exports} is a list of names, {count} a number of nodes. */
+    exportsResolves: "exportiert {exports} · löst zu {count} Nodes auf",
+    categoryTags: "Kategorie · Tags",
+    nothingHere: "Hier ist noch nichts.",
+    nothingHereNote: "Die Registry wird aus dem Paket gebaut. Sobald ein Eintrag ausgeliefert wird, erscheint er hier.",
+    /** The one-page registry at /registry. */
+    browse: {
+      title: "Registry",
+      description:
+        "Fertige Themes und Dokumentkomponenten für Docxcelerate, mit einem Befehl in ein Projekt installiert.",
+      eyebrow: "Registry",
+      heading: "Registry",
+      lead:
+        "Fertige Themes und Komponenten für Ihre Dokumentprojekte. Mit einem einzigen Befehl installieren und dann wie eigenen Code bearbeiten.",
+      filterByTag: "Nach Tag filtern",
+      allTags: "Alle",
+      themesNote: "Ein Theme zu installieren schreibt document-style.ts",
+      componentsNote: "Eine Komponente zu installieren schreibt ihre Datei nach nodes/",
+      nodes: "Nodes",
+      noPreview: "Keine Vorschau",
+      /** {tag} is the tag that matched nothing. */
+      noMatches: "Keine Einträge passen zu {tag}.",
+      noMatchesTitle: "Keine Treffer",
+      noMatchesNote: "Probieren Sie ein anderes Tag oder setzen Sie den Filter zurück.",
+      clearFilter: "Filter zurücksetzen",
+    },
     themes: {
       title: "Themes",
       description:
@@ -418,11 +473,14 @@ export const de: UiStrings = {
     allThemes: "Alle Themes",
     allComponents: "Alle Komponenten",
     ad: {
-      heading: "Mit etwas anfangen, das schon funktioniert",
+      heading: "Verschaffen Sie Ihrem nächsten Dokument einen Vorsprung.",
       body:
-        "Themes bestimmen Schrift, Farbe und Seite; Komponenten sind fertig " +
-        "durchdachte Nodes. Ein Befehl bringt beides ins Projekt — als " +
-        "Dateien, die Ihnen gehören.",
+        "Die Registry hält Themes und Dokumentkomponenten bereit. `dxcl add` kopiert die Datei in Ihr Projekt. Keine Abhängigkeit, keine Version zu verfolgen.",
+      browse: "Registry durchsehen",
+      howItWorks: "Wie das Installieren funktioniert",
+      written: "2 Dateien geschrieben · keine Abhängigkeit hinzugefügt",
+      afterInstall:
+        "Nach der Installation liegen die Dateien in Ihrem Repo. Bearbeiten Sie sie wie jeden anderen Quelltext.",
     },
   },
 

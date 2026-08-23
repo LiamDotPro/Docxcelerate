@@ -362,6 +362,61 @@ export const nl: UiStrings = {
   },
 
   registry: {
+    /** The detail pages, per design boards 2b and 2c. */
+    backToRegistry: "Registry",
+    renderedBy: "Gerenderd door Docxcelerate tijdens de build",
+    openPreview: "Openen ↗",
+    specification: "Specificatie",
+    specNote: "Waarden komen uit style.page en style.typography.",
+    margins: "Marges",
+    body: "Broodtekst",
+    titleLabel: "Titel",
+    sectionHeading: "Sectiekop",
+    paragraphLabel: "Alinea",
+    after: "erna",
+    compare: "Vergelijken",
+    compareNote: "Dezelfde alinea in elk thema",
+    viewing: "in beeld",
+    requires: "Vereist",
+    requiresNothing: "Niets. Het installeert alleen.",
+    installsAlone: "Het installeert alleen.",
+    stepData: "Voorbeelddata",
+    stepDataNote: "de JSON waarmee dit voorbeeld is gebouwd",
+    stepPreview: "Gerenderd voorbeeld",
+    stepPreviewNote: "de component op zichzelf gerenderd",
+    stepNodes: "Opgeloste nodes",
+    /** {count} is a number of nodes. */
+    stepNodesNote: "wat een renderer krijgt — {count} nodes",
+    stepFiles: "De bestanden",
+    stepFilesNote: "wat installeren schrijft; het gekozen bestand is de component",
+    dataFieldsNote: "Voeg deze na het installeren toe aan je types.ts. Dat is de enige handmatige stap.",
+    copyFieldPaths: "Veldpaden kopiëren",
+    /** {exports} is a list of names, {count} a number of nodes. */
+    exportsResolves: "exporteert {exports} · levert {count} nodes op",
+    categoryTags: "Categorie · tags",
+    nothingHere: "Hier staat nog niets.",
+    nothingHereNote: "De registry wordt uit het pakket gebouwd. Zodra een item meegaat, verschijnt het hier.",
+    /** The one-page registry at /registry. */
+    browse: {
+      title: "Registry",
+      description:
+        "Kant-en-klare themas en documentcomponenten voor Docxcelerate, met één commando in een project geïnstalleerd.",
+      eyebrow: "Registry",
+      heading: "Registry",
+      lead:
+        "Kant-en-klare themas en componenten voor je documentprojecten. Installeer er een met één commando en bewerk het daarna als je eigen code.",
+      filterByTag: "Filteren op tag",
+      allTags: "Alles",
+      themesNote: "Een thema installeren schrijft document-style.ts",
+      componentsNote: "Een component installeren schrijft het bestand naar nodes/",
+      nodes: "nodes",
+      noPreview: "Geen voorbeeld",
+      /** {tag} is the tag that matched nothing. */
+      noMatches: "Geen items met {tag}.",
+      noMatchesTitle: "Geen resultaten",
+      noMatchesNote: "Probeer een andere tag of wis het filter.",
+      clearFilter: "Filter wissen",
+    },
     themes: {
       title: "Thema's",
       description:
@@ -408,11 +463,14 @@ export const nl: UiStrings = {
     allThemes: "Alle thema's",
     allComponents: "Alle componenten",
     ad: {
-      heading: "Begin met iets dat al werkt",
+      heading: "Begin je volgende document met een voorsprong.",
       body:
-        "Thema's bepalen letter, kleur en pagina; componenten zijn nodes die " +
-        "al doordacht zijn. Eén commando zet ze in een project, als bestanden " +
-        "die van jou zijn.",
+        "De registry bevat themas en documentcomponenten. `dxcl add` kopieert het bestand naar je project. Geen dependency, geen versie om bij te houden.",
+      browse: "Bekijk de registry",
+      howItWorks: "Hoe installeren werkt",
+      written: "2 bestanden geschreven · geen dependency toegevoegd",
+      afterInstall:
+        "Na het installeren staan de bestanden in je repo. Bewerk ze als elke andere broncode.",
     },
   },
 

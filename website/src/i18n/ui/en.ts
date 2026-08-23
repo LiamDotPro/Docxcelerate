@@ -414,6 +414,61 @@ export const en = {
    * are the labels around them.
    */
   registry: {
+    /** The detail pages, per design boards 2b and 2c. */
+    backToRegistry: "Registry",
+    renderedBy: "Rendered by Docxcelerate at build time",
+    openPreview: "Open ↗",
+    specification: "Specification",
+    specNote: "Values come from style.page and style.typography.",
+    margins: "Margins",
+    body: "Body",
+    titleLabel: "Title",
+    sectionHeading: "Section heading",
+    paragraphLabel: "Paragraph",
+    after: "after",
+    compare: "Compare",
+    compareNote: "The same paragraph in each theme",
+    viewing: "viewing",
+    requires: "Requires",
+    requiresNothing: "Nothing. It installs alone.",
+    installsAlone: "It installs alone.",
+    stepData: "Preview data",
+    stepDataNote: "the JSON this preview was built with",
+    stepPreview: "Rendered preview",
+    stepPreviewNote: "the component rendered on its own",
+    stepNodes: "Resolved nodes",
+    /** {count} is a number of nodes. */
+    stepNodesNote: "what a renderer receives — {count} nodes",
+    stepFiles: "The files",
+    stepFilesNote: "what installing writes; the selected file is the component",
+    dataFieldsNote: "Add these to your types.ts after installing. It is the one manual step.",
+    copyFieldPaths: "Copy field paths",
+    /** {exports} is a list of names, {count} a number of nodes. */
+    exportsResolves: "exports {exports} · resolves to {count} nodes",
+    categoryTags: "Category · tags",
+    nothingHere: "Nothing here yet.",
+    nothingHereNote: "The registry is built from the package. Once an entry ships, it appears here.",
+    /** The one-page registry at /registry. */
+    browse: {
+      title: "Registry",
+      description:
+        "Ready-made themes and document components for Docxcelerate, installed into a project with one command.",
+      eyebrow: "Registry",
+      heading: "Registry",
+      lead:
+        "Ready-made themes and components for your document projects. Install one with a single command, then edit it like your own code.",
+      filterByTag: "Filter by tag",
+      allTags: "All",
+      themesNote: "Installing a theme writes document-style.ts",
+      componentsNote: "Installing a component writes its file into nodes/",
+      nodes: "nodes",
+      noPreview: "No preview",
+      /** {tag} is the tag that matched nothing. */
+      noMatches: "No entries match {tag}.",
+      noMatchesTitle: "No matches",
+      noMatchesNote: "Try a different tag, or clear the filter.",
+      clearFilter: "Clear filter",
+    },
     themes: {
       title: "Themes",
       description:
@@ -462,11 +517,14 @@ export const en = {
     allComponents: "All components",
     /** The band on the homepage. */
     ad: {
-      heading: "Start from something that already works",
+      heading: "Get a head start on your next document.",
       body:
-        "Themes set the type, colour and page; components are nodes already " +
-        "written and argued with. One command puts either into a project, as " +
-        "files you own.",
+        "The registry holds themes and document components. `dxcl add` copies the file into your project. There is no dependency and no version to track.",
+      browse: "Browse the registry",
+      howItWorks: "How installing works",
+      written: "2 files written · no dependency added",
+      afterInstall:
+        "After install, the files are in your repo. Edit them like any other source.",
     },
   },
 

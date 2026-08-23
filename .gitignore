@@ -9,3 +9,4 @@ website/.astro/
 website/.demo-build/
 website/public/demo/
 website/src/generated/
+website/.registry-cache/

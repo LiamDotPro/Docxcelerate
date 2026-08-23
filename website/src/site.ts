@@ -80,8 +80,11 @@ export interface NavLink {
 
 export const NAV: NavLink[] = [
   { key: "docs", href: "/docs/start-here/" },
-  { key: "themes", href: "/themes/" },
-  { key: "components", href: "/components/" },
+  // Two labels, one page. Themes and components are what people look for by
+  // name, but the registry answers "what can I add?" in one place — so each
+  // item lands on its section rather than on a gallery of its own.
+  { key: "themes", href: "/registry/#themes" },
+  { key: "components", href: "/registry/#components" },
   { key: "cloud", href: CLOUD_URL, external: true, soon: !CLOUD_AVAILABLE },
   { key: "github", href: GITHUB_URL, external: true, icon: "github" },
 ];
