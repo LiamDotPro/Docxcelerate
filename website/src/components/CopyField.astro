@@ -5,6 +5,11 @@
  * The install command is the call to action on every registry surface, so it is
  * a control rather than a line of prose you have to select by hand.
  *
+ * Drawn from the design system's CopyField: a hairline field on `--surface`, a
+ * muted `$` prompt, the command in ink, and a **borderless** button. The button
+ * carries no chrome of its own because the field already is the control — a
+ * bordered button inside a bordered field reads as two things.
+ *
  * The copy itself is progressive: the markup is a readable `<code>` on its own,
  * and the script upgrades it. Without JavaScript you still see the command and
  * can select it.
@@ -14,35 +19,44 @@ interface Props {
   command: string;
   /** Tighter, for a card footer rather than a page header. */
   compact?: boolean;
-  /** What the button says once it has copied. Defaults to a tick. */
+  /** What the button says once it has copied. */
   copiedLabel?: string;
+  /** Extra classes, so a caller can set the width the board gives it. */
+  class?: string;
 }
 
-const { command, compact = false, copiedLabel = "Copied" } = Astro.props;
+const {
+  command,
+  compact = false,
+  copiedLabel = "Copied",
+  class: className = "",
+} = Astro.props;
 ---
 
 <div
   class:list={[
-    "flex items-center justify-between gap-2 rounded-md border border-firm bg-surface",
+    "flex items-center gap-3 rounded border border-default bg-surface font-mono",
+    // A phone needs a 44px target; a desktop card does not, and 44px there
+    // would make the field taller than the type inside it.
     "min-h-[44px] sm:min-h-0",
-    compact ? "px-2 py-1" : "px-3 py-2",
+    compact ? "px-3 py-2" : "px-4 py-2",
+    className,
   ]}
   data-copy-field
 >
+  <span class="select-none text-muted" aria-hidden="true">$</span>
   <code
     class:list={[
-      "select-all truncate font-mono text-ink",
-      compact ? "text-[0.7rem]" : "text-sm",
+      "flex-1 select-all truncate text-ink",
+      compact ? "text-[0.68rem]" : "text-sm",
     ]}
     data-copy-command>{command}</code>
   <button
     type="button"
     class:list={[
-      "shrink-0 rounded border border-firm bg-paper text-muted transition-colors hover:text-ink",
-      // 44px is the smallest comfortable touch target; the visual size stays
-      // small on a card, so the padding does the work rather than the type.
+      "shrink-0 rounded-sm border-0 bg-transparent px-1.5 py-0.5 transition-colors",
       "min-h-[44px] sm:min-h-0",
-      compact ? "px-2.5 py-0.5 text-[0.65rem]" : "px-3 py-1 text-xs",
+      compact ? "text-[0.66rem] text-accent hover:text-accent-deep" : "text-xs text-muted hover:text-ink",
     ]}
     data-copy-button
     data-copied={copiedLabel}

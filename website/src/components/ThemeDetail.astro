@@ -90,7 +90,7 @@ const compare = THEMES.map((entry) => ({
       <div class="flex flex-wrap items-center gap-3">
         <h1 class="m-0 font-serif text-3xl font-semibold">{theme.title}</h1>
         <span
-          class="rounded-full border border-firm px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted"
+          class="rounded-full border border-firm px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-[0.08em] text-muted"
         >
           {theme.category}
         </span>
@@ -109,7 +109,7 @@ const compare = THEMES.map((entry) => ({
       <aside class="flex flex-col gap-7">
         <section class="flex flex-col gap-2">
           <h2
-            class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
+            class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] tabular-nums text-accent"
           >
             {t.registry.specification}
           </h2>
@@ -129,7 +129,7 @@ const compare = THEMES.map((entry) => ({
         {
           colours.length > 0 && (
             <section class="flex flex-col gap-2">
-              <h2 class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted">
+              <h2 class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] tabular-nums text-accent">
                 {t.registry.colours}
               </h2>
               <div class="flex flex-col gap-1.5">
@@ -150,7 +150,7 @@ const compare = THEMES.map((entry) => ({
 
         <section class="flex flex-col gap-2">
           <h2
-            class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
+            class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] tabular-nums text-accent"
           >
             {t.registry.fonts}
           </h2>
@@ -159,7 +159,7 @@ const compare = THEMES.map((entry) => ({
 
         <section class="flex flex-col gap-2">
           <h2
-            class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
+            class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] tabular-nums text-accent"
           >
             {t.registry.tags}
           </h2>
@@ -180,7 +180,7 @@ const compare = THEMES.map((entry) => ({
     <section class="flex flex-col gap-3">
       <div class="flex flex-wrap items-baseline justify-between gap-3 border-b border-default pb-2">
         <h2
-          class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
+          class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] tabular-nums text-accent"
         >
           {t.registry.compare}
         </h2>
@@ -209,7 +209,7 @@ const compare = THEMES.map((entry) => ({
               <div class="flex items-center justify-between gap-2 border-t border-default bg-surface px-2 py-1">
                 <span class="font-mono text-[0.6rem] text-muted">{entry.id}</span>
                 {entry.id === theme.id && (
-                  <span class="font-mono text-[0.55rem] uppercase tracking-[0.1em] text-accent">
+                  <span class="font-mono text-[0.58rem] uppercase tracking-[0.08em] text-accent">
                     {t.registry.viewing}
                   </span>
                 )}

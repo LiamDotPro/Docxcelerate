@@ -416,6 +416,9 @@ export const es: UiStrings = {
       componentsNote: "Instalar un componente escribe su archivo en nodes/",
       nodes: "nodos",
       noPreview: "Sin vista previa",
+      /** Abre las rutas de datos de una fila; une las etiquetas filtradas. */
+      readsPrefix: "lee",
+      andJoin: "y",
       /** {tag} is the tag that matched nothing. */
       noMatches: "Ninguna entrada coincide con {tag}.",
       noMatchesTitle: "Sin coincidencias",

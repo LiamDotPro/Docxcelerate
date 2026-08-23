@@ -412,6 +412,9 @@ export const ru: UiStrings = {
       componentsNote: "Установка компонента записывает его файл в nodes/",
       nodes: "узлов",
       noPreview: "Без предпросмотра",
+      /** Открывает пути к данным в строке; соединяет выбранные теги. */
+      readsPrefix: "читает",
+      andJoin: "и",
       /** {tag} is the tag that matched nothing. */
       noMatches: "Ни одна запись не подходит под {tag}.",
       noMatchesTitle: "Совпадений нет",

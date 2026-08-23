@@ -411,6 +411,9 @@ export const nl: UiStrings = {
       componentsNote: "Een component installeren schrijft het bestand naar nodes/",
       nodes: "nodes",
       noPreview: "Geen voorbeeld",
+      /** Opent de datapaden op een componentrij; verbindt gefilterde tags. */
+      readsPrefix: "leest",
+      andJoin: "en",
       /** {tag} is the tag that matched nothing. */
       noMatches: "Geen items met {tag}.",
       noMatchesTitle: "Geen resultaten",

@@ -421,6 +421,9 @@ export const de: UiStrings = {
       componentsNote: "Eine Komponente zu installieren schreibt ihre Datei nach nodes/",
       nodes: "Nodes",
       noPreview: "Keine Vorschau",
+      /** Leitet die Datenpfade einer Komponentenzeile ein; verbindet Filter-Tags. */
+      readsPrefix: "liest",
+      andJoin: "und",
       /** {tag} is the tag that matched nothing. */
       noMatches: "Keine Einträge passen zu {tag}.",
       noMatchesTitle: "Keine Treffer",

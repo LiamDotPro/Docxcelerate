@@ -463,6 +463,9 @@ export const en = {
       componentsNote: "Installing a component writes its file into nodes/",
       nodes: "nodes",
       noPreview: "No preview",
+      /** Opens the data paths on a component row, and joins filtered tags. */
+      readsPrefix: "reads",
+      andJoin: "and",
       /** {tag} is the tag that matched nothing. */
       noMatches: "No entries match {tag}.",
       noMatchesTitle: "No matches",

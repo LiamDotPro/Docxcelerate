@@ -13,6 +13,23 @@
  */
 import generated from "./generated/registry.json";
 
+/**
+ * How a theme sets its title and its section headings.
+ *
+ * Typed rather than left as a bag: every page that draws a specimen reads
+ * fontSizePt and transform out of it, and a Record<string, unknown> makes each
+ * of those an assertion at the call site instead of a fact here.
+ */
+export interface ThemeHeadingStyle {
+  fontSizePt: number;
+  weight: string;
+  spacingBeforePt: number;
+  spacingAfterPt: number;
+  /** Hex without the hash, where the theme sets one apart from the palette. */
+  color?: string;
+  /** `uppercase` where the theme sets headings in capitals. */
+  transform?: string;
+}
 export interface ThemePageEntry {
   id: string;
   title: string;
@@ -39,8 +56,8 @@ export interface ThemePageEntry {
     };
     palette?: { heading: string; accent: string; muted: string; rule: string; page: string };
     paragraph: { spacingAfterPt: number };
-    title: Record<string, unknown>;
-    sectionHeading: Record<string, unknown>;
+    title: ThemeHeadingStyle;
+    sectionHeading: ThemeHeadingStyle;
   };
   /** A sample document set in this theme, rendered by the real renderer. */
   previewUrl: string;
@@ -61,6 +78,26 @@ export interface RegistryFileEntry {
   code: string;
 }
 
+/**
+ * One node a component resolved to — what a renderer or an engine is handed.
+ *
+ * The shape a built document carries, narrowed to the fields the pages read.
+ * Every field past the first three is per-kind, so they are all optional here
+ * rather than split into a union the pages would have to discriminate.
+ */
+export interface ResolvedNode {
+  id: string;
+  kind: string;
+  /** `static` where it resolved locally, `dynamic` where an engine fills it. */
+  mode?: string;
+  text?: string;
+  title?: string;
+  path?: string;
+  alt?: string;
+  width?: number;
+  height?: number;
+  children?: ResolvedNode[];
+}
 export interface ComponentPageEntry {
   id: string;
   title: string;
@@ -79,7 +116,7 @@ export interface ComponentPageEntry {
   /** The data the preview was built against. */
   previewData: Record<string, unknown>;
   /** What it resolved to: the nodes a renderer or an engine is handed. */
-  resolved: Record<string, unknown>[];
+  resolved: ResolvedNode[];
   previewUrl: string;
 }
 
