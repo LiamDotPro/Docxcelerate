@@ -15,6 +15,10 @@ import type { InvoiceData } from "../types.ts";
  * A two-column table rather than two runs of paragraphs, because the two
  * addresses have to sit level however many lines each one has — a five-line
  * address next to a three-line one is the case that breaks anything else.
+ *
+ * The section is titled for both parties. The columns are already headed
+ * "Billed to" and "From", and a section heading repeating one of them printed
+ * the same two words twice, a few millimetres apart.
  */
 export const Parties: SectionComponent = () => {
   const [state] = useState((data: InvoiceData) => ({
@@ -23,7 +27,7 @@ export const Parties: SectionComponent = () => {
   }));
 
   return (
-    <Section id="parties" title="Billed to">
+    <Section id="parties" title="Parties">
       <Table id="parties-grid" columns={[{ width: "auto" }, { width: "auto" }]}>
         <Row header>
           <Cell>Billed to</Cell>

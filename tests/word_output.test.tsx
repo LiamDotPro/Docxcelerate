@@ -1,12 +1,12 @@
 import { test } from "node:test";
-import { inflateRawSync } from "node:zlib";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { buildDocument } from "docxcelerate";
-import { createDocxBlob } from "docxcelerate/docx";
-import type { DocumentStyle } from "docxcelerate";
+import { documentXml } from "./docx.ts";
+import type { DocumentModel, DocumentStyle } from "docxcelerate";
 import {
   Cell,
   Document,
+  Image,
   PageBreak,
   PageNumber,
   Paragraph,
@@ -18,61 +18,12 @@ import {
 /**
  * What Word is actually handed.
  *
- * Every other test about block styles reads the HTML, because that is where a
- * variant is easy to see. This one reads the other side: a `.docx` is a zip of
- * XML, so the way to know a fill or a border survived packing is to open the
- * file and look. Without this, a style could silently mean one thing on screen
- * and nothing at all in the format the framework exists to produce — which is
- * how `radiusPt` came to be a property that did nothing here.
+ * A `.docx` is a zip of XML, so the way to know a fill or a border survived
+ * packing is to open the file and look. Without this, a style could silently
+ * mean one thing where it is authored and nothing at all in the format the
+ * framework exists to produce — which is how `radiusPt` came to be a property
+ * that did nothing here.
  */
-
-/** Reads one entry out of a zip, via its central directory. */
-function entryOf(zip: Uint8Array, wanted: string): Uint8Array {
-  const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
-  const text = new TextDecoder("latin1").decode(zip);
-
-  // The end-of-central-directory record says where the directory starts. It is
-  // last in the file, so it is found by scanning back for its signature.
-  const end = text.lastIndexOf("PK");
-
-  if (end === -1) {
-    throw new Error("not a zip");
-  }
-
-  let at = view.getUint32(end + 16, true);
-  const count = view.getUint16(end + 10, true);
-
-  for (let index = 0; index < count; index += 1) {
-    const nameLength = view.getUint16(at + 28, true);
-    const extraLength = view.getUint16(at + 30, true);
-    const commentLength = view.getUint16(at + 32, true);
-    const name = text.slice(at + 46, at + 46 + nameLength);
-
-    if (name === wanted) {
-      const method = view.getUint16(at + 10, true);
-      const size = view.getUint32(at + 20, true);
-      const offset = view.getUint32(at + 42, true);
-      // The local header repeats the name and extra fields, at its own lengths.
-      const localName = view.getUint16(offset + 26, true);
-      const localExtra = view.getUint16(offset + 28, true);
-      const start = offset + 30 + localName + localExtra;
-      const data = zip.slice(start, start + size);
-
-      return method === 0 ? data : inflateRawSync(data);
-    }
-
-    at += 46 + nameLength + extraLength + commentLength;
-  }
-
-  throw new Error(`no ${wanted} in the package`);
-}
-
-async function documentXml(doc: Awaited<ReturnType<typeof buildDocument>>): Promise<string> {
-  const blob = await createDocxBlob(doc);
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-
-  return new TextDecoder().decode(entryOf(bytes, "word/document.xml"));
-}
 
 const style: DocumentStyle = {
   preset: "test",
@@ -88,6 +39,13 @@ const style: DocumentStyle = {
     bodyLineHeight: 1.4,
     color: "1C2340",
   },
+  palette: {
+    heading: "2C3D8F",
+    accent: "2C3D8F",
+    muted: "5A6482",
+    rule: "D9DDEB",
+    page: "FFFFFF",
+  },
   paragraph: { spacingAfterPt: 6 },
   title: { fontSizePt: 20, weight: "bold", spacingBeforePt: 0, spacingAfterPt: 10 },
   sectionHeading: { fontSizePt: 8, weight: "bold", spacingBeforePt: 10, spacingAfterPt: 4 },
@@ -98,6 +56,12 @@ const style: DocumentStyle = {
       border: "E3E7F5",
       borderSides: ["bottom"],
       paddingPt: 10,
+    },
+    totalRow: {
+      fill: "1E2A66",
+      color: "FFFFFF",
+      weight: "bold",
+      fontSizePt: 11,
     },
     badge: {
       fill: "FBF0DC",
@@ -112,7 +76,11 @@ const style: DocumentStyle = {
   },
 };
 
-function build(node: unknown) {
+/** A one-pixel PNG, so a picture test has bytes to embed. */
+const PIXEL = "data:image/png;base64," +
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+function build(node: unknown): Promise<DocumentModel> {
   return buildDocument(
     template<Record<string, never>>(node as never),
     {},
@@ -280,4 +248,96 @@ test("a title the document prints itself is not printed again", async () => {
 
   assertStringIncludes(withTitle, "Invoice");
   assertEquals(withoutTitle.includes("Invoice"), false);
+});
+// ---------------------------------------------------------------------------
+// What a table is drawn with
+// ---------------------------------------------------------------------------
+
+test("a table draws the theme's rules, not Word's default grid", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }]}>
+          <Row header>
+            <Cell id="h">Description</Cell>
+          </Row>
+          <Row>
+            <Cell id="c">A line.</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  // The library's own default is a black box around every cell. Left alone it
+  // means every document ships a grid nobody asked for and no preview shows.
+  assertEquals(/<w:tblBorders>(?:(?!<\/w:tblBorders>).)*w:val="single"/s.test(xml), false);
+  // What separates one row from the next is the palette's rule, under the
+  // body cells only — a heading has its fill to set it apart.
+  assertStringIncludes(xml, 'w:color="D9DDEB"');
+  assertEquals(xml.match(/w:color="D9DDEB"/g)?.length, 1);
+});
+
+test("a header row the theme names keeps its own fill, not the accent", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }, { width: "auto" }]}>
+          <Row header variant="totalRow">
+            <Cell id="empty"></Cell>
+            <Cell id="total">Total due</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  // Every cell in the row, including the empty one beside the words: a bar in
+  // two colours is what happens when the default shows through the gap.
+  assertEquals(xml.match(/w:fill="1E2A66"/g)?.length, 2);
+  assertEquals(xml.includes('w:fill="2C3D8F"'), false);
+});
+
+test("a heading row is set in small tracked capitals, as the screen sets it", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }]}>
+          <Row header>
+            <Cell id="h">Description</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  assertStringIncludes(xml, "<w:caps/>");
+  assertStringIncludes(xml, 'w:val="FFFFFF"');
+  // 0.72 of a 10pt body, in half-points.
+  assertStringIncludes(xml, '<w:sz w:val="14"/>');
+});
+
+test("a picture in a cell is not laid out as a paragraph of prose", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell id="c">
+              <Image id="mark" src={PIXEL} alt="" width={8} height={8} />
+            </Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  // The body's line and space-after belong to prose. On a picture they drop a
+  // letterhead's mark below the name beside it and make a one-line footer bar
+  // two lines deep.
+  assertEquals(
+    /<w:spacing w:after="120"[^>]*\/>(?:(?!<\/w:p>).)*<w:drawing>/s.test(xml),
+    false,
+  );
+  assertStringIncludes(xml, "<w:drawing>");
 });
