@@ -396,6 +396,10 @@ export const es: UiStrings = {
     stepFilesNote: "lo que escribe la instalación; el archivo seleccionado es el componente",
     dataFieldsNote: "Añádelos a tu types.ts después de instalar. Es el único paso manual.",
     copyFieldPaths: "Copiar rutas de campos",
+    dataFields: "Campos de datos",
+    copy: "Copiar",
+    copied: "Copiado",
+    copyFile: "Copiar {file}",
     /** {exports} is a list of names, {count} a number of nodes. */
     exportsResolves: "exporta {exports} · se resuelve en {count} nodos",
     categoryTags: "Categoría · etiquetas",
@@ -459,7 +463,6 @@ export const es: UiStrings = {
     colours: "Colores",
     spacing: "Espaciado",
     exports: "Exporta",
-    reads: "Qué lee",
     field: "Campo",
     type: "Tipo",
     whatItDoes: "Para qué sirve",

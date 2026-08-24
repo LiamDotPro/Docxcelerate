@@ -443,6 +443,11 @@ export const en = {
     stepFilesNote: "what installing writes; the selected file is the component",
     dataFieldsNote: "Add these to your types.ts after installing. It is the one manual step.",
     copyFieldPaths: "Copy field paths",
+    dataFields: "Data fields",
+    copy: "Copy",
+    copied: "Copied",
+    /** Accessible name for the copy button on a file panel. {file} is a path. */
+    copyFile: "Copy {file}",
     /** {exports} is a list of names, {count} a number of nodes. */
     exportsResolves: "exports {exports} · resolves to {count} nodes",
     categoryTags: "Category · tags",
@@ -506,7 +511,6 @@ export const en = {
     colours: "Colours",
     spacing: "Spacing",
     exports: "Exports",
-    reads: "What it reads",
     field: "Field",
     type: "Type",
     whatItDoes: "What it does",
