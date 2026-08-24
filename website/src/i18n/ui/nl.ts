@@ -391,6 +391,10 @@ export const nl: UiStrings = {
     stepFilesNote: "wat installeren schrijft; het gekozen bestand is de component",
     dataFieldsNote: "Voeg deze na het installeren toe aan je types.ts. Dat is de enige handmatige stap.",
     copyFieldPaths: "Veldpaden kopiëren",
+    dataFields: "Datavelden",
+    copy: "Kopiëren",
+    copied: "Gekopieerd",
+    copyFile: "{file} kopiëren",
     /** {exports} is a list of names, {count} a number of nodes. */
     exportsResolves: "exporteert {exports} · levert {count} nodes op",
     categoryTags: "Categorie · tags",
@@ -411,6 +415,9 @@ export const nl: UiStrings = {
       componentsNote: "Een component installeren schrijft het bestand naar nodes/",
       nodes: "nodes",
       noPreview: "Geen voorbeeld",
+      /** Opent de datapaden op een componentrij; verbindt gefilterde tags. */
+      readsPrefix: "leest",
+      andJoin: "en",
       /** {tag} is the tag that matched nothing. */
       noMatches: "Geen items met {tag}.",
       noMatchesTitle: "Geen resultaten",
@@ -451,7 +458,6 @@ export const nl: UiStrings = {
     colours: "Kleuren",
     spacing: "Witruimte",
     exports: "Exporteert",
-    reads: "Wat het leest",
     field: "Veld",
     type: "Type",
     whatItDoes: "Waar het voor is",

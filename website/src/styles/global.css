@@ -55,6 +55,12 @@
      code figures and removed lines in a diff, and nothing else. */
   --rubric: #9a3b31; /*  6.93 on paper */
   --rubric-tint: #fbeeec;
+  /* Paper is #ffffff in BOTH themes — a letter preview that dims at night
+     stops reading as paper, and the claim of the toolkit is that the preview
+     IS the document. Deliberately outside the dark block below. */
+  --paper-fixed: #ffffff;
+  --paper-fixed-ink: #1f2933;
+  --paper-fixed-border: #c7ccd6;
   /* Marker-pen wash, for the run of the licence a reader actually cares about.
      Sits under ink, so it has to stay light enough to read through. */
   --wash: #e4efe7; /* ink on wash: 13.94 */
@@ -116,6 +122,18 @@
   --color-on-accent: var(--on-accent);
   --color-rubric: var(--rubric);
   --color-rubric-tint: var(--rubric-tint);
+}
+
+/* The hairline utilities the markup uses. Tailwind derives border-border
+   from --color-border, which is not the name 64 call sites were written
+   against — so these were emitting nothing and every bordered element fell
+   back to currentColor. Named here rather than renamed at the call sites. */
+@utility border-default {
+  border-color: var(--border);
+}
+
+@utility border-firm {
+  border-color: var(--border-firm);
 }
 
 @layer base {

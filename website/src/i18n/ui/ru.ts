@@ -392,6 +392,10 @@ export const ru: UiStrings = {
     stepFilesNote: "что записывает установка; выбранный файл и есть компонент",
     dataFieldsNote: "Добавьте их в свой types.ts после установки. Это единственный ручной шаг.",
     copyFieldPaths: "Скопировать пути полей",
+    dataFields: "Поля данных",
+    copy: "Копировать",
+    copied: "Скопировано",
+    copyFile: "Скопировать {file}",
     /** {exports} is a list of names, {count} a number of nodes. */
     exportsResolves: "экспортирует {exports} · разрешается в узлов: {count}",
     categoryTags: "Категория · теги",
@@ -412,6 +416,9 @@ export const ru: UiStrings = {
       componentsNote: "Установка компонента записывает его файл в nodes/",
       nodes: "узлов",
       noPreview: "Без предпросмотра",
+      /** Открывает пути к данным в строке; соединяет выбранные теги. */
+      readsPrefix: "читает",
+      andJoin: "и",
       /** {tag} is the tag that matched nothing. */
       noMatches: "Ни одна запись не подходит под {tag}.",
       noMatchesTitle: "Совпадений нет",
@@ -452,7 +459,6 @@ export const ru: UiStrings = {
     colours: "Цвета",
     spacing: "Отступы",
     exports: "Экспортирует",
-    reads: "Что читает",
     field: "Поле",
     type: "Тип",
     whatItDoes: "Для чего это",

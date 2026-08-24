@@ -2,13 +2,21 @@
 /**
  * /components/<id> — one component, read as a sequence.
  *
- * Data, preview, nodes, source — 01 to 04, in the order the question is asked:
- * what does it need, what does it look like, what does a renderer get, and what
- * lands in my repo. The data fields sit beside all four, because they are the
- * one manual step after installing.
+ * Laid out to board 2c. Data, preview, nodes, source — 01 to 04, in the order
+ * the question is asked: what does it need, what does it look like, what does a
+ * renderer get, and what lands in my repo. The data fields sit beside all four,
+ * because they are the one manual step after installing.
  *
- * The source is the file itself, read out of the package at build time, so
- * nobody has to trust that the page and the install agree.
+ * Three things the board is specific about and that are easy to lose:
+ *
+ * - The four steps hang off a **spine**: one hairline behind four numbered
+ *   discs. Without it the numbers are four loose labels and the page stops
+ *   reading as a sequence, which is the whole argument for numbering it.
+ * - Step 04 is a **file browser**, not a stack of code blocks. `dxcl add`
+ *   writes files into a tree, so the page shows the tree it writes and puts the
+ *   component under a cursor in it.
+ * - The source is the file itself, read out of the package at build time, so
+ *   nobody has to trust that the page and the install agree.
  */
 import { Code } from "astro:components";
 import Base from "../layouts/Base.astro";
@@ -39,10 +47,66 @@ const steps = [
 const shown = (text: string | undefined) => (text ?? "").split("\n");
 
 const fieldPaths = component.dataFields.map((field) => field.path).join("\n");
+
+/**
+ * The tree `dxcl add` writes, as rows.
+ *
+ * Derived from the targets themselves rather than from a second field in the
+ * catalog: a directory row appears the first time a file needs it, so a
+ * component that one day ships two files into two directories nests correctly
+ * with nothing added here. Today every component is a single node file, and the
+ * tree says so honestly rather than padding itself out with files the install
+ * does not write.
+ */
+type TreeRow =
+  | { kind: "dir"; label: string; depth: number }
+  | { kind: "file"; label: string; depth: number; index: number };
+
+const treeRows: TreeRow[] = [];
+const emitted = new Set<string>();
+
+component.files.forEach((file, index) => {
+  const parts = file.target.split("/");
+  const dirs = parts.slice(0, -1);
+
+  dirs.forEach((dir, depth) => {
+    const path = dirs.slice(0, depth + 1).join("/");
+    if (emitted.has(path)) return;
+    emitted.add(path);
+    treeRows.push({ kind: "dir", label: `${dir}/`, depth });
+  });
+
+  treeRows.push({ kind: "file", label: parts.at(-1) ?? file.target, depth: dirs.length, index });
+});
+
+/**
+ * A tree of one is a cursor, not a control. Rendering it as a tab you can press
+ * would be a button that does nothing — the same rule the copy buttons follow.
+ */
+const browsable = component.files.length > 1;
+
+// Shared class lists, so the four steps and the four sidebar sections cannot
+// drift from one another the way four hand-copied strings do.
+const stepRow = "relative grid grid-cols-[1.75rem_minmax(0,1fr)] gap-4 sm:gap-[1.375rem]";
+const marker =
+  "grid h-7 w-7 place-items-center rounded-full border border-firm bg-paper " +
+  "font-mono text-[0.62rem] text-accent tabular-nums";
+const eyebrow =
+  "m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] tabular-nums text-accent";
+const stepNote = "text-[0.8rem] text-muted";
+const panelBar =
+  "flex h-10 flex-none items-center justify-between gap-3 border-b border-default bg-surface px-3";
+const panelPath =
+  "truncate font-mono text-[0.65rem] uppercase tracking-[0.12em] text-muted";
+const treeCell =
+  "block w-full text-left font-mono text-[0.7rem] leading-[1.6] whitespace-nowrap " +
+  "py-[0.15rem] pr-[0.6rem] pl-[calc(0.6rem+var(--depth,0)*0.7rem)]";
+const treeSelected =
+  "border-l-2 border-l-accent-solid bg-accent-tint font-semibold text-accent";
 ---
 
 <Base title={component.title} description={component.summary} hreflangLocales={LOCALES}>
-  <div class="mx-auto flex max-w-6xl flex-col gap-10 px-5 py-12 sm:px-8">
+  <div class="mx-auto flex max-w-6xl flex-col gap-9 px-5 py-12 sm:px-8">
     <p class="m-0">
       <a
         href={localizePath("/registry/#components", locale)}
@@ -52,111 +116,125 @@ const fieldPaths = component.dataFields.map((field) => field.path).join("\n");
       </a>
     </p>
 
-    <header class="flex max-w-3xl flex-col gap-3">
+    <header class="flex max-w-3xl flex-col gap-3.5">
       <div class="flex flex-wrap items-center gap-3">
-        <h1 class="m-0 font-serif text-3xl font-semibold">{component.title}</h1>
+        <h1
+          class="m-0 font-serif text-[1.7rem] font-semibold tracking-[-0.02em] sm:text-[2.3rem]"
+        >
+          {component.title}
+        </h1>
         <span
-          class="rounded-full border border-firm px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted"
+          class="rounded-full border border-firm px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-[0.08em] text-muted"
         >
           {component.category}
         </span>
       </div>
-      <p class="m-0 text-base leading-relaxed text-muted">{component.detail}</p>
-      <div class="flex flex-wrap items-center gap-3">
-        <div class="min-w-[16rem]"><CopyField command={addCommand(component.id)} /></div>
-        <span class="font-mono text-xs text-muted">
-          {fill(t.registry.exportsResolves, {
-            exports: component.exports.join(", "),
-            count: nodeCount,
-          })}
+      <p class="m-0 max-w-[46rem] text-base leading-[1.75] text-muted">{component.detail}</p>
+      <div class="flex flex-wrap items-center gap-5">
+        <CopyField command={addCommand(component.id)} class="w-full sm:w-[300px]" />
+        <span class="font-mono text-[0.68rem] text-muted">
+          {
+            fill(t.registry.exportsResolves, {
+              exports: component.exports.join(", "),
+              count: nodeCount,
+            })
+          }
         </span>
       </div>
     </header>
 
-    <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
-      <div class="flex flex-col gap-8">
+    <div class="grid gap-10 lg:grid-cols-[minmax(0,1fr)_22.5rem] lg:items-start lg:gap-14">
+      <!-- The sequence, hung off one hairline. -->
+      <div class="relative flex flex-col gap-11">
+        <div
+          class="absolute bottom-5 left-[13px] top-5 w-px bg-border-firm"
+          aria-hidden="true"
+        >
+        </div>
+
         <!-- 01 — what it was built with -->
-        <section class="flex gap-4">
-          <span class="font-mono text-xs text-accent">{steps[0].n}</span>
-          <div class="flex min-w-0 flex-1 flex-col gap-2">
-            <div class="flex flex-wrap items-baseline gap-2">
-              <h2 class="m-0 text-sm font-semibold text-ink">{steps[0].title}</h2>
-              <span class="text-xs text-muted">{steps[0].note}</span>
+        <section class={stepRow}>
+          <span class={marker} aria-hidden="true">{steps[0].n}</span>
+          <div class="flex min-w-0 flex-col gap-2.5">
+            <div class="flex flex-wrap items-baseline gap-3">
+              <h2 class={eyebrow}>{steps[0].title}</h2>
+              <span class={stepNote}>{steps[0].note}</span>
             </div>
-            <div class="overflow-x-auto rounded-md border border-default">
+            <div class="snippet overflow-hidden rounded-md border border-default">
               <Code
                 code={JSON.stringify(component.previewData, null, 2)}
                 lang="json"
-                theme="github-light"
+                themes={{ light: "github-light", dark: "github-dark-dimmed" }}
               />
             </div>
           </div>
         </section>
 
         <!-- 02 — what it looks like -->
-        <section class="flex gap-4">
-          <span class="font-mono text-xs text-accent">{steps[1].n}</span>
-          <div class="flex min-w-0 flex-1 flex-col gap-2">
-            <div class="flex flex-wrap items-baseline gap-2">
-              <h2 class="m-0 text-sm font-semibold text-ink">{steps[1].title}</h2>
-              <span class="text-xs text-muted">{steps[1].note}</span>
+        <section class={stepRow}>
+          <span class={marker} aria-hidden="true">{steps[1].n}</span>
+          <div class="flex min-w-0 flex-col gap-2.5">
+            <div class="flex flex-wrap items-baseline gap-3">
+              <h2 class={eyebrow}>{steps[1].title}</h2>
+              <span class={stepNote}>{steps[1].note}</span>
             </div>
-            <NodePreview src={component.previewUrl} title={component.title} label="" />
-            <div class="flex items-baseline justify-between gap-3">
-              <span class="text-xs text-muted">
-                {t.registry.renderedBy}
+            <!-- A component is a block, not a page. Held to the width the board
+                 gives it so it does not stretch into a full-bleed sheet. -->
+            <div class="max-w-[460px]">
+              <NodePreview
+                src={component.previewUrl}
+                title={component.title}
+                label={t.registry.renderedBy}
+                flush
+              >
                 {
                   drawnAgainst && (
                     <>
                       {" · "}
                       <a
                         href={localizePath(themeHref(drawnAgainst.id), locale)}
-                        class="text-accent no-underline hover:underline"
+                        class="text-muted no-underline hover:text-accent"
                       >
                         {fill(t.registry.drawnAgainst, { theme: drawnAgainst.title })}
                       </a>
                     </>
                   )
                 }
-              </span>
-              <a
-                href={component.previewUrl}
-                target="_blank"
-                rel="noreferrer"
-                class="text-xs text-accent no-underline hover:underline"
-              >
-                {t.registry.openPreview}
-              </a>
+              </NodePreview>
             </div>
           </div>
         </section>
 
         <!-- 03 — what a renderer receives -->
-        <section class="flex gap-4">
-          <span class="font-mono text-xs text-accent">{steps[2].n}</span>
-          <div class="flex min-w-0 flex-1 flex-col gap-2">
-            <div class="flex flex-wrap items-baseline gap-2">
-              <h2 class="m-0 text-sm font-semibold text-ink">{steps[2].title}</h2>
-              <span class="text-xs text-muted">{steps[2].note}</span>
+        <section class={stepRow}>
+          <span class={marker} aria-hidden="true">{steps[2].n}</span>
+          <div class="flex min-w-0 flex-col gap-2.5">
+            <div class="flex flex-wrap items-baseline gap-3">
+              <h2 class={eyebrow}>{steps[2].title}</h2>
+              <span class={stepNote}>{steps[2].note}</span>
             </div>
-            <div class="flex flex-col rounded-md border border-default">
+            <!-- Hairlines, not a box: one line per node is a list to run your
+                 eye down, and a border round it would make it a fifth panel. -->
+            <div class="flex min-w-0 flex-col">
               {
                 component.resolved.map((node) => (
-                  <div class="flex flex-col gap-1 border-b border-default p-3 last:border-b-0 sm:flex-row sm:items-baseline sm:gap-3">
-                    <code class="shrink-0 font-mono text-xs text-accent">{node.id}</code>
-                    <span class="shrink-0 font-mono text-[0.65rem] text-muted">
-                      {node.kind}
-                      {node.mode ? ` · ${node.mode}` : ""}
-                    </span>
-                    <span class="min-w-0 flex-1 text-xs text-ink">
-                      {
-                        shown(node.text).map((line, index) => (
-                          <>
-                            {index > 0 && <span class="px-1 text-muted">⏎</span>}
-                            {line}
-                          </>
-                        ))
-                      }
+                  <div class="grid min-w-0 gap-1 border-t border-default py-[9px] last:border-b sm:grid-cols-[auto_auto_minmax(0,1fr)] sm:items-baseline sm:gap-3.5">
+                    <code class="justify-self-start rounded-[3px] bg-surface-2 px-[7px] py-0.5 font-mono text-[0.68rem] text-ink">{node.id}</code>
+                    <span class="font-mono text-[0.62rem] text-muted">{node.mode ? `${node.kind} · ${node.mode}` : node.kind}</span>
+                    {/* Clipped rather than wrapped at desktop, so the list stays
+                        one line per node; the full text is in the preview above,
+                        and in the title for anything that does get cut. */}
+                    <span class="min-w-0 text-[0.8rem] text-ink sm:truncate" title={node.text}>
+                      {shown(node.text).map((line, index) => (
+                        <>
+                          {index > 0 && (
+                            <span class="px-1 text-accent" aria-hidden="true">
+                              ⏎
+                            </span>
+                          )}
+                          {line}
+                        </>
+                      ))}
                     </span>
                   </div>
                 ))
@@ -166,26 +244,106 @@ const fieldPaths = component.dataFields.map((field) => field.path).join("\n");
         </section>
 
         <!-- 04 — what lands in the repo -->
-        <section class="flex gap-4">
-          <span class="font-mono text-xs text-accent">{steps[3].n}</span>
-          <div class="flex min-w-0 flex-1 flex-col gap-3">
-            <div class="flex flex-wrap items-baseline gap-2">
-              <h2 class="m-0 text-sm font-semibold text-ink">{steps[3].title}</h2>
-              <span class="text-xs text-muted">{steps[3].note}</span>
+        <section class={stepRow}>
+          <span class={marker} aria-hidden="true">{steps[3].n}</span>
+          <div class="flex min-w-0 flex-col gap-2.5">
+            <div class="flex flex-wrap items-baseline gap-3">
+              <h2 class={eyebrow}>{steps[3].title}</h2>
+              <span class={stepNote}>{steps[3].note}</span>
             </div>
-            {
-              component.files.map((file) => (
-                <figure class="m-0 overflow-hidden rounded-md border border-default">
-                  <figcaption class="flex items-center justify-between gap-3 border-b border-default bg-surface px-3 py-2">
-                    <code class="truncate font-mono text-xs text-ink">{file.target}</code>
-                    <span class="shrink-0 font-mono text-[0.6rem] text-muted">{t.registry.source}</span>
-                  </figcaption>
-                  <div class="overflow-x-auto">
-                    <Code code={file.code} lang="tsx" theme="github-light" />
-                  </div>
-                </figure>
-              ))
-            }
+
+            <figure
+              class="m-0 grid min-w-0 overflow-hidden rounded-md border border-default bg-paper shadow-[0_1px_2px_rgb(0_0_0/4%),0_14px_32px_-24px_rgb(0_0_0/28%)] sm:grid-cols-[12.5rem_minmax(0,1fr)]"
+            >
+              <!-- The tree the install writes. -->
+              <div class="flex min-w-0 flex-col border-b border-default sm:border-b-0 sm:border-r">
+                <header class={panelBar}>
+                  <span class={panelPath}>your-project/</span>
+                </header>
+                <nav
+                  class="flex flex-1 flex-col gap-px overflow-auto bg-surface py-2"
+                  aria-label={t.registry.stepFiles}
+                  {...browsable ? { role: "tablist", "aria-orientation": "vertical" as const } : {}}
+                >
+                  {
+                    treeRows.map((row) =>
+                      row.kind === "dir" ? (
+                        <span
+                          class={`${treeCell} cursor-default text-muted opacity-75`}
+                          style={`--depth:${row.depth}`}
+                        >
+                          {row.label}
+                        </span>
+                      ) : browsable ? (
+                        <button
+                          type="button"
+                          role="tab"
+                          id={`file-tab-${row.index}`}
+                          aria-controls={`file-panel-${row.index}`}
+                          aria-selected={row.index === 0 ? "true" : "false"}
+                          tabindex={row.index === 0 ? 0 : -1}
+                          data-file-tab={row.index}
+                          class:list={[
+                            treeCell,
+                            "cursor-pointer border-0 border-l-2 border-l-transparent bg-transparent text-muted transition-colors",
+                            "hover:bg-surface-2 hover:text-ink",
+                            "aria-selected:border-l-accent-solid aria-selected:bg-accent-tint aria-selected:font-semibold aria-selected:text-accent",
+                          ]}
+                          style={`--depth:${row.depth}`}
+                        >
+                          {row.label}
+                        </button>
+                      ) : (
+                        <span
+                          aria-current="true"
+                          class={`${treeCell} ${treeSelected}`}
+                          style={`--depth:${row.depth}`}
+                        >
+                          {row.label}
+                        </span>
+                      ),
+                    )
+                  }
+                </nav>
+              </div>
+
+              <!-- The file under the cursor. -->
+              <div class="flex min-w-0 flex-col">
+                {
+                  component.files.map((file, index) => (
+                    <div
+                      id={`file-panel-${index}`}
+                      aria-labelledby={browsable ? `file-tab-${index}` : undefined}
+                      role={browsable ? "tabpanel" : undefined}
+                      data-file-panel={index}
+                      hidden={index !== 0}
+                      class="flex min-w-0 flex-1 flex-col"
+                    >
+                      <header class={panelBar}>
+                        <code class={panelPath}>{file.target}</code>
+                        <button
+                          type="button"
+                          class="shrink-0 cursor-pointer rounded-sm border-0 bg-transparent px-1.5 py-0.5 font-mono text-[0.66rem] text-accent transition-colors hover:text-accent-deep"
+                          data-copy-text={file.code}
+                          data-copied={t.registry.copied}
+                          aria-label={fill(t.registry.copyFile, { file: file.target })}
+                          hidden
+                        >
+                          {t.registry.copy}
+                        </button>
+                      </header>
+                      <div class="snippet min-w-0">
+                        <Code
+                          code={file.code}
+                          lang="tsx"
+                          themes={{ light: "github-light", dark: "github-dark-dimmed" }}
+                        />
+                      </div>
+                    </div>
+                  ))
+                }
+              </div>
+            </figure>
           </div>
         </section>
       </div>
@@ -193,21 +351,17 @@ const fieldPaths = component.dataFields.map((field) => field.path).join("\n");
       <!-- Beside all four: what you have to add yourself. -->
       <aside class="flex flex-col gap-7">
         <section class="flex flex-col gap-2">
-          <h2
-            class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
-          >
-            {t.registry.reads}
-          </h2>
-          <p class="m-0 text-xs leading-relaxed text-muted">{t.registry.dataFieldsNote}</p>
-          <div class="flex flex-col gap-2">
+          <h2 class={eyebrow}>{t.registry.dataFields}</h2>
+          <p class="m-0 text-[0.8rem] leading-[1.6] text-muted">{t.registry.dataFieldsNote}</p>
+          <div class="mt-1 flex flex-col">
             {
               component.dataFields.map((field) => (
-                <div class="flex flex-col gap-0.5 border-b border-default pb-2 last:border-b-0">
-                  <div class="flex flex-wrap items-baseline justify-between gap-2">
-                    <code class="font-mono text-xs text-accent">{field.path}</code>
-                    <span class="font-mono text-[0.6rem] text-muted">{field.type}</span>
+                <div class="flex flex-col gap-[3px] border-t border-default py-2.5 last:border-b">
+                  <div class="flex flex-wrap items-baseline justify-between gap-3">
+                    <code class="font-mono text-xs text-ink">{field.path}</code>
+                    <span class="font-mono text-[0.66rem] text-muted">{field.type}</span>
                   </div>
-                  <span class="text-xs leading-relaxed text-muted">{field.summary}</span>
+                  <span class="text-[0.78rem] leading-[1.5] text-muted">{field.summary}</span>
                 </div>
               ))
             }
@@ -216,8 +370,10 @@ const fieldPaths = component.dataFields.map((field) => field.path).join("\n");
             component.dataFields.length > 0 && (
               <button
                 type="button"
-                class="self-start rounded border border-firm bg-paper px-2 py-1 text-xs text-muted transition-colors hover:text-ink"
-                data-copy-paths={fieldPaths}
+                class="mt-1 inline-flex min-h-[44px] cursor-pointer items-center self-start rounded border border-firm bg-transparent px-5 text-sm font-medium text-accent transition-colors hover:bg-accent-tint sm:min-h-0 sm:py-2.5"
+                data-copy-text={fieldPaths}
+                data-copied={t.registry.copied}
+                hidden
               >
                 {t.registry.copyFieldPaths}
               </button>
@@ -226,35 +382,17 @@ const fieldPaths = component.dataFields.map((field) => field.path).join("\n");
         </section>
 
         <section class="flex flex-col gap-2">
-          <h2
-            class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
-          >
-            {t.registry.exports}
-          </h2>
-          <div class="flex flex-wrap gap-1">
-            {
-              component.exports.map((name) => (
-                <code class="rounded border border-default px-1.5 py-0.5 font-mono text-xs text-ink">
-                  {name}
-                </code>
-              ))
-            }
-          </div>
+          <h2 class={eyebrow}>{t.registry.exports}</h2>
+          <code class="font-mono text-[0.8rem] text-ink">{component.exports.join(", ")}</code>
         </section>
 
         <section class="flex flex-col gap-2">
-          <h2
-            class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
-          >
-            {t.registry.categoryTags}
-          </h2>
-          <div class="flex flex-wrap gap-1">
-            <span class="rounded-full border border-firm px-1.5 py-0.5 text-[0.65rem] text-ink">
-              {component.category}
-            </span>
+          <h2 class={eyebrow}>{t.registry.categoryTags}</h2>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <span class="mr-1 text-[0.85rem] text-ink">{component.category}</span>
             {
               component.tags.map((tag) => (
-                <span class="rounded-full border border-default px-1.5 py-0.5 text-[0.65rem] text-muted">
+                <span class="inline-flex rounded-full border border-firm px-[7px] py-px font-mono text-[0.6rem] uppercase tracking-[0.08em] text-muted">
                   {tag}
                 </span>
               ))
@@ -263,12 +401,8 @@ const fieldPaths = component.dataFields.map((field) => field.path).join("\n");
         </section>
 
         <section class="flex flex-col gap-2">
-          <h2
-            class="m-0 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted"
-          >
-            {t.registry.requires}
-          </h2>
-          <span class="text-xs text-muted">
+          <h2 class={eyebrow}>{t.registry.requires}</h2>
+          <span class="text-[0.85rem] text-muted">
             {
               component.requires.length === 0
                 ? t.registry.requiresNothing
@@ -282,21 +416,68 @@ const fieldPaths = component.dataFields.map((field) => field.path).join("\n");
 </Base>
 
 <script>
-  // The field paths, as a block ready to paste into types.ts. Same progressive
-  // rule as the install command: no clipboard, no button.
-  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-copy-paths]")) {
+  // ---- Copy ---------------------------------------------------------------
+  // The field paths as a block ready to paste into types.ts, and the component
+  // source as a file. Same progressive rule as CopyField: the button is hidden
+  // in the markup and only shown where the clipboard exists, because a button
+  // that does nothing is worse than no button.
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-copy-text]")) {
     if (!navigator.clipboard) continue;
 
+    button.hidden = false;
     const idle = button.textContent ?? "";
 
     button.addEventListener("click", async () => {
       try {
-        await navigator.clipboard.writeText(button.dataset.copyPaths ?? "");
-        button.textContent = "Copied";
+        await navigator.clipboard.writeText(button.dataset.copyText ?? "");
+        button.textContent = button.dataset.copied ?? "Copied";
         setTimeout(() => (button.textContent = idle), 1600);
       } catch {
-        // Denied, or an insecure origin. The paths are listed above either way.
+        // Denied, or an insecure origin. The text is on screen either way.
       }
     });
   }
+
+  // ---- The file tree ------------------------------------------------------
+  // Only ever wired up for a component that installs more than one file; a tree
+  // of one is rendered as a cursor rather than a tab, and this loop finds
+  // nothing to bind.
+  const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-file-tab]"));
+  const panels = Array.from(document.querySelectorAll<HTMLElement>("[data-file-panel]"));
+
+  function select(index: number, focus = true) {
+    tabs.forEach((tab) => {
+      const on = Number(tab.dataset.fileTab) === index;
+      tab.setAttribute("aria-selected", String(on));
+      tab.tabIndex = on ? 0 : -1;
+      if (on && focus) tab.focus();
+    });
+    panels.forEach((panel) => {
+      panel.hidden = Number(panel.dataset.filePanel) !== index;
+    });
+  }
+
+  tabs.forEach((tab, position) => {
+    tab.addEventListener("click", () => select(Number(tab.dataset.fileTab), false));
+    tab.addEventListener("keydown", (event) => {
+      const step = event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
+      if (step === 0) return;
+      event.preventDefault();
+      const next = tabs[(position + step + tabs.length) % tabs.length];
+      select(Number(next.dataset.fileTab));
+    });
+  });
 </script>
+
+<style>
+  /* The code figures, held to the board's measure. Shiki paints its own ground
+     and its own colours; what is set here is the size of the type and the room
+     around it, which is what a figure on this page shares with the next one. */
+  .snippet :global(pre) {
+    margin: 0;
+    padding: 1rem 1.125rem;
+    font-size: 0.72rem;
+    line-height: 1.8;
+    overflow-x: auto;
+  }
+</style>

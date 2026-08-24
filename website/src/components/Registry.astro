@@ -5,17 +5,29 @@
  * Themes at 01, components at 02, because that is the order somebody asks the
  * question in: what should this look like, then what is already written.
  *
- * Nothing here loads a preview frame. A theme card draws a **specimen** from
- * that theme's own fonts, colours and page tint, and a component card shows the
- * first few lines its nodes resolved to. Both come out of the generated
- * registry, so eleven cards cost eleven divs rather than eleven iframes — the
- * frames belong on the detail pages, where somebody is looking at one thing.
+ * Laid out to board 2a, with 3b's stacking below `sm`. Three things there are
+ * load-bearing and easy to lose:
+ *
+ * - The two sections are **bands**, not a flex column with gaps. Each is a
+ *   full-bleed hairline and its own ground — components sit on `--surface` so
+ *   the page reads as two drawers rather than one long list.
+ * - A theme card's specimen is drawn from that theme's own fonts, colours, page
+ *   tint and margins. No screenshots, no iframes, no new catalog fields.
+ * - Components are **rows**, not cards. A component is a thing you read across —
+ *   preview, what it does, what it costs — and three columns say that where a
+ *   grid of cards would just repeat the theme section in a different order.
  */
 import Base from "../layouts/Base.astro";
 import CopyField from "./CopyField.astro";
+import Eyebrow from "./Eyebrow.astro";
 import { addCommand, COMPONENTS, componentHref, THEMES, themeHref } from "../registry";
 import { asLocale, localizePath, LOCALES, ui } from "../i18n";
-import type { ComponentPageEntry, ThemePageEntry } from "../registry";
+import type {
+  ComponentPageEntry,
+  ResolvedNode,
+  ThemeHeadingStyle,
+  ThemePageEntry,
+} from "../registry";
 
 const locale = asLocale(Astro.currentLocale);
 const t = ui(locale);
@@ -37,49 +49,94 @@ function fontStack(name: string): string {
   return `"${name}", ${serif ? "Georgia, serif" : "system-ui, sans-serif"}`;
 }
 
+const clamp = (value: number, low: number, high: number) =>
+  Math.min(high, Math.max(low, Math.round(value)));
+
 /** Swatches in the order a reader meets them: heading, accent, muted, rule. */
 function swatches(theme: ThemePageEntry): string[] {
-  const palette = theme.style.palette ?? {};
+  const palette = theme.style.palette;
 
-  return [palette.heading, palette.accent, palette.muted, palette.rule]
+  return [palette?.heading, palette?.accent, palette?.muted, palette?.rule]
     .filter(Boolean)
     .map((value) => colour(value, "#000000"));
 }
 
-/** The specimen's own measurements, taken from the theme rather than guessed. */
+/**
+ * Which of the two headings carries the theme's character.
+ *
+ * A theme that sets anything in capitals is recognised by that before it is
+ * recognised by its title — "small-cap headings on slate" is the whole of Slate
+ * Report's summary line — so the transform decides. Where the title itself is
+ * transformed, or neither is, the title wins, because a title is what a reader
+ * meets first on the page this stands in for.
+ */
+function characteristicHeading(theme: ThemePageEntry): ThemeHeadingStyle {
+  const { title, sectionHeading } = theme.style;
+
+  if (title.transform) return title;
+
+  return sectionHeading.transform ? sectionHeading : title;
+}
+
+/**
+ * The specimen's own measurements, taken from the theme rather than guessed.
+ *
+ * Two conversions matter. Point sizes become **pixels one for one**, not CSS
+ * points: a card is a drawing of a page rather than a page, and 12pt rendered
+ * at its true 16px would set a specimen half again as large as the boards. And
+ * the padding is the theme's own margins brought down to card scale, so Warm
+ * Letter's generous page and Slate Report's tight one differ on the card by the
+ * thing that actually differs between them rather than by a number in a caption.
+ */
 function specimen(theme: ThemePageEntry) {
-  const { typography, title, sectionHeading, page, palette } = theme.style;
+  const { typography, title, page, palette } = theme.style;
+  const heading = characteristicHeading(theme);
+  const caps = heading.transform === "uppercase";
 
   return {
     paper: colour(palette?.page, "#ffffff"),
     ink: colour(typography.color, "#111827"),
+    // Always the title's colour, even when the size comes from the section
+    // heading: a section heading's accent read as a title would make Slate
+    // Report's teal look like the theme's ink.
     heading: colour(title.color ?? palette?.heading, "#111827"),
-    accent: colour(palette?.accent, "#111827"),
     rule: colour(palette?.rule, "#d5d9e0"),
+    muted: colour(palette?.muted, "#6b7280"),
     body: fontStack(typography.bodyFont),
     display: fontStack(typography.headingFont),
-    titleSize: `${Math.min(title.fontSizePt, 20)}pt`,
-    headingSize: `${sectionHeading.fontSizePt}pt`,
-    bodySize: `${typography.bodySizePt}pt`,
-    lineHeight: typography.bodyLineHeight,
-    caps: sectionHeading.transform === "uppercase" ? "uppercase" : "none",
-    size: `${page.size} · ${page.margins.topMm}mm`,
+    // Clamped at both ends: 30pt would be the whole specimen, 10pt would not
+    // read as a heading at all.
+    titleSize: `${clamp(heading.fontSizePt * 0.9, 11, 22)}px`,
+    titleWeight: heading.weight === "bold" ? 700 : 600,
+    titleTransform: caps ? "uppercase" : "none",
+    titleSpacing: caps ? "0.07em" : "0",
+    bodySize: `${Math.min(Math.max(typography.bodySizePt, 9.5), 11)}px`,
+    // Loosened a notch. The theme's figure was chosen for 11pt on paper; the
+    // specimen sets it at 11px on a screen, where the same ratio reads tight.
+    // An offset rather than a floor, so Slate Report stays tighter than Warm
+    // Letter — which is most of what separates them.
+    lineHeight: Math.round((typography.bodyLineHeight + 0.15) * 100) / 100,
+    padY: clamp(page.margins.topMm * 0.88, 14, 26),
+    padX: clamp(page.margins.leftMm * 0.92, 16, 30),
+    // The page size alone. The margin belongs on the detail page, and spelling
+    // it out here is what put a chip the width of the card over the title.
+    size: page.size === "LETTER" ? "LTR" : page.size,
   };
 }
 
-/** The first lines a component resolved to, for the card. */
+/** The first lines a component resolved to, for the row's paper preview. */
 function lines(component: ComponentPageEntry, take = 3): string[] {
   const texts: string[] = [];
 
-  const walk = (nodes: readonly Record<string, unknown>[]) => {
+  const walk = (nodes: readonly ResolvedNode[]) => {
     for (const node of nodes) {
       if (texts.length >= take) return;
-      if (typeof node.text === "string" && node.text.trim() !== "") texts.push(node.text);
-      if (Array.isArray(node.children)) walk(node.children as Record<string, unknown>[]);
+      if (node.text && node.text.trim() !== "") texts.push(node.text);
+      if (node.children) walk(node.children);
     }
   };
 
-  walk(component.resolved as unknown as Record<string, unknown>[]);
+  walk(component.resolved);
 
   return texts;
 }
@@ -106,152 +163,153 @@ const tagIndex = (() => {
 
 const themes = THEMES.map((theme) => ({ theme, spec: specimen(theme), swatches: swatches(theme) }));
 const components = COMPONENTS.map((component) => ({ component, lines: lines(component) }));
+
+/** Every band shares one measure and one set of gutters. */
+const band = "mx-auto flex max-w-6xl flex-col px-5 sm:px-8 lg:px-16";
 ---
 
 <Base title={t.registry.browse.title} description={t.registry.browse.description} hreflangLocales={LOCALES}>
-  <div class="mx-auto flex max-w-6xl flex-col gap-14 px-5 py-12 sm:px-8">
-    <header class="flex max-w-3xl flex-col gap-4">
-      <span class="font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent">
-        {t.registry.browse.eyebrow}
+  <header class:list={[band, "gap-[18px] pt-8 pb-7 lg:pt-14 lg:pb-11"]}>
+    <Eyebrow>{t.registry.browse.eyebrow}</Eyebrow>
+    <h1 class="m-0 font-serif text-[1.7rem] font-semibold leading-[1.1] tracking-[-0.02em] sm:text-4xl">
+      {t.registry.browse.heading}
+    </h1>
+    <p class="m-0 max-w-[40rem] text-[0.95rem] leading-[1.7] text-muted sm:text-[1.05rem]">
+      {t.registry.browse.lead}
+    </p>
+    <CopyField command="npx dxcl list" class="w-full sm:w-60" />
+
+    <div class="mt-1 flex flex-wrap items-center gap-2" data-tag-filter>
+      <span
+        class="mr-1.5 font-mono text-[0.62rem] uppercase tracking-[0.14em] text-muted"
+        id="tag-filter-label"
+      >
+        {t.registry.browse.filterByTag}
       </span>
-      <h1 class="m-0 font-serif text-3xl font-semibold sm:text-4xl">{t.registry.browse.heading}</h1>
-      <p class="m-0 text-base leading-relaxed text-muted">{t.registry.browse.lead}</p>
-      <CopyField command="npx dxcl list" />
+      {
+        tagIndex.map(({ tag, count }) => (
+          <button
+            type="button"
+            class="inline-flex items-baseline gap-1.5 rounded-full border border-firm px-[11px] py-[3px] font-mono text-[0.68rem] text-ink transition-colors hover:border-default hover:bg-surface aria-pressed:border-accent aria-pressed:bg-accent-tint aria-pressed:text-accent"
+            data-tag={tag}
+            aria-pressed="false"
+          >
+            {tag} <span class="text-muted">{count}</span>
+          </button>
+        ))
+      }
+    </div>
+  </header>
 
-      <div class="mt-2 flex flex-wrap items-center gap-2" data-tag-filter>
-        <span class="text-xs text-muted">{t.registry.browse.filterByTag}</span>
-        <button
-          type="button"
-          class="rounded-full border border-firm bg-accent-tint px-2.5 py-1 text-xs text-ink"
-          data-tag=""
-          aria-pressed="true"
-        >
-          {t.registry.browse.allTags}
-        </button>
-        {
-          tagIndex.map(({ tag, count }) => (
-            <button
-              type="button"
-              class="rounded-full border border-firm px-2.5 py-1 text-xs text-muted hover:text-ink"
-              data-tag={tag}
-              aria-pressed="false"
-            >
-              {tag} <span class="text-muted/70">{count}</span>
-            </button>
-          ))
-        }
-      </div>
-    </header>
-
-    <!-- 01 — Themes -->
-    <section class="flex flex-col gap-5" id="themes" data-section>
-      <div class="flex flex-wrap items-baseline justify-between gap-3 border-b border-default pb-2">
-        <h2 class="m-0 flex items-baseline gap-2 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted">
-          <span class="text-accent">01</span> {t.registry.themes.heading}
-        </h2>
-        <span class="text-xs text-muted">{t.registry.browse.themesNote}</span>
+  <!-- 01 — Themes. On paper: the first drawer. -->
+  <section class="border-t border-default" id="themes" data-section>
+    <div class:list={[band, "gap-6 py-7 lg:pt-11 lg:pb-13"]}>
+      <div class="flex flex-wrap items-baseline justify-between gap-4">
+        <Eyebrow index={1}>{t.registry.themes.heading}</Eyebrow>
+        <span class="font-mono text-[0.68rem] text-muted">{t.registry.browse.themesNote}</span>
       </div>
 
-      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {
           themes.map(({ theme, spec, swatches }) => (
             <article
-              class="flex flex-col overflow-hidden rounded-lg border border-default bg-paper"
+              class="flex flex-col overflow-hidden rounded-md border border-default bg-paper transition-colors hover:border-firm"
               data-entry
               data-tags={theme.tags.join(" ")}
             >
-              {/* The specimen: this theme's own type, colour and page tint. */}
+              {/* The specimen: this theme's own type, colour, tint and margins. */}
               <a
                 href={localizePath(themeHref(theme.id), locale)}
-                class="relative block border-b border-default p-4 no-underline"
-                style={`background:${spec.paper};color:${spec.ink};font-family:${spec.body};`}
+                class="relative block min-h-[120px] border-b border-default no-underline sm:min-h-[150px]"
+                style={`background:${spec.paper};padding:${spec.padY}px ${spec.padX}px;`}
                 aria-label={theme.title}
               >
-                <span class="absolute right-2 top-2 rounded border border-black/10 bg-white/70 px-1.5 py-0.5 font-mono text-[0.55rem] text-black/50">
+                <span
+                  class="absolute right-3 top-2.5 font-mono text-[0.6rem] tracking-[0.08em]"
+                  style={`color:${spec.muted};`}
+                >
                   {spec.size}
                 </span>
                 <div
-                  style={`font-family:${spec.display};font-size:${spec.titleSize};color:${spec.heading};line-height:1.15;font-weight:600;`}
+                  class="max-w-[88%]"
+                  style={`font-family:${spec.display};font-size:${spec.titleSize};font-weight:${spec.titleWeight};color:${spec.heading};text-transform:${spec.titleTransform};letter-spacing:${spec.titleSpacing};line-height:1.15;`}
                 >
                   Membership renewal
                 </div>
-                <div style={`margin:6px 0;height:2px;width:34px;background:${spec.accent};`} />
-                <div
-                  style={`font-family:${spec.display};font-size:${spec.headingSize};color:${spec.accent};text-transform:${spec.caps};letter-spacing:.06em;font-weight:600;margin-bottom:3px;`}
-                >
-                  Your renewal
-                </div>
+                <div class="mt-[9px] h-px" style={`background:${spec.rule};`} />
                 <p
-                  class="m-0"
-                  style={`font-size:${spec.bodySize};line-height:${spec.lineHeight};color:${spec.ink};`}
+                  class="m-0 mt-[10px]"
+                  style={`font-family:${spec.body};font-size:${spec.bodySize};line-height:${spec.lineHeight};color:${spec.ink};`}
                 >
                   Your tenancy at 14 Glebe Road ends on 30 September. This letter sets out what
                   happens next, and what we need from you before then.
                 </p>
               </a>
 
-              <div class="flex flex-1 flex-col gap-2 p-4">
-                <div class="flex items-baseline justify-between gap-2">
+              <div class="flex flex-1 flex-col gap-2 px-5 py-[18px]">
+                <div class="flex items-baseline justify-between gap-3">
                   <a
                     href={localizePath(themeHref(theme.id), locale)}
-                    class="font-medium text-ink no-underline hover:text-accent"
+                    class="font-serif text-[1.05rem] font-semibold text-ink no-underline hover:text-accent"
                   >
                     {theme.title}
                   </a>
-                  <span class="font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted">
+                  <span class="whitespace-nowrap font-mono text-[0.6rem] uppercase tracking-[0.08em] text-muted">
                     {theme.category}
                   </span>
                 </div>
-                <p class="m-0 flex-1 text-sm leading-relaxed text-muted">{theme.summary}</p>
-                <div class="flex items-center justify-between gap-2">
-                  <span class="text-xs text-muted">{theme.fonts.join(" · ")}</span>
+                <p class="m-0 text-[0.85rem] leading-[1.6] text-muted">{theme.summary}</p>
+                <div class="flex items-center justify-between gap-2.5">
+                  <span class="font-mono text-[0.66rem] text-muted">{theme.fonts.join(" · ")}</span>
                   <div class="flex gap-1">
                     {swatches.map((value) => (
                       <span
-                        class="h-3 w-3 rounded-sm border border-black/10"
+                        class="h-[13px] w-[13px] rounded-[3px] border border-default"
                         style={`background:${value}`}
                       />
                     ))}
                   </div>
                 </div>
-                <CopyField command={addCommand(theme.id)} compact />
+                <CopyField command={addCommand(theme.id)} compact class="mt-auto" />
               </div>
             </article>
           ))
         }
       </div>
-    </section>
+    </div>
+  </section>
 
-    <!-- 02 — Components -->
-    <section class="flex flex-col gap-5" id="components" data-section>
-      <div class="flex flex-wrap items-baseline justify-between gap-3 border-b border-default pb-2">
-        <h2 class="m-0 flex items-baseline gap-2 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted">
-          <span class="text-accent">02</span> {t.registry.components.heading}
-        </h2>
-        <span class="text-xs text-muted">{t.registry.browse.componentsNote}</span>
+  <!-- 02 — Components. On surface: the second drawer, read as rows. -->
+  <section class="border-t border-default bg-surface" id="components" data-section>
+    <div class:list={[band, "gap-4 py-7 lg:pt-11 lg:pb-13"]}>
+      <div class="flex flex-wrap items-baseline justify-between gap-4">
+        <Eyebrow index={2}>{t.registry.components.heading}</Eyebrow>
+        <span class="font-mono text-[0.68rem] text-muted">{t.registry.browse.componentsNote}</span>
       </div>
 
-      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="flex flex-col gap-4 lg:gap-0">
         {
           components.map(({ component, lines }) => (
             <article
-              class="flex flex-col overflow-hidden rounded-lg border border-default bg-paper"
+              class="border-default bg-paper max-lg:overflow-hidden max-lg:rounded-md max-lg:border lg:grid lg:grid-cols-[190px_minmax(0,1fr)_320px] lg:items-center lg:gap-8 lg:border-t lg:bg-transparent lg:py-[22px]"
               data-entry
               data-tags={component.tags.join(" ")}
             >
+              {/* What its nodes resolved to, on paper that stays white at night. */}
               <a
                 href={localizePath(componentHref(component.id), locale)}
-                class="block border-b border-default bg-surface p-4 font-letter no-underline"
-                aria-label={component.title}
+                class="block min-h-[88px] overflow-hidden px-4 py-3.5 no-underline max-lg:border-b lg:h-28 lg:min-h-0 lg:rounded lg:border"
+                style="background:var(--paper-fixed);border-color:var(--paper-fixed-border);font-family:Calibri,'Segoe UI',sans-serif;"
               >
                 {
                   lines.length === 0
-                    ? <span class="text-xs text-muted">{t.registry.browse.noPreview}</span>
+                    ? <span class="text-xs" style="color:#657287">{t.registry.browse.noPreview}</span>
                     : lines.map((line, index) => (
                       <div
-                        class={index === 0
-                          ? "truncate text-[0.8rem] font-semibold text-ink"
-                          : "truncate text-[0.75rem] text-muted"}
+                        class="truncate leading-[1.45]"
+                        style={index === 0
+                          ? "font-size:12.5px;font-weight:700;color:#111827;"
+                          : "font-size:11px;color:#1f2937;margin-top:4px;"}
                       >
                         {line}
                       </div>
@@ -259,84 +317,90 @@ const components = COMPONENTS.map((component) => ({ component, lines: lines(comp
                 }
               </a>
 
-              <div class="flex flex-1 flex-col gap-2 p-4">
-                <div class="flex items-baseline justify-between gap-2">
-                  <a
-                    href={localizePath(componentHref(component.id), locale)}
-                    class="font-medium text-ink no-underline hover:text-accent"
-                  >
-                    {component.title}
-                  </a>
-                  <span class="font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted">
-                    {component.category}
-                  </span>
-                </div>
-                <p class="m-0 flex-1 text-sm leading-relaxed text-muted">{component.summary}</p>
-                <div class="flex flex-wrap gap-1">
+              <div class="flex flex-col gap-1.5 px-5 py-4 lg:px-0 lg:py-0">
+                <Eyebrow class="text-[0.6rem]">{component.category}</Eyebrow>
+                <a
+                  href={localizePath(componentHref(component.id), locale)}
+                  class="font-serif text-[1.05rem] font-semibold text-ink no-underline hover:text-accent lg:text-[1.15rem]"
+                >
+                  {component.title}
+                </a>
+                <p class="m-0 text-[0.85rem] leading-[1.6] text-muted sm:text-[0.875rem]">
+                  {component.summary}
+                </p>
+                <span class="hidden font-mono text-[0.66rem] leading-[1.8] text-muted lg:inline">
+                  {t.registry.browse.readsPrefix} {component.dataFields.map((field) => field.path).join(", ")}
+                </span>
+                <div class="mt-0.5 hidden flex-wrap gap-1.5 lg:flex">
                   {component.tags.map((tag) => (
-                    <span class="rounded-full border border-default px-1.5 py-0.5 text-[0.65rem] text-muted">
+                    <span class="inline-flex rounded-full border border-firm px-[7px] py-px font-mono text-[0.6rem] uppercase tracking-[0.08em] text-muted">
                       {tag}
                     </span>
                   ))}
                 </div>
+              </div>
+
+              <div class="flex flex-col gap-2 px-5 pb-4 lg:px-0 lg:pb-0">
                 <CopyField command={addCommand(component.id)} compact />
-                <span class="font-mono text-[0.6rem] text-muted">
-                  {component.exports.join(", ")} · {component.resolved.length}
-                  {" "}
-                  {t.registry.browse.nodes}
+                <span class="hidden font-mono text-[0.66rem] text-muted lg:inline">
+                  {t.registry.exportsResolves
+                    .replace("{exports}", component.exports.join(", "))
+                    .replace("{count}", String(component.resolved.length))}
                 </span>
               </div>
             </article>
           ))
         }
       </div>
-    </section>
+    </div>
+  </section>
 
-    <!-- Nothing matched the filter. One action, no apology copy. -->
-    <div class="hidden flex-col items-start gap-2 rounded-lg border border-default p-6" data-empty>
-      <span class="font-mono text-[0.65rem] uppercase tracking-[0.14em] text-muted">
-        {t.registry.browse.noMatchesTitle}
-      </span>
-      <p class="m-0 text-sm text-ink" data-empty-line data-template={t.registry.browse.noMatches}></p>
-      <p class="m-0 text-sm text-muted">{t.registry.browse.noMatchesNote}</p>
+  <!-- Nothing matched the filter. One action, no apology copy. -->
+  <section class="border-t border-default" data-empty hidden>
+    <div class:list={[band, "items-start gap-2 py-12"]}>
+      <Eyebrow tone="muted">{t.registry.browse.noMatchesTitle}</Eyebrow>
+      <p class="m-0 text-[0.9rem] leading-[1.6] text-ink" data-empty-line data-template={t.registry.browse.noMatches} data-and={t.registry.browse.andJoin}></p>
+      <p class="m-0 text-[0.8rem] leading-[1.6] text-muted">{t.registry.browse.noMatchesNote}</p>
       <button
         type="button"
-        class="mt-1 min-h-[44px] rounded border border-firm bg-paper px-3 text-xs text-ink sm:min-h-0 sm:py-1"
+        class="mt-2 inline-flex min-h-[44px] items-center rounded border border-firm bg-transparent px-5 text-sm font-medium text-accent transition-colors hover:bg-accent-tint sm:min-h-0 sm:py-2.5"
         data-clear-tags
       >
         {t.registry.browse.clearFilter}
       </button>
     </div>
-  </div>
+  </section>
 </Base>
 
 <script>
   // Tag filtering, in the page rather than the URL: it is a way of looking at
   // one list, not a place you would link somebody to.
+  //
+  // Tags are additive and each one narrows, so a chip already on turns itself
+  // off when pressed again — which is also the only way back to everything,
+  // and the reason there is no "all" chip to keep in step with the rest.
   const bar = document.querySelector("[data-tag-filter]");
   const entries = [...document.querySelectorAll<HTMLElement>("[data-entry]")];
   const empty = document.querySelector<HTMLElement>("[data-empty]");
   const emptyLine = document.querySelector<HTMLElement>("[data-empty-line]");
   const sections = [...document.querySelectorAll<HTMLElement>("[data-section]")];
+  const chosen = new Set<string>();
 
-  function apply(tag: string) {
+  function apply() {
     let shown = 0;
 
     for (const button of bar?.querySelectorAll<HTMLButtonElement>("[data-tag]") ?? []) {
-      const on = (button.dataset.tag ?? "") === tag;
-      button.setAttribute("aria-pressed", String(on));
-      button.classList.toggle("bg-accent-tint", on);
-      button.classList.toggle("text-ink", on);
-      button.classList.toggle("text-muted", !on);
+      button.setAttribute("aria-pressed", String(chosen.has(button.dataset.tag ?? "")));
     }
 
     for (const entry of entries) {
-      const match = tag === "" || (entry.dataset.tags ?? "").split(" ").includes(tag);
+      const tags = (entry.dataset.tags ?? "").split(" ");
+      const match = [...chosen].every((tag) => tags.includes(tag));
       entry.hidden = !match;
       if (match) shown += 1;
     }
 
-    // A section whose every card is filtered out is a heading over nothing, so
+    // A section whose every entry is filtered out is a heading over nothing, so
     // it goes with them rather than sitting there empty.
     for (const section of sections) {
       const visible = [...section.querySelectorAll<HTMLElement>("[data-entry]")]
@@ -344,15 +408,27 @@ const components = COMPONENTS.map((component) => ({ component, lines: lines(comp
       section.hidden = !visible;
     }
 
-    if (empty) empty.classList.toggle("hidden", shown > 0);
-    if (empty) empty.classList.toggle("flex", shown === 0);
-    if (emptyLine) emptyLine.textContent = emptyLine.dataset.template?.replace("{tag}", tag) ?? "";
+    if (empty) empty.hidden = shown > 0;
+    if (emptyLine) {
+      // "money and legal" reads as the sentence it is in; a comma-joined list
+      // would not.
+      const listed = [...chosen].join(` ${emptyLine.dataset.and ?? "and"} `);
+      emptyLine.textContent = emptyLine.dataset.template?.replace("{tag}", listed) ?? "";
+    }
   }
 
   bar?.addEventListener("click", (event) => {
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-tag]");
-    if (button) apply(button.dataset.tag ?? "");
+    if (!button) return;
+
+    const tag = button.dataset.tag ?? "";
+    if (chosen.has(tag)) chosen.delete(tag);
+    else chosen.add(tag);
+    apply();
   });
 
-  document.querySelector("[data-clear-tags]")?.addEventListener("click", () => apply(""));
+  document.querySelector("[data-clear-tags]")?.addEventListener("click", () => {
+    chosen.clear();
+    apply();
+  });
 </script>

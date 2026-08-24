@@ -13,12 +13,18 @@ interface Props {
   title: string;
   /** Small caption under the paper. */
   label?: string;
+  /**
+   * Drop the trailing margin, for a caller that spaces its own children.
+   * The margin is what separates the paper from the prose that follows it;
+   * inside a gapped column it only makes one gap bigger than the rest.
+   */
+  flush?: boolean;
 }
 
-const { src, title, label } = Astro.props;
+const { src, title, label, flush = false } = Astro.props;
 ---
 
-<figure class="node-preview">
+<figure class:list={["node-preview", flush && "flush"]}>
   <div class="paper">
     <iframe
       data-node-frame
@@ -29,7 +35,7 @@ const { src, title, label } = Astro.props;
       class="frame"></iframe>
   </div>
   <figcaption>
-    <span>{label ?? "Rendered by Docxcelerate at build time"}</span>
+    <span>{label ?? "Rendered by Docxcelerate at build time"}<slot /></span>
     <a href={src} target="_blank" rel="noopener noreferrer">Open ↗</a>
   </figcaption>
 </figure>
@@ -75,6 +81,11 @@ const { src, title, label } = Astro.props;
 <style>
   .node-preview {
     margin: 0 0 1.35rem;
+  }
+
+  /* The caller spaces its own children. */
+  .node-preview.flush {
+    margin-bottom: 0;
   }
 
   /* Paper is white in both themes. A letter preview that dims at night stops

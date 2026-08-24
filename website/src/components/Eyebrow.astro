@@ -1,0 +1,37 @@
+---
+/**
+ * The mono, uppercase, wide-tracked label that opens every section — and, with
+ * `index`, the numbered variant ("01 · Themes").
+ *
+ * Straight out of the design system. The whole label is accent, including the
+ * word: the number is not a coloured highlight on a grey heading, it is part of
+ * one label. The separator is muted so the number and the word stay level with
+ * each other rather than the dot joining one of them.
+ */
+interface Props {
+  /** Numbered variant. Padded to two digits, as the boards set it. */
+  index?: number;
+  /** `muted` for a label that opens a panel rather than a section. */
+  tone?: "accent" | "muted";
+  class?: string;
+}
+
+const { index, tone = "accent", class: className = "" } = Astro.props;
+---
+
+<span
+  class:list={[
+    "block font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] tabular-nums",
+    tone === "muted" ? "text-muted" : "text-accent",
+    className,
+  ]}
+>
+  {
+    index != null && (
+      <>
+        {String(index).padStart(2, "0")}
+        <span class="mx-2 text-muted" aria-hidden="true">·</span>
+      </>
+    )
+  }<slot />
+</span>

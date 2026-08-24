@@ -401,6 +401,10 @@ export const de: UiStrings = {
     stepFilesNote: "was die Installation schreibt; die gewählte Datei ist die Komponente",
     dataFieldsNote: "Fügen Sie diese nach der Installation Ihrer types.ts hinzu. Das ist der einzige Handgriff.",
     copyFieldPaths: "Feldpfade kopieren",
+    dataFields: "Datenfelder",
+    copy: "Kopieren",
+    copied: "Kopiert",
+    copyFile: "{file} kopieren",
     /** {exports} is a list of names, {count} a number of nodes. */
     exportsResolves: "exportiert {exports} · löst zu {count} Nodes auf",
     categoryTags: "Kategorie · Tags",
@@ -421,6 +425,9 @@ export const de: UiStrings = {
       componentsNote: "Eine Komponente zu installieren schreibt ihre Datei nach nodes/",
       nodes: "Nodes",
       noPreview: "Keine Vorschau",
+      /** Leitet die Datenpfade einer Komponentenzeile ein; verbindet Filter-Tags. */
+      readsPrefix: "liest",
+      andJoin: "und",
       /** {tag} is the tag that matched nothing. */
       noMatches: "Keine Einträge passen zu {tag}.",
       noMatchesTitle: "Keine Treffer",
@@ -461,7 +468,6 @@ export const de: UiStrings = {
     colours: "Farben",
     spacing: "Abstände",
     exports: "Exporte",
-    reads: "Was gelesen wird",
     field: "Feld",
     type: "Typ",
     whatItDoes: "Wofür es da ist",
