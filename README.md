@@ -30,8 +30,8 @@ cd my-documents
 npm run dev
 ```
 
-This creates a workspace and opens the preview app, where you can begin to create documents
-and edit or add nodes and finally package it into a reusable format.
+This creates a workspace and opens the preview app, where you can write documents,
+edit and add nodes, and pack the result into a finished DOCX.
 
 To get the `dxcl` binary on your path:
 
@@ -41,57 +41,108 @@ npm install -g docxcelerate
 
 ## What a document looks like
 
-Below is the **index.ts** which is the root of a document inside of a workspace. All documents use the Document component as the parent
-and allow us to configure the documents settings and stylings.
+A document is a small project of its own, under `documents/<name>/`. The tree
+lives in **document.tsx**, and **document.project.ts** beside it is the
+entrypoint that pairs the template with the data, style and derivers it is built
+with.
 
 ```tsx
+// documents/tenancy-renewal/document.tsx
 import { Document, Section, template } from "docxcelerate/template";
-import { Balance, Greeting } from "./nodes/index.ts";
-import type { TenancyData } from "./types.ts";
+import * as Nodes from "./nodes/index.ts";
+import type { DocumentData } from "./types.ts";
 
-export const documentTemplate = template<TenancyData>(
-  <Document id="tenancy-renewal" title="Tenancy Renewal">
+export const documentTemplate = template<DocumentData>(
+  <Document title="Tenancy Renewal">
     <Section id="opening" title="Opening">
-      <Greeting />
-      <Balance />
+      <Nodes.Greeting />
+      <Nodes.Balance />
     </Section>
   </Document>,
 );
 ```
 
-If you are fammilar with frontend frameworks the idea of having an entrypoint for your application
-maps well into the shape of how we structure documents with docxcerlate.
+If you are familiar with frontend frameworks, the idea of having an entrypoint for
+your application maps well onto the shape of how documents are structured with
+Docxcelerate. The document's id is taken from its title when you do not write one.
 
-We build components which represent the contents of a document, these are basic elements
-of a word document such as a paragraph, image, clipart or something else.
+We build components which represent the contents of a document: a paragraph, a
+table, an image, a graph, a page break, a table of contents. Each one declares
+what it yields, and reads data through `useState` — the only way data enters a
+component.
 
 ```tsx
-import { Paragraph, useSetPrompts, useState } from "docxcelerate/template";
-import type { TenancyData } from "../types.ts";
+// documents/tenancy-renewal/nodes/balance.node.tsx
+import { Paragraph, useState } from "docxcelerate/template";
+import type { DocumentData } from "../types.ts";
 
 export const Balance: Paragraph = () => {
-  const [state] = useState((data: TenancyData) => ({
+  const [state] = useState((data: DocumentData) => ({
     name: data.recipientName,
     settled: data.balanceDue === 0,
   }));
-
-  useSetPrompts({ generalPrompt: `Explain the balance to ${state.name}.` });
 
   if (state.settled) {
     return <Paragraph id="settled">Nothing outstanding, {state.name}.</Paragraph>;
   }
 
-  return <Paragraph id="arrears" />;
+  return <Paragraph id="arrears">There is a balance left to settle, {state.name}.</Paragraph>;
 };
 ```
 
-We structure documents with hooks that allow us to bring in ai features, at the most basic level
-this is just stuff like making a paragraph say X or Y or write something unique.
+## Nodes an engine writes
 
-In the example above we are simply using the generalPrompt to get some text out about the balance a user has left,
-you can imagine that if the user has a lot of money the AI may choose to write "You've got a substantial amount of money William".
+Some nodes are written per document rather than at build time. `useAi` is what
+says so — one call carrying what to ask for, and what stands in the node's place
+until something has written it.
 
-Jump into our documentation to understand how you can structure documents with AI and create more complex documents for your own needs.
+```tsx
+import { Paragraph, useAi, useState } from "docxcelerate/template";
+import type { DocumentData } from "../types.ts";
+
+export const Balance: Paragraph = () => {
+  const [state] = useState((data: DocumentData) => data.account);
+
+  useAi({
+    ask: "Explain the balance on this account and what to do about it.",
+    placeholder: "A short note about the balance left on this account.",
+    voice: "A housing officer writing to a tenant. Plain, no sales tone.",
+    from: { balanceDue: state.balanceDue, dueBy: state.dueBy },
+    avoid: "Do not invent a payment method or a phone number.",
+  });
+
+  return <Paragraph id="balance" />;
+};
+```
+
+You can imagine that if the account is a long way into arrears the engine may
+choose to write something firmer than it would at a few pounds. The `placeholder`
+is required, and deliberately so: a preview is how a document gets proofread, and
+a document proofread with a blank in it is a document nobody read.
+
+Jump into our documentation to understand how you can structure documents with AI
+and create more complex documents for your own needs.
+
+## Components you can install
+
+The registry ships nodes that are already written — a letterhead, a recipient
+block, a signature block, a payment summary that branches on whether an account is
+in credit, clear or owing. `dxcl add` copies one into your document project as
+source you own and can edit, and wires it into `nodes/index.ts`.
+
+```sh
+dxcl list                   # every component and theme
+dxcl show payment-summary   # what it renders, and the fields it reads
+dxcl add payment-summary    # copy it into documents/<name>/nodes/
+```
+
+Themes install the same way and write the project's `document-style.ts`:
+
+```sh
+dxcl add slate-report
+```
+
+Browse them all at [docxcelerate.com/registry](https://docxcelerate.com/registry/).
 
 ## Documentation
 
@@ -103,6 +154,7 @@ Everything is on [docxcelerate.com](https://docxcelerate.com):
 - [Documents and nodes](https://docxcelerate.com/docs/essentials/documents-and-nodes/) — the model
 - [Templates](https://docxcelerate.com/docs/essentials/templates/) — composing with JSX
 - [The node reference](https://docxcelerate.com/docs/nodes/overview/) — every node type, rendered
+- [The registry](https://docxcelerate.com/registry/) — components and themes to install
 - [CLI commands](https://docxcelerate.com/docs/cli/commands/) — every `dxcl` command
 - [The engine](https://docxcelerate.com/docs/generation/endpoint/) — generating at scale
 - [Package entrypoints](https://docxcelerate.com/docs/reference/entrypoints/) — what each import gives you
