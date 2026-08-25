@@ -233,9 +233,10 @@ export interface DocumentBlockStyle {
  * What a prompt is for, which is how an engine decides where to put it.
  *
  * `general` asks for something, `info` supplies facts to write from, `negative`
- * rules something out, and `system` sets the standing instructions.
+ * rules something out, `example` shows the shape a good answer takes, and
+ * `system` sets the standing instructions.
  */
-export type PromptKind = "general" | "info" | "negative" | "system";
+export type PromptKind = "example" | "general" | "info" | "negative" | "system";
 
 /**
  * Which bag of values a {@linkcode DataReference} reads from.

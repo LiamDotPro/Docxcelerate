@@ -8,8 +8,8 @@ order: 2
 A document is a tree of **components**. Each one returns a **node** — a
 paragraph, an image, a graph — and each lives in its own file under `nodes/`.
 
-Why one file each? Because documents get long. A template with all its prose
-inlined stops being readable about halfway down.
+Why one file each? Because documents get long. A template with all its text
+written inline stops being readable about halfway down.
 
 ## Generate one
 
@@ -68,10 +68,10 @@ conditionals, formatting and imports all just work — and an `if` that returns 
 different paragraph does exactly what it looks like.
 
 One thing that might look odd: `Paragraph` is both the element and the component
-type. So `const Greeting: Paragraph` declares what this node yields, and
+type. So `const Greeting: Paragraph` declares what this node returns, and
 returning a `<Section>` from it is a compile error.
 
-## Prose you want generated
+## Text you want generated
 
 Some paragraphs can't be written in advance, because what they should say
 depends on who is receiving them. For those, set **prompts** instead of text —
@@ -105,7 +105,7 @@ Supplying both on one element is an error, not a coin toss.
 You can also pass prompts as props, which reads better when they're short. Props
 win over the hook, so a caller can override whatever a shared hook set around it.
 
-Four prompt slots are available. Only `generalPrompt` is required:
+Five prompt slots are available. Only `generalPrompt` is required:
 
 | Slot | Purpose |
 | --- | --- |
@@ -113,6 +113,14 @@ Four prompt slots are available. Only `generalPrompt` is required:
 | `infoPrompt` | Context the model should have but not restate |
 | `negativePrompt` | What to avoid |
 | `systemPrompt` | Role and tone instructions |
+| `examplePrompt` | What a good answer looks like, written out |
+
+`examplePrompt` is the one worth reaching for first. Telling a model what shape
+you want leaves it guessing; showing it one gives it something to copy. An
+example locks down the parts you don't want changing — how it opens, what order
+things come in, how long it is, how formal it sounds — so the model only fills in
+what genuinely differs between documents. Write it as finished text, not as a
+fill-in-the-blanks form, or it just describes the shape again.
 
 `Image` and `Graph` work the same way — give one `src` or `data` and it resolves
 locally; give it prompts and it does not.
@@ -120,10 +128,10 @@ locally; give it prompts and it does not.
 ## What the preview shows
 
 Building for preview resolves prompted nodes to their **placeholders**, never to
-generated prose. That keeps previews deterministic and free: you can iterate on
-structure and styling without a single request leaving your machine.
+generated text. Previews come out the same every time and cost nothing: you can
+work on structure and styling without a single request leaving your machine.
 
-Placeholders are a useful discipline, too. If a document reads badly with
+Placeholders are a useful habit, too. If a document reads badly with
 placeholders in place, that's usually a sign its structure is doing too little
 work.
 

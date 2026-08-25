@@ -1,7 +1,8 @@
 ---
-import { CLOUD_AVAILABLE, CLOUD_URL, GITHUB_URL, JSR_URL, NPM_URL } from "../site";
+import { CLOUD_AVAILABLE, CLOUD_URL, GITHUB_URL, JSR_URL, LICENCE_URL, NPM_URL } from "../site";
 import release from "../generated/release.json";
 import Mark from "./Mark.astro";
+import RegistryMark from "./RegistryMark.astro";
 import { asLocale, fill, localizePath, ui } from "../i18n";
 
 const locale = asLocale(Astro.currentLocale);
@@ -67,21 +68,50 @@ const COLUMNS: { heading: string; links: FooterLink[] }[] = [
              cannot take `--accent` from the theme the way it does everywhere
              else: in light mode that token *is* this ground. It borrows the
              same ledger-300 the wordmark uses for "celerate", and its quiet
-             lines inherit the white text around them. */
+             lines inherit the white text around them.
+
+             `w-fit` because the lockup is the hover target for the mark's
+             write-on wipe: left as a full-width block it would fire from a
+             stretch of empty green two hundred pixels to the right of the
+             logo. */
         }
-        <p class="m-0 flex items-center gap-3 font-serif text-2xl font-bold">
-          <Mark class="h-[1.3em] w-auto" accentClass="fill-ledger-300" />
+        <p class="dxcl-lockup m-0 flex w-fit items-center gap-3 font-serif text-2xl font-bold">
+          <Mark class="h-[1.3em] w-auto" accentClass="fill-ledger-300" animate />
           <span>Docx<span class="text-ledger-300">celerate</span></span>
         </p>
         <p class="mt-3.5 mb-0 text-[0.95rem] leading-relaxed text-pretty text-white/60">
           {t.footer.licence}
         </p>
+        {
+          /* The same release line the homepage runs under its install command,
+             rather than a row of outlined pills: one mono line, the two
+             registries as their own marks, the licence after a separator. The
+             marks keep their brand colours on the green — they are the only
+             thing here that is a logo rather than a word.
+
+             Static, unlike the homepage line: that one carries an id the hero
+             script rewrites from the registry, and the footer is on every page,
+             so repeating the id would give the document two of it. */
+        }
         <p
-          class="m-0 mt-5 flex flex-wrap gap-2 font-mono text-[0.62rem] tracking-[0.1em] text-white/55"
+          class="m-0 mt-5 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[0.68rem] text-white/55"
         >
-          <span class="rounded-full border border-white/20 px-2.5 py-1">v{release.version}</span>
-          <span class="rounded-full border border-white/20 px-2.5 py-1">MIT</span>
-          <span class="rounded-full border border-white/20 px-2.5 py-1">npm · JSR</span>
+          <span>v{release.version}</span>
+          <RegistryMark registry="npm" href={NPM_URL} label={t.home.onNpm} />
+          <RegistryMark registry="jsr" href={JSR_URL} label={t.home.onJsr} />
+          <span aria-hidden="true">·</span>
+          {/* The licence file, not a page about it. No ↗ after it: the columns
+              below mark their external links that way, but this is a dense mono
+              line and an arrow here reads as another glyph in the string. */}
+          <a
+            href={LICENCE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={t.footer.licenceFile}
+            class="text-white/55 no-underline transition-colors hover:text-white"
+          >
+            MIT
+          </a>
         </p>
       </div>
 

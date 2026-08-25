@@ -43,13 +43,14 @@ renderer, diffs legibly between builds, and can be asserted on in a test.
 whatever your renderer expects, and keep it consistent across a project.
 
 One thing does happen to the payload: string values are run through the template
-renderer, the same as prose. A label containing `{{derived.total}}` resolves.
+renderer, the same as paragraph text. A label containing `{{derived.total}}`
+resolves.
 
 ## Deriving in state
 
 Running totals, percentages and rebasing belong in the state initializer rather
-than upstream. The chart and the prose beside it are then computed from one
-source, so they cannot disagree.
+than in the data you pass in. The chart and the text beside it are then worked
+out from one source, so they cannot disagree.
 
 ## Variants
 

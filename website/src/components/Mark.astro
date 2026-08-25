@@ -34,18 +34,34 @@ interface Props {
    * "Docxcelerate" would make a screen reader say it twice.
    */
   title?: string;
+  /**
+   * Plays the write-on wipe — once as the page paints, and again whenever the
+   * reader hovers the lockup. See `dxcl-write` in global.css for the motion
+   * itself.
+   *
+   * Set on the two marks that are the site's signature, the nav's and the
+   * footer's, and left off the rest: the marks scattered through the docs are
+   * illustrations of the logo rather than the logo, and having every one of
+   * them write itself on load would turn a signature into a stunt.
+   *
+   * The hover target is the nearest ancestor carrying `dxcl-lockup`, not the
+   * mark itself — the reader is aiming at the logo, which is the mark and the
+   * word together, and the mark alone is a 20px target in the nav.
+   */
+  animate?: boolean;
 }
 
 const {
   class: className = "h-[1.15em] w-auto",
   accentClass = "fill-accent",
   title,
+  animate = false,
 } = Astro.props;
 ---
 
 <svg
   viewBox="0 0 47.14 43"
-  class:list={["shrink-0", className]}
+  class:list={["shrink-0", animate && "dxcl-mark is-writing", className]}
   role={title ? "img" : undefined}
   aria-hidden={title ? undefined : "true"}
 >
@@ -56,9 +72,65 @@ const {
        these same four rectangles. */
   }
   <g transform="translate(-2.3094 -12) skewX(-12)">
-    <rect x="14" y="12" width="38" height="7" fill="currentColor" opacity="0.38" />
-    <rect x="14" y="24" width="28" height="7" fill="currentColor" opacity="0.55" />
-    <rect x="14" y="36" width="42" height="7" class:list={[accentClass]} />
-    <rect x="14" y="48" width="21" height="7" fill="currentColor" opacity="0.55" />
+    <rect
+      x="14"
+      y="12"
+      width="38"
+      height="7"
+      fill="currentColor"
+      opacity="0.38"
+      class:list={[animate && "dxcl-line dxcl-line-1"]}
+    />
+    <rect
+      x="14"
+      y="24"
+      width="28"
+      height="7"
+      fill="currentColor"
+      opacity="0.55"
+      class:list={[animate && "dxcl-line dxcl-line-2"]}
+    />
+    <rect
+      x="14"
+      y="36"
+      width="42"
+      height="7"
+      class:list={[accentClass, animate && "dxcl-line dxcl-line-3"]}
+    />
+    <rect
+      x="14"
+      y="48"
+      width="21"
+      height="7"
+      fill="currentColor"
+      opacity="0.55"
+      class:list={[animate && "dxcl-line dxcl-line-4"]}
+    />
   </g>
 </svg>
+
+<script>
+  // Replay the wipe when the reader hovers the logo.
+  //
+  // CSS on its own cannot do this: the animation is already on the rects from
+  // the page load, and naming it again under `:hover` neither restarts it nor
+  // stays put — the rule drops on the way out, which replays the whole thing a
+  // second time as the pointer leaves. So the class comes off, the browser is
+  // forced to notice by way of a layout read, and it goes back on.
+  //
+  // Written against the lockup rather than the mark so the whole logo is the
+  // target, and bound once per page for every lockup on it: Astro emits this
+  // module a single time however many marks the page draws.
+  for (const lockup of document.querySelectorAll<HTMLElement>(".dxcl-lockup")) {
+    const mark = lockup.querySelector<SVGElement>(".dxcl-mark");
+    if (!mark) continue;
+
+    // `pointerenter` rather than `mouseenter`: it fires once on the way in for a
+    // pen or a touch too, and it does not bubble up from the wordmark beside it.
+    lockup.addEventListener("pointerenter", () => {
+      mark.classList.remove("is-writing");
+      void mark.getBoundingClientRect();
+      mark.classList.add("is-writing");
+    });
+  }
+</script>

@@ -25,14 +25,18 @@ const sectionOf = (href: string) => `/${href.split("/")[1] ?? ""}`;
       /* The mark is decorative here — the wordmark beside it is real text, so
          the link already has its name. It sizes off the type rather than off a
          fixed pixel height, which keeps the lockup's proportions if the reader
-         scales the page. */
+         scales the page.
+
+         `dxcl-lockup` makes the whole link the hover target for the mark's
+         write-on wipe, so the reader gets it by aiming at the logo rather than
+         at the 20px of drawing on its left. */
     }
     <a
       href={localizePath("/", locale)}
-      class="flex items-center gap-2.5 font-serif text-lg font-semibold tracking-tight text-ink no-underline"
+      class="dxcl-lockup flex items-center gap-2.5 font-serif text-lg font-semibold tracking-tight text-ink no-underline"
       aria-label={SITE.name}
     >
-      <Mark class="h-[1.35em] w-auto" />
+      <Mark class="h-[1.35em] w-auto" animate />
       <span>Docx<span class="text-accent">celerate</span></span>
     </a>
 

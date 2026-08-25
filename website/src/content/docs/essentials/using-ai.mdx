@@ -1,0 +1,240 @@
+---
+title: Using AI
+description: Mark a node as one an engine writes, steer what it says, and decide who actually writes it.
+group: Essentials
+order: 4
+---
+
+Most nodes are written from your data. Some are better written fresh for each
+document — a summary, a covering note, an explanation that should sound
+different when an account is £12 overdue than when it is £1,200.
+
+`useAi` marks a node as one of those. Nothing calls a model just because you
+wrote it; the hook says *this node gets written later*, and the rest of this page
+is about what "later" means.
+
+## The smallest AI node
+
+```tsx
+import { Paragraph, useAi } from "docxcelerate/template";
+
+export const Summary: Paragraph = () => {
+  useAi({
+    ask: "Two sentences summarising the repairs visit.",
+    placeholder: "A short summary of the visit.",
+  });
+
+  return <Paragraph id="summary" />;
+};
+```
+
+Two fields, both required.
+
+- **`ask`** is what the node should say.
+- **`placeholder`** is what stands in its place until something has written it.
+
+Notice the paragraph has no text of its own. That's the whole difference: a node
+with text is written by you, a node with prompts is written for you. Give one
+element both and you get an error — Docxcelerate won't guess which you meant.
+
+## Steering what it says
+
+Four optional fields, each doing one job:
+
+| Field | What it does |
+| --- | --- |
+| `voice` | How it should sound |
+| `from` | The facts to write from |
+| `avoid` | What it must not say |
+| `example` | What a good answer looks like |
+
+```tsx
+export const Summary: Paragraph = () => {
+  const [visit] = useState((data: RepairData) => data.visit);
+
+  useAi({
+    ask: "Two sentences telling the resident what was booked and what to expect.",
+    placeholder: "A short summary of the visit.",
+    voice: "A housing officer writing to a tenant. Plain English, second person.",
+    from: { trade: visit.trade, date: visit.date, window: visit.window },
+    avoid: "Do not invent a phone number or promise a time outside the window.",
+    example:
+      "An electrician is booked for Tuesday 3 March, between 9am and 1pm. " +
+      "Please make sure someone over 18 is at home for the whole window.",
+  });
+
+  return <Paragraph id="summary" />;
+};
+```
+
+### `from` takes your data, not a sentence about it
+
+Hand over the values themselves:
+
+```tsx
+from: { trade: visit.trade, date: visit.date, window: visit.window }
+```
+
+Don't write them into a sentence first. The model would only have to pull the
+values back out of it again.
+
+A plain string works too, when the facts are already written out:
+
+```tsx
+from: "The last visit was cancelled by the contractor, not the resident."
+```
+
+### `example` is the most useful field here
+
+Telling a model what shape you want leaves it guessing. Showing it one gives it
+something to copy. An example locks down the parts you don't want changing — how
+it opens, what order things come in, how long it is, how formal it sounds — so
+the model only fills in what genuinely differs between documents.
+
+Write it as **finished text**, filled in the way a real one would be:
+
+```tsx
+example: "An electrician is booked for Tuesday 3 March, between 9am and 1pm."
+```
+
+Not as a fill-in-the-blanks form. That's just describing the shape again, and it
+gets treated that way:
+
+```tsx
+example: "A [trade] is booked for [date], between [start] and [end]."  // avoid
+```
+
+Pass an array when the answer genuinely comes out in different shapes. Two or
+more get numbered, and are read as a range to work from rather than one template
+to copy:
+
+```tsx
+example: [
+  "An electrician is booked for Tuesday 3 March, between 9am and 1pm.",
+  "We could not book a slot this week. A coordinator will call you on Monday.",
+]
+```
+
+## Why the placeholder is required
+
+Previews show the placeholder for every AI node, never generated text. That keeps
+a preview instant, free, the same every time, and entirely on your machine.
+
+The placeholder is also what a reader sees if generation is skipped or fails. So
+it isn't optional, and it's worth a real sentence:
+
+```tsx
+placeholder: "A short summary of the visit."   // good
+placeholder: "TODO"                            // this ships to somebody
+```
+
+## Prompts as props
+
+Short prompts read better written on the element itself. Each field has a
+matching prop:
+
+| Hook field | Prop |
+| --- | --- |
+| `ask` | `generalPrompt` |
+| `voice` | `systemPrompt` |
+| `from` | `infoPrompt` |
+| `avoid` | `negativePrompt` |
+| `example` | `examplePrompt` |
+| `placeholder` | `placeholder` |
+
+```tsx
+<Paragraph
+  id="summary"
+  generalPrompt="Two sentences summarising the repairs visit."
+  placeholder="A short summary of the visit."
+/>
+```
+
+A prop beats the hook, so you can always override what a shared hook set. That's
+what makes a house style easy to share:
+
+```tsx
+export function useHouseVoice() {
+  useSetPrompts({
+    systemPrompt: "You write for a housing association. Plain English, second person.",
+  });
+}
+```
+
+The prompts land on whatever node the *calling* component returns. So any
+component that calls `useHouseVoice()` gets that voice, and the hook never needs
+to know which node it's setting it on.
+
+## Pictures and charts, too
+
+An `<Image>` given prompts instead of a `src`, or a `<Graph>` given prompts
+instead of `data`, works exactly the same way:
+
+```tsx
+<Image
+  id="cover"
+  generalPrompt="A quiet watercolour of a terraced street, no people."
+  negativePrompt="No text, no logos, no recognisable faces."
+  placeholder="Cover illustration."
+  width={160}
+  height={90}
+/>
+```
+
+`negativePrompt` matters most here. Generated pictures go wrong in the same few
+ways every time — words baked into the image, invented logos, faces you
+recognise — and one line in the node rules them out.
+
+## Who actually writes the text
+
+Two answers, and you pick by how you build.
+
+**You do, with a client you supply.** Build with `dynamicMode: "resolve"` and an
+`aiClient`. It's a small interface — one required method:
+
+```ts
+import { buildDocument } from "docxcelerate";
+
+const doc = await buildDocument(documentTemplate, data, {
+  dynamicMode: "resolve",
+  aiClient: {
+    generateParagraph: (request) => callYourModel(request.prompt),
+  },
+});
+```
+
+`request.prompt` is all of the node's prompts joined into one string.
+`request.prompts` gives you the same thing as a list, split by kind — `system`,
+`general`, `info`, `negative`, `example` — if you'd rather map them onto your
+provider's own fields. `generateImage` and `generateGraph` are optional: leave
+them off and those nodes show their placeholders instead of failing the document.
+
+To see what a node is asking for without asking anything, use the client that
+writes the prompt straight back:
+
+```ts
+import { EchoAiClient } from "docxcelerate";
+
+await buildDocument(documentTemplate, data, {
+  dynamicMode: "resolve",
+  aiClient: new EchoAiClient(),
+});
+```
+
+**An engine does, per request.** When you publish, nothing calls a model at build
+time. The node is stored with its prompts and no text, and the engine writes it
+fresh for every document it produces. See
+[the engine](/docs/generation/endpoint/).
+
+## What to remember
+
+- `useAi` marks a node; it doesn't call anything by itself.
+- A node has text **or** prompts, never both.
+- Previews always show the placeholder, so write one worth reading.
+- `example` costs one line and does more than any other field.
+
+## Next
+
+- [Paragraph](/docs/nodes/paragraph/) — the node type most often written this way
+- [Image](/docs/nodes/image/) — dynamic pictures in full
+- [The engine](/docs/generation/endpoint/) — publishing, and writing per request

@@ -250,7 +250,8 @@ Dynamic nodes carry prompts instead of text:
   "prompts": [
     { "kind": "general",  "text": "Write two warm, specific sentences…" },
     { "kind": "negative", "text": "Do not restate the offer…" },
-    { "kind": "system",   "text": "You are an admissions tutor…" }
+    { "kind": "system",   "text": "You are an admissions tutor…" },
+    { "kind": "example",  "text": "Priya spoke about her EPQ on tidal…" }
   ] }
 ```
 

@@ -102,7 +102,7 @@ können auch als Props übergeben werden, was sich bei kurzen besser liest, und
 Props gewinnen gegen den Hook — eine aufrufende Stelle kann also überschreiben,
 was ein geteilter Hook drumherum gesetzt hat.
 
-Vier Prompt-Slots stehen zur Verfügung. Nur `generalPrompt` ist Pflicht:
+Fünf Prompt-Slots stehen zur Verfügung. Nur `generalPrompt` ist Pflicht:
 
 | Slot | Zweck |
 | --- | --- |
@@ -110,6 +110,15 @@ Vier Prompt-Slots stehen zur Verfügung. Nur `generalPrompt` ist Pflicht:
 | `infoPrompt` | Kontext, den das Modell haben, aber nicht wiedergeben soll |
 | `negativePrompt` | Was zu vermeiden ist |
 | `systemPrompt` | Rolle und Tonfall |
+| `examplePrompt` | Wie eine gute Antwort aussieht, ausgeschrieben |
+
+Zu `examplePrompt` greift man am besten zuerst. Einem Modell zu sagen, welche
+Form Sie wollen, lässt es raten; ihm eine zu zeigen, gibt ihm etwas zum
+Nachmachen. Ein Beispiel legt fest, was sich nicht ändern soll — wie es beginnt,
+in welcher Reihenfolge, wie lang es ist, wie förmlich es klingt — sodass das
+Modell nur noch einsetzt, was sich von Dokument zu Dokument wirklich
+unterscheidet. Schreiben Sie es als fertigen Text, nicht als Formular mit Lücken,
+sonst beschreiben Sie die Form nur erneut.
 
 `Image` und `Graph` funktionieren genauso — geben Sie `src` oder `data` an, und
 es löst lokal auf; geben Sie Prompts an, dann nicht.

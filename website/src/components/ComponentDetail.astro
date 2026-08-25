@@ -4,8 +4,9 @@
  *
  * Laid out to board 2c. Data, preview, nodes, source — 01 to 04, in the order
  * the question is asked: what does it need, what does it look like, what does a
- * renderer get, and what lands in my repo. The data fields sit beside all four,
- * because they are the one manual step after installing.
+ * renderer get, and what lands in my repo. The data fields sit beside the first
+ * three, because they are the one manual step after installing; 04 runs the full
+ * width under them, because a file tree beside a source file wants the room.
  *
  * Three things the board is specific about and that are easy to lose:
  *
@@ -143,15 +144,20 @@ const treeSelected =
       </div>
     </header>
 
-    <div class="grid gap-10 lg:grid-cols-[minmax(0,1fr)_22.5rem] lg:items-start lg:gap-14">
-      <!-- The sequence, hung off one hairline. -->
-      <div class="relative flex flex-col gap-11">
-        <div
-          class="absolute bottom-5 left-[13px] top-5 w-px bg-border-firm"
-          aria-hidden="true"
-        >
-        </div>
+    <!--
+      The spine belongs to the grid rather than to the left column, because step
+      04 breaks out of that column and runs the full measure. The line is
+      absolute against the grid, so all four discs still hang off one hairline.
+    -->
+    <div class="relative grid gap-11 lg:grid-cols-[minmax(0,1fr)_22.5rem] lg:items-start lg:gap-x-14">
+      <div
+        class="absolute bottom-5 left-[13px] top-5 w-px bg-border-firm"
+        aria-hidden="true"
+      >
+      </div>
 
+      <!-- 01 to 03, beside the fields. -->
+      <div class="flex min-w-0 flex-col gap-11">
         <!-- 01 — what it was built with -->
         <section class={stepRow}>
           <span class={marker} aria-hidden="true">{steps[0].n}</span>
@@ -242,114 +248,114 @@ const treeSelected =
             </div>
           </div>
         </section>
-
-        <!-- 04 — what lands in the repo -->
-        <section class={stepRow}>
-          <span class={marker} aria-hidden="true">{steps[3].n}</span>
-          <div class="flex min-w-0 flex-col gap-2.5">
-            <div class="flex flex-wrap items-baseline gap-3">
-              <h2 class={eyebrow}>{steps[3].title}</h2>
-              <span class={stepNote}>{steps[3].note}</span>
-            </div>
-
-            <figure
-              class="m-0 grid min-w-0 overflow-hidden rounded-md border border-default bg-paper shadow-[0_1px_2px_rgb(0_0_0/4%),0_14px_32px_-24px_rgb(0_0_0/28%)] sm:grid-cols-[12.5rem_minmax(0,1fr)]"
-            >
-              <!-- The tree the install writes. -->
-              <div class="flex min-w-0 flex-col border-b border-default sm:border-b-0 sm:border-r">
-                <header class={panelBar}>
-                  <span class={panelPath}>your-project/</span>
-                </header>
-                <nav
-                  class="flex flex-1 flex-col gap-px overflow-auto bg-surface py-2"
-                  aria-label={t.registry.stepFiles}
-                  {...browsable ? { role: "tablist", "aria-orientation": "vertical" as const } : {}}
-                >
-                  {
-                    treeRows.map((row) =>
-                      row.kind === "dir" ? (
-                        <span
-                          class={`${treeCell} cursor-default text-muted opacity-75`}
-                          style={`--depth:${row.depth}`}
-                        >
-                          {row.label}
-                        </span>
-                      ) : browsable ? (
-                        <button
-                          type="button"
-                          role="tab"
-                          id={`file-tab-${row.index}`}
-                          aria-controls={`file-panel-${row.index}`}
-                          aria-selected={row.index === 0 ? "true" : "false"}
-                          tabindex={row.index === 0 ? 0 : -1}
-                          data-file-tab={row.index}
-                          class:list={[
-                            treeCell,
-                            "cursor-pointer border-0 border-l-2 border-l-transparent bg-transparent text-muted transition-colors",
-                            "hover:bg-surface-2 hover:text-ink",
-                            "aria-selected:border-l-accent-solid aria-selected:bg-accent-tint aria-selected:font-semibold aria-selected:text-accent",
-                          ]}
-                          style={`--depth:${row.depth}`}
-                        >
-                          {row.label}
-                        </button>
-                      ) : (
-                        <span
-                          aria-current="true"
-                          class={`${treeCell} ${treeSelected}`}
-                          style={`--depth:${row.depth}`}
-                        >
-                          {row.label}
-                        </span>
-                      ),
-                    )
-                  }
-                </nav>
-              </div>
-
-              <!-- The file under the cursor. -->
-              <div class="flex min-w-0 flex-col">
-                {
-                  component.files.map((file, index) => (
-                    <div
-                      id={`file-panel-${index}`}
-                      aria-labelledby={browsable ? `file-tab-${index}` : undefined}
-                      role={browsable ? "tabpanel" : undefined}
-                      data-file-panel={index}
-                      hidden={index !== 0}
-                      class="flex min-w-0 flex-1 flex-col"
-                    >
-                      <header class={panelBar}>
-                        <code class={panelPath}>{file.target}</code>
-                        <button
-                          type="button"
-                          class="shrink-0 cursor-pointer rounded-sm border-0 bg-transparent px-1.5 py-0.5 font-mono text-[0.66rem] text-accent transition-colors hover:text-accent-deep"
-                          data-copy-text={file.code}
-                          data-copied={t.registry.copied}
-                          aria-label={fill(t.registry.copyFile, { file: file.target })}
-                          hidden
-                        >
-                          {t.registry.copy}
-                        </button>
-                      </header>
-                      <div class="snippet min-w-0">
-                        <Code
-                          code={file.code}
-                          lang="tsx"
-                          themes={{ light: "github-light", dark: "github-dark-dimmed" }}
-                        />
-                      </div>
-                    </div>
-                  ))
-                }
-              </div>
-            </figure>
-          </div>
-        </section>
       </div>
 
-      <!-- Beside all four: what you have to add yourself. -->
-      <aside class="flex flex-col gap-7">
+      <!-- 04 — what lands in the repo, across the whole measure -->
+      <section class={`${stepRow} lg:col-span-2 lg:col-start-1 lg:row-start-2`}>
+        <span class={marker} aria-hidden="true">{steps[3].n}</span>
+        <div class="flex min-w-0 flex-col gap-2.5">
+          <div class="flex flex-wrap items-baseline gap-3">
+            <h2 class={eyebrow}>{steps[3].title}</h2>
+            <span class={stepNote}>{steps[3].note}</span>
+          </div>
+
+          <figure
+            class="m-0 grid min-w-0 overflow-hidden rounded-md border border-default bg-paper shadow-[0_1px_2px_rgb(0_0_0/4%),0_14px_32px_-24px_rgb(0_0_0/28%)] sm:grid-cols-[12.5rem_minmax(0,1fr)]"
+          >
+            <!-- The tree the install writes. -->
+            <div class="flex min-w-0 flex-col border-b border-default sm:border-b-0 sm:border-r">
+              <header class={panelBar}>
+                <span class={panelPath}>your-project/</span>
+              </header>
+              <nav
+                class="flex flex-1 flex-col gap-px overflow-auto bg-surface py-2"
+                aria-label={t.registry.stepFiles}
+                {...browsable ? { role: "tablist", "aria-orientation": "vertical" as const } : {}}
+              >
+                {
+                  treeRows.map((row) =>
+                    row.kind === "dir" ? (
+                      <span
+                        class={`${treeCell} cursor-default text-muted opacity-75`}
+                        style={`--depth:${row.depth}`}
+                      >
+                        {row.label}
+                      </span>
+                    ) : browsable ? (
+                      <button
+                        type="button"
+                        role="tab"
+                        id={`file-tab-${row.index}`}
+                        aria-controls={`file-panel-${row.index}`}
+                        aria-selected={row.index === 0 ? "true" : "false"}
+                        tabindex={row.index === 0 ? 0 : -1}
+                        data-file-tab={row.index}
+                        class:list={[
+                          treeCell,
+                          "cursor-pointer border-0 border-l-2 border-l-transparent bg-transparent text-muted transition-colors",
+                          "hover:bg-surface-2 hover:text-ink",
+                          "aria-selected:border-l-accent-solid aria-selected:bg-accent-tint aria-selected:font-semibold aria-selected:text-accent",
+                        ]}
+                        style={`--depth:${row.depth}`}
+                      >
+                        {row.label}
+                      </button>
+                    ) : (
+                      <span
+                        aria-current="true"
+                        class={`${treeCell} ${treeSelected}`}
+                        style={`--depth:${row.depth}`}
+                      >
+                        {row.label}
+                      </span>
+                    ),
+                  )
+                }
+              </nav>
+            </div>
+
+            <!-- The file under the cursor. -->
+            <div class="flex min-w-0 flex-col">
+              {
+                component.files.map((file, index) => (
+                  <div
+                    id={`file-panel-${index}`}
+                    aria-labelledby={browsable ? `file-tab-${index}` : undefined}
+                    role={browsable ? "tabpanel" : undefined}
+                    data-file-panel={index}
+                    hidden={index !== 0}
+                    class="flex min-w-0 flex-1 flex-col"
+                  >
+                    <header class={panelBar}>
+                      <code class={panelPath}>{file.target}</code>
+                      <button
+                        type="button"
+                        class="shrink-0 cursor-pointer rounded-sm border-0 bg-transparent px-1.5 py-0.5 font-mono text-[0.66rem] text-accent transition-colors hover:text-accent-deep"
+                        data-copy-text={file.code}
+                        data-copied={t.registry.copied}
+                        aria-label={fill(t.registry.copyFile, { file: file.target })}
+                        hidden
+                      >
+                        {t.registry.copy}
+                      </button>
+                    </header>
+                    <div class="snippet min-w-0">
+                      <Code
+                        code={file.code}
+                        lang="tsx"
+                        themes={{ light: "github-light", dark: "github-dark-dimmed" }}
+                      />
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+          </figure>
+        </div>
+      </section>
+
+      <!-- Beside the first three: what you have to add yourself. -->
+      <aside class="flex flex-col gap-7 lg:col-start-2 lg:row-start-1">
         <section class="flex flex-col gap-2">
           <h2 class={eyebrow}>{t.registry.dataFields}</h2>
           <p class="m-0 text-[0.8rem] leading-[1.6] text-muted">{t.registry.dataFieldsNote}</p>

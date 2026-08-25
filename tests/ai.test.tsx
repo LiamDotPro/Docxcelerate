@@ -194,6 +194,97 @@ test("a fact nobody supplied is left out rather than written as null", async () 
 });
 
 // ---------------------------------------------------------------------------
+// Examples
+// ---------------------------------------------------------------------------
+
+test("`example` travels as the shape a good answer takes", async () => {
+  const built = await buildWith(() => {
+    useAi({
+      ask: "Summarise the invoice.",
+      placeholder: "A summary.",
+      example: "This invoice covers the June sprint on the payments integration.",
+    });
+
+    return <Paragraph id="summary" />;
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+
+  assertEquals(
+    promptOf(paragraphOf(built.nodes).prompts, "example"),
+    "This invoice covers the June sprint on the payments integration.",
+  );
+});
+
+test("a lone example travels as itself, with nothing wrapped around it", async () => {
+  // Anything added around one example is text a model has to decide is not part
+  // of the shape it was shown.
+  const built = await buildWith(() => {
+    useAi({ ask: "Summarise.", placeholder: "A summary.", example: "One short line." });
+
+    return <Paragraph id="summary" />;
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+
+  assertEquals(promptOf(paragraphOf(built.nodes).prompts, "example"), "One short line.");
+});
+
+test("several examples are numbered, so two do not read as one long answer", async () => {
+  const built = await buildWith(() => {
+    useAi({
+      ask: "Summarise.",
+      placeholder: "A summary.",
+      example: ["The first shape.", "The second shape."],
+    });
+
+    return <Paragraph id="summary" />;
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+
+  const shown = promptOf(paragraphOf(built.nodes).prompts, "example") ?? "";
+
+  assertStringIncludes(shown, "Example 1:\nThe first shape.");
+  assertStringIncludes(shown, "Example 2:\nThe second shape.");
+});
+
+test("a blank example is dropped rather than shown as the right answer", async () => {
+  const built = await buildWith(() => {
+    useAi({ ask: "Summarise.", placeholder: "A summary.", example: ["  ", ""] });
+
+    return <Paragraph id="summary" />;
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+
+  assertEquals(promptOf(paragraphOf(built.nodes).prompts, "example"), undefined);
+});
+
+test("the example reads last, after the request and the limits", async () => {
+  // It is the thing the answer gets measured against, so it sits closest to
+  // where the writing starts.
+  const built = await buildWith(() => {
+    useAi({
+      ask: "Summarise.",
+      placeholder: "A summary.",
+      voice: "Plain English.",
+      from: "The engagement ran from June to August.",
+      avoid: "Do not restate the totals.",
+      example: "This invoice covers the June sprint.",
+    });
+
+    return <Paragraph id="summary" />;
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+
+  assertEquals(
+    paragraphOf(built.nodes).prompts?.map((prompt) => prompt.kind),
+    ["system", "general", "info", "negative", "example"],
+  );
+});
+
+test("an example is enough on its own to make a node generated", async () => {
+  const built = await buildWith(
+    () => <Paragraph id="summary" examplePrompt="This invoice covers the June sprint." />,
+    { dynamicMode: "placeholder" },
+  );
+
+  assertEquals(paragraphOf(built.nodes).mode, "dynamic");
+});
+
+// ---------------------------------------------------------------------------
 // What it refuses
 // ---------------------------------------------------------------------------
 
@@ -327,5 +418,25 @@ test("what it returns is the prompts now standing on the node", async () => {
   assertEquals(returned, {
     generalPrompt: "Summarise.",
     placeholder: "A summary.",
+  });
+});
+
+test("an example set by a shared hook comes back with the rest of the prompts", async () => {
+  let returned: unknown;
+
+  await buildWith(() => {
+    returned = useAi({
+      ask: "Summarise.",
+      placeholder: "A summary.",
+      example: "This invoice covers the June sprint.",
+    });
+
+    return <Paragraph id="summary" />;
+  }, { dynamicMode: "placeholder" });
+
+  assertEquals(returned, {
+    generalPrompt: "Summarise.",
+    placeholder: "A summary.",
+    examplePrompt: "This invoice covers the June sprint.",
   });
 });

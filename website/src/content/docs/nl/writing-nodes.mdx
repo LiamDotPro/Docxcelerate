@@ -101,7 +101,7 @@ Beide meegeven op één element is een fout, geen kop of munt. Prompts kunnen oo
 als props worden gegeven, wat prettiger leest als ze kort zijn, en props winnen van
 de hook — zo kan een aanroeper overschrijven wat een gedeelde hook eromheen zette.
 
-Er zijn vier promptslots. Alleen `generalPrompt` is verplicht:
+Er zijn vijf promptslots. Alleen `generalPrompt` is verplicht:
 
 | Slot | Waarvoor |
 | --- | --- |
@@ -109,6 +109,14 @@ Er zijn vier promptslots. Alleen `generalPrompt` is verplicht:
 | `infoPrompt` | Context die het model moet hebben maar niet moet herhalen |
 | `negativePrompt` | Wat te vermijden |
 | `systemPrompt` | Rol- en toonaanwijzingen |
+| `examplePrompt` | Hoe een goed antwoord eruitziet, uitgeschreven |
+
+`examplePrompt` is degene waar je het eerst naar grijpt. Een model vertellen welke
+vorm je wilt, laat het gissen; er een laten zien geeft het iets om na te doen.
+Een voorbeeld legt vast wat niet mag veranderen — hoe het begint, in welke
+volgorde, hoe lang het is, hoe formeel het klinkt — zodat het model alleen nog
+invult wat per document echt anders is. Schrijf het als afgeronde tekst, niet als
+een invulformulier, anders beschrijf je de vorm opnieuw.
 
 `Image` en `Graph` werken hetzelfde — geef er een `src` of `data` aan en het lost
 lokaal op; geef het prompts en dat gebeurt niet.

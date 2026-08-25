@@ -47,6 +47,24 @@ export interface AiConfig {
   from?: JsonObject | string;
   /** What the node must not say. */
   avoid?: string;
+  /**
+   * What a good answer looks like, written out.
+   *
+   * A description of a format is something a model has to interpret; a sample of
+   * one is something it can match. So an example is the shortest way to hold
+   * still the parts of a node that were never meant to vary — the opening, the
+   * order, the length, the register — and leave a model deciding only what is
+   * genuinely different from one document to the next.
+   *
+   * Write it as the finished text, with the per-document parts filled in the way
+   * a real one would be. An example full of blanks is a format description again,
+   * and it is read as one.
+   *
+   * Several may be given. One example reads as a template to be followed; two or
+   * more read as a pattern to be inferred, which is what to give when the shape
+   * legitimately varies by case.
+   */
+  example?: string | string[];
 }
 
 /**
@@ -72,6 +90,10 @@ export interface AiConfig {
  *     voice: "A delivery lead writing to a finance contact. Plain, no sales tone.",
  *     from: { period: invoice.period, lines: invoice.lines },
  *     avoid: "Do not restate the totals or the payment terms.",
+ *     example:
+ *       "This invoice covers the June sprint on the payments integration. " +
+ *       "The team completed the card capture flow and the refund endpoint. " +
+ *       "Testing carried over into July and is billed on the next invoice.",
  *   });
  *
  *   return <Paragraph id="summary" />;
@@ -106,7 +128,9 @@ export function useAi(config: AiConfig): PromptDraft {
  *
  * The mapping is one-to-one and always has been. What changed is which end
  * names it: `voice` and `avoid` say what they are for, and `systemPrompt` and
- * `negativePrompt` say where they end up.
+ * `negativePrompt` say where they end up. `example` is the one that takes more
+ * than one value, and it still lands as one prompt: a node carries a block per
+ * kind, so the several are joined here rather than counted everywhere after.
  */
 function toPromptDraft(config: AiConfig): PromptDraft {
   const draft: PromptDraft = {
@@ -126,7 +150,46 @@ function toPromptDraft(config: AiConfig): PromptDraft {
     draft.infoPrompt = typeof config.from === "string" ? config.from : describeFacts(config.from);
   }
 
+  const examples = collectExamples(config.example);
+
+  if (examples !== undefined) {
+    draft.examplePrompt = examples;
+  }
+
   return draft;
+}
+
+/**
+ * Puts one or more examples into the single block a node carries.
+ *
+ * A lone example travels as itself, because anything wrapped around it is text
+ * a model has to decide is not part of the shape it was shown. Several are
+ * numbered, since two examples run together read as one long answer, which is
+ * the opposite of the point.
+ *
+ * Blank entries are dropped rather than sent. An empty example is not a weak
+ * instruction to a model; it is a demonstration that the right answer is
+ * nothing.
+ */
+function collectExamples(example: string | string[] | undefined): string | undefined {
+  if (example === undefined) {
+    return undefined;
+  }
+
+  const written = (Array.isArray(example) ? example : [example])
+    .filter((entry): entry is string => typeof entry === "string")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== "");
+
+  if (written.length === 0) {
+    return undefined;
+  }
+
+  if (written.length === 1) {
+    return written[0];
+  }
+
+  return written.map((entry, index) => `Example ${index + 1}:\n${entry}`).join("\n\n");
 }
 
 /**

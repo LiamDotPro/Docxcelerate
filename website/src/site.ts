@@ -48,6 +48,12 @@ export const CLOUD_AVAILABLE = false;
 export const ENGINE_URL: string | null = null;
 
 export const GITHUB_URL = "https://github.com/LiamDotPro/Docxcelerate";
+/**
+ * The licence itself, not a summary of it. Pinned to the default branch rather
+ * than to a tag: the licence is the same in every release, and a tag here would
+ * need bumping with each one.
+ */
+export const LICENCE_URL = `${GITHUB_URL}/blob/main/LICENSE`;
 export const NPM_URL = "https://www.npmjs.com/package/docxcelerate";
 export const JSR_URL = "https://jsr.io/@docxcelerate/docxcelerate";
 
@@ -65,7 +71,7 @@ export const NPM_LATEST_URL = `https://registry.npmjs.org/${PACKAGE_NAME}/latest
 
 export interface NavLink {
   /** Key into `nav` in the UI dictionaries — the label is per-language. */
-  key: "docs" | "themes" | "components" | "cloud" | "github";
+  key: "docs" | "registry" | "cloud" | "github";
   /**
    * Internal links are written canonically, without a language prefix; the Nav
    * adds the reader's prefix. External URLs are used as they stand.
@@ -80,11 +86,10 @@ export interface NavLink {
 
 export const NAV: NavLink[] = [
   { key: "docs", href: "/docs/start-here/" },
-  // Two labels, one page. Themes and components are what people look for by
-  // name, but the registry answers "what can I add?" in one place — so each
-  // item lands on its section rather than on a gallery of its own.
-  { key: "themes", href: "/registry/#themes" },
-  { key: "components", href: "/registry/#components" },
+  // One label, one page. Themes and components are what people look for by
+  // name, but the registry answers "what can I add?" in one place — so the nav
+  // names the place, and the page's own two sections name the halves.
+  { key: "registry", href: "/registry/" },
   { key: "cloud", href: CLOUD_URL, external: true, soon: !CLOUD_AVAILABLE },
   { key: "github", href: GITHUB_URL, external: true, icon: "github" },
 ];

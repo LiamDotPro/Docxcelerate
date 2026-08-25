@@ -214,3 +214,48 @@
     border: 1px solid #c7ccd6;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   The mark writes itself.
+
+   Each of the four sheared lines wipes in from its own left edge in reading
+   order, and the generated line — the accented third — lands last. The wipe is
+   a `clip-path` rather than a scale or a fade, so the sheared edges stay as
+   sharp halfway through as they are at rest, at every size the mark runs at.
+
+   Nothing else moves: the wordmark beside it is static, and there is no bounce,
+   no drift and nothing tied to scroll. It plays once when the page loads and
+   again when the reader hovers the lockup.
+
+   `is-writing` ships in the markup rather than being added by script, so the
+   wipe starts at first paint instead of waiting for the bundle — and a reader
+   with JavaScript off still gets it on load, just without the hover replay.
+   The reduced-motion block in `base` above collapses it to its final frame.
+--------------------------------------------------------------------------- */
+@keyframes dxcl-write {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.dxcl-mark.is-writing .dxcl-line {
+  animation: dxcl-write 0.34s ease both;
+}
+
+/* Staggered by a hair over the wipe's own length, so a line is still finishing
+   as the next one starts and the mark reads as one gesture, not four. */
+.dxcl-mark.is-writing .dxcl-line-1 {
+  animation-delay: 0.02s;
+}
+.dxcl-mark.is-writing .dxcl-line-2 {
+  animation-delay: 0.12s;
+}
+.dxcl-mark.is-writing .dxcl-line-3 {
+  animation-delay: 0.22s;
+}
+.dxcl-mark.is-writing .dxcl-line-4 {
+  animation-delay: 0.32s;
+}

@@ -47,7 +47,7 @@ it. There is no template language to learn: conditionals, formatting, imports an
 
 One thing that might look odd: `Paragraph` is both the element and the component
 type. In TypeScript a value and a type can share a name, so writing
-`const Greeting: Paragraph` declares what this component yields. Try to return a
+`const Greeting: Paragraph` declares what this component returns. Try to return a
 `<Section>` from it and you get a compile error.
 
 ## Data can also arrive as props
@@ -135,7 +135,7 @@ Hooks are how a component reaches the build going on around it:
 | --- | --- |
 | `useState` | Data, taken in once and kept |
 | `useShared` | A value left for the components rendered after this one |
-| `useSetPrompts` | Prompts for the node this yields — what makes it dynamic |
+| `useSetPrompts` | Prompts for the node this returns — what makes it dynamic |
 | `useSetPlaceholders` | What previews show in place of generated content |
 | `usePlaceholderData` | Stand-in names, dates and figures for previews |
 | `useFormat` | Locale-aware currency, dates, lists and plurals |

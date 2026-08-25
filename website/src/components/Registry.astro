@@ -164,8 +164,10 @@ const tagIndex = (() => {
 const themes = THEMES.map((theme) => ({ theme, spec: specimen(theme), swatches: swatches(theme) }));
 const components = COMPONENTS.map((component) => ({ component, lines: lines(component) }));
 
-/** Every band shares one measure and one set of gutters. */
-const band = "mx-auto flex max-w-6xl flex-col px-5 sm:px-8 lg:px-16";
+/** Every band shares one measure and one set of gutters — the nav's, so the
+ *  eyebrow, the heading and the first card hang off the same left edge as the
+ *  wordmark above them. Widening the gutters here breaks that line. */
+const band = "mx-auto flex max-w-6xl flex-col px-5 sm:px-8";
 ---
 
 <Base title={t.registry.browse.title} description={t.registry.browse.description} hreflangLocales={LOCALES}>

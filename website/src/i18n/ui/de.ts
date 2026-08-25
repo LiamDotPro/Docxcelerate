@@ -28,8 +28,7 @@ export const de: UiStrings = {
   nav: {
     label: "Hauptnavigation",
     docs: "Doku",
-    themes: "Themes",
-    components: "Komponenten",
+    registry: "Registry",
     cloud: "Cloud",
     github: "GitHub",
     switchTheme: "Design wechseln",
@@ -40,6 +39,7 @@ export const de: UiStrings = {
     licence:
       "Dokumente als Komponenten, DOCX als Ausgabe. Offen entwickelt, MIT-lizenziert " +
       "und auf Ihrem eigenen Rechner laufend, solange Sie es nicht anders entscheiden.",
+    licenceFile: "MIT-Lizenz lesen",
     docs: "Doku",
     project: "Projekt",
     engine: "Engine",
