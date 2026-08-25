@@ -32,8 +32,7 @@ export const en = {
   nav: {
     label: "Main",
     docs: "Docs",
-    themes: "Themes",
-    components: "Components",
+    registry: "Registry",
     cloud: "Cloud",
     github: "GitHub",
     switchTheme: "Switch theme",
@@ -45,6 +44,8 @@ export const en = {
     licence:
       "Documents as components, DOCX as output. Built in the open, MIT licensed, " +
       "and running on your own machine unless you decide otherwise.",
+    /** Accessible name for the MIT link on the release line. */
+    licenceFile: "Read the MIT licence",
     /** Column headings. `docs` also labels the first column. */
     docs: "Docs",
     project: "Project",

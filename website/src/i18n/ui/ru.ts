@@ -28,8 +28,7 @@ export const ru: UiStrings = {
   nav: {
     label: "Основная навигация",
     docs: "Документация",
-    themes: "Темы",
-    components: "Компоненты",
+    registry: "Реестр",
     cloud: "Облако",
     github: "GitHub",
     switchTheme: "Сменить тему",
@@ -40,6 +39,7 @@ export const ru: UiStrings = {
     licence:
       "Документы как компоненты, DOCX на выходе. Разрабатывается открыто, под " +
       "лицензией MIT, и работает на вашей машине, пока вы не решите иначе.",
+    licenceFile: "Читать лицензию MIT",
     docs: "Документация",
     project: "Проект",
     engine: "Движок",
