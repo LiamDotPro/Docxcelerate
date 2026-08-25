@@ -161,9 +161,11 @@ const CARDS = [
 
   </section>
 
-  <!-- The demo runs wider than the prose above it — it's the argument, not an
-       illustration of one. -->
-  <section class="mx-auto max-w-7xl px-5 pb-16 sm:px-8">
+  <!-- The demo runs wider than the prose above it — it is the argument, not an
+       illustration of one. It takes the page measure to do it: the hero copy is
+       held to max-w-3xl and max-w-xl inside the same band, so the demo is still
+       far the widest thing here without leaving the edge the nav sets. -->
+  <section class="mx-auto max-w-6xl px-5 pb-16 sm:px-8">
     <HeroDemo />
   </section>
 
@@ -211,7 +213,7 @@ const CARDS = [
        heading and prose each start on the same line across all three however
        long a translated title runs. -->
   <section class="border-b border-border">
-    <div class="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+    <div class="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
       <div class="grid gap-16 xl:grid-cols-3 xl:gap-0">
         {
           POINTS.map((point, index) => (
@@ -234,10 +236,19 @@ const CARDS = [
                 // so the figures wrap to different heights, the headings stop
                 // lining up and the narrowest column scrolls. Stacked, each
                 // figure gets the full measure and none of them scroll.
+                //
+                // The band sits on the page measure, not a wider one, so it
+                // starts on the same edge as the nav and the engine section
+                // below it. That costs the columns width, and the middle one —
+                // padded on both sides — is the one it comes off: the gutters
+                // are 8 rather than 11 to buy some of it back. It leaves the
+                // narrowest figure column around 20px clear of the longest
+                // line in PointFigure. Widen the gutters and that line scrolls.
+                //
                 // Hairlines between columns rather than boxes around them —
                 // the points are peers, not cards.
-                index > 0 && "xl:border-l xl:border-border xl:pl-11",
-                index < POINTS.length - 1 && "xl:pr-11",
+                index > 0 && "xl:border-l xl:border-border xl:pl-8",
+                index < POINTS.length - 1 && "xl:pr-8",
               ]}
             >
               <span class="mb-4 font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent tabular-nums">
