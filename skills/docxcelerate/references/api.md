@@ -47,6 +47,7 @@ interface PromptProps {
   generalPrompt?: string;     // what the node should say — the only required one
   infoPrompt?: string;        // context the model should have but not restate
   negativePrompt?: string;    // what to avoid
+  examplePrompt?: string;     // what a good answer looks like, written out
   placeholder?: string;       // what previews show in place of generated content
 }
 ```
@@ -152,12 +153,34 @@ before any `return`.
 | --- | --- | --- |
 | `useState` | `(initial: TState \| ((data: TData) => TState)) => [TState, setter]` | Data, taken in once and kept. The one door data comes through. |
 | `useShared` | `(key: string, initial) => [TValue, setter]` | A value left for the components rendered *after* this one, in document order. |
-| `useSetPrompts` | `(prompts: PromptDraft) => PromptDraft` | Prompts for the node this component yields. Calling it is what makes the node dynamic. |
+| `useAi` | `(config: AiConfig) => PromptDraft` | Everything a generated node needs, in one call. Calling it is what makes the node dynamic. |
+| `useSetPrompts` | `(prompts: PromptDraft) => PromptDraft` | The same prompts under their downstream names, for a hook adding house style to a node it does not own. |
 | `useSetPlaceholders` | `(placeholder: string \| { placeholder?: string })` | What previews show in place of generated content. |
 | `usePlaceholderData` | `() => PlaceholderData` | Stand-in values, seeded from where the component sits. |
 | `useFormat` | `(locale?: string) => Formatters` | Locale-aware formatting; defaults to the build locale (`en-GB`). |
 | `useAvailableTokens` | `() => number` | The token budget this build allotted — `2000` by default. |
 | `useDeriver` | `(name: string) => (output, ...inputs) => Promise<unknown>` | Runs a registered deriver **now**, during the build. |
+
+`useAi` is the one to reach for. It says in one call what a generated node is:
+
+```ts
+interface AiConfig {
+  ask: string;                  // what the node should say — required
+  placeholder: string;          // what stands in its place until written — required
+  voice?: string;               // how it should sound
+  from?: JsonObject | string;   // the facts to write from, as data or as prose
+  avoid?: string;               // what it must not say
+  example?: string | string[];  // what a good answer looks like, written out
+}
+```
+
+`placeholder` is required because a blank in a preview reads as a finished
+document. `example` is the field that buys the most: a described format is
+something a model interprets, a shown one is something it matches, so an example
+holds still the opening, the order, the length and the register and leaves only
+the per-document parts to be written. Give it as finished text, not a form with
+blanks in it. Pass an array when the shape legitimately varies by case — they
+travel numbered, and read as a pattern rather than a template.
 
 The `useState` setter is not a re-render request — a build is a single pass. It
 updates the value this component reads later, and the value anything sharing it

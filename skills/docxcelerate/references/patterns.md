@@ -288,7 +288,7 @@ import { markPng, markSvg } from "../assets.ts";
 Word will not embed an SVG without a raster beside it, which is what
 `fallbackSrc` is for: the screen draws the sharp SVG, the `.docx` gets the PNG.
 
-A dynamic image takes the same four prompt slots. `negativePrompt` earns its
+A dynamic image takes the same prompt slots. `negativePrompt` earns its
 place here more than anywhere: generated imagery fails in predictable ways —
 baked-in text, invented logos, recognisable faces — and the slot rules them out
 once, in the node.

@@ -150,6 +150,13 @@ const PROMPT_OPTIONS: NodeOption[] = [
     type: "string",
     summary: "Role and voice, applied ahead of the other prompts.",
   },
+  {
+    name: "examplePrompt",
+    type: "string",
+    summary:
+      "What a good answer looks like, written out as finished text. Shown last, " +
+      "because it is what the answer gets measured against.",
+  },
 ];
 
 export const NODE_TYPES: NodeTypeEntry[] = [

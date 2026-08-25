@@ -760,6 +760,7 @@ function instanceAt(context: RenderContext, path: string): ComponentInstance {
     existing.prompts.generalPrompt = undefined;
     existing.prompts.infoPrompt = undefined;
     existing.prompts.negativePrompt = undefined;
+    existing.prompts.examplePrompt = undefined;
     existing.prompts.placeholder = undefined;
     return existing;
   }
@@ -984,14 +985,18 @@ function settled(
 
 function isDynamic(prompts: PromptProps): boolean {
   return prompts.systemPrompt !== undefined || prompts.generalPrompt !== undefined ||
-    prompts.infoPrompt !== undefined || prompts.negativePrompt !== undefined;
+    prompts.infoPrompt !== undefined || prompts.negativePrompt !== undefined ||
+    prompts.examplePrompt !== undefined;
 }
 
 async function promptSpecs(
   prompts: PromptDraft,
   context: RenderContext,
 ): Promise<PromptSpec[]> {
-  const order: PromptKind[] = ["system", "general", "info", "negative"];
+  // The example reads last because it is the thing the answer is measured
+  // against: whatever an engine puts closest to where the writing starts is
+  // what the writing ends up shaped like.
+  const order: PromptKind[] = ["system", "general", "info", "negative", "example"];
   const specs: PromptSpec[] = [];
 
   for (const kind of order) {

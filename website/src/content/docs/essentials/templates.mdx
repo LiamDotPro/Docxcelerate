@@ -110,7 +110,7 @@ export const Letterhead: Section<{ children?: Yield }> = ({ children }) => (
 ```
 
 A shared hook is the other half of this. `useSetPrompts` sets prompts on whatever
-the *calling* component yields, so you can apply house style to a node the hook
+the *calling* component returns, so you can apply house style to a node the hook
 doesn't own:
 
 ```tsx
@@ -252,5 +252,5 @@ Publishing a branch stores both arms. Nesting branches multiplies what the
 document carries, so there's a limit: `branchLimit`, 32 by default. Passing it
 fails the build rather than producing a quietly enormous artifact.
 
-If you hit it, lift the decision into a deriver that yields one value — or raise
+If you hit it, lift the decision into a deriver that returns one value — or raise
 the limit, if the document really is that conditional.

@@ -119,9 +119,11 @@ export const TutorNote: Paragraph = () => {
 
 Only `generalPrompt` is required. `infoPrompt` is context the model should have
 but not restate; `negativePrompt` is what to avoid; `systemPrompt` is role and
-tone. All five slots (those four plus `placeholder`) can also be given as props,
-which reads better when they are short — and props win over the hook, so a
-caller can override what a shared hook set around it.
+tone; `examplePrompt` is a finished answer to match rather than a description of
+one, which is the cheapest way to pin down an opening, an order and a length. All
+six slots (those five plus `placeholder`) can also be given as props, which reads
+better when they are short — and props win over the hook, so a caller can
+override what a shared hook set around it.
 
 Previews resolve dynamic nodes to their placeholder, never to generated prose.
 Nothing leaves the machine, and the same build gives the same page every time.

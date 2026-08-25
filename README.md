@@ -109,6 +109,9 @@ export const Balance: Paragraph = () => {
     voice: "A housing officer writing to a tenant. Plain, no sales tone.",
     from: { balanceDue: state.balanceDue, dueBy: state.dueBy },
     avoid: "Do not invent a payment method or a phone number.",
+    example:
+      "Your account is £248.50 in arrears, and the balance is due by 14 March. " +
+      "Please get in touch before then so we can agree how to clear it.",
   });
 
   return <Paragraph id="balance" />;
@@ -119,6 +122,13 @@ You can imagine that if the account is a long way into arrears the engine may
 choose to write something firmer than it would at a few pounds. The `placeholder`
 is required, and deliberately so: a preview is how a document gets proofread, and
 a document proofread with a blank in it is a document nobody read.
+
+`example` is the one that does the most for the least. Describing a format is
+something a model has to interpret; showing it one is something it can match, so
+an example holds still the parts of a node that were never meant to vary — the
+opening, the order, the length, the register — and leaves only what genuinely
+differs per document. Write it as finished text rather than a form with blanks in
+it, and pass an array of them when the shape legitimately varies by case.
 
 Jump into our documentation to understand how you can structure documents with AI
 and create more complex documents for your own needs.

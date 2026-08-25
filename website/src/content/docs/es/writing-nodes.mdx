@@ -101,7 +101,7 @@ también se pueden dar como props, que se lee mejor cuando son cortos, y las pro
 ganan al hook — así quien lo llama puede sobrescribir lo que un hook compartido
 puso a su alrededor.
 
-Hay cuatro ranuras de prompt. Solo `generalPrompt` es obligatoria:
+Hay cinco ranuras de prompt. Solo `generalPrompt` es obligatoria:
 
 | Ranura | Para qué sirve |
 | --- | --- |
@@ -109,6 +109,14 @@ Hay cuatro ranuras de prompt. Solo `generalPrompt` es obligatoria:
 | `infoPrompt` | Contexto que el modelo debe tener pero no repetir |
 | `negativePrompt` | Qué evitar |
 | `systemPrompt` | Instrucciones de rol y tono |
+| `examplePrompt` | Cómo es una buena respuesta, escrita entera |
+
+`examplePrompt` es la primera a la que conviene recurrir. Decirle a un modelo qué
+forma quieres lo deja adivinando; enseñarle una le da algo que copiar. Un ejemplo
+fija lo que no quieres que cambie — cómo empieza, en qué orden va, cuánto ocupa,
+cuán formal suena — para que el modelo solo rellene lo que de verdad cambia de un
+documento a otro. Escríbela como texto terminado, no como un formulario con
+huecos, o solo estarás describiendo la forma otra vez.
 
 `Image` y `Graph` funcionan igual — dale un `src` o un `data` y se resuelve en
 local; dale prompts y no.

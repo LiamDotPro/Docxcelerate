@@ -38,6 +38,8 @@ export interface PromptProps {
   infoPrompt?: string;
   /** What the node must not say. */
   negativePrompt?: string;
+  /** What a good answer looks like, shown rather than described. */
+  examplePrompt?: string;
   /** What to show wherever the node has not been written yet. */
   placeholder?: string;
 }
