@@ -1,0 +1,54 @@
+/* Type. Three stacks, all system fonts — the product ships no webfont, so a
+   page built with this system loads no font files either. A fourth stack
+   matches the DOCX renderer for anything standing in for letter content. */
+:root {
+  --font-sans: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+  --font-letter: "Aptos", "Segoe UI", Arial, sans-serif;
+
+  /* Sizes as used on the site, kept at their authored values. */
+  --text-hero: clamp(2.6rem, 7vw, 4.5rem); /* h1, serif, 600, lh 1.02 */
+  --text-quote: clamp(1.5rem, 2.9vw, 2.15rem); /* pull quote, serif */
+  --text-h2: 1.875rem; /* section heading (sm:2.25rem) */
+  --text-h2-point: 1.75rem; /* mid-page point heading */
+  --text-h3: 1.25rem; /* step heading */
+  --text-h3-card: 1.125rem; /* trait card heading */
+  --text-lead: 1.125rem; /* hero lead / doc description */
+  --text-body: 1rem;
+  --text-body-point: 0.975rem;
+  --text-body-card: 0.95rem;
+  --text-sm: 0.875rem;
+  --text-code: 0.82rem;
+  --text-code-figure: 0.72rem;
+  --text-tree: 0.7rem;
+  --text-eyebrow: 0.65rem; /* mono, uppercase, tracking .16em */
+  --text-badge: 0.6rem; /* "soon" pill, figure tags */
+  --text-meta: 0.62rem; /* footer pills, attribution */
+
+  --leading-hero: 1.02;
+  --leading-quote: 1.45;
+  --leading-heading: 1.15;
+  --leading-body: 1.7;
+  --leading-prose: 1.75;
+
+  --tracking-hero: -0.03em;
+  --tracking-heading: -0.015em;
+  --tracking-eyebrow: 0.16em;
+  --tracking-label: 0.14em;
+  --tracking-pill: 0.08em;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Semantic aliases */
+  --type-display: var(--weight-semibold) var(--text-hero) / var(--leading-hero) var(--font-serif);
+  --type-quote: var(--weight-regular) var(--text-quote) / var(--leading-quote) var(--font-serif);
+  --type-heading: var(--weight-semibold) var(--text-h2) / var(--leading-heading) var(--font-serif);
+  --type-body: var(--weight-regular) var(--text-body) / var(--leading-body) var(--font-sans);
+  --type-code: var(--weight-regular) var(--text-code) / 1.6 var(--font-mono);
+  --measure-prose: 46rem;
+  --measure-lead: 36rem;
+}

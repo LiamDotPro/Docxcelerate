@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<!-- Harness: measures the design's named regions and prints them as JSON.
+     Served next to the fixture and loaded same-origin by headless Chrome;
+     the verifier reads the JSON out of the dumped DOM. Coordinates are
+     page-relative CSS px at 96dpi (divide by 3.77953 for mm). -->
+<body>
+<pre id="out">pending</pre>
+<iframe id="f" src="./invoice-v2.dc.html" style="width:900px;height:2600px;border:0"></iframe>
+<script>
+window.addEventListener("load", () => setTimeout(() => {
+  const doc = document.getElementById("f").contentDocument;
+  const arts = [...doc.querySelectorAll("article")];
+  // Smallest element matching the selector whose text contains the anchor —
+  // document order returns the outermost container, which is rarely the region.
+  const byText = (root, sel, text) =>
+    [...root.querySelectorAll(sel)]
+      .filter((el) => el.textContent.includes(text))
+      .sort((a, b) => {
+        const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+        return ra.width * ra.height - rb.width * rb.height;
+      })[0] ?? null;
+  const rel = (el, art) => {
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    const a = art.getBoundingClientRect();
+    const cs = doc.defaultView.getComputedStyle(art);
+    const ox = a.x + parseFloat(cs.borderLeftWidth);
+    const oy = a.y + parseFloat(cs.borderTopWidth);
+    return {
+      x: +(r.x - ox).toFixed(2), y: +(r.y - oy).toFixed(2),
+      w: +r.width.toFixed(2), h: +r.height.toFixed(2),
+    };
+  };
+  const union = (els, art) => {
+    const rs = els.map((el) => rel(el, art)).filter(Boolean);
+    if (rs.length === 0) return null;
+    const x = Math.min(...rs.map((r) => r.x)), y = Math.min(...rs.map((r) => r.y));
+    const x2 = Math.max(...rs.map((r) => r.x + r.w)), y2 = Math.max(...rs.map((r) => r.y + r.h));
+    return { x: +x.toFixed(2), y: +y.toFixed(2), w: +(x2 - x).toFixed(2), h: +(y2 - y).toFixed(2) };
+  };
+
+  const p1 = arts[0], p2 = arts[1];
+  const chargeRows = [...p1.querySelectorAll('div[style*="1fr 16mm"]')];
+  const regions = {
+    page1: {
+      letterhead: rel(p1.querySelector("header"), p1),
+      rule: rel(p1.querySelector('div[style*="height: 3px"]'), p1),
+      band: rel(byText(p1, 'div[style*="rgb(244, 246, 253)"]', "Issue date"), p1),
+      "status-pill": rel(byText(p1, "span", "Awaiting payment"), p1),
+      parties: rel(byText(p1, 'div[style*="grid-template-columns: 1fr 1fr"]', "Billed to"), p1),
+      "summary-label": rel(byText(p1, "span", "Engagement summary"), p1),
+      summary: rel(byText(p1, "p", "Sprint 14"), p1),
+      "charges-head": rel(chargeRows[0], p1),
+      "charges-body": union(chargeRows.slice(1), p1),
+      "charges-rule": rel(p1.querySelector('div[style*="height: 1px"]'), p1),
+      "totals-panel": rel(byText(p1, 'div[style*="width: 84mm"]', "Subtotal"), p1),
+      // React reserializes inline hex colors as rgb(...), so the anchors below
+      // match the serialized form, not the authored one.
+      "total-bar": rel(byText(p1, 'div[style*="rgb(30, 42, 102)"]', "Total due"), p1),
+      closer: rel(byText(p1, "span", "are on page 2"), p1),
+      footer: rel(p1.querySelector("footer"), p1),
+      "charge-row-heights": chargeRows.slice(1).map((r) => +r.getBoundingClientRect().height.toFixed(2)),
+    },
+    page2: {
+      "p2-letterhead": rel(p2.querySelector("header"), p2),
+      "p2-rule": rel(p2.querySelector('div[style*="height: 3px"]'), p2),
+      "bank-grid": rel(byText(p2, 'div[style*="auto 1fr"]', "Sort code"), p2),
+      "reference-panel": rel(byText(p2, 'div[style*="rgb(244, 246, 253)"]', "Payment reference"), p2),
+      terms: rel(byText(p2, 'div[style*="flex-direction: column"]', "Payment within 14 days"), p2),
+      "scan-card": rel(byText(p2, 'div[style*="rgb(217, 221, 235)"]', "Scan to pay"), p2),
+      "qr-canvas": rel(p2.querySelector("canvas"), p2),
+      "footer-2": rel(p2.querySelector("footer"), p2),
+    },
+    meta: {
+      pagePx: { w: 793.7, h: 1122.5 },
+      dpi: 96,
+      pxPerMm: 3.77953,
+      fontProbe: (() => {
+        const c = doc.createElement("canvas").getContext("2d");
+        c.font = "40px Aptos, monospace";
+        const aptos = c.measureText("Handgloves 1234").width;
+        c.font = "40px monospace";
+        return { aptosWidth: +aptos.toFixed(1), monoWidth: +c.measureText("Handgloves 1234").width.toFixed(1) };
+      })(),
+    },
+  };
+  document.getElementById("out").textContent = JSON.stringify(regions);
+}, 2500));
+</script>
+</body>
+</html>

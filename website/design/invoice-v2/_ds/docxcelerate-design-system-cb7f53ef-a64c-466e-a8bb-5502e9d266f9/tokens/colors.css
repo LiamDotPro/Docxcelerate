@@ -1,0 +1,74 @@
+/* Ledger Green — lifted verbatim from website/src/styles/global.css.
+   The accent is a deep pine pulled slightly toward blue so it sits correctly
+   beside the cool greys the DOCX renderer emits (#e6e8ed, #657287). */
+:root {
+  --color-ledger-50: #f0f7f4;
+  --color-ledger-100: #dbeee5;
+  --color-ledger-200: #b9ddce;
+  --color-ledger-300: #8ac5ae;
+  --color-ledger-400: #55a689;
+  --color-ledger-500: #2f8a6b;
+  --color-ledger-600: #1d7357;
+  --color-ledger-700: #17624a;
+  --color-ledger-800: #124e3b;
+  --color-ledger-900: #0e3b2d;
+  --color-ledger-950: #071f18;
+
+  /* Semantic — light, also the un-stamped default. Contrast figures are
+     against the ground each token is used on. */
+  --paper: #ffffff;
+  --surface: #f7f9f8;
+  --surface-2: #eef2f0;
+  --border: #dfe5e2;
+  --border-firm: #c8d3ce;
+  --ink: #16211c; /* 16.56 on paper */
+  --muted: #5c6b64; /* 5.61 on paper */
+  --accent: #17624a; /* 7.29 on paper — text accent */
+  --accent-deep: #124e3b; /* 9.64 on paper — hover for accent text/fills */
+  --accent-solid: #17624a; /* fills that carry --on-accent text */
+  --accent-tint: #f0f7f4; /* accent on tint: 6.70 */
+  --on-accent: #ffffff; /* 7.29 on accent-solid */
+  --selection: #dbeee5;
+  /* The one non-green in the palette. Named for the red a scribe used for the
+     parts of a document that were not the text: string literals in code
+     figures and removed lines in a diff, and nothing else. */
+  --rubric: #9a3b31; /* 6.93 on paper */
+  --rubric-tint: #fbeeec;
+  /* Marker-pen wash, for the run of a licence a reader actually cares about. */
+  --wash: #e4efe7; /* ink on wash: 13.94 */
+
+  /* The DOCX renderer's own greys — anything representing a Word window or a
+     rendered page uses these, not the site palette. */
+  --docx-chrome: #fbfbfd;
+  --docx-chrome-border: #d8dce3;
+  --docx-workspace: #e6e8ed;
+  --docx-page: #ffffff;
+  --docx-page-border: #c7ccd6;
+  --docx-text: #111827;
+  --docx-text-muted: #657287;
+  --docx-accent: #2f5fbd;
+  --docx-titlebar: #204c91;
+}
+
+/* Dark is applied by stamping the document: `data-theme="dark"` on <html>.
+   The site adds a prefers-color-scheme rule on top of this (scoped
+   `:root:not([data-theme="light"])`) so an unstamped page follows the OS —
+   copy that rule into a page's own stylesheet if you want that behaviour. */
+:root[data-theme="dark"] {
+  --paper: #0f1a15;
+  --surface: #16211c;
+  --surface-2: #1c2a24;
+  --border: #253530;
+  --border-firm: #33453d;
+  --ink: #d7e0da;
+  --muted: #93a29a;
+  --accent: #8ac5ae;
+  --accent-deep: #b9ddce;
+  --accent-solid: #1d7357;
+  --accent-tint: #16281f;
+  --on-accent: #f0f7f4;
+  --selection: #1d7357;
+  --rubric: #e8998e;
+  --rubric-tint: #2a1b19;
+  --wash: #1d4a39;
+}
