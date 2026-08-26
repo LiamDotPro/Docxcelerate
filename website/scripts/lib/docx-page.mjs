@@ -90,10 +90,117 @@ export async function renderDocxPreview(document) {
     },
   );
 
+  inlinePictureWrappers(bodyContainer);
+  fillPageFields(bodyContainer);
+  applyTableIndents(bodyContainer, document);
+
   return {
     styles: withFontFallbacks(styleContainer.innerHTML),
     pages: withImageTypes(withFontFallbacks(bodyContainer.innerHTML)),
   };
+}
+
+/**
+ * The box docx-preview puts a picture in, made something a paragraph can hold.
+ *
+ * A drawing is wrapped in a `<div>`, and docx-preview appends it to the `<p>`
+ * its run belongs to. In the DOM that is built by hand it stands; serialised to
+ * HTML and parsed again it does not, because a `<div>` may not sit inside a
+ * `<p>` — the parser closes the paragraph at the picture, leaves an empty one
+ * behind where the close tag lands, and drops the words that followed the
+ * picture out of the paragraph altogether. The stray paragraph takes the
+ * document's default leading rather than the line the file asked for, which is
+ * how a one-line footer bar came out 73px deep against Word's 29.
+ *
+ * The wrapper does the same job as a `<span>` set `inline-block`, and a span is
+ * what a paragraph may contain. Nothing about the layout changes; what changes
+ * is that the layout survives being written down.
+ */
+function inlinePictureWrappers(container) {
+  for (const wrapper of container.querySelectorAll("p div")) {
+    const span = container.ownerDocument.createElement("span");
+
+    span.setAttribute("style", wrapper.getAttribute("style") ?? "");
+    while (wrapper.firstChild !== null) {
+      span.appendChild(wrapper.firstChild);
+    }
+    wrapper.replaceWith(span);
+  }
+}
+
+/**
+ * The indent a bleeding table declares, put back.
+ *
+ * docx-preview reads a table's indent with `parseIndentation`, which looks for
+ * a `w:left` attribute — and `w:tblInd` does not carry one, its value is in
+ * `w:w`. So the indent is parsed and then dropped, and a footer bar the file
+ * says reaches the paper's edge stops at the margin instead. Word honours it:
+ * measured, the bar starts 0pt from the edge and runs 595.3pt, as drawn.
+ *
+ * This writes back what the file already says and Word already draws — the same
+ * standing as filling in a PAGE field, and for the same reason. It is not the
+ * preview being dressed up as something the document does not say; it is the
+ * preview being held to what it does.
+ *
+ * A bleeding table is known by its own width: docx-preview writes `tblW` onto
+ * the element, and nothing but a bleed makes a table wider than the text
+ * column it stands in.
+ */
+function applyTableIndents(container, document) {
+  const margins = document?.style?.page?.margins;
+  if (typeof margins?.leftMm !== "number" || typeof margins?.rightMm !== "number") {
+    return;
+  }
+
+  // A millimetre is 72/25.4 points.
+  const pageMm = document?.style?.page?.size === "Letter" ? 215.9 : 210;
+  const columnPt = (pageMm - margins.leftMm - margins.rightMm) * (72 / 25.4);
+
+  for (const table of container.querySelectorAll("table")) {
+    const declared = Number.parseFloat(table.style.width);
+    if (!Number.isFinite(declared) || declared <= columnPt + 1) {
+      continue;
+    }
+
+    table.style.marginInlineStart = `-${margins.leftMm}mm`;
+    table.style.marginInlineEnd = `-${margins.rightMm}mm`;
+  }
+}
+
+/**
+ * PAGE and NUMPAGES, filled in from the layout that just happened.
+ *
+ * docx-preview drops a field run on the floor — its `renderRun` returns null
+ * for one — so a footer Word prints as "1 / 2" arrives here as the bare "/"
+ * left between the two dropped fields. The numbers are written back from the
+ * rendered section count, which is the count Word reaches too: it is the same
+ * file and the same pagination.
+ *
+ * This is the one thing the preview is allowed to write that the renderer did
+ * not, and it is JS rather than CSS on purpose. Nothing is being made to look
+ * like something the file does not say — the file says PAGE, and this writes
+ * the page it landed on.
+ */
+function fillPageFields(container) {
+  const pages = [...container.querySelectorAll("section.docx")];
+
+  pages.forEach((page, index) => {
+    const footer = page.querySelector(":scope > footer");
+    if (footer === null) {
+      return;
+    }
+
+    // The separator the document wrote between the two fields, and the only
+    // thing left of them. Take the innermost element holding it, so the
+    // number lands beside the slash rather than replacing the whole footer.
+    const candidates = [...footer.querySelectorAll("*")]
+      .filter((element) => element.children.length === 0)
+      .filter((element) => element.textContent.replace(/\s+/g, "") === "/");
+
+    for (const element of candidates) {
+      element.textContent = `${index + 1} / ${pages.length}`;
+    }
+  });
 }
 
 /**
