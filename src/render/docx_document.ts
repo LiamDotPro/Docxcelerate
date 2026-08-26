@@ -456,6 +456,45 @@ function blockOf(
 }
 
 /**
+ * The block something is drawn with, from the widest naming to the narrowest.
+ *
+ * Each statement overrides the last property by property. A cell that names a
+ * variant is saying what is different about it, not offering a replacement for
+ * everything its row and table already said — take it as a replacement and a
+ * cell wanting the band's tint and its own leading has to restate the tint,
+ * and a cell that forgets comes out untinted inside a tinted band.
+ *
+ * Runs already merged this way where a paragraph's variant met its cell's, so
+ * this is the same rule reaching the rest of the block.
+ */
+function blockFor(
+  style: DocumentStyle,
+  ...variants: (string | undefined)[]
+): DocumentBlockStyle | undefined {
+  const named = variants
+    .map((variant) => blockOf(style, variant))
+    .filter((block): block is DocumentBlockStyle => block !== undefined);
+
+  if (named.length === 0) {
+    return undefined;
+  }
+
+  const merged: Record<string, unknown> = {};
+
+  for (const block of named) {
+    for (const [property, value] of Object.entries(block)) {
+      // A property a block leaves out is one it has no opinion on, so it must
+      // not overwrite the opinion underneath it.
+      if (value !== undefined) {
+        merged[property] = value;
+      }
+    }
+  }
+
+  return merged as DocumentBlockStyle;
+}
+
+/**
  * How a block's text is set, as Word measures it.
  *
  * The same fields the screen reads, so a variant means one thing rather than
@@ -602,6 +641,29 @@ function imageCard(
   });
 }
 
+/**
+ * The room a cell leaves around what it holds, side by side.
+ *
+ * `paddingPt` sets all four; `paddingSidesPt` names the ones that differ. A
+ * theme that says neither gets the room the screen leaves, since a column that
+ * lines up in the preview and not in Word is the preview lying.
+ */
+function cellPadding(
+  block: DocumentBlockStyle | undefined,
+  header: boolean,
+): { top: number; right: number; bottom: number; left: number } {
+  const vertical = block?.paddingPt ?? (header ? 6 : 5);
+  const horizontal = block?.paddingPt ?? 8;
+  const sides = block?.paddingSidesPt;
+
+  return {
+    top: sides?.top ?? vertical,
+    bottom: sides?.bottom ?? vertical,
+    left: sides?.left ?? horizontal,
+    right: sides?.right ?? horizontal,
+  };
+}
+
 /** How a block sits against the height of its cell, when it says. */
 function verticalAlignOf(block: DocumentBlockStyle | undefined) {
   if (block?.valign === "center") return VerticalAlign.CENTER;
@@ -616,6 +678,12 @@ function verticalAlignOf(block: DocumentBlockStyle | undefined) {
  * did before a block could have an opinion.
  */
 function blockLine(block: DocumentBlockStyle | undefined, style: DocumentStyle) {
+  // A strip says its depth outright: it is a band of colour with no words in
+  // it, so there is no leading to reason about, only a height.
+  if (block?.heightPt !== undefined) {
+    return { line: Math.round(block.heightPt * 20), lineRule: LineRuleType.EXACT };
+  }
+
   const multiple = block?.lineHeight ?? style.typography.bodyLineHeight;
   const sizePt = block?.fontSizePt ?? style.typography.bodySizePt;
 
@@ -886,10 +954,9 @@ function renderRow(
     const span = child.span ?? 1;
     const align = child.align ?? table.columns[column]?.align ?? "left";
 
-    // A cell's own variant wins over its row's, which wins over the table's —
-    // the narrower statement is the more deliberate one.
-    const block = blockOf(style, child.variant) ?? blockOf(style, row.variant) ??
-      blockOf(style, table.variant);
+    // The table's block, then its row's, then the cell's — each overriding the
+    // last property by property rather than wholesale.
+    const block = blockFor(style, table.variant, row.variant, child.variant);
     // The accent bar over a heading is what a header row looks like when the
     // theme has not named one. Once it has — for the cell, its row or its
     // table — that naming is the whole answer, and the default steps aside
@@ -900,10 +967,7 @@ function renderRow(
     // The theme's padding, or the room a cell is given when it says nothing —
     // the same room the screen leaves, since a column that lines up in the
     // preview and not in Word is the preview lying about the document.
-    const padding = block?.paddingPt;
-    const inset = padding === undefined
-      ? { vertical: row.header ? 6 : 5, horizontal: 8 }
-      : { vertical: padding, horizontal: padding };
+    const inset = cellPadding(block, row.header === true);
 
     cells.push(
       new TableCell({
@@ -918,10 +982,10 @@ function renderRow(
             : separatorBorder(row, fill, furniture, style)),
         margins: {
           marginUnitType: WidthType.DXA,
-          top: ptToTwips(inset.vertical),
-          bottom: ptToTwips(inset.vertical),
-          left: ptToTwips(inset.horizontal),
-          right: ptToTwips(inset.horizontal),
+          top: ptToTwips(inset.top),
+          bottom: ptToTwips(inset.bottom),
+          left: ptToTwips(inset.left),
+          right: ptToTwips(inset.right),
         },
         children: cellContent(child, align, row.header === true, block, style, furniture),
       }),

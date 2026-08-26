@@ -41,12 +41,12 @@ export const Parties: SectionComponent = () => {
           <Cell variant="label">From</Cell>
         </Row>
         <Row>
-          <Cell id="billed-to" variant="lineItem">
+          <Cell id="billed-to" variant="addressCell">
             <Paragraph>{state.billedTo.name}</Paragraph>
             <Paragraph>{state.billedTo.attn}</Paragraph>
             {state.billedTo.addressLines.map((line) => <Paragraph>{line}</Paragraph>)}
           </Cell>
-          <Cell id="billed-from" variant="lineItem">
+          <Cell id="billed-from" variant="addressCell">
             <Paragraph>{state.sender.name}</Paragraph>
             {state.sender.addressLines.map((line) => <Paragraph>{line}</Paragraph>)}
             <Paragraph>{state.sender.email}</Paragraph>

@@ -63,7 +63,18 @@ const PROBE_MODULES = {
 /** Generous ceilings: Word COM and PDF rasterising are slow, hangs are worse. */
 const PROBE_TIMEOUT_MS = { A: 60_000, B: 240_000, C: 300_000, V: 300_000 };
 
-const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
+/**
+ * A hash of what a file says, not of how the checkout happened to write it.
+ *
+ * Git normalises line endings on the way in and out, so a fixture frozen on
+ * one platform and read back on another differs by every newline in it while
+ * saying exactly the same thing. Hashing the bytes made I1 and I2 report a
+ * drift that was purely CRLF, on a working tree nobody had edited.
+ */
+const sha256 = (content) =>
+  createHash("sha256")
+    .update(Buffer.from(content).toString("utf8").replaceAll("\r\n", "\n"), "utf8")
+    .digest("hex");
 
 /** A short printable form for the board's `(measured vs expected)` column. */
 function shown(value) {

@@ -58,7 +58,7 @@ export const RunningFooter: Nodes = () => {
     <Table
       id="running-foot"
       variant="footerBar"
-      columns={[{ width: "auto" }, { width: 52 }, { width: 18, align: "right" }, { width: 11 }]}
+      columns={[{ width: "auto" }, { width: 52 }, { width: 29, align: "right" }]}
     >
       <Row>
         <Cell id="foot-registration">{state.registration}</Cell>
@@ -77,7 +77,7 @@ export const RunningFooter: Nodes = () => {
             </Paragraph>
           )}
         </Cell>
-        <Cell id="foot-page">
+        <Cell id="foot-page" variant="footerEdge">
           <PageNumber id="foot-page-number" />
         </Cell>
       </Row>

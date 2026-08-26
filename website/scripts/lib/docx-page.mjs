@@ -20,7 +20,6 @@
  * ships flat HTML rather than a renderer and a `.docx` to every visitor.
  */
 import { settleDocxPreview } from "docxcelerate/preview";
-import { settleDocxPreview } from "docxcelerate/preview";
 import { JSDOM } from "jsdom";
 
 /** The one window the whole build renders in. */
@@ -103,6 +102,7 @@ export async function renderDocxPreview(document) {
     pages: withImageTypes(withFontFallbacks(bodyContainer.innerHTML)),
   };
 }
+
 /**
  * A font the reader does not have, falling back to one of the same kind.
  *

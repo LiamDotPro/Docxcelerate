@@ -85,7 +85,6 @@ export const invoiceStyle: DocumentStyle = {
     },
     /** The status pill, when there is still something to pay. */
     badge: {
-      valign: "center",
       fill: "FBF0DC",
       border: "E5C78A",
       color: "8A5A06",
@@ -97,7 +96,6 @@ export const invoiceStyle: DocumentStyle = {
     },
     /** The same pill, once it is settled. */
     "badge-done": {
-      valign: "center",
       fill: "2C3D8F",
       border: "2C3D8F",
       color: "FFFFFF",
@@ -111,12 +109,9 @@ export const invoiceStyle: DocumentStyle = {
     rule: {
       fill: "2C3D8F",
       bleed: true,
-      // A strip, not a line of type. Left at a text size it draws a navy band
-      // a whole line deep; the design's is three pixels. The leading is what
-      // sets a strip's depth -- 0.2 of a line is 2.4pt, and Word will not draw
-      // a line thinner than the face in it, so the face goes down with it.
-      fontSizePt: 1,
-      lineHeight: 0.2,
+      // A strip, not a line of type: three pixels of navy, which is what the
+      // design draws and what a depth stated in points says outright.
+      heightPt: 2.25,
       spacingAfterPt: 0,
     },
     /**
@@ -138,6 +133,16 @@ export const invoiceStyle: DocumentStyle = {
       paddingPt: 15,
       fontSizePt: 7.5,
       lineHeight: 1.2,
+    },
+    /**
+     * The last cell of the footer bar.
+     *
+     * The bar runs to the paper's edge; its page number stops where the design
+     * stops it. Saying so on the cell beats a spacer column the document does
+     * not otherwise have — and the bar's fill and centring still reach it.
+     */
+    footerEdge: {
+      paddingSidesPt: { right: 46 },
     },
     /** The row a reader's eye stops on. */
     totalRow: {
@@ -221,14 +226,18 @@ export const invoiceStyle: DocumentStyle = {
       borderSides: [],
     },
     /**
-     * A band cell: a table row's leading, sat on the line of its neighbours.
+     * A stacked cell: an address, a name over a value.
      *
-     * A cell's own variant is the whole answer — it does not inherit the
-     * band's centring — so a cell that wants both has to say both.
+     * A charge row's leading is set for a description with a note under it;
+     * a five-line address on the same setting is airier than the design draws
+     * it, and the two are not the same kind of thing.
      */
+    addressCell: {
+      lineHeight: 1.45,
+    },
+    /** A band cell: a table row's leading. The band says the rest. */
     bandCell: {
       lineHeight: 1.2,
-      valign: "center",
     },
     /**
      * A row of a table, set as a row rather than as prose.

@@ -100,6 +100,22 @@ const style: DocumentStyle = {
     measured: {
       maxWidthMm: 100,
     },
+    /** A strip of colour that says its own depth. */
+    hairline: {
+      fill: "2C3D8F",
+      heightPt: 2.25,
+      spacingAfterPt: 0,
+    },
+    /** A bar whose last words stop short of the edge it runs to. */
+    edgeBar: {
+      fill: "1E2A66",
+      paddingPt: 6,
+      paddingSidesPt: { right: 46 },
+    },
+    /** Named on a cell inside a `band` table: says leading, nothing else. */
+    tightCell: {
+      lineHeight: 1.2,
+    },
   },
 };
 
@@ -521,6 +537,63 @@ test("a data URI carrying a parameter is still a picture", async () => {
   // says one is missing.
   assertStringIncludes(xml, "<w:drawing>");
   assertEquals(xml.includes("[image: Code]"), false);
+});
+
+test("a cell's variant says what differs, not what everything is", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" variant="band" columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell id="c" variant="tightCell">Issue date</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  // `tightCell` names a leading and nothing else, so the band's tint, border
+  // and padding still reach it. Taking the narrower naming as a replacement
+  // left a cell untinted inside a tinted band unless it restated the tint —
+  // and the one that forgot is how this was found.
+  assertStringIncludes(xml, 'w:fill="F4F6FD"');
+  assertStringIncludes(xml, 'w:color="E3E7F5"');
+  assertStringIncludes(xml, '<w:spacing w:after="0" w:line="240" w:lineRule="exact"/>');
+});
+
+test("a strip says how deep it is rather than shrinking a font to get there", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="rule" variant="hairline" />
+      </Document>,
+    ),
+  );
+
+  // 2.25pt of navy, stated. The alternative was a 1pt face at a fifth of a
+  // line, which reaches the same depth and says nothing about what is drawn.
+  assertStringIncludes(xml, 'w:fill="2C3D8F"');
+  assertStringIncludes(xml, '<w:spacing w:after="0" w:line="45" w:lineRule="exact"/>');
+});
+
+test("a block can leave more room on one side than the others", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell id="c" variant="edgeBar">1 / 2</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  // A bar that runs to the paper's edge still wants its last words to stop
+  // short of it. 6pt on three sides, 46 on the right — and no spacer column,
+  // which is what holding the gap used to take.
+  assertStringIncludes(xml, '<w:top w:type="dxa" w:w="120"/>');
+  assertStringIncludes(xml, '<w:right w:type="dxa" w:w="920"/>');
 });
 
 test("a variant the theme has never heard of packs as an ordinary block", async () => {

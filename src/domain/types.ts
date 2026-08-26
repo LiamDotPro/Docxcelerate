@@ -220,6 +220,28 @@ export interface DocumentBlockStyle {
   /** Space between the block's edge and its content, in points. */
   paddingPt?: number;
   /**
+   * The sides whose padding differs from the rest.
+   *
+   * A bar that runs to the paper's edge still wants its last words to stop
+   * short of it. Naming one side beats inventing a spacer column to hold the
+   * gap, which is a column the document does not otherwise have.
+   */
+  paddingSidesPt?: {
+    top?: number;
+    right?: number;
+    bottom?: number;
+    left?: number;
+  };
+  /**
+   * How deep the block is, in points, when it is a strip rather than type.
+   *
+   * A rule is a band of colour with no words in it, and its depth is the whole
+   * of what it looks like. Without this a theme has to reach that depth by
+   * shrinking a font nobody reads until the line collapses around it, which
+   * says nothing about what is being drawn.
+   */
+  heightPt?: number;
+  /**
    * Whether the block runs the full width of the page rather than the text.
    *
    * A tinted strip of dates under a letterhead is a band across the sheet, not
