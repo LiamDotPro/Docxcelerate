@@ -67,6 +67,17 @@ export interface DocumentProps extends CommonElementProps {
   header?: Yield;
   /** Nodes drawn at the foot of every page — the place a `<PageNumber>` goes. */
   footer?: Yield;
+  /**
+   * What the top of the *first* page shows, when it differs from `header`.
+   *
+   * A letter whose letterhead is the top of page one does not want the running
+   * strip repeating above it. `false` means the first page shows nothing where
+   * the other pages show `header`; nodes mean it shows those instead. Absent
+   * means every page gets `header`, which is what running furniture is.
+   */
+  firstHeader?: Yield | false;
+  /** The foot of the first page, when it differs from `footer`. */
+  firstFooter?: Yield | false;
   /** The body of the document. */
   children?: Yield;
 }
@@ -75,6 +86,15 @@ export interface DocumentProps extends CommonElementProps {
 export interface SectionProps extends CommonElementProps {
   /** The heading printed above the section. */
   title: string;
+  /**
+   * Whether the title is printed. Defaults to `true`.
+   *
+   * `false` keeps the title as the section's *name* — the id it derives, its
+   * TOC entry, the address a request targets — while printing nothing. For a
+   * section whose content already announces itself, like a table whose header
+   * row says what the columns are.
+   */
+  showTitle?: boolean;
   /** The nodes the section contains. */
   children?: Yield;
 }

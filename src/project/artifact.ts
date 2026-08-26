@@ -259,6 +259,10 @@ export async function buildProjectEngineDocument<TData>(
   return {
     ...doc,
     nodes: removeEmptyDynamicText(doc.nodes),
+    header: doc.header && removeEmptyDynamicText(doc.header),
+    footer: doc.footer && removeEmptyDynamicText(doc.footer),
+    firstHeader: doc.firstHeader && removeEmptyDynamicText(doc.firstHeader),
+    firstFooter: doc.firstFooter && removeEmptyDynamicText(doc.firstFooter),
     style: project.style,
     metadata: project.metadata ? { ...project.metadata, ...doc.metadata } : doc.metadata,
   };
