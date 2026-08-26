@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { buildDocument } from "docxcelerate";
-import { documentXml } from "./docx.ts";
+import { documentXml, partNames, partXml } from "./docx.ts";
 import type { DocumentModel, DocumentStyle } from "docxcelerate";
 import {
   Cell,
@@ -72,6 +72,49 @@ const style: DocumentStyle = {
       weight: "bold",
       transform: "uppercase",
       letterSpacingEm: 0.1,
+    },
+    /** A money column: its own face, and set tighter than prose. */
+    money: {
+      font: "Consolas",
+      lineHeight: 1.2,
+    },
+    /** The muted note under a description, tighter still. */
+    note: {
+      color: "5A6482",
+      fontSizePt: 8,
+      lineHeight: 1.1,
+    },
+    /** Every other body row, tinted — the renderer finds this by name. */
+    rowAlt: {
+      fill: "F7F8FD",
+    },
+    /** A block that draws no edges, and says so. */
+    noRules: {
+      borderSides: [],
+    },
+    /** A block that sits its contents on the line of the tallest cell. */
+    centred: {
+      valign: "center",
+    },
+    /** Prose held to a measure narrower than the text column. */
+    measured: {
+      maxWidthMm: 100,
+    },
+    /** A strip of colour that says its own depth. */
+    hairline: {
+      fill: "2C3D8F",
+      heightPt: 2.25,
+      spacingAfterPt: 0,
+    },
+    /** A bar whose last words stop short of the edge it runs to. */
+    edgeBar: {
+      fill: "1E2A66",
+      paddingPt: 6,
+      paddingSidesPt: { right: 46 },
+    },
+    /** Named on a cell inside a `band` table: says leading, nothing else. */
+    tightCell: {
+      lineHeight: 1.2,
     },
   },
 };
@@ -170,6 +213,389 @@ test("a cell's variant sets its text, not only its background", async () => {
   assertStringIncludes(xml, "<w:tcMar>");
 });
 
+test("a block can name its own face, so a money column lines up", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }, { width: "auto" }]}>
+          <Row>
+            <Cell id="desc">Discovery workshop</Cell>
+            <Cell id="amount" variant="money">£1,520.00</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  // Proportional digits do not line up under one another, so the figure needs
+  // a face whose digits are all one width — and the prose beside it must not
+  // be dragged into it.
+  assertStringIncludes(xml, '<w:rFonts w:ascii="Consolas"');
+  const amountAt = xml.indexOf("1,520.00");
+  const descAt = xml.indexOf("Discovery workshop");
+  assertEquals(xml.slice(descAt - 400, descAt).includes("Consolas"), false);
+  assertEquals(xml.slice(amountAt - 400, amountAt).includes("Consolas"), true);
+});
+
+test("a block can set its own leading, and a paragraph's beats its cell's", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell id="c" variant="money">
+              <Paragraph id="p1">Discovery workshop</Paragraph>
+              <Paragraph id="p2" variant="note">Sprint 14, two consultants</Paragraph>
+            </Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  // Stated in points, and exactly: 1.2 of a 10pt face is 12pt (240 twips) for
+  // the cell, 1.1 of the note's 8pt is 8.8pt (176) inside it, and the body's
+  // 1.4 of 10pt (280) is neither. A multiple would have meant one thing to
+  // Word and another to a browser; a number of points means one thing.
+  assertStringIncludes(xml, '<w:spacing w:after="0" w:line="240" w:lineRule="exact"/>');
+  assertStringIncludes(xml, '<w:spacing w:after="0" w:line="176" w:lineRule="exact"/>');
+  assertEquals(xml.includes('w:line="280"'), false);
+});
+
+test("a block that names no leading is still set on the body's", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a">Ordinary prose.</Paragraph>
+      </Document>,
+    ),
+  );
+
+  // 1.4 of the body's 10pt is 14pt — unchanged by a block having gained the
+  // option to differ, and still said as a measurement rather than a ratio.
+  assertStringIncludes(xml, '<w:spacing w:after="120" w:line="280" w:lineRule="exact"/>');
+});
+
+test("a picture inside a paragraph shares its line rather than taking one", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="credit">
+          <Image id="mark" src={PIXEL} alt="" width={8} height={8} />
+          Generated with Docxcelerate
+        </Paragraph>
+      </Document>,
+    ),
+  );
+
+  // One `w:p`, holding both the drawing and the words. Given a paragraph of
+  // its own the mark becomes a picture with a caption under it, and a one-line
+  // footer bar three lines deep.
+  const paragraphs = xml.match(/<w:p>[\s\S]*?<\/w:p>/g) ?? [];
+  const credit = paragraphs.filter((p) => p.includes("Generated with Docxcelerate"));
+  assertEquals(credit.length, 1);
+  assertEquals(credit[0].includes("<w:drawing>"), true);
+  // And the mark leads the line, as it was written.
+  assertEquals(
+    credit[0].indexOf("<w:drawing>") < credit[0].indexOf("Generated with Docxcelerate"),
+    true,
+  );
+});
+
+test("a paragraph with no picture is the single run it always was", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="p">Just words.</Paragraph>
+      </Document>,
+    ),
+  );
+
+  const paragraphs = (xml.match(/<w:p>[\s\S]*?<\/w:p>/g) ?? [])
+    .filter((p) => p.includes("Just words."));
+  assertEquals(paragraphs.length, 1);
+  assertEquals((paragraphs[0].match(/<w:r>/g) ?? []).length, 1);
+});
+
+test("a page number in a cell takes the column, not the body's own mind", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }, { width: 18, align: "right" }]}>
+          <Row>
+            <Cell id="left">Registered in England</Cell>
+            <Cell id="right">
+              <PageNumber id="n" />
+            </Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  // The field paragraph is the cell's, so it takes the column's alignment and
+  // the cell's zero spacing — not the 6pt gap that belongs between blocks of
+  // prose, which is the rest of why a footer bar came out three lines deep.
+  const fieldPara = (xml.match(/<w:p>[\s\S]*?<\/w:p>/g) ?? [])
+    .find((p) => p.includes("PAGE"));
+  assertEquals(fieldPara !== undefined, true);
+  assertStringIncludes(fieldPara ?? "", '<w:jc w:val="right"/>');
+  assertStringIncludes(fieldPara ?? "", 'w:after="0"');
+});
+
+test("a bleeding table reaches the paper's edge, not the margin", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="bar" variant="band" columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell id="c">Registered in England</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  // 16mm of margin, so the table starts 16mm left of it and its columns fill
+  // the whole 210mm sheet rather than the 178mm text column.
+  assertStringIncludes(xml, '<w:tblInd w:type="dxa" w:w="-907"/>');
+  assertStringIncludes(xml, '<w:tblW w:type="dxa" w:w="11906"/>');
+});
+
+test("a table that does not bleed still stands on the text column", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell id="c">Inside the margins.</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  assertEquals(xml.includes("<w:tblInd"), false);
+  assertStringIncludes(xml, '<w:tblW w:type="dxa" w:w="10092"/>');
+});
+
+test("naming only a first header does not cost the first page its footer", async () => {
+  const doc = await build(
+    <Document
+      id="d"
+      title="D"
+      header={<Paragraph id="h">Running header</Paragraph>}
+      firstHeader={false}
+      footer={<Paragraph id="f">Running footer</Paragraph>}
+    >
+      <Paragraph id="a">Body.</Paragraph>
+    </Document>,
+  );
+  const parts = await partNames(doc);
+  const firstFooter = await Promise.all(
+    parts.filter((name) => /footer\d+\.xml$/.test(name)).map((name) => partXml(doc, name)),
+  );
+
+  // `w:titlePg` is one switch for both strips, so turning it on for the header
+  // makes Word take page one's footer from a `first` part too. Absent means
+  // "like every other page" — so that part has to carry the running footer,
+  // not be missing and leave page one bare.
+  assertEquals(firstFooter.filter((xml) => xml.includes("Running footer")).length, 2);
+});
+
+test("the theme's zebra is drawn by the renderer, not chosen by the document", async () => {
+  const rows = ["One", "Two", "Three", "Four", "Five"];
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }]}>
+          <Row header>
+            <Cell id="h">Description</Cell>
+          </Row>
+          {rows.map((text) => (
+            <Row>
+              <Cell>{text}</Cell>
+            </Row>
+          ))}
+        </Table>
+      </Document>,
+    ),
+  );
+
+  // Body rows 2 and 4 are tinted, 1, 3 and 5 are not, and the header keeps the
+  // accent. Nothing in the document said which row is which — a variant chosen
+  // by a map index would be baked once at build time and repeat on publish.
+  const cells = xml.match(/<w:tc>[\s\S]*?<\/w:tc>/g) ?? [];
+  const tinted = rows.map((text) =>
+    (cells.find((cell) => cell.includes(`>${text}<`)) ?? "").includes('w:fill="F7F8FD"')
+  );
+  assertEquals(tinted, [false, true, false, true, false]);
+  assertStringIncludes(xml, 'w:fill="2C3D8F"');
+});
+
+test("a block that names no edges turns the row hairline off with them", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell id="c" variant="noRules">No rules.</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  // The row hairline is the default for an unfilled body row. Naming no edges
+  // is a decision, so it does not step in — the alternative today was a border
+  // in the page colour, which is a lie written into the file.
+  assertEquals(xml.includes("<w:tcBorders>"), false);
+  assertEquals(xml.includes('w:color="D9DDEB"'), false);
+});
+
+test("a block can sit its contents against the height of the cell", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell id="c" variant="centred">Centred.</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  assertStringIncludes(xml, '<w:vAlign w:val="center"/>');
+});
+
+test("a heading style carries its tracking into styles.xml", async () => {
+  const styles = await partXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a">Body.</Paragraph>
+      </Document>,
+    ),
+    "word/styles.xml",
+  );
+
+  // The test theme tracks neither, so nothing is written — the property has to
+  // be absent rather than zero, or every document gains a spacing it never
+  // asked for.
+  assertEquals(/w:styleId="Heading1"[\s\S]*?<w:spacing w:val=/.test(styles), false);
+});
+
+test("a measure narrows the block from the right, leaving the margin alone", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a" variant="measured">Held to a measure.</Paragraph>
+        <Paragraph id="b">Full width.</Paragraph>
+      </Document>,
+    ),
+  );
+
+  // A 178mm text column held to 100mm gives back 78mm on the right, and
+  // nothing on the left — everything else still stands where it stood.
+  assertStringIncludes(xml, 'w:right="4422"');
+  assertEquals(xml.includes('w:left="4422"'), false);
+});
+
+test("a picture's variant draws a box around it, because a run cannot have one", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Image id="code" variant="badge" src={PIXEL} alt="Scan" width={108} height={108} />
+      </Document>,
+    ),
+  );
+
+  // A single-cell table at the picture's size plus its padding: the box holds
+  // the same shape whether the picture has arrived or is still a label
+  // standing in for one.
+  assertStringIncludes(xml, "<w:tbl>");
+  assertStringIncludes(xml, 'w:fill="FBF0DC"');
+  assertStringIncludes(xml, "<w:tcMar>");
+  assertStringIncludes(xml, "<w:drawing>");
+  // 108pt plus 5pt of padding either side, in twentieths of a point.
+  assertStringIncludes(xml, 'w:w="2360"');
+});
+
+test("a data URI carrying a parameter is still a picture", async () => {
+  const svg = "data:image/svg+xml;utf8," +
+    encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"></svg>');
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Image id="code" src={svg} fallbackSrc={PIXEL} alt="Code" width={20} height={20} />
+      </Document>,
+    ),
+  );
+
+  // `image/svg+xml;utf8` is a media type with a parameter on it. Read whole it
+  // matches nothing, and a perfectly good picture came back as the note that
+  // says one is missing.
+  assertStringIncludes(xml, "<w:drawing>");
+  assertEquals(xml.includes("[image: Code]"), false);
+});
+
+test("a cell's variant says what differs, not what everything is", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" variant="band" columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell id="c" variant="tightCell">Issue date</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  // `tightCell` names a leading and nothing else, so the band's tint, border
+  // and padding still reach it. Taking the narrower naming as a replacement
+  // left a cell untinted inside a tinted band unless it restated the tint —
+  // and the one that forgot is how this was found.
+  assertStringIncludes(xml, 'w:fill="F4F6FD"');
+  assertStringIncludes(xml, 'w:color="E3E7F5"');
+  assertStringIncludes(xml, '<w:spacing w:after="0" w:line="240" w:lineRule="exact"/>');
+});
+
+test("a strip says how deep it is rather than shrinking a font to get there", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="rule" variant="hairline" />
+      </Document>,
+    ),
+  );
+
+  // 2.25pt of navy, stated. The alternative was a 1pt face at a fifth of a
+  // line, which reaches the same depth and says nothing about what is drawn.
+  assertStringIncludes(xml, 'w:fill="2C3D8F"');
+  assertStringIncludes(xml, '<w:spacing w:after="0" w:line="45" w:lineRule="exact"/>');
+});
+
+test("a block can leave more room on one side than the others", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell id="c" variant="edgeBar">1 / 2</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  // A bar that runs to the paper's edge still wants its last words to stop
+  // short of it. 6pt on three sides, 46 on the right — and no spacer column,
+  // which is what holding the gap used to take.
+  assertStringIncludes(xml, '<w:top w:type="dxa" w:w="120"/>');
+  assertStringIncludes(xml, '<w:right w:type="dxa" w:w="920"/>');
+});
+
 test("a variant the theme has never heard of packs as an ordinary block", async () => {
   const xml = await documentXml(
     await build(
@@ -187,7 +613,7 @@ test("a variant the theme has never heard of packs as an ordinary block", async 
 // The furniture
 // ---------------------------------------------------------------------------
 
-test("a page break is Word's own break, not a run of empty paragraphs", async () => {
+test("a page break is Word's own break, carried by the paragraph after it", async () => {
   const broken = await documentXml(
     await build(
       <Document id="d" title="D">
@@ -206,8 +632,37 @@ test("a page break is Word's own break, not a run of empty paragraphs", async ()
     ),
   );
 
-  assertStringIncludes(broken, 'w:type="page"');
+  // A break-carrying style on the next paragraph, not a paragraph of its own —
+  // the standalone form leaves an empty line at the foot of the outgoing page.
+  assertStringIncludes(broken, '<w:pStyle w:val="PageBreakBefore"/>');
+  assertEquals(broken.includes('w:type="page"'), false);
+  assertEquals(unbroken.includes("PageBreakBefore"), false);
   assertEquals(unbroken.includes('w:type="page"'), false);
+});
+
+test("the break rides a style, which is the only form both engines read", async () => {
+  const styles = await partXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a">One.</Paragraph>
+        <PageBreak id="turn" />
+        <Paragraph id="b">Two.</Paragraph>
+      </Document>,
+    ),
+    "word/styles.xml",
+  );
+
+  // Word honours `w:pageBreakBefore` written straight onto a paragraph;
+  // docx-preview reads it only off the paragraph's style. On the style is the
+  // one form that turns the page in both, so the property has to actually
+  // reach styles.xml — `docx` types its style options without it.
+  assertStringIncludes(styles, '<w:style w:type="paragraph" w:styleId="PageBreakBefore">');
+  assertStringIncludes(styles, "<w:pageBreakBefore/>");
+  // The heading variant still inherits everything that makes a heading.
+  assertStringIncludes(styles, '<w:basedOn w:val="Heading1"/>');
+  // And supplying styles has not cost the document its defaults.
+  assertStringIncludes(styles, "<w:docDefaults>");
+  assertStringIncludes(styles, 'w:styleId="Heading1"');
 });
 
 test("a page number is a field Word recounts, not a digit written in", async () => {

@@ -352,6 +352,14 @@ export function createDeriverBundle(
 export function collectDocumentDeriverNames(doc: DocumentModel): string[] {
   const names = new Set<string>();
   collectNodeDeriverNames(doc.nodes, names);
+  // The furniture too: a footer deriving its reference invokes a deriver as
+  // much as any body node, and one only the furniture used would otherwise
+  // slip past the registration check.
+  for (const furniture of [doc.header, doc.footer, doc.firstHeader, doc.firstFooter]) {
+    if (furniture) {
+      collectNodeDeriverNames(furniture, names);
+    }
+  }
   return [...names].sort((left, right) => left.localeCompare(right));
 }
 

@@ -58,13 +58,13 @@ export const RunningFooter: Nodes = () => {
     <Table
       id="running-foot"
       variant="footerBar"
-      columns={[{ width: "auto" }, { width: 52 }, { width: 18, align: "right" }]}
+      columns={[{ width: "auto" }, { width: 52 }, { width: 29, align: "right" }]}
     >
       <Row>
         <Cell id="foot-registration">{state.registration}</Cell>
         <Cell id="foot-credit">
           {state.showCredit && (
-            <>
+            <Paragraph id="credit-line">
               <Image
                 id="credit-mark"
                 src={markSvg}
@@ -73,11 +73,11 @@ export const RunningFooter: Nodes = () => {
                 width={8}
                 height={8}
               />
-              <Paragraph>Generated with Docxcelerate</Paragraph>
-            </>
+              {" Generated with Docxcelerate"}
+            </Paragraph>
           )}
         </Cell>
-        <Cell id="foot-page">
+        <Cell id="foot-page" variant="footerEdge">
           <PageNumber id="foot-page-number" />
         </Cell>
       </Row>

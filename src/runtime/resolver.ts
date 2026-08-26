@@ -51,12 +51,22 @@ export async function resolveDocument(
   // that appears on every page if it is left unresolved.
   const header = doc.header ? await resolveNodes(doc.header, state, derivers) : undefined;
   const footer = doc.footer ? await resolveNodes(doc.footer, state, derivers) : undefined;
+  // First-page furniture keeps an empty array as an empty array: it means "the
+  // first page shows nothing here", which is a decision, not an absence.
+  const firstHeader = doc.firstHeader
+    ? await resolveNodes(doc.firstHeader, state, derivers)
+    : doc.firstHeader;
+  const firstFooter = doc.firstFooter
+    ? await resolveNodes(doc.firstFooter, state, derivers)
+    : doc.firstFooter;
 
   return {
     ...doc,
     nodes,
     header,
     footer,
+    firstHeader,
+    firstFooter,
   };
 }
 

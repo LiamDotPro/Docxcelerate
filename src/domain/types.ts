@@ -142,6 +142,14 @@ export interface DocumentTextBlockStyle {
   color?: string;
   /** Whether the text is printed as written. Defaults to `none`. */
   transform?: DocumentTextTransform;
+  /**
+   * Letter spacing in ems, for small capitals that need opening up.
+   *
+   * Capitals set at a text size are set at the wrong spacing: the letterforms
+   * were drawn to sit under lower case, and a label in tracked capitals is
+   * what a heading at 7pt has to be to read as one.
+   */
+  letterSpacingEm?: number;
 }
 
 /**
@@ -212,6 +220,28 @@ export interface DocumentBlockStyle {
   /** Space between the block's edge and its content, in points. */
   paddingPt?: number;
   /**
+   * The sides whose padding differs from the rest.
+   *
+   * A bar that runs to the paper's edge still wants its last words to stop
+   * short of it. Naming one side beats inventing a spacer column to hold the
+   * gap, which is a column the document does not otherwise have.
+   */
+  paddingSidesPt?: {
+    top?: number;
+    right?: number;
+    bottom?: number;
+    left?: number;
+  };
+  /**
+   * How deep the block is, in points, when it is a strip rather than type.
+   *
+   * A rule is a band of colour with no words in it, and its depth is the whole
+   * of what it looks like. Without this a theme has to reach that depth by
+   * shrinking a font nobody reads until the line collapses around it, which
+   * says nothing about what is being drawn.
+   */
+  heightPt?: number;
+  /**
    * Whether the block runs the full width of the page rather than the text.
    *
    * A tinted strip of dates under a letterhead is a band across the sheet, not
@@ -227,6 +257,45 @@ export interface DocumentBlockStyle {
   transform?: DocumentTextTransform;
   /** Letter spacing in ems, for small capitals that need opening up. */
   letterSpacingEm?: number;
+  /**
+   * The face this block is set in, when it is not the body's.
+   *
+   * A money column is the reason: proportional digits do not line up under one
+   * another, so a figure needs a face whose digits are all one width. Word
+   * substitutes a face it does not have exactly as it does for the body font.
+   */
+  font?: string;
+  /**
+   * Leading, as a multiple of the font size, when the body's is wrong here.
+   *
+   * A table row is set tighter than prose and a note under a description
+   * tighter still; one leading for a whole document is what makes a row of
+   * charges taller than it was drawn.
+   */
+  lineHeight?: number;
+  /**
+   * How the block sits against the height of the cell it is in.
+   *
+   * A band of dates beside a status pill reads as a band only when the two are
+   * on the same line as each other, which they are not when a short cell and a
+   * tall one both start at the top.
+   */
+  valign?: "top" | "center" | "bottom";
+  /**
+   * Space left below the block, in points, when the document's is wrong here.
+   *
+   * A rule is a strip, not a paragraph of prose: the gap that belongs after a
+   * paragraph belongs after prose, and after a hairline it is a hole.
+   */
+  spacingAfterPt?: number;
+  /**
+   * The widest the block's lines may run, in millimetres.
+   *
+   * Prose set across a whole page is prose nobody's eye can track back from;
+   * a measure is how a paragraph is kept readable without moving the margin
+   * that everything else stands on.
+   */
+  maxWidthMm?: number;
 }
 
 /**
@@ -343,6 +412,16 @@ export interface BaseNode {
 export interface SectionNode extends BaseNode {
   /** Discriminator. */
   kind: "section";
+  /**
+   * Whether a renderer prints the section's title above its children.
+   *
+   * `false` keeps the title as the section's name — the id it derives, the TOC
+   * entry, the address a request targets — without printing it. For a section
+   * whose content already says what it is: a charges table whose header row
+   * reads "Description", an address block headed by its own label. Absent
+   * means printed, which is what a heading is for.
+   */
+  showTitle?: boolean;
   /** The nodes the section contains, in order. */
   children: DocumentNode[];
 }
@@ -355,6 +434,24 @@ export interface ParagraphNode extends BaseNode {
   mode: NodeMode;
   /** The prose, when the paragraph is static or has a fallback. */
   text?: string;
+  /**
+   * Pictures set in the line rather than above it.
+   *
+   * A mark beside a line of credit is one line; given a paragraph of its own
+   * it becomes a picture with a caption under it, and a one-line footer bar
+   * three lines deep. Each picture records where in `text` it sits, so `text`
+   * stays exactly what it was — everything that reads a paragraph's words
+   * still reads all of them, in order.
+   */
+  inlineImages?: InlineImage[];
+}
+
+/** A picture set in a paragraph's line, and where along the text it sits. */
+export interface InlineImage {
+  /** The offset in the paragraph's `text` the picture is placed at. */
+  at: number;
+  /** The picture itself. */
+  image: ImageNode;
 }
 
 /** A picture, either supplied at build time or produced by the engine. */
@@ -596,6 +693,17 @@ export interface DocumentModel {
   header?: DocumentNode[];
   /** Nodes drawn at the foot of every page. */
   footer?: DocumentNode[];
+  /**
+   * Nodes drawn at the top of the first page, in place of `header`.
+   *
+   * Present only when the document said its first page differs — a letter
+   * whose letterhead *is* the top of page one does not want the running strip
+   * repeating above it. An empty array means the first page shows nothing
+   * where the other pages show `header`.
+   */
+  firstHeader?: DocumentNode[];
+  /** Nodes drawn at the foot of the first page, in place of `footer`. */
+  firstFooter?: DocumentNode[];
 }
 
 /** Everything a node can reach while a single document is being written. */

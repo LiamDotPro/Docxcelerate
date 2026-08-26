@@ -5,9 +5,10 @@ import {
   Section,
   type Section as SectionComponent,
   Table,
-  useFormat,
+  useDeriver,
   useState,
 } from "docxcelerate/template";
+import { invoiceTotals } from "../derivers.ts";
 import type { InvoiceData } from "../types.ts";
 
 /**
@@ -17,45 +18,62 @@ import type { InvoiceData } from "../types.ts";
  * at this page, not the one before it, and a payment page that makes them turn
  * back to find the figure is a payment page that gets the figure wrong.
  */
-export const Payment: SectionComponent = () => {
-  const { currency } = useFormat("en-GB");
+export const Payment: SectionComponent = async () => {
   const [state] = useState((data: InvoiceData) => ({
     bank: data.sender.bank,
     reference: data.reference,
-    total: data.lines.reduce((sum, line) => sum + line.qty * line.rate, 0) * (1 + data.vatRate),
+    lines: data.lines,
+    rate: data.vatRate,
   }));
+  // The same one pass over the lines as the totals table: two derivations of
+  // one figure are two figures that can disagree.
+  const totals = await useDeriver(invoiceTotals, [state.lines, state.rate]);
 
   return (
     <Section id="payment" title="Pay by bank transfer">
       <Table id="bank-details" columns={[{ width: 40 }, { width: "auto" }]}>
         <Row>
-          <Cell>Account name</Cell>
-          <Cell>{state.bank.accountName}</Cell>
+          <Cell variant="lineItem">Account name</Cell>
+          <Cell variant="lineItem">{state.bank.accountName}</Cell>
         </Row>
         <Row>
           <Cell>Sort code</Cell>
-          <Cell>{state.bank.sortCode}</Cell>
+          <Cell variant="money">{state.bank.sortCode}</Cell>
         </Row>
         <Row>
           <Cell>Account no</Cell>
-          <Cell>{state.bank.accountNumber}</Cell>
+          <Cell variant="money">{state.bank.accountNumber}</Cell>
         </Row>
         <Row>
           <Cell>IBAN</Cell>
-          <Cell>{state.bank.iban}</Cell>
+          <Cell variant="money">{state.bank.iban}</Cell>
         </Row>
         <Row>
           <Cell>BIC</Cell>
-          <Cell>{state.bank.bic}</Cell>
+          <Cell variant="money">{state.bank.bic}</Cell>
         </Row>
         <Row>
           <Cell>Amount</Cell>
-          <Cell>{currency(state.total)}</Cell>
+          <Cell variant="money">{totals.total}</Cell>
         </Row>
       </Table>
-      <Paragraph id="payment-reference" variant="panel">
-        Quote {state.reference} on every transfer, so the payment reconciles on receipt.
-      </Paragraph>
+      {/*
+        One cell, three paragraphs — not three shaded paragraphs. Consecutive
+        shaded paragraphs each draw their own box with the paragraph gap
+        showing between them, so the panel the design draws as one card comes
+        out as three stacked tiles.
+      */}
+      <Table id="reference-panel" columns={[{ width: "auto" }]}>
+        <Row>
+          <Cell id="reference-panel-cell" variant="panel">
+            <Paragraph variant="label">Payment reference</Paragraph>
+            <Paragraph variant="money">{state.reference}</Paragraph>
+            <Paragraph variant="muted">
+              Quote this reference on every transfer, so the payment reconciles on receipt.
+            </Paragraph>
+          </Cell>
+        </Row>
+      </Table>
     </Section>
   );
 };

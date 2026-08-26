@@ -14,7 +14,8 @@
     "build": "npm run prep && astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "registry": "node scripts/build-registry.mjs"
+    "registry": "node scripts/build-registry.mjs",
+    "verify:invoice": "node scripts/verify-invoice.mjs"
   },
   "dependencies": {
     "docxcelerate": "file:.."
@@ -24,10 +25,15 @@
     "@astrojs/mdx": "^4.3.2",
     "@deno/astro-adapter": "^0.3.2",
     "@tailwindcss/vite": "^4.1.14",
+    "@types/qrcode": "^1.5.6",
     "astro": "^5.14.1",
     "docx-preview": "^0.3.7",
     "esbuild": "^0.28.2",
     "jsdom": "^30.0.1",
+    "pdfjs-dist": "^6.2.108",
+    "pixelmatch": "^7.2.0",
+    "pngjs": "^7.0.0",
+    "qrcode": "^1.5.4",
     "tailwindcss": "^4.1.14",
     "typescript": "^5.9.3"
   }

@@ -1108,6 +1108,7 @@ function slugify(value: string): string {
 function workspacePreviewMainTemplate(): string {
   return `import { buildDocument, createDocumentProjectArtifact } from "docxcelerate";
 import type { DocumentModel, DocumentProject } from "docxcelerate/document";
+import { settleDocxPreview } from "docxcelerate/preview";
 import "./styles.css";
 
 interface DocumentProjectModule {
@@ -1385,7 +1386,7 @@ async function renderPreview(
   paths: string[],
   currentPath: string,
   project: DocumentProject<unknown>,
-  document: DocumentModel,
+  model: DocumentModel,
 ): Promise<void> {
   const shell = createShell({
     currentPath,
@@ -1393,7 +1394,7 @@ async function renderPreview(
     titleText: project.name + " " + previewRendererLabel(previewRenderer),
     project,
   });
-  shell.querySelector(".workspace")?.append(await renderDocumentPreview(document, previewRenderer));
+  shell.querySelector(".workspace")?.append(await renderDocumentPreview(model, previewRenderer));
   app.replaceChildren(shell);
 }
 
@@ -1545,35 +1546,42 @@ async function buildProjectFromUi(
 }
 
 async function renderDocumentPreview(
-  document: DocumentModel,
+  model: DocumentModel,
   renderer: PreviewRenderer,
 ): Promise<HTMLElement> {
   const { createDocxBlob } = await import("docxcelerate/docx");
-  const documentBlob = await createDocxBlob(document);
+  const documentBlob = await createDocxBlob(model);
 
   if (renderer === "docx-preview") {
-    return await renderClientDocxPreview(document, documentBlob);
+    return await renderClientDocxPreview(model, documentBlob);
   }
 
-  return await renderHostedDocxPreview(document, documentBlob, renderer);
+  return await renderHostedDocxPreview(model, documentBlob, renderer);
 }
 
-async function renderClientDocxPreview(document: DocumentModel, documentBlob: Blob): Promise<HTMLElement> {
+async function renderClientDocxPreview(model: DocumentModel, documentBlob: Blob): Promise<HTMLElement> {
   const docxPreview = await import("docx-preview");
   const stage = document.createElement("div");
   stage.className = "docx-preview-stage";
 
   const frame = document.createElement("iframe");
   frame.className = "docx-preview-frame";
-  frame.title = document.title + " DOCX preview";
+  frame.title = model.title + " DOCX preview";
 
   const body = document.createElement("body");
   const head = document.createElement("head");
 
   await docxPreview.renderAsync(documentBlob, body, head, {
     inWrapper: true,
+    breakPages: true,
     ignoreLastRenderedPageBreak: false,
   });
+
+  // docx-preview does not read everything the file says: it drops a field run,
+  // looks for a table's indent under an attribute that never carries it, and
+  // wraps a picture in an element a paragraph may not hold. This finishes the
+  // reading, so what is shown is what Word will show.
+  settleDocxPreview(body, model);
 
   const style = document.createElement("style");
   style.textContent = previewFrameStyles();
@@ -1589,7 +1597,7 @@ async function renderClientDocxPreview(document: DocumentModel, documentBlob: Bl
 }
 
 async function renderHostedDocxPreview(
-  document: DocumentModel,
+  model: DocumentModel,
   documentBlob: Blob,
   renderer: Exclude<PreviewRenderer, "docx-preview">,
 ): Promise<HTMLElement> {
@@ -1601,10 +1609,10 @@ async function renderHostedDocxPreview(
     return stage;
   }
 
-  const documentUrl = await uploadPreviewDocx(document, documentBlob);
+  const documentUrl = await uploadPreviewDocx(model, documentBlob);
   const frame = document.createElement("iframe");
   frame.className = "docx-preview-frame";
-  frame.title = document.title + " " + previewRendererLabel(renderer);
+  frame.title = model.title + " " + previewRendererLabel(renderer);
   frame.src = hostedPreviewUrl(renderer, documentUrl);
   stage.append(frame);
 
@@ -1626,9 +1634,9 @@ function renderHostedPreviewNotice(renderer: PreviewRenderer): HTMLElement {
   return panel;
 }
 
-async function uploadPreviewDocx(document: DocumentModel, documentBlob: Blob): Promise<string> {
+async function uploadPreviewDocx(model: DocumentModel, documentBlob: Blob): Promise<string> {
   const response = await fetch(
-    "/api/docxcelerate/preview-docx?name=" + encodeURIComponent(document.id + ".docx"),
+    "/api/docxcelerate/preview-docx?name=" + encodeURIComponent(model.id + ".docx"),
     {
       method: "POST",
       headers: {

@@ -19,6 +19,7 @@
  * is what jsdom is for: the pages are baked here, at build time, and the site
  * ships flat HTML rather than a renderer and a `.docx` to every visitor.
  */
+import { settleDocxPreview } from "docxcelerate/preview";
 import { JSDOM } from "jsdom";
 
 /** The one window the whole build renders in. */
@@ -89,6 +90,12 @@ export async function renderDocxPreview(document) {
       useBase64URL: true,
     },
   );
+
+  // What docx-preview did not read: a dropped field, a table indent it looks
+  // for under the wrong attribute, a picture in an element a paragraph cannot
+  // hold. The framework owns that now, so a scaffolded workspace and this site
+  // finish a preview the same way rather than each discovering it separately.
+  settleDocxPreview(bodyContainer, document);
 
   return {
     styles: withFontFallbacks(styleContainer.innerHTML),

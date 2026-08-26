@@ -1,0 +1,25 @@
+/* Motion. The site animates colour and nothing else, apart from one 2px nudge
+   on a card arrow and a caret rotation. No entrance animation, no bounce. */
+:root {
+  /* file tree rows */
+  --duration-fast: 0.12s; /* @kind other */
+  /* the default: colours, borders */
+  --duration: 0.15s; /* @kind other */
+  /* the tree panel opening */
+  --duration-slow: 0.18s; /* @kind other */
+  --ease: ease; /* @kind other */
+  --transition-colors: color var(--duration) var(--ease), background-color var(--duration) var(--ease),
+    border-color var(--duration) var(--ease);
+  --transition-transform: transform var(--duration) var(--ease);
+  --nudge-x: 2px; /* group-hover translate on a card arrow */
+  --focus-ring: 2px solid var(--accent);
+  --focus-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0.01ms; /* @kind other */
+    --duration: 0.01ms; /* @kind other */
+    --duration-slow: 0.01ms; /* @kind other */
+  }
+}

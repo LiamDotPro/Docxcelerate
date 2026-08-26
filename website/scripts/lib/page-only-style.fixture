@@ -1,0 +1,10 @@
+
+      html, body { margin: 0; padding: 0; background: transparent; }
+
+      section.docx {
+        margin: 0 auto;
+        background: #ffffff;
+        box-sizing: border-box;
+      }
+
+      section.docx + section.docx { margin-top: 26px; }

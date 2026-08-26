@@ -27,19 +27,26 @@ export const Parties: SectionComponent = () => {
   }));
 
   return (
-    <Section id="parties" title="Parties">
+    <Section id="parties" title="Parties" showTitle={false}>
       <Table id="parties-grid" columns={[{ width: "auto" }, { width: "auto" }]}>
-        <Row header>
-          <Cell>Billed to</Cell>
-          <Cell>From</Cell>
+        {/*
+          `label`, not `header`. A header row draws the theme's navy bar, which
+          is right for the charges table and wrong here — the design sets these
+          two as small tracked capitals over their columns, with no bar. Naming
+          a variant is what stops the bar: the navy is only the default for a
+          header row that resolves to nothing else.
+        */}
+        <Row>
+          <Cell variant="label">Billed to</Cell>
+          <Cell variant="label">From</Cell>
         </Row>
         <Row>
-          <Cell id="billed-to">
+          <Cell id="billed-to" variant="addressCell">
             <Paragraph>{state.billedTo.name}</Paragraph>
             <Paragraph>{state.billedTo.attn}</Paragraph>
             {state.billedTo.addressLines.map((line) => <Paragraph>{line}</Paragraph>)}
           </Cell>
-          <Cell id="billed-from">
+          <Cell id="billed-from" variant="addressCell">
             <Paragraph>{state.sender.name}</Paragraph>
             {state.sender.addressLines.map((line) => <Paragraph>{line}</Paragraph>)}
             <Paragraph>{state.sender.email}</Paragraph>

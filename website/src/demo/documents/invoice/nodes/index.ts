@@ -1,9 +1,11 @@
 export { Charges } from "./charges.node.tsx";
+export { Closer } from "./closer.node.tsx";
 export { EngagementSummary } from "./engagement-summary.node.tsx";
 export { InvoiceMeta } from "./invoice-meta.node.tsx";
 export { Letterhead } from "./letterhead.node.tsx";
 export { Parties } from "./parties.node.tsx";
 export { Payment } from "./payment.node.tsx";
+export { PaymentLetterhead } from "./payment-letterhead.node.tsx";
 export { RunningFooter, RunningHeader } from "./running.node.tsx";
 export { ScanToPay } from "./scan-to-pay.node.tsx";
 export { Terms } from "./terms.node.tsx";

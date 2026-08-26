@@ -21,30 +21,38 @@ export const Letterhead: Nodes = () => {
   }));
 
   return (
-    <Table
-      id="letterhead"
-      columns={[{ width: 14 }, { width: "auto" }, { width: 62, align: "right" }]}
-    >
-      <Row>
-        <Cell id="sender-mark">
-          <Image
-            id="sender-mark-image"
-            src={senderMarkSvg}
-            fallbackSrc={senderMarkPng}
-            alt={state.name}
-            width={28}
-            height={28}
-          />
-        </Cell>
-        <Cell id="sender">
-          <Paragraph variant="senderName">{state.name}</Paragraph>
-          <Paragraph variant="muted">{state.trade}</Paragraph>
-        </Cell>
-        <Cell id="wordmark">
-          <Paragraph variant="wordmark">Invoice</Paragraph>
-          <Paragraph variant="reference">{state.reference}</Paragraph>
-        </Cell>
-      </Row>
-    </Table>
+    <>
+      <Table
+        id="letterhead"
+        columns={[{ width: 14 }, { width: "auto" }, { width: 62, align: "right" }]}
+      >
+        <Row>
+          <Cell id="sender-mark">
+            <Image
+              id="sender-mark-image"
+              src={senderMarkSvg}
+              fallbackSrc={senderMarkPng}
+              alt={state.name}
+              width={28}
+              height={28}
+            />
+          </Cell>
+          <Cell id="sender" variant="lineItem">
+            <Paragraph variant="senderName">{state.name}</Paragraph>
+            <Paragraph variant="muted">{state.trade}</Paragraph>
+          </Cell>
+          <Cell id="wordmark" variant="lineItem">
+            <Paragraph variant="wordmark">Invoice</Paragraph>
+            <Paragraph variant="reference">{state.reference}</Paragraph>
+          </Cell>
+        </Row>
+      </Table>
+      {/*
+        The rule the running strip draws on every other page. Page one has no
+        running header — its letterhead is the top of the page — so the line
+        under it belongs to the letterhead rather than to the furniture.
+      */}
+      <Paragraph id="letterhead-rule" variant="rule" />
+    </>
   );
 };
