@@ -85,6 +85,19 @@ test("workspace scaffold creates a project container for documents", async () =>
   assertEquals(previewMain.includes("createDocxBlob"), true);
   assertEquals(previewMain.includes('import("docxcelerate/docx")'), true);
   assertEquals(previewMain.includes("docxPreview.renderAsync"), true);
+  // The generated app lives in a template literal, so `tsc` never looks at it.
+  // These stand in for the typecheck it does not get.
+  //
+  // It reads the packed file back, and docx-preview does not read all of it —
+  // a dropped field, a table indent under an attribute that never carries it,
+  // a picture in an element a paragraph may not hold. Without this the preview
+  // a scaffolded workspace shows differs from the file it was made from.
+  assertEquals(previewMain.includes('from "docxcelerate/preview"'), true);
+  assertEquals(previewMain.includes("settleDocxPreview(body, model)"), true);
+  // And nothing may name a `DocumentModel` parameter `document`: it shadows the
+  // global the same function calls `createElement` on, which threw on the first
+  // line of both preview paths for as long as nobody looked.
+  assertEquals(/\bdocument: DocumentModel/.test(previewMain), false);
   assertEquals(previewMain.includes('"microsoft-office"'), true);
   assertEquals(previewMain.includes('"google-docs"'), true);
   assertEquals(previewMain.includes("view.officeapps.live.com/op/embed.aspx"), true);
