@@ -1,13 +1,12 @@
 import {
   Cell,
-  Paragraph,
   Row,
   Section,
   type Section as SectionComponent,
   Table,
-  useFormat,
   useState,
 } from "docxcelerate/template";
+import { ChargeRow } from "./charge-row.node.tsx";
 import type { InvoiceData } from "../types.ts";
 
 /**
@@ -19,11 +18,11 @@ import type { InvoiceData } from "../types.ts";
  * are the same document. Nothing here knows which of the two is happening.
  */
 export const Charges: SectionComponent = () => {
-  const { currency, number } = useFormat("en-GB");
+
   const [state] = useState((data: InvoiceData) => ({ lines: data.lines }));
 
   return (
-    <Section id="charges" title="Charges">
+    <Section id="charges" title="Charges" showTitle={false}>
       <Table
         id="lines"
         columns={[
@@ -39,17 +38,7 @@ export const Charges: SectionComponent = () => {
           <Cell>Rate</Cell>
           <Cell>Amount</Cell>
         </Row>
-        {state.lines.map((line) => (
-          <Row>
-            <Cell>
-              <Paragraph>{line.desc}</Paragraph>
-              <Paragraph variant="muted">{line.meta}</Paragraph>
-            </Cell>
-            <Cell>{number(line.qty, { minimumFractionDigits: 1 })}</Cell>
-            <Cell>{currency(line.rate)}</Cell>
-            <Cell>{currency(line.qty * line.rate)}</Cell>
-          </Row>
-        ))}
+        {state.lines.map((line) => <ChargeRow line={line} />)}
       </Table>
     </Section>
   );

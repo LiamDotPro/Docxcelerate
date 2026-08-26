@@ -1,4 +1,5 @@
-import { Cell, type Nodes, Row, Table, useFormat, useState } from "docxcelerate/template";
+import { Cell, type Nodes, Row, Table, useDeriver, useState } from "docxcelerate/template";
+import { invoiceTotals } from "../derivers.ts";
 import type { InvoiceData } from "../types.ts";
 
 /**
@@ -12,19 +13,20 @@ import type { InvoiceData } from "../types.ts";
  * The block carries no heading of its own: the row a reader stops on says
  * TOTAL DUE, and a section titled "Total" above it is the same word twice.
  *
- * The last row is styled as a row rather than cell by cell. Naming only the
- * two cells with words in them left the empty one beside them drawing the
- * plain header fill, so the bar a reader's eye stops on came out in two
- * different navies.
+ * The bar is named cell by cell rather than as a row, and the row is not a
+ * header. `header` is what sets a row in tracked capitals through `headingRun`
+ * — which is a heading's treatment, not a total's — and naming the row would
+ * paint the empty spacer navy too, running the bar across the whole page where
+ * the design stops it above the figures it adds up.
  */
-export const Totals: Nodes = () => {
-  const { currency, number } = useFormat("en-GB");
-  const [state] = useState((data: InvoiceData) => {
-    const subtotal = data.lines.reduce((total, line) => total + line.qty * line.rate, 0);
-    const vat = subtotal * data.vatRate;
-
-    return { subtotal, vat, rate: data.vatRate, total: subtotal + vat };
-  });
+export const Totals: Nodes = async () => {
+  const [state] = useState((data: InvoiceData) => ({
+    lines: data.lines,
+    rate: data.vatRate,
+  }));
+  // The arithmetic reaches the engine rather than being settled here: the
+  // lines belong to a request nobody has made yet.
+  const totals = await useDeriver(invoiceTotals, [state.lines, state.rate]);
 
   return (
     <Table
@@ -33,18 +35,18 @@ export const Totals: Nodes = () => {
     >
       <Row>
         <Cell></Cell>
-        <Cell>Subtotal</Cell>
-        <Cell>{currency(state.subtotal)}</Cell>
+        <Cell variant="panel">Subtotal</Cell>
+        <Cell variant="panel">{totals.subtotal}</Cell>
       </Row>
       <Row>
         <Cell></Cell>
-        <Cell>VAT ({number(state.rate, { style: "percent" })})</Cell>
-        <Cell>{currency(state.vat)}</Cell>
+        <Cell variant="panel">VAT ({totals.rate})</Cell>
+        <Cell variant="panel">{totals.vat}</Cell>
       </Row>
-      <Row header variant="totalRow">
+      <Row>
         <Cell></Cell>
-        <Cell>Total due</Cell>
-        <Cell>{currency(state.total)}</Cell>
+        <Cell variant="totalRow">Total due</Cell>
+        <Cell variant="totalRow">{totals.total}</Cell>
       </Row>
     </Table>
   );
