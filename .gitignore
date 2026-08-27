@@ -11,3 +11,9 @@ website/public/demo/
 website/src/generated/
 website/.registry-cache/
 website/.verify/
+
+# Conformance suite (conformance/)
+conformance/.out/
+conformance/report/
+conformance/*.log
+
