@@ -1108,7 +1108,7 @@ function slugify(value: string): string {
 function workspacePreviewMainTemplate(): string {
   return `import { buildDocument, createDocumentProjectArtifact } from "docxcelerate";
 import type { DocumentModel, DocumentProject } from "docxcelerate/document";
-import { settleDocxPreview } from "docxcelerate/preview";
+import { readPackedParagraphs, settleDocxPreview } from "docxcelerate/preview";
 import "./styles.css";
 
 interface DocumentProjectModule {
@@ -1578,10 +1578,15 @@ async function renderClientDocxPreview(model: DocumentModel, documentBlob: Blob)
   });
 
   // docx-preview does not read everything the file says: it drops a field run,
-  // looks for a table's indent under an attribute that never carries it, and
-  // wraps a picture in an element a paragraph may not hold. This finishes the
-  // reading, so what is shown is what Word will show.
-  settleDocxPreview(body, model);
+  // looks for a table's indent under an attribute that never carries it, drops
+  // a run's letter spacing, and wraps a picture in an element a paragraph may
+  // not hold. This finishes the reading, so what is shown is what Word shows.
+  //
+  // The packed bytes go in as well: two of those omissions can only be put
+  // back from the file, and reading them from it rather than from the theme is
+  // what keeps the preview and the packer from drifting apart.
+  const packed = new Uint8Array(await documentBlob.arrayBuffer());
+  settleDocxPreview(body, model, await readPackedParagraphs(packed));
 
   const style = document.createElement("style");
   style.textContent = previewFrameStyles();

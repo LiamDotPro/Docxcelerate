@@ -19,7 +19,7 @@
  * is what jsdom is for: the pages are baked here, at build time, and the site
  * ships flat HTML rather than a renderer and a `.docx` to every visitor.
  */
-import { settleDocxPreview } from "docxcelerate/preview";
+import { readPackedParagraphs, settleDocxPreview } from "docxcelerate/preview";
 import { JSDOM } from "jsdom";
 
 /** The one window the whole build renders in. */
@@ -71,11 +71,12 @@ export async function renderDocxPreview(document) {
   ]);
 
   const blob = await createDocxBlob(document);
+  const packed = new Uint8Array(await blob.arrayBuffer());
   const styleContainer = window.document.createElement("div");
   const bodyContainer = window.document.createElement("div");
 
   await docxPreview.renderAsync(
-    new Uint8Array(await blob.arrayBuffer()),
+    packed,
     bodyContainer,
     styleContainer,
     {
@@ -95,7 +96,7 @@ export async function renderDocxPreview(document) {
   // for under the wrong attribute, a picture in an element a paragraph cannot
   // hold. The framework owns that now, so a scaffolded workspace and this site
   // finish a preview the same way rather than each discovering it separately.
-  settleDocxPreview(bodyContainer, document);
+  settleDocxPreview(bodyContainer, document, await readPackedParagraphs(packed));
 
   return {
     styles: withFontFallbacks(styleContainer.innerHTML),
