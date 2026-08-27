@@ -56,7 +56,7 @@ interface PromptProps {
 | --- | --- |
 | `Document` | `id` (required), `title` (required), `metadata?`, `header?`, `footer?`, `children?` |
 | `Section` | `title` (required), `children?` |
-| `Paragraph` | `text?`, `children?` |
+| `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`) |
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` |
 | `Graph` | `graphType?` (`"bar" \| "line" \| "pie"`, default `bar`), `data?`, `caption?` |
 | `Table` | `columns` (required), `children?` |
@@ -358,6 +358,9 @@ blocks: {
   band:  { fill: "F4F6FD", bleed: true, border: "E3E7F5", borderSides: ["bottom"], paddingPt: 10 },
   badge: { fill: "FBF0DC", border: "E5C78A", color: "8A5A06", fontSizePt: 7,
            weight: "bold", transform: "uppercase", letterSpacingEm: 0.1, paddingPt: 5 },
+  quote: { indentMm: 10, indentRightMm: 10 },
+  heading: { keepWithNext: true, spacingBeforePt: 18, spacingAfterPt: 4 },
+  contentsLine: { tabStopsMm: [{ at: 170, align: "right", leader: "dot" }] },
 }
 ```
 
@@ -366,17 +369,42 @@ blocks: {
 | `fill` | background, hex without the `#` |
 | `color` | text colour |
 | `border`, `borderWidthPt`, `borderSides` | a border, on all four edges unless sides are named |
-| `paddingPt` | space between the block's edge and its content |
-| `fontSizePt`, `weight`, `transform`, `letterSpacingEm` | how the text is set |
+| `paddingPt` | the gap between a drawn border and the text. Word records it on the border, so a block with a fill and no border cannot be padded — see below |
+| `fontSizePt`, `weight`, `transform`, `letterSpacingEm`, `font`, `lineHeight` | how the text is set |
+| `align` | `"left" \| "center" \| "right" \| "justify"`. A node's own `align` wins |
+| `spacingBeforePt`, `spacingAfterPt` | space above and below, in points |
+| `indentMm`, `indentRightMm` | inset from the left and right margins |
+| `firstLineIndentMm` | the first line only, for a book's paragraph mark |
+| `hangingIndentMm` | the first line pulled back from the rest. Word writes one or the other, and a hang wins over a first-line indent |
+| `keepWithNext`, `keepLines` | refuse to be the last thing on a page, or to be split across one |
+| `tabStopsMm` | `[{ at, align?, leader? }]`, measured from the left margin. Put a `\t` in the text to reach one |
 | `bleed` | the block runs the full width of the page rather than the text |
+| `maxWidthMm` | a measure, narrowing the column from the right |
+| `valign`, `heightPt`, `paddingSidesPt` | for a block that is a strip or a cell rather than prose |
 
 **Every one of these means the same thing on screen and in the `.docx`** — a
 fill is shading, a border is a real border, a bleed is a negative indent past
-the margin, letter spacing is character spacing. If a property cannot be
-expressed in Word it is not offered: a style that quietly did nothing in the
-format the framework produces would be worse than one that never existed. That
-is why there is no corner rounding — Word has no rounded blocks, so neither
-does this.
+the margin, letter spacing is character spacing, a tab stop is `w:tabs`. If a
+property cannot be expressed in Word it is not offered: a style that quietly did
+nothing in the format the framework produces would be worse than one that never
+existed. That is why there is no corner rounding — Word has no rounded blocks,
+so neither does this.
+
+Two consequences of that rule are worth knowing before you reach for them:
+
+- **Padding needs a border.** Word has no padding on a paragraph. What it has is
+  `w:pBdr`'s `w:space`, the gap between a rule and the text — so `paddingPt` on
+  a block with a `fill` and no `border` does nothing, in Word *and* on screen. A
+  filled panel that must hold its words off its own edge has to be a table cell,
+  which is what a picture's variant already becomes.
+- **Padding is not symmetric.** Measured against Word: a top border pushes the
+  text *down*, and a left border does not push it *in* — the rule steps out into
+  the margin and the words stay on the column. The preview draws both the way
+  Word does.
+
+The paragraph properties above are held to Word by
+`conformance/cases/text/`, which packs a document for each, opens it in Word,
+and compares the two against each other to the millimetre.
 
 A cell takes its block from its own `variant`, then its row's, then its table's
 — the narrower statement wins. A paragraph inside a cell is set by its own
