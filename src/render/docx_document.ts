@@ -50,6 +50,15 @@ import { cleanMinimalDocumentStyle } from "../project/style.ts";
 import { imageSourceOf, isSvg, rasterTypeOf } from "./image_source.ts";
 
 /**
+ * How far a running strip stands from the paper when a document says nothing.
+ *
+ * 12.5mm, which is what Word's own default template uses and what documents
+ * packed before `headerMm` existed already got. Changing it would move the
+ * furniture of every document that never asked for it to move.
+ */
+const DEFAULT_FURNITURE_MM = 12.5;
+
+/**
  * Lays a document model out as a `docx` document — page size, margins, styles
  * and all the nodes.
  *
@@ -82,6 +91,13 @@ export function createDocxDocument(doc: DocumentModel): Document {
               right: mmToTwips(style.page.margins.rightMm),
               bottom: mmToTwips(style.page.margins.bottomMm),
               left: mmToTwips(style.page.margins.leftMm),
+              // Where the running strips stand, measured from the paper rather
+              // than from the margin. Stated rather than left to the packing
+              // library's own default, which was 708 twips for every document
+              // whatever its margins were — a number no document had chosen and
+              // none could change.
+              header: mmToTwips(style.page.headerMm ?? DEFAULT_FURNITURE_MM),
+              footer: mmToTwips(style.page.footerMm ?? DEFAULT_FURNITURE_MM),
             },
           },
           titlePage: titlePage || undefined,

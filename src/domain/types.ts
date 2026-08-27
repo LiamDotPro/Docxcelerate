@@ -106,6 +106,20 @@ export interface DocumentPageStyle {
   orientation: DocumentPageOrientation;
   /** The margins around the body text. */
   margins: DocumentPageMargins;
+  /**
+   * How far the running header stands from the top of the *paper*, in
+   * millimetres.
+   *
+   * Measured from the sheet's edge rather than from the margin, because that is
+   * what the distance is for: whether a letterhead clears a printer's
+   * unprintable edge, whether a running strip collides with a punched hole, how
+   * much air stands between the strip and the first line of text. A document
+   * that says nothing gets 12.5mm, which is what Word's own default template
+   * uses.
+   */
+  headerMm?: number;
+  /** How far the running footer stands from the foot of the paper, in mm. */
+  footerMm?: number;
 }
 
 /** How body text is set. */
