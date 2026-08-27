@@ -106,9 +106,61 @@ export async function renderPreviewPage(model, title) {
   </head>
   <body>
 ${pages}
+    <script>
+${await paginatorSource()}
+      // Pagination is the one step that cannot happen at bake time: it needs to
+      // know how tall things actually drew, and jsdom lays nothing out. So it
+      // runs here, in the browser about to measure the page — which is where a
+      // reader's browser would run it too.
+      //
+      // The paginator is inlined rather than imported. An external module
+      // fetched from inside an iframe never loads under Chrome's
+      // --virtual-time-budget: the clock runs out before the request is served,
+      // and the page comes back unpaginated with no error to say why. Inline,
+      // there is nothing to fetch. The source is read from the built package,
+      // so this is the framework's own paginator and not a copy of it.
+      try {
+        document.body.dataset.paginated =
+          JSON.stringify(DocxPaginate.paginateDocxPreview(document.body));
+      } catch (error) {
+        document.body.dataset.paginated = JSON.stringify({ error: String(error && error.message) });
+      }
+    </script>
   </body>
 </html>
 `;
+}
+
+/**
+ * The built paginator, bundled into one self-contained script.
+ *
+ * Bundled rather than read and string-edited. The first version stripped the
+ * `export` keywords and inlined the file, which worked right up to the moment
+ * the paginator grew an `import` of its own — the browser then tried to fetch a
+ * module that was never served, the whole inline script failed, and the page
+ * came back unpaginated with nothing to say why. Every case still passed,
+ * because each was self-consistently measuring a one-page document.
+ *
+ * esbuild resolves the imports for real, so this cannot rot the same way again.
+ */
+async function paginatorSource() {
+  const { build } = await import("esbuild");
+  const { createRequire } = await import("node:module");
+  const entry = createRequire(import.meta.url)
+    .resolve("docxcelerate/preview")
+    .replace(/docx_preview\.js$/, "docx_paginate.js");
+
+  const bundled = await build({
+    entryPoints: [entry],
+    bundle: true,
+    write: false,
+    format: "iife",
+    globalName: "DocxPaginate",
+    target: "es2022",
+    logLevel: "error",
+  });
+
+  return bundled.outputFiles[0].text;
 }
 
 function escapeHtml(value) {

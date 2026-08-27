@@ -23,7 +23,11 @@
  */
 
 import type { DocumentModel } from "../domain/types.ts";
+import { fillPageFields } from "./docx_fields.ts";
 import type { PackedParagraph } from "./docx_packed.ts";
+
+export { fillPageFields } from "./docx_fields.ts";
+export { paginateDocxPreview, type PaginationResult } from "./docx_paginate.ts";
 
 export {
   type PackedBorderSpace,
@@ -250,40 +254,6 @@ export function inlinePictureWrappers(container: Element): void {
     }
     wrapper.replaceWith(span);
   }
-}
-
-/**
- * PAGE and NUMPAGES, filled in from the layout that just happened.
- *
- * docx-preview drops a field run on the floor — its `renderRun` returns null
- * for one — so a footer Word prints as "1 / 2" arrives as the bare "/" left
- * between the two dropped fields. The numbers come back from the rendered
- * section count, which is the count Word reaches too: it is the same file and
- * the same pagination.
- *
- * Only the separator the document itself wrote between the two fields is
- * touched, and only inside a footer. A page number written as a literal is
- * left exactly as the document wrote it.
- */
-export function fillPageFields(container: Element): void {
-  const pages = [...container.querySelectorAll("section.docx")];
-
-  pages.forEach((page, index) => {
-    const footer = page.querySelector(":scope > footer");
-    if (footer === null) {
-      return;
-    }
-
-    // The innermost element holding the bare separator, so the number lands
-    // beside the slash rather than replacing the whole footer.
-    const holders = [...footer.querySelectorAll("*")]
-      .filter((element) => element.children.length === 0)
-      .filter((element) => (element.textContent ?? "").replace(/\s+/g, "") === "/");
-
-    for (const holder of holders) {
-      holder.textContent = `${index + 1} / ${pages.length}`;
-    }
-  });
 }
 
 /**

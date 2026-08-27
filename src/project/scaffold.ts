@@ -1108,7 +1108,11 @@ function slugify(value: string): string {
 function workspacePreviewMainTemplate(): string {
   return `import { buildDocument, createDocumentProjectArtifact } from "docxcelerate";
 import type { DocumentModel, DocumentProject } from "docxcelerate/document";
-import { readPackedParagraphs, settleDocxPreview } from "docxcelerate/preview";
+import {
+  paginateDocxPreview,
+  readPackedParagraphs,
+  settleDocxPreview,
+} from "docxcelerate/preview";
 import "./styles.css";
 
 interface DocumentProjectModule {
@@ -1594,6 +1598,21 @@ async function renderClientDocxPreview(model: DocumentModel, documentBlob: Blob)
 
   const html = document.createElement("html");
   html.append(head, body);
+
+  // Pagination waits for the frame, and has to.
+  //
+  // Everything above happens in a document that was never put on the page, so
+  // nothing in it has a height — and pagination is entirely a question of
+  // heights. Inside the frame the browser has laid the sheet out for real, so
+  // that is where the body is flowed into pages and the running strips are
+  // carried onto each one. Without this the preview is one sheet as long as the
+  // document, however many pages Word will print.
+  frame.addEventListener("load", () => {
+    const inner = frame.contentDocument;
+    if (inner !== null) {
+      paginateDocxPreview(inner.body);
+    }
+  });
 
   frame.srcdoc = "<!doctype html>" + html.outerHTML;
   stage.append(frame);

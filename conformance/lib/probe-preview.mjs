@@ -27,7 +27,8 @@ import { createServer } from "node:http";
 import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { extname, join, resolve } from "node:path";
+import { dirname, extname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { setTimeout as sleep } from "node:timers/promises";
 import pngjs from "pngjs";
@@ -35,6 +36,8 @@ import { PX_PER_MM } from "./case.mjs";
 
 const { PNG } = pngjs;
 const execFileAsync = promisify(execFile);
+
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 const PORT = 8902;
 
@@ -259,6 +262,56 @@ function harnessHtml(bodyFont) {
       });
     });
 
+    // How tall a running strip actually draws.
+    //
+    // Not the container's height: docx-preview gives a header and a footer a
+    // fixed reserve — a min-height cancelled by an equal negative margin, taken
+    // from the section's header distance — so the box is the same size on a
+    // page that shows nothing as on one that shows a bar. What a reader sees is
+    // the content inside it, so that is what is measured.
+    function drawnBox(el) {
+      if (!el) return null;
+      var top = Infinity, bottom = -Infinity, left = Infinity, right = -Infinity;
+      var kids = el.querySelectorAll("*");
+      for (var i = 0; i < kids.length; i++) {
+        var r = kids[i].getBoundingClientRect();
+        if (r.height <= 0 || r.width <= 0) continue;
+        if (r.top < top) top = r.top;
+        if (r.bottom > bottom) bottom = r.bottom;
+        if (r.left < left) left = r.left;
+        if (r.right > right) right = r.right;
+      }
+      if (bottom <= top) return null;
+      return { top: top, bottom: bottom, left: left, right: right };
+    }
+
+    // The running strips, per page, measured against the paper rather than the
+    // text column: a header sits outside the margins by design, and reporting
+    // it content-relative would give every one of them a negative number.
+    var furniture = boxes.map(function (b) {
+      var out = {};
+      ["header", "footer"].forEach(function (part) {
+        var el = b.el.querySelector(":scope > " + part);
+        var drawn = drawnBox(el);
+        out[part] = drawn === null
+          ? { present: el !== null, drawn: false, text: el ? el.textContent.trim() : "" }
+          : {
+            present: true,
+            drawn: true,
+            text: el.textContent.trim(),
+            // From the top of the sheet, in px — the frame Word's own
+            // HeaderDistance is measured in.
+            y: r2(drawn.top - b.page.y),
+            x: r2(drawn.left - b.page.x),
+            h: r2(drawn.bottom - drawn.top),
+            w: r2(drawn.right - drawn.left),
+            // And from the bottom, which is what a footer distance means.
+            fromBottom: r2(b.page.y + b.page.h - drawn.bottom)
+          };
+      });
+      return out;
+    });
+
     return {
       sections: boxes.map(function (b) {
         return {
@@ -266,8 +319,13 @@ function harnessHtml(bodyFont) {
           content: { w: r2(b.content.w), h: r2(b.content.h) }
         };
       }),
+      furniture: furniture,
       paragraphs: paragraphs,
       fontProbe: fontProbe(BODY_FONT),
+      // What the paginator did, straight from the page it ran on. Without
+      // this a preview that failed to paginate is indistinguishable from one
+      // whose document happened to fit.
+      paginated: doc.body ? (doc.body.dataset.paginated || null) : null,
       documentHeight: doc.documentElement.scrollHeight
     };
   }
@@ -370,6 +428,7 @@ export async function runPreviewProbe({ outDir, htmlPath, bodyFont, screenshots 
     viewportWidth: VIEWPORT_WIDTH,
     pxPerMm: PX_PER_MM,
     sections: [],
+    furniture: [],
     paragraphs: [],
     fontProbe: null,
     screenshots: [],
@@ -404,8 +463,10 @@ export async function runPreviewProbe({ outDir, htmlPath, bodyFont, screenshots 
     }
 
     output.sections = measured.sections;
+    output.furniture = measured.furniture ?? [];
     output.paragraphs = measured.paragraphs;
     output.fontProbe = measured.fontProbe;
+    output.paginated = measured.paginated ?? null;
 
     if (screenshots && measured.sections.length > 0) {
       const height = Math.max(900, Math.min(measured.documentHeight + 20, 8000));
@@ -531,6 +592,23 @@ export function previewView(measure) {
 
     /** How many pages the preview paginated to. */
     pageCount: () => measure.sections.length,
+
+    /**
+     * The running strip drawn on one page, counting pages from one.
+     *
+     * Measured from the top-left of the *sheet*, not the text column: a header
+     * sits outside the margins by design, and against the column every one of
+     * them would be a negative number.
+     */
+    furniture(part, page = 1) {
+      const strip = measure.furniture?.[page - 1]?.[part];
+      return strip ?? { present: false, drawn: false, text: "", y: null, x: null, h: null };
+    },
+
+    /** What the header prints on a given page. */
+    headerText: (page = 1) => (measure.furniture?.[page - 1]?.header?.text ?? "").trim(),
+    /** What the footer prints on a given page. */
+    footerText: (page = 1) => (measure.furniture?.[page - 1]?.footer?.text ?? "").trim(),
   };
 }
 

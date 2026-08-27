@@ -203,6 +203,7 @@ export async function renderDocxPage(document, { title, style = PAGE_ONLY_STYLE 
   </head>
   <body>
 ${pages}
+${await paginatorScript()}
   </body>
 </html>
 `;
@@ -246,6 +247,36 @@ export const NODE_ONLY_STYLE = `
          unexplained whitespace once the frame is sized to its content. */
       section.docx > :first-child { margin-top: 0; }
       section.docx > :last-child { margin-bottom: 0; }`;
+
+/**
+ * The paginator, inlined into the baked page so the visitor's browser runs it.
+ *
+ * Everything else about these pages is decided here, at build time, and shipped
+ * as flat HTML. Pagination cannot be: it is entirely a question of how tall
+ * things drew, and jsdom lays nothing out — every height it reports is zero,
+ * which reads as "the document fits on one page" whatever the document is. So
+ * this one step travels with the page and runs where there is a layout.
+ *
+ * Inlined rather than linked because these pages are embedded in iframes and an
+ * external module fetched from inside one does not load under a fast-forwarded
+ * clock — and because a single self-contained file is what an embed wants. The
+ * source is read from the built package, so the site runs the framework's own
+ * paginator rather than a copy that could drift from it.
+ */
+async function paginatorScript() {
+  const { readFile } = await import("node:fs/promises");
+  const { createRequire } = await import("node:module");
+  const path = createRequire(import.meta.url)
+    .resolve("docxcelerate/preview")
+    .replace(/docx_preview\.js$/, "docx_paginate.js");
+
+  const source = (await readFile(path, "utf8")).replace(/^export /gm, "");
+
+  return `    <script type="module">
+${source}
+      try { paginateDocxPreview(document.body); } catch (error) { /* one long sheet, as before */ }
+    </script>`;
+}
 
 function escapeHtml(value) {
   return value
