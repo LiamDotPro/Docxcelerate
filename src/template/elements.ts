@@ -13,6 +13,7 @@ import type {
   PageNumberFormat,
   TableAlign,
   TableColumn,
+  TextAlign,
 } from "../domain/types.ts";
 import {
   type CommonElementProps,
@@ -103,6 +104,15 @@ export interface SectionProps extends CommonElementProps {
 export interface ParagraphProps extends CommonElementProps, PromptProps {
   /** Text children say the same thing; this is for when interpolation reads better. */
   text?: string;
+  /**
+   * How the paragraph's lines sit in the text column.
+   *
+   * Say it here when the alignment is what the paragraph *is* — a date ranged
+   * right, a standfirst centred over the piece it opens. Leave it out and let
+   * a `variant` carry it when the alignment is what the theme thinks that kind
+   * of block looks like. Saying both is allowed, and this wins.
+   */
+  align?: TextAlign;
   /** The paragraph's text, as children. */
   children?: Yield<"paragraph">;
 }

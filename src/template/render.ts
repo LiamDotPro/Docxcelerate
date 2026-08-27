@@ -627,6 +627,7 @@ async function renderParagraph(
       kind: "paragraph",
       mode: "static",
       when,
+      align: props.align,
       text: await requiredText(body, context),
       inlineImages: inlineImages.length === 0 ? undefined : inlineImages,
     };
@@ -640,12 +641,20 @@ async function renderParagraph(
       kind: "paragraph",
       mode: "dynamic",
       when,
+      align: props.align,
       text: await placeholderText(prompts, id, context),
     });
   }
 
   const specs = await promptSpecs(prompts, context);
-  const node: ParagraphNode = { id, kind: "paragraph", mode: "dynamic", when, prompts: specs };
+  const node: ParagraphNode = {
+    id,
+    kind: "paragraph",
+    mode: "dynamic",
+    when,
+    align: props.align,
+    prompts: specs,
+  };
 
   if (!context.aiClient) {
     throw new Error(`Dynamic paragraph "${id}" requires an aiClient.`);
