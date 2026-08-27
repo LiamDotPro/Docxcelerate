@@ -196,7 +196,7 @@ case is the first case to write for that row.
 | Text columns | no | no `columns` in the model | `page/two-columns` |
 | Page borders / background | no | — | `page/border` |
 | Different first page | yes | `firstHeader` / `firstFooter`, `titlePg` | `furniture/first-page` |
-| Even/odd furniture | no | — | `furniture/even-odd` |
+| Even/odd furniture | **yes — added** | `evenHeader` / `evenFooter`, `w:evenAndOddHeaders` | `furniture/even-odd` |
 
 ### Running furniture — **done**
 
@@ -206,7 +206,7 @@ case is the first case to write for that row.
 | **Distance from the paper's edge** | **yes — added** | `furniture/distance` | was a silent 12.5mm chosen by the packing library |
 | Page number counted by the renderer | **yes** | `furniture/page-numbers` | matches Word's count exactly |
 | Different first page | **yes — both** | `furniture/first-page` | the running strip is asked of docx-preview, not built |
-| Even / odd (recto and verso) | no | `furniture/even-odd` | needs `evenHeader` / `evenFooter` and `w:evenAndOddHeaders` |
+| Even / odd (recto and verso) | **yes — added** | `furniture/even-odd` | the preview alternates the strips too |
 
 ### The preview's own layout
 

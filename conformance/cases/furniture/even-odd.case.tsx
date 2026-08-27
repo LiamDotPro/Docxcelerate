@@ -13,10 +13,14 @@ import { withBlocks } from "../_support/style.ts";
  *
  * Word calls it `w:evenAndOddHeaders`, and it is a document-level setting
  * rather than a section one: on, and every section takes its even pages from
- * the `even` parts. The framework has no way to ask. `header` and `footer` are
- * the running pair, `firstHeader` and `firstFooter` are page one's, and there
- * is no third pair — so `evenHeader` and `evenFooter` alongside them, which is
- * the shape the model already uses for the first page.
+ * the `even` parts. `evenHeader` and `evenFooter` say so, in the shape the
+ * model already uses for the first page — and naming either makes `header` and
+ * `footer` the right-hand page's.
+ *
+ * The preview shows it too, which took the same trick the first page needed:
+ * docx-preview picks `even` only for a page it is rendering second, and it
+ * renders one, so the even reference is put where it looks for the default one
+ * and the same renderer is asked again. It draws the document's own part.
  *
  * Mirrored margins are the other half of the same job and a separate question:
  * this case is only about the strips.
@@ -34,7 +38,7 @@ export default defineCase({
   feature: "furniture.evenOdd",
   title: "Left-hand and right-hand pages with furniture of their own",
   word: "Header & Footer → Different Odd & Even Pages (w:evenAndOddHeaders)",
-  claim: "unsupported",
+  claim: "supported",
 
   style: withBlocks({ strip: { spacingAfterPt: 0 } }),
 
@@ -58,7 +62,7 @@ export default defineCase({
   expect: {
     ooxml: (a, is) => {
       is.includes(
-        a.documentXml,
+        a.settingsXml,
         "<w:evenAndOddHeaders",
         "the document turns on even and odd headers",
       );

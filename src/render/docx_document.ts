@@ -72,9 +72,14 @@ export function createDocxDocument(doc: DocumentModel): Document {
   // header or footer part. An empty array still counts — it is the document
   // saying the first page shows nothing where the others show the strip.
   const titlePage = doc.firstHeader !== undefined || doc.firstFooter !== undefined;
+  // Naming either even strip turns the whole document over to two kinds of
+  // page. It is a document setting rather than a section one, which is why it
+  // sits out here beside the styles rather than in the section below.
+  const evenAndOdd = doc.evenHeader !== undefined || doc.evenFooter !== undefined;
 
   return new Document({
     styles: createDocxStyles(style),
+    evenAndOddHeaderAndFooters: evenAndOdd || undefined,
     sections: [
       {
         properties: {
@@ -108,7 +113,7 @@ export function createDocxDocument(doc: DocumentModel): Document {
         // first header would silently lose its footer off page one — absent
         // means "the first page is like every other", which is the default
         // part repeated, not an empty one.
-        headers: doc.header || doc.firstHeader
+        headers: doc.header || doc.firstHeader || doc.evenHeader
           ? {
             default: doc.header
               ? new Header({ children: paragraphsOf(doc.header, style) })
@@ -118,9 +123,16 @@ export function createDocxDocument(doc: DocumentModel): Document {
               : titlePage && doc.firstHeader === undefined && doc.header
               ? new Header({ children: paragraphsOf(doc.header, style) })
               : undefined,
+            // The verso's own strip. Once two kinds of page are on, `header` is
+            // what a right-hand page shows and this is what a left-hand one
+            // does — so a document that named only an even header still wants
+            // the running one on its rectos, which is the `default` above.
+            even: doc.evenHeader
+              ? new Header({ children: paragraphsOf(doc.evenHeader, style) })
+              : undefined,
           }
           : undefined,
-        footers: doc.footer || doc.firstFooter
+        footers: doc.footer || doc.firstFooter || doc.evenFooter
           ? {
             default: doc.footer
               ? new Footer({ children: paragraphsOf(doc.footer, style) })
@@ -129,6 +141,9 @@ export function createDocxDocument(doc: DocumentModel): Document {
               ? new Footer({ children: paragraphsOf(doc.firstFooter, style) })
               : titlePage && doc.firstFooter === undefined && doc.footer
               ? new Footer({ children: paragraphsOf(doc.footer, style) })
+              : undefined,
+            even: doc.evenFooter
+              ? new Footer({ children: paragraphsOf(doc.evenFooter, style) })
               : undefined,
           }
           : undefined,

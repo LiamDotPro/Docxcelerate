@@ -64,6 +64,16 @@ export interface PaginationOptions {
   runningHeader?: Element | null;
   /** The footer every sheet after the first should carry. */
   runningFooter?: Element | null;
+  /**
+   * The header a left-hand page should carry, for a document set in spreads.
+   *
+   * Given, sheets alternate: page two takes this, page three the running one,
+   * and so on. Absent, every sheet after the first takes the running strip,
+   * which is what a document printed on one side wants.
+   */
+  evenHeader?: Element | null;
+  /** The footer a left-hand page should carry. */
+  evenFooter?: Element | null;
 }
 
 /** What one pagination pass did, for a caller that wants to say so. */
@@ -324,9 +334,17 @@ function drawnHeightOf(strip: Element | null, withTrailingSpace = false): number
 function newSheet(section: HTMLElement, options: PaginationOptions): HTMLElement {
   const sheet = section.cloneNode(false) as HTMLElement;
 
+  // Which sheet this is about to become, counting from one. The new sheet goes
+  // straight after this one, so it is this one's position plus one — and its
+  // parity is what decides whether it is a recto or a verso.
+  const number = [...(section.parentElement?.children ?? [])]
+    .filter((child) => child.classList.contains("docx"))
+    .indexOf(section) + 2;
+  const verso = number % 2 === 0;
+
   const running: Record<string, Element | null | undefined> = {
-    HEADER: options.runningHeader,
-    FOOTER: options.runningFooter,
+    HEADER: (verso ? options.evenHeader : null) ?? options.runningHeader,
+    FOOTER: (verso ? options.evenFooter : null) ?? options.runningFooter,
   };
 
   for (const child of [...section.children]) {

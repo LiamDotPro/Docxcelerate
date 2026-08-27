@@ -1655,36 +1655,88 @@ async function renderClientDocxPreview(model: DocumentModel, documentBlob: Blob)
  * written back, and the preview itself is rendered from the untouched file. A
  * document that is not a title page skips this and pays nothing.
  */
+interface SectionRefs {
+  titlePage?: boolean;
+  headerRefs?: { id: string; type: string }[];
+  footerRefs?: { id: string; type: string }[];
+}
+
 async function renderRunningFurniture(
   packed: Uint8Array,
   docxPreview: typeof import("docx-preview"),
-): Promise<{ header: Element | null; footer: Element | null }> {
+): Promise<{
+  header: Element | null;
+  footer: Element | null;
+  evenHeader: Element | null;
+  evenFooter: Element | null;
+}> {
   const parsed = await docxPreview.parseAsync(packed);
   // The section properties live on the body itself, not on a list of sections.
-  const properties = (parsed as { documentPart?: { body?: { props?: { titlePage?: boolean } } } })
+  const properties = (parsed as { documentPart?: { body?: { props?: SectionRefs } } })
     .documentPart?.body?.props;
+  const empty = { header: null, footer: null };
 
-  if (properties?.titlePage !== true) {
-    return { header: null, footer: null };
+  if (properties === undefined) {
+    return { ...empty, evenHeader: null, evenFooter: null };
   }
 
-  properties.titlePage = false;
+  const draw = async (prepare: () => void) => {
+    prepare();
 
-  const body = document.createElement("div");
-  const head = document.createElement("div");
+    const body = document.createElement("div");
+    const head = document.createElement("div");
 
-  await docxPreview.renderDocument(parsed, body, head, {
-    inWrapper: false,
-    breakPages: true,
-    ignoreLastRenderedPageBreak: false,
-  });
+    await docxPreview.renderDocument(parsed, body, head, {
+      inWrapper: false,
+      breakPages: true,
+      ignoreLastRenderedPageBreak: false,
+    });
 
-  const page = body.querySelector("section.docx");
+    const page = body.querySelector("section.docx");
+
+    return {
+      header: page?.querySelector(":scope > header") ?? null,
+      footer: page?.querySelector(":scope > footer") ?? null,
+    };
+  };
+
+  const running = properties.titlePage === true
+    ? await draw(() => {
+      properties.titlePage = false;
+    })
+    : empty;
+
+  // The verso strip, by the same means. docx-preview picks the even part only
+  // for a page it renders second, and it renders one — so the even reference is
+  // put where it looks for the default one and the same renderer is asked
+  // again. Nothing about the file changes.
+  const hasEven = (properties.headerRefs ?? []).some((ref) => ref.type === "even") ||
+    (properties.footerRefs ?? []).some((ref) => ref.type === "even");
+
+  const even = hasEven
+    ? await draw(() => {
+      properties.titlePage = false;
+      promoteEven(properties.headerRefs);
+      promoteEven(properties.footerRefs);
+    })
+    : empty;
 
   return {
-    header: page?.querySelector(":scope > header") ?? null,
-    footer: page?.querySelector(":scope > footer") ?? null,
+    header: running.header,
+    footer: running.footer,
+    evenHeader: even.header,
+    evenFooter: even.footer,
   };
+}
+
+/** The even reference, moved to where docx-preview looks for the default one. */
+function promoteEven(refs: { id: string; type: string }[] | undefined): void {
+  const even = (refs ?? []).find((ref) => ref.type === "even");
+  const fallback = (refs ?? []).find((ref) => ref.type === "default");
+
+  if (even !== undefined && fallback !== undefined) {
+    fallback.id = even.id;
+  }
 }
 
 /** A node from this document, brought into the frame's. */

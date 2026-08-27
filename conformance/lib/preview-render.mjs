@@ -109,14 +109,56 @@ async function renderRunningFurniture(packed, docxPreview, window) {
   const parsed = await docxPreview.parseAsync(packed);
   // The section properties live on the body itself — `body.props` — not on a
   // `sections` list. A document with one section has one set of them, and it is
-  // the same object `renderHeaderFooter` consults for `titlePage`.
+  // the same object `renderHeaderFooter` consults.
   const properties = parsed?.documentPart?.body?.props;
 
-  if (properties?.titlePage !== true) {
-    return { header: null, footer: null };
+  if (properties === undefined) {
+    return { header: null, footer: null, evenHeader: null, evenFooter: null };
   }
 
-  properties.titlePage = false;
+  const running = properties.titlePage === true
+    ? await drawStrips(parsed, docxPreview, window, () => {
+      properties.titlePage = false;
+    })
+    : { header: null, footer: null };
+
+  // The verso's strip, by the same means. docx-preview chooses `even` only for
+  // a page it is rendering second, and it renders one — so instead the *even*
+  // reference is put where the default one goes and the same renderer is asked
+  // again. It draws the document's own even-page part; nothing about the file
+  // changes, and the real preview is rendered from the untouched bytes.
+  const hasEven = (properties.headerRefs ?? []).some((ref) => ref.type === "even") ||
+    (properties.footerRefs ?? []).some((ref) => ref.type === "even");
+
+  const even = hasEven
+    ? await drawStrips(parsed, docxPreview, window, () => {
+      properties.titlePage = false;
+      promoteEven(properties.headerRefs);
+      promoteEven(properties.footerRefs);
+    })
+    : { header: null, footer: null };
+
+  return {
+    header: running.header,
+    footer: running.footer,
+    evenHeader: even.header,
+    evenFooter: even.footer,
+  };
+}
+
+/** The even reference, moved to where docx-preview looks for the default one. */
+function promoteEven(refs) {
+  const even = (refs ?? []).find((ref) => ref.type === "even");
+  const fallback = (refs ?? []).find((ref) => ref.type === "default");
+
+  if (even !== undefined && fallback !== undefined) {
+    fallback.id = even.id;
+  }
+}
+
+/** One scratch render, and the strips it drew. */
+async function drawStrips(parsed, docxPreview, window, prepare) {
+  prepare();
 
   const body = window.document.createElement("div");
   const head = window.document.createElement("div");
@@ -187,6 +229,8 @@ ${await paginatorSource()}
           DocxPreviewKit.paginateDocxPreview(document.body, {
             runningHeader: document.getElementById("running-header")?.firstElementChild ?? null,
             runningFooter: document.getElementById("running-footer")?.firstElementChild ?? null,
+            evenHeader: document.getElementById("even-header")?.firstElementChild ?? null,
+            evenFooter: document.getElementById("even-footer")?.firstElementChild ?? null,
           }),
         );
       } catch (error) {
@@ -218,16 +262,23 @@ function escapeJson(value) {
  * instead.
  */
 function runningMarkup(running) {
-  if (running.header === null && running.footer === null) {
+  if (!running.header && !running.footer && !running.evenHeader && !running.evenFooter) {
     return "";
   }
 
   const parked = 'style="position:absolute;left:-99999px;top:0"';
 
-  return [
-    running.header === null ? "" : `    <div id="running-header" ${parked}>${running.header}</div>`,
-    running.footer === null ? "" : `    <div id="running-footer" ${parked}>${running.footer}</div>`,
-  ].filter(Boolean).join("\n");
+  const strips = [
+    ["running-header", running.header],
+    ["running-footer", running.footer],
+    ["even-header", running.evenHeader],
+    ["even-footer", running.evenFooter],
+  ];
+
+  return strips
+    .filter(([, markup]) => Boolean(markup))
+    .map(([id, markup]) => `    <div id="${id}" ${parked}>${markup}</div>`)
+    .join("\n");
 }
 
 /**

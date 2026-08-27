@@ -298,6 +298,11 @@ export function measureOoxml(zip) {
   const document = partText(zip, "word/document.xml");
   const parts = partNames(zip);
   const styles = parts.includes("word/styles.xml") ? partText(zip, "word/styles.xml") : "";
+  // Some things a document declares are settings rather than section
+  // properties — `w:evenAndOddHeaders` among them — and live in their own part.
+  // A case that looked for one in `document.xml` would find nothing and
+  // conclude the document never asked for it.
+  const settings = parts.includes("word/settings.xml") ? partText(zip, "word/settings.xml") : "";
 
   // Only body paragraphs: a paragraph inside a table cell belongs to the table
   // slice, and a header's belongs to the furniture slice. Both would otherwise
@@ -337,6 +342,7 @@ export function measureOoxml(zip) {
     docDefaults: readDocDefaults(styles),
     documentXml: document,
     stylesXml: styles,
+    settingsXml: settings,
   };
 }
 

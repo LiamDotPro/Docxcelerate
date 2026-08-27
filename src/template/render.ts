@@ -95,6 +95,8 @@ export async function renderDocumentFurniture(
   footer?: DocumentNode[];
   firstHeader?: DocumentNode[];
   firstFooter?: DocumentNode[];
+  evenHeader?: DocumentNode[];
+  evenFooter?: DocumentNode[];
 }> {
   const header = props.header === undefined
     ? undefined
@@ -118,11 +120,24 @@ export async function renderDocumentFurniture(
     ? []
     : await renderYield(props.firstFooter, context, { path: "@firstFooter" });
 
+  // Even-page furniture takes no `false`, unlike the first page's. Absent means
+  // one kind of page; naming either turns the document over to two, and there
+  // is no third statement to make — "a verso shows nothing" is a verso strip
+  // with nothing in it, which is what an empty yield already gives.
+  const evenHeader = props.evenHeader === undefined
+    ? undefined
+    : await renderYield(props.evenHeader, context, { path: "@evenHeader" });
+  const evenFooter = props.evenFooter === undefined
+    ? undefined
+    : await renderYield(props.evenFooter, context, { path: "@evenFooter" });
+
   return {
     header: header && header.length > 0 ? header : undefined,
     footer: footer && footer.length > 0 ? footer : undefined,
     firstHeader,
     firstFooter,
+    evenHeader,
+    evenFooter,
   };
 }
 

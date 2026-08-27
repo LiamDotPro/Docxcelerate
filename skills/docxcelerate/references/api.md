@@ -54,7 +54,7 @@ interface PromptProps {
 
 | Element | Own props |
 | --- | --- |
-| `Document` | `id` (required), `title` (required), `metadata?`, `header?`, `footer?`, `children?` |
+| `Document` | `id` (required), `title` (required), `metadata?`, `header?`, `footer?`, `firstHeader?`, `firstFooter?`, `evenHeader?`, `evenFooter?`, `children?` |
 | `Section` | `title` (required), `children?` |
 | `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`) |
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` |
@@ -90,9 +90,17 @@ Notes worth knowing:
   details on their own page. Nudging a paragraph off the bottom of a page is the
   margins' job.
 - `Document.header` and `.footer` are running furniture, drawn on every page and
-  sitting outside the margins. A letterhead meant to appear once goes in the
-  body. `PageNumber` belongs here; a build cannot know the count, so Word gets a
-  field it recounts and the preview counts its own pages.
+  sitting outside the margins — how far out is `page.headerMm` / `page.footerMm`,
+  measured from the paper rather than the margin. A letterhead meant to appear
+  once goes in the body. `PageNumber` belongs here; a build cannot know the
+  count, so Word gets a field it recounts and the preview counts its own pages.
+- `firstHeader` / `firstFooter` are page one's own, for a letter whose letterhead
+  *is* the top of the first page. `false` means the first page shows nothing
+  where the others show the strip; absent means it is like every other page.
+- `evenHeader` / `evenFooter` are a left-hand page's, for a document printed on
+  both sides and bound — the reference belongs at the *outside* edge of each, so
+  a folio in the same place on every sheet sits in the gutter on half of them.
+  Naming either makes `header` and `footer` the right-hand page's.
 - `Graph.data` is a `JsonObject` the framework never looks inside.
   `{ labels, series: [{ name, values }] }` is a convention, not a schema — pick
   one shape and keep it consistent across a project. String values inside the

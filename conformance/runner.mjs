@@ -123,7 +123,11 @@ async function runOne(file, { canPreview, canWord, options }) {
       const measure = measureOoxml(artefacts.bytes);
       await writeFile(
         resolve(artefacts.outDir, "measure-a.json"),
-        JSON.stringify({ ...measure, documentXml: undefined, stylesXml: undefined }, null, 2),
+        JSON.stringify(
+          { ...measure, documentXml: undefined, stylesXml: undefined, settingsXml: undefined },
+          null,
+          2,
+        ),
         "utf8",
       );
       return [ooxmlView(measure)];

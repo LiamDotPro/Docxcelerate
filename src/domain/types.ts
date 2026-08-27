@@ -830,6 +830,22 @@ export interface DocumentModel {
   firstHeader?: DocumentNode[];
   /** Nodes drawn at the foot of the first page, in place of `footer`. */
   firstFooter?: DocumentNode[];
+  /**
+   * Nodes drawn at the top of left-hand pages, in place of `header`.
+   *
+   * A document printed on both sides and bound has two kinds of page, not one.
+   * The reference belongs at the *outside* edge of each — right on a recto,
+   * left on a verso — so it is always the corner a thumb reaches, and a folio
+   * that sat in the same place on every sheet would sit in the gutter on half
+   * of them.
+   *
+   * Naming either of these turns on Word's `w:evenAndOddHeaders`, which is a
+   * setting for the whole document rather than for one section: from then on
+   * `header` and `footer` are what a *right-hand* page shows.
+   */
+  evenHeader?: DocumentNode[];
+  /** Nodes drawn at the foot of left-hand pages, in place of `footer`. */
+  evenFooter?: DocumentNode[];
 }
 
 /** Everything a node can reach while a single document is being written. */

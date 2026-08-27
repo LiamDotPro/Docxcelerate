@@ -79,6 +79,19 @@ export interface DocumentProps extends CommonElementProps {
   firstHeader?: Yield | false;
   /** The foot of the first page, when it differs from `footer`. */
   firstFooter?: Yield | false;
+  /**
+   * What the top of a *left-hand* page shows, when it differs from `header`.
+   *
+   * For a document printed on both sides and bound. The reference belongs at
+   * the outside edge of each page — right on a recto, left on a verso — so it
+   * is always the corner a thumb reaches, and a folio in the same place on
+   * every sheet sits in the gutter on half of them.
+   *
+   * Naming either even strip makes `header` and `footer` the right-hand page's.
+   */
+  evenHeader?: Yield;
+  /** The foot of a left-hand page, when it differs from `footer`. */
+  evenFooter?: Yield;
   /** The body of the document. */
   children?: Yield;
 }

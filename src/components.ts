@@ -104,7 +104,8 @@ export async function buildDocument<TData>(
   // The body first, so ids are claimed in the order a reader meets them and a
   // collision is reported against the node that actually repeated one.
   const nodes = await renderDocumentChildren(props, context);
-  const { header, footer, firstHeader, firstFooter } = await renderDocumentFurniture(
+  const { header, footer, firstHeader, firstFooter, evenHeader, evenFooter } =
+    await renderDocumentFurniture(
     props,
     context,
   );
@@ -119,6 +120,8 @@ export async function buildDocument<TData>(
     footer,
     firstHeader,
     firstFooter,
+    evenHeader,
+    evenFooter,
   };
 }
 
