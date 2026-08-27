@@ -31,27 +31,7 @@ export default defineCase({
   title: "A page number the renderer counts, not the build",
   word: "Insert → Page Number (PAGE and NUMPAGES fields)",
 
-  /**
-   * The numbering is right; the count it is numbering is one out.
-   *
-   * The footer says "1 / 5" where Word says "1 / 6" — the preview fits ninety
-   * lines onto five sheets and Word onto six. Everything either side of that is
-   * correct: the fields are real fields, Word evaluates them, the preview fills
-   * them from its own pagination, and the last sheet says the last number.
-   *
-   * It is a page-height accounting difference, not a numbering one, and it is
-   * narrow: `furniture/running` and `preview/content-pagination` both agree with
-   * Word exactly, on sixty and ninety lines. What separates this document is a
-   * footer with a field in it, so the likeliest culprit is how much room the
-   * strip is reckoned to need — and the honest state is that the paginator is
-   * within a page over five, not that it is exact.
-   *
-   * Recorded at its measured size rather than tuned away. A tolerance widened
-   * until this passed would hide the next one, and the number to chase is a
-   * page, not a millimetre.
-   */
-  claim: "partial",
-  knownRed: ["parity"],
+  claim: "supported",
 
   style: withBlocks({ strip: { spacingAfterPt: 0 } }),
 

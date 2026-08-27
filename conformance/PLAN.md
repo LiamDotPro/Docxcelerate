@@ -204,8 +204,8 @@ case is the first case to write for that row.
 | --- | --- | --- | --- |
 | Header and footer on every page | yes | `furniture/running` | A·B·C·X green |
 | **Distance from the paper's edge** | **yes — added** | `furniture/distance` | was a silent 12.5mm chosen by the packing library |
-| Page number counted by the renderer | yes, ±1 page | `furniture/page-numbers` | `partial` — the numbering is right, the count is one out over five |
-| Different first page | file and Word yes, preview partial | `furniture/first-page` | docx-preview renders one set of furniture per section |
+| Page number counted by the renderer | **yes** | `furniture/page-numbers` | matches Word's count exactly |
+| Different first page | **yes — both** | `furniture/first-page` | the running strip is asked of docx-preview, not built |
 | Even / odd (recto and verso) | no | `furniture/even-odd` | needs `evenHeader` / `evenFooter` and `w:evenAndOddHeaders` |
 
 ### The preview's own layout
@@ -230,9 +230,9 @@ The suite exists and this area is through it. Every row below is a case under
 | **Indentation** (left/right/first-line/hanging) | **yes — added** | `text/indent` | was: only the negative bleed indent |
 | **Space before** | **yes — added** | `text/spacing-before` | was: headings only |
 | **Keep-with-next / keep-lines** | **yes — added** | `text/keeps` | Word confirms the pair is not split |
-| **Tab stops** | **file yes, preview no** | `text/tab-stops` | `partial` — HTML has no tab-stop model |
+| **Tab stops** | **yes — file and preview** | `text/tab-stops` | `applyTabStops` places them where there is a layout |
 | Line height | yes, ±1.6mm at 2.0 leading | `text/line-height` | `partial` — measured, see the case |
-| **Preview paginates by content** | **no** | `preview/content-pagination` | the largest remaining divergence |
+| **Preview paginates by content** | **yes — added** | `preview/content-pagination` | matches Word exactly on ordinary paragraphs |
 
 ### Inline runs — the largest gap
 

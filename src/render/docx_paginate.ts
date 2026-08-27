@@ -43,6 +43,29 @@ const PX_PER_PT = 96 / 72;
 /** How many sheets one document may be broken into before something is wrong. */
 const PAGE_LIMIT = 200;
 
+/**
+ * What a caller can tell the paginator that the DOM cannot.
+ *
+ * Only one thing so far, and it is the running furniture of a title-page
+ * document. docx-preview picks one header and one footer per page it renders,
+ * and it renders one page — so for a document whose first page differs it draws
+ * the *first* page's strip and never asks for the other. There is nothing left
+ * in the DOM for a new sheet to inherit but the letterhead, which is the one
+ * thing that must not repeat.
+ *
+ * A host that can render the running parts — anything holding docx-preview and
+ * the file — passes them here, and every sheet after the first takes those
+ * instead. Elements rather than markup, because they come from docx-preview's
+ * own rendering of the document's own parts: this is the file's running header,
+ * not a second opinion about what one should look like.
+ */
+export interface PaginationOptions {
+  /** The header every sheet after the first should carry. */
+  runningHeader?: Element | null;
+  /** The footer every sheet after the first should carry. */
+  runningFooter?: Element | null;
+}
+
 /** What one pagination pass did, for a caller that wants to say so. */
 export interface PaginationResult {
   /** How many sheets the preview now holds. */
@@ -78,7 +101,10 @@ export interface PaginationResult {
  * paginateDocxPreview(body);
  * ```
  */
-export function paginateDocxPreview(container: Element): PaginationResult {
+export function paginateDocxPreview(
+  container: Element,
+  options: PaginationOptions = {},
+): PaginationResult {
   const sections = [...container.querySelectorAll("section.docx")] as HTMLElement[];
 
   if (sections.length === 0) {
@@ -107,7 +133,7 @@ export function paginateDocxPreview(container: Element): PaginationResult {
       return { pages: container.querySelectorAll("section.docx").length, changed, reason: "limit" };
     }
 
-    const overflow = splitSection(section);
+    const overflow = splitSection(section, options);
 
     if (overflow !== null) {
       changed = true;
@@ -137,7 +163,7 @@ export function paginateDocxPreview(container: Element): PaginationResult {
  *
  * @returns The sheet the overflow went onto, or null when it all fitted.
  */
-function splitSection(section: HTMLElement): HTMLElement | null {
+function splitSection(section: HTMLElement, options: PaginationOptions): HTMLElement | null {
   const article = section.querySelector(":scope > article");
 
   if (article === null) {
@@ -152,9 +178,16 @@ function splitSection(section: HTMLElement): HTMLElement | null {
 
   const blocks = [...article.children] as HTMLElement[];
 
-  // The first block whose foot falls past the sheet's. Never the first block on
-  // the page: something taller than a whole page has to go somewhere, and
-  // moving it to a sheet of its own would move it for ever.
+  // The first block whose *text* falls past the sheet's foot.
+  //
+  // The text, not the space under it: measured on eighteen two-line paragraphs
+  // set 10pt apart, Word ends the last one 780.8pt down a page whose text stops
+  // at 785.2 — and lets its trailing 10pt hang past that into the margin rather
+  // than turning the page. So the border box is the right edge to test, and
+  // adding the margin to it costs a paragraph a page.
+  //
+  // Never the first block on the page: something taller than a whole sheet has
+  // to go somewhere, and moving it to a sheet of its own would move it for ever.
   const breakAt = blocks.findIndex((block, index) =>
     index > 0 && block.getBoundingClientRect().bottom > limit
   );
@@ -163,7 +196,7 @@ function splitSection(section: HTMLElement): HTMLElement | null {
     return null;
   }
 
-  const next = newSheet(section);
+  const next = newSheet(section, options);
   const nextArticle = next.querySelector(":scope > article") as HTMLElement;
 
   for (const block of blocks.slice(breakAt)) {
@@ -210,14 +243,35 @@ function contentBottomOf(section: HTMLElement): number | null {
   // same size on a page showing a bar as on one showing nothing. Subtracting
   // the reserve took a whole extra sheet out of a ninety-line document, which
   // is how this was found.
-  // …and the strip sits *inside* the bottom margin, not below it. docx-preview
-  // draws running furniture in the padding, which is what a margin is for on a
-  // printed page. Subtracting both took a sliver off every sheet, and on a
-  // ninety-line document the slivers added up to a whole extra page: six where
-  // Word printed five.
+  // The footer eats into the text only when it is bigger than the margin it
+  // sits in, which is exactly Word's rule: the text stops at the bottom margin,
+  // or at the top of the footer, whichever comes first.
+  //
+  // Measured both ways round. A ninety-paragraph document with no footer fits
+  // eighteen to a page in Word; the same document with a one-line footer fits
+  // seventeen, because that footer's own space-after pushes it up past the
+  // margin. Getting this wrong is a page of disagreement by the fifth sheet.
   const footer = section.querySelector(":scope > footer");
+  const reserve = footer === null
+    ? 0
+    : footerDistanceOf(footer, padding) + drawnHeightOf(footer, true);
 
-  return rect.top + height - Math.max(padding, drawnHeightOf(footer));
+  return rect.top + height - Math.max(padding, reserve);
+}
+
+/**
+ * How far the footer stands from the foot of the paper, in pixels.
+ *
+ * Not written anywhere directly, but recoverable. docx-preview reserves the
+ * strip a box of `margin − distance` — the slice of the margin left beneath it
+ * — cancelled by an equal negative margin so it does not disturb the flow. The
+ * distance is therefore the margin less that reserve, which is the number the
+ * file declared in `w:pgMar/@w:footer` and the number Word lays out from.
+ */
+function footerDistanceOf(footer: Element, padding: number): number {
+  const declared = Number.parseFloat((footer as HTMLElement).style.minHeight);
+
+  return Number.isFinite(declared) ? Math.max(0, padding - declared) : padding;
 }
 
 /**
@@ -226,7 +280,7 @@ function contentBottomOf(section: HTMLElement): number | null {
  * The union of its children's boxes rather than its own, for the reserve reason
  * above. A strip with nothing in it is nothing tall.
  */
-function drawnHeightOf(strip: Element | null): number {
+function drawnHeightOf(strip: Element | null, withTrailingSpace = false): number {
   if (strip === null) {
     return 0;
   }
@@ -241,7 +295,22 @@ function drawnHeightOf(strip: Element | null): number {
     bottom = Math.max(bottom, rect.bottom);
   }
 
-  return bottom > top ? bottom - top : 0;
+  if (bottom <= top) {
+    return 0;
+  }
+
+  // A footer's own space-after counts toward how much room it takes, even
+  // though a body paragraph's does not. The difference is that a body paragraph
+  // can let its trailing space hang into the margin, and a strip already lives
+  // there — measured, it is what makes a one-line footer cost a page its
+  // eighteenth paragraph.
+  const view = strip.ownerDocument.defaultView;
+  const last = strip.lastElementChild;
+  const trailing = withTrailingSpace && view !== null && last !== null
+    ? Number.parseFloat(view.getComputedStyle(last).marginBottom) || 0
+    : 0;
+
+  return bottom - top + trailing;
 }
 
 /**
@@ -252,15 +321,38 @@ function drawnHeightOf(strip: Element | null): number {
  * from still needs them. The article is cloned empty — its blocks are what the
  * caller is about to move across.
  */
-function newSheet(section: HTMLElement): HTMLElement {
+function newSheet(section: HTMLElement, options: PaginationOptions): HTMLElement {
   const sheet = section.cloneNode(false) as HTMLElement;
+
+  const running: Record<string, Element | null | undefined> = {
+    HEADER: options.runningHeader,
+    FOOTER: options.runningFooter,
+  };
 
   for (const child of [...section.children]) {
     if (child.tagName === "ARTICLE") {
       sheet.appendChild(child.cloneNode(false));
-    } else {
-      sheet.appendChild(child.cloneNode(true));
+      continue;
     }
+
+    // The running strip, where the caller supplied one, in place of the strip
+    // this sheet happens to be carrying. On a title-page document that is the
+    // difference between every sheet repeating the letterhead and every sheet
+    // after the first carrying the running header, which is what the file says
+    // and what Word draws.
+    const replacement = running[child.tagName];
+
+    if (replacement !== undefined && replacement !== null) {
+      const strip = replacement.cloneNode(true) as HTMLElement;
+      // The reserve docx-preview sized for this sheet's strip, kept: it comes
+      // from the page's own furniture distance, and the replacement was
+      // rendered into a container that had no page to take it from.
+      strip.setAttribute("style", (child as HTMLElement).getAttribute("style") ?? "");
+      sheet.appendChild(strip);
+      continue;
+    }
+
+    sheet.appendChild(child.cloneNode(true));
   }
 
   // A sheet that inherited no article — a section holding only furniture —

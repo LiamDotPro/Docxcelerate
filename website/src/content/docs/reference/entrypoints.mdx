@@ -154,6 +154,34 @@ would split across a sheet moves whole here. On documents made of ordinary
 paragraphs the two agree exactly; that is measured rather than claimed, by
 `conformance/cases/preview/content-pagination`.
 
+### Tab stops
+
+```ts
+import { applyTabStops, readPackedParagraphs } from "docxcelerate/preview";
+
+applyTabStops(body, await readPackedParagraphs(packed));
+```
+
+A tab stop is the one paragraph property whose effect cannot be written as a
+style: where the text after a tab lands depends on how wide the text *before* it
+drew. So like pagination it needs a layout, and runs in the same place — before
+paginating, since a line that has not found its stop is the wrong height to
+measure a page against.
+
+Put together, a preview is finished in three steps, and the order is the order:
+
+```ts
+const packed = new Uint8Array(await blob.arrayBuffer());
+const paragraphs = await readPackedParagraphs(packed);
+
+await renderAsync(packed, body, head, { breakPages: true });
+settleDocxPreview(body, model, paragraphs);   // no layout needed
+applyTabStops(body, paragraphs);              // needs layout
+paginateDocxPreview(body);                    // needs layout, and settled heights
+```
+
+The scaffolded preview app already does all of this.
+
 ## docxcelerate/scaffold and /cli
 
 The workspace generator and its command-line front end, for building your own

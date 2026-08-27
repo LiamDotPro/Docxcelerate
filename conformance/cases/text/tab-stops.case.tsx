@@ -8,8 +8,14 @@ import { COLUMN_MM, TWIPS_PER_MM, withBlocks } from "../_support/style.ts";
  *
  * A contents line with a dot leader, a signature block with a date on the
  * right, a price beside a description — all of them are one paragraph with a
- * tab in it, and none of them can be written today. The workaround is a table,
- * which draws a grid where a line was wanted and cannot be justified or wrapped.
+ * tab in it, and none of them could be written before this. The workaround was
+ * a table, which draws a grid where a line was wanted.
+ *
+ * The stops reach the preview too, which took its own step: docx-preview parses
+ * them and can place them, but only behind an `experimental` flag and only on a
+ * timer half a second after rendering — no use to a renderer that lays out into
+ * a detached document and serialises it at once. So `applyTabStops` places them
+ * where there is a layout to place them in, from the stops the file declares.
  *
  * The stops go on the block: a `contentsLine` has the same stop wherever it
  * appears, and a theme that moves the leader from 150mm to 160mm should not
@@ -21,21 +27,7 @@ export default defineCase({
   title: "A tab stop, with and without a leader",
   word: "Paragraph → Tabs (w:tabs)",
 
-  /**
-   * Written correctly and drawn correctly by Word; invisible in the preview.
-   *
-   * docx-preview has nowhere to put a tab stop — HTML has no tab-stop model,
-   * and a `\t` in a text node collapses to a single space. So a contents line
-   * that Word sets with its page number on the right margin and a dot leader
-   * running up to it draws on screen as one run of words with a space in it.
-   *
-   * That is recorded rather than papered over. Settling the preview means
-   * writing back a fact the file declares and Word draws; laying out tab stops
-   * in CSS would be inventing a layout engine, and a preview that invents is
-   * the thing this whole suite exists to prevent.
-   */
-  claim: "partial",
-  knownRed: ["preview", "parity"],
+  claim: "supported",
 
   style: withBlocks({
     /** A contents line: text, dots, then a page number on the right margin. */

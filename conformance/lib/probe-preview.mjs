@@ -326,6 +326,7 @@ function harnessHtml(bodyFont) {
       // this a preview that failed to paginate is indistinguishable from one
       // whose document happened to fit.
       paginated: doc.body ? (doc.body.dataset.paginated || null) : null,
+      tabsPlaced: doc.body ? (doc.body.dataset.tabs || null) : null,
       documentHeight: doc.documentElement.scrollHeight
     };
   }
@@ -467,6 +468,7 @@ export async function runPreviewProbe({ outDir, htmlPath, bodyFont, screenshots 
     output.paragraphs = measured.paragraphs;
     output.fontProbe = measured.fontProbe;
     output.paginated = measured.paginated ?? null;
+    output.tabsPlaced = measured.tabsPlaced ?? null;
 
     if (screenshots && measured.sections.length > 0) {
       const height = Math.max(900, Math.min(measured.documentHeight + 20, 8000));

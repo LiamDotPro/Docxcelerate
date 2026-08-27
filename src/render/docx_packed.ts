@@ -55,6 +55,16 @@ export interface PackedBorderSpace {
   left?: number;
 }
 
+/** One tab stop a paragraph declares, as the packed file records it. */
+export interface PackedTabStop {
+  /** Where the stop is, in points from the left margin. */
+  positionPt: number;
+  /** What the text does when it reaches it. */
+  align: "left" | "center" | "right" | "decimal" | "bar";
+  /** What fills the run-up to it. */
+  leader: "none" | "dot" | "hyphen" | "underscore" | "middleDot";
+}
+
 /** One body paragraph, as the packed file records it. */
 export interface PackedParagraph {
   /** The words it prints, which is how it is matched to what was drawn. */
@@ -70,6 +80,16 @@ export interface PackedParagraph {
    * an undrawn edge has nowhere to record a gap.
    */
   borderSpacePt: PackedBorderSpace;
+  /**
+   * The tab stops the paragraph declares, in order.
+   *
+   * docx-preview parses these and can position text against them, but only
+   * behind its `experimental` flag and only half a second after rendering —
+   * which is no use to a renderer that lays out into a detached document and
+   * serialises it. So the stops travel here and are applied where there is a
+   * layout to apply them to.
+   */
+  tabStops: PackedTabStop[];
 }
 
 /**
@@ -234,7 +254,35 @@ function readParagraph(xml: string): PackedParagraph {
       bottom: borderSpace(borders, "bottom"),
       left: borderSpace(borders, "left"),
     },
+    tabStops: readTabStops(properties),
   };
+}
+
+/** The stops a paragraph declares, in twips converted to points. */
+function readTabStops(properties: string | null): PackedTabStop[] {
+  const tabs = properties === null ? null : element(properties, "w:tabs");
+
+  if (tabs === null) {
+    return [];
+  }
+
+  const aligns = ["left", "center", "right", "decimal", "bar"] as const;
+  const leaders = ["none", "dot", "hyphen", "underscore", "middleDot"] as const;
+
+  return elements(tabs, "w:tab").map((stop) => {
+    const align = attribute(stop, "w:val") ?? "left";
+    const leader = attribute(stop, "w:leader") ?? "none";
+
+    return {
+      positionPt: (numberAttribute(stop, "w:pos") ?? 0) / TWIPS_PER_PT,
+      align: (aligns as readonly string[]).includes(align)
+        ? align as PackedTabStop["align"]
+        : "left",
+      leader: (leaders as readonly string[]).includes(leader)
+        ? leader as PackedTabStop["leader"]
+        : "none",
+    };
+  });
 }
 
 /** The gap one edge holds, when that edge is drawn at all. */

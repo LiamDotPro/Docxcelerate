@@ -101,7 +101,91 @@ export async function renderDocxPreview(document) {
   return {
     styles: withFontFallbacks(styleContainer.innerHTML),
     pages: withImageTypes(withFontFallbacks(bodyContainer.innerHTML)),
+    running: await renderRunningFurniture(packed, docxPreview, window),
+    packed: await readPackedParagraphs(packed),
   };
+}
+
+/**
+ * The strip a title-page document draws on every page *after* the first.
+ *
+ * docx-preview picks one header and one footer per page it renders, and it
+ * renders one page — so for a document whose first page differs it draws the
+ * letterhead and never asks for the running header at all. The default part is
+ * in the package and Word draws it from page two; it simply never reaches the
+ * DOM, so the paginator has nothing but the letterhead to carry forward.
+ *
+ * The fix is to ask docx-preview for it, rather than to build it. The file is
+ * parsed, the section's title-page flag is turned off in the parsed tree only,
+ * and the same renderer draws the same document again into a scratch container
+ * — where page one now takes the *default* parts. What comes out is
+ * docx-preview's rendering of the document's own running header, which is the
+ * only thing that would not be a second opinion.
+ *
+ * Nothing is written back to the file, and the real preview is rendered from
+ * the untouched bytes. A document that is not a title page skips this entirely.
+ */
+async function renderRunningFurniture(packed, docxPreview, window) {
+  const parsed = await docxPreview.parseAsync(packed);
+  // The section properties live on the body itself — `body.props` — not on a
+  // `sections` list. A document with one section has one set of them, and it is
+  // the same object `renderHeaderFooter` consults for `titlePage`.
+  const properties = parsed?.documentPart?.body?.props;
+
+  if (properties?.titlePage !== true) {
+    return { header: null, footer: null };
+  }
+
+  properties.titlePage = false;
+
+  const body = window.document.createElement("div");
+  const head = window.document.createElement("div");
+
+  await docxPreview.renderDocument(parsed, body, head, {
+    inWrapper: false,
+    breakPages: true,
+    ignoreLastRenderedPageBreak: false,
+    useBase64URL: true,
+  });
+
+  const page = body.querySelector("section.docx");
+
+  return {
+    header: page?.querySelector(":scope > header")?.outerHTML ?? null,
+    footer: page?.querySelector(":scope > footer")?.outerHTML ?? null,
+  };
+}
+
+/**
+ * What the file says about its paragraphs, safe to sit in a `<script>`.
+ *
+ * Only `<` needs escaping, and only because a `</script` anywhere inside the
+ * block would end it early — a paragraph whose text happens to say so would
+ * otherwise take the rest of the page with it.
+ */
+function escapeJson(value) {
+  return JSON.stringify(value).replaceAll("<", String.fromCharCode(92) + "u003c");
+}
+
+/**
+ * The running furniture, parked in the page for the paginator to find.
+ *
+ * Hidden, and outside every sheet: it is not drawn, it is the pattern each new
+ * sheet is given after the first. `display: none` would cost it its layout and
+ * with it the reserve heights the paginator reads, so it is moved off the page
+ * instead.
+ */
+function runningMarkup(running) {
+  if (running.header === null && running.footer === null) {
+    return "";
+  }
+
+  const parked = 'style="position:absolute;left:-99999px;top:0"';
+
+  return [
+    running.header === null ? "" : `    <div id="running-header" ${parked}>${running.header}</div>`,
+    running.footer === null ? "" : `    <div id="running-footer" ${parked}>${running.footer}</div>`,
+  ].filter(Boolean).join("\n");
 }
 
 /**
@@ -184,7 +268,7 @@ function imageTypeOf(base64) {
  * @returns {Promise<string>} The page, as HTML.
  */
 export async function renderDocxPage(document, { title, style = PAGE_ONLY_STYLE }) {
-  const { styles, pages } = await renderDocxPreview(document);
+  const { styles, pages, running, packed } = await renderDocxPreview(document);
 
   return `<!doctype html>
 <html lang="en">
@@ -203,6 +287,8 @@ export async function renderDocxPage(document, { title, style = PAGE_ONLY_STYLE 
   </head>
   <body>
 ${pages}
+${runningMarkup(running)}
+    <script id="packed" type="application/json">${escapeJson(packed)}</script>
 ${await paginatorScript()}
   </body>
 </html>
@@ -274,7 +360,16 @@ async function paginatorScript() {
 
   return `    <script type="module">
 ${source}
-      try { paginateDocxPreview(document.body); } catch (error) { /* one long sheet, as before */ }
+      try {
+        applyTabStops(
+          document.body,
+          JSON.parse(document.getElementById("packed").textContent),
+        );
+        paginateDocxPreview(document.body, {
+          runningHeader: document.getElementById("running-header")?.firstElementChild ?? null,
+          runningFooter: document.getElementById("running-footer")?.firstElementChild ?? null,
+        });
+      } catch (error) { /* one long sheet, as before */ }
     </script>`;
 }
 

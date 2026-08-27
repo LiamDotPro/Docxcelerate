@@ -30,27 +30,7 @@ export default defineCase({
   title: "A first page with furniture of its own",
   word: "Header & Footer → Different First Page (w:titlePg)",
 
-  /**
-   * Right in the file, right in Word, and only half-drawn in the preview.
-   *
-   * docx-preview renders one set of running furniture per section, and for a
-   * title-page document it picks the first page's. The default header part is
-   * in the package, Word draws it from page two onward, and it never reaches
-   * the DOM at all — so there is nothing for the paginator to carry onto the
-   * later sheets, and they show page one's letterhead instead of the running
-   * strip.
-   *
-   * The paginator did not introduce this and cannot fix it: it can only
-   * propagate the furniture docx-preview drew. Fixing it means rendering the
-   * default header part, which docx-preview does not expose — and building the
-   * markup from the model instead would be a second renderer for furniture,
-   * which is the one thing this framework refuses to grow.
-   *
-   * Until then: a title-page document previews its first page faithfully and
-   * shows the wrong strip above the rest. Word is right either way.
-   */
-  claim: "partial",
-  knownRed: ["parity"],
+  claim: "supported",
 
   style: withBlocks({ strip: { spacingAfterPt: 0 } }),
 

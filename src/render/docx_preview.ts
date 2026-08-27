@@ -27,12 +27,18 @@ import { fillPageFields } from "./docx_fields.ts";
 import type { PackedParagraph } from "./docx_packed.ts";
 
 export { fillPageFields } from "./docx_fields.ts";
-export { paginateDocxPreview, type PaginationResult } from "./docx_paginate.ts";
+export {
+  paginateDocxPreview,
+  type PaginationOptions,
+  type PaginationResult,
+} from "./docx_paginate.ts";
+export { applyTabStops } from "./docx_tabs.ts";
 
 export {
   type PackedBorderSpace,
   type PackedParagraph,
   type PackedRun,
+  type PackedTabStop,
   readPackedParagraphs,
   readPart,
 } from "./docx_packed.ts";
