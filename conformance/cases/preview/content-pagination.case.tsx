@@ -5,25 +5,25 @@ import { caseStyle } from "../_support/style.ts";
 /**
  * Whether the preview breaks a page when the text runs off the bottom of one.
  *
- * It does not. docx-preview breaks where the *file* says to break — an
- * explicit `w:br type="page"` or a `w:pageBreakBefore` — and nowhere else. It
- * does not lay text out against a page height and start a new sheet when the
- * old one is full, because that is a pagination engine and it does not have
- * one. So a document Word prints on three pages is drawn as one very long
- * sheet, and everything derived from the page count is wrong with it: which
- * page a paragraph is on, whether a kept block was moved whole, what the
- * footer's "1 / 3" should say.
+ * docx-preview does not: it breaks where the *file* says to — an explicit
+ * `w:br type="page"` or a `w:pageBreakBefore` — and nowhere else, because it
+ * has no paginator. So a document Word printed on five pages was drawn as one
+ * very long sheet, and everything derived from the page count was wrong with
+ * it: which page a paragraph is on, whether a header repeats, what a footer's
+ * "1 of 5" should say. It was the largest single divergence in the suite, and
+ * it blocked every case whose claim was about more than one page.
  *
- * This is the largest single divergence between the two engines and it is not
- * a bug anyone can fix in a reading. Writing back a fact the file declares is
- * one thing; deciding where a line breaks across a sheet is a layout engine,
- * and building a second one is exactly what the framework refuses to do. So it
- * is written down, measured, and kept in front of us.
+ * `paginateDocxPreview` closes it. It flows the body's blocks into boxes the
+ * height of the page and starts a new sheet when one is full, carrying the
+ * running furniture onto it — from numbers the file already carries, which is
+ * why it is finishing the reading rather than inventing an appearance.
  *
- * The practical consequence, until this closes: **trust the preview for how a
- * page looks and Word for how many there are.** A document whose page breaks
- * matter should declare them rather than let them fall where they fall — which
- * is what `<PageBreak>` is for, and what the preview does honour.
+ * It is not Word's own paginator, and the difference is worth stating: it
+ * breaks *between* blocks, never through the middle of one, so a paragraph Word
+ * would split across a sheet moves whole here instead. On documents made of
+ * ordinary paragraphs the two agree exactly, which is what this case measures.
+ * A document of very long paragraphs is where they would drift, and the case to
+ * write when one turns up.
  */
 
 /** Enough prose to overrun an A4 page with 20mm margins several times over. */
@@ -38,8 +38,8 @@ export default defineCase({
   id: "preview/content-pagination",
   feature: "preview.pagination",
   title: "The preview starts a new page when the text overruns one",
-  word: "Word repaginates continuously; docx-preview breaks only where the file says",
-  claim: "unsupported",
+  word: "Word repaginates continuously; docx-preview breaks only where the file says, so the framework paginates it",
+  claim: "supported",
 
   style: caseStyle,
 

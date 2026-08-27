@@ -195,8 +195,25 @@ case is the first case to write for that row.
 | Multiple sections | no — one `sectPr` for the whole document | `createDocxDocument` builds one section | `page/second-section` |
 | Text columns | no | no `columns` in the model | `page/two-columns` |
 | Page borders / background | no | — | `page/border` |
-| Different first page | yes | `firstHeader` / `firstFooter`, `titlePg` | `furniture/first-page-differs` |
+| Different first page | yes | `firstHeader` / `firstFooter`, `titlePg` | `furniture/first-page` |
 | Even/odd furniture | no | — | `furniture/even-odd` |
+
+### Running furniture — **done**
+
+| Feature | State | Case | Note |
+| --- | --- | --- | --- |
+| Header and footer on every page | yes | `furniture/running` | A·B·C·X green |
+| **Distance from the paper's edge** | **yes — added** | `furniture/distance` | was a silent 12.5mm chosen by the packing library |
+| Page number counted by the renderer | yes, ±1 page | `furniture/page-numbers` | `partial` — the numbering is right, the count is one out over five |
+| Different first page | file and Word yes, preview partial | `furniture/first-page` | docx-preview renders one set of furniture per section |
+| Even / odd (recto and verso) | no | `furniture/even-odd` | needs `evenHeader` / `evenFooter` and `w:evenAndOddHeaders` |
+
+### The preview's own layout
+
+| Feature | State | Case | Note |
+| --- | --- | --- | --- |
+| **Paginates by content** | **yes — added** | `preview/content-pagination` | `paginateDocxPreview`; matches Word exactly on ordinary paragraphs |
+| Splits a paragraph across a break | no | — | breaks between blocks only, so a paragraph moves whole |
 
 ### Paragraphs — **done**
 

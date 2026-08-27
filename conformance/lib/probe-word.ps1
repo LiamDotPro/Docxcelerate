@@ -33,6 +33,9 @@ $wdCollapseEnd = 0
 $wdExportPdf = 17
 $wdDoNotSaveChanges = 0
 $wdPrintView = 3
+$wdSeekMainDocument = 0
+$wdSeekCurrentPageHeader = 9
+$wdSeekCurrentPageFooter = 10
 $wdLineSpaceSingle = 0
 $wdLineSpaceAtLeast = 3
 $wdLineSpaceExactly = 4
@@ -124,6 +127,7 @@ $out = [ordered]@{
     wordVersion = $null
     pages       = $null
     pageSetup   = $null
+    furniture   = $null
     paragraphs  = @()
     pdfExported = $false
     errors      = @()
@@ -165,8 +169,54 @@ try {
             rightMargin  = [math]::Round([double]$ps.RightMargin, 2)
             topMargin    = [math]::Round([double]$ps.TopMargin, 2)
             bottomMargin = [math]::Round([double]$ps.BottomMargin, 2)
+            # How far the running strips sit from the paper's edge, which is a
+            # different distance from the margin and is why a header can print
+            # above the text without eating into it.
+            headerDistance = [math]::Round([double]$ps.HeaderDistance, 2)
+            footerDistance = [math]::Round([double]$ps.FooterDistance, 2)
+            differentFirstPageHeaderFooter = ([int]$ps.DifferentFirstPageHeaderFooter -ne 0)
+            oddAndEvenPagesHeaderFooter = ([int]$ps.OddAndEvenPagesHeaderFooter -ne 0)
         }
     } catch { $errors += "pageSetup: $($_.Exception.Message)" }
+
+    # The running furniture, by the kind of page it is drawn on.
+    #
+    # Word keeps a header and a footer per type per section, and reports each
+    # whether or not it is used: a document that never turned on a first-page
+    # header still has an empty one. `exists` is what separates "there is a
+    # strip here" from "there is a slot for one", and it is the fact a case
+    # about first-page furniture is actually asking about.
+    try {
+        $furniture = [ordered]@{}
+        $section = $d.Sections.Item(1)
+        $kinds = @{ primary = 1; firstPage = 2; evenPages = 3 }
+
+        foreach ($kind in $kinds.Keys) {
+            $index = $kinds[$kind]
+
+            foreach ($part in @('header', 'footer')) {
+                $strip = $null
+                try {
+                    if ($part -eq 'header') { $strip = $section.Headers.Item($index) }
+                    else { $strip = $section.Footers.Item($index) }
+                } catch { continue }
+
+                $record = [ordered]@{ exists = $null; text = $null; lines = $null; y = $null }
+
+                try { $record.exists = [bool]$strip.Exists } catch { }
+                try {
+                    $text = $strip.Range.Text
+                    if ($null -ne $text) {
+                        $record.text = ($text -replace "[`a`v`f`n`r]", ' ').Trim()
+                    }
+                } catch { }
+                try { $record.lines = [int]$strip.Range.ComputeStatistics(1) } catch { }
+                $furniture["$kind.$part"] = $record
+            }
+        }
+
+        $out.furniture = $furniture
+    } catch { $errors += "furniture: $($_.Exception.Message)" }
 
     $paragraphs = @()
     $index = 0

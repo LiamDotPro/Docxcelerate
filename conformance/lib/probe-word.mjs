@@ -175,6 +175,28 @@ export function wordView(measure) {
     paraAt: (index) => relative(body[index] ?? missingParagraph(`#${index}`)),
 
     pageCount: () => measure.pages ?? null,
+
+    /**
+     * One running strip, by the kind of page Word draws it on.
+     *
+     * `kind` is `primary`, `firstPage` or `evenPages`; `part` is `header` or
+     * `footer`. Word keeps a slot for every combination whether the document
+     * uses it or not, so `exists` is what separates a strip that is there from
+     * a slot that could hold one.
+     */
+    furniture(kind, part) {
+      const strip = measure.furniture?.[`${kind}.${part}`];
+      return strip ?? { exists: null, text: null, lines: null, y: null, x: null };
+    },
+
+    /** How far the header sits from the top of the sheet, in points. */
+    headerDistance: () => measure.pageSetup?.headerDistance ?? null,
+    /** How far the footer sits from the bottom of the sheet, in points. */
+    footerDistance: () => measure.pageSetup?.footerDistance ?? null,
+    /** Whether Word was told the first page has furniture of its own. */
+    differentFirstPage: () => measure.pageSetup?.differentFirstPageHeaderFooter ?? null,
+    /** Whether Word was told left and right pages differ. */
+    differentOddAndEven: () => measure.pageSetup?.oddAndEvenPagesHeaderFooter ?? null,
   };
 }
 

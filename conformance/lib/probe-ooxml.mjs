@@ -327,6 +327,11 @@ export function measureOoxml(zip) {
         left: numAttr(pgMar, "w:left"),
       },
       titlePg: sectPr === null ? null : toggle(sectPr, "w:titlePg"),
+      // How far the running strips stand from the paper, in twips. A
+      // different distance from the margin, and the one a document has no
+      // way to state today.
+      headerTwips: pgMar === null ? null : numAttr(pgMar, "w:header"),
+      footerTwips: pgMar === null ? null : numAttr(pgMar, "w:footer"),
     },
     /** The default paragraph properties every paragraph inherits. */
     docDefaults: readDocDefaults(styles),

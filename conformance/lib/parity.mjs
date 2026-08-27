@@ -90,6 +90,33 @@ export function parityView(preview, word) {
     /** Which page Word put it on. */
     wordPage: (anchor) => word.para(anchor).page,
 
+    // --- running furniture --------------------------------------------------
+    //
+    // Both sides reduced to millimetres from the top of the *sheet*. A strip is
+    // drawn outside the margins, so the text column — the frame everything else
+    // here uses — is the wrong one: measured against it, every header would be
+    // a negative number and every footer a number larger than the page.
+
+    // Word's side of these is its *declared* distance rather than a measured
+    // glyph position, and that is not a shortcut — it is the only reading
+    // available. Asking Word where a header's range sits means selecting it,
+    // and selecting it means moving the window's SeekView into the header pane;
+    // done to a hidden instance that call kills Word outright ("the remote
+    // procedure call failed", and the RPC server is gone for the rest of the
+    // run, PDF export included). HeaderDistance is where Word puts the strip's
+    // top, read from Word, without touching the view.
+
+    /** How far down the sheet the preview draws the header, in mm. */
+    previewHeaderY: (page = 1) => pxToMm(preview.furniture("header", page).y),
+    /** Where Word puts the top of the header, from the top of the sheet. */
+    wordHeaderY: () => ptToMm(word.headerDistance()),
+
+    /** How far the preview's footer stops short of the foot of the sheet, in mm. */
+    previewFooterFromBottom: (page = 1) =>
+      pxToMm(preview.furniture("footer", page).fromBottom),
+    /** Where Word puts the bottom of the footer, from the foot of the sheet. */
+    wordFooterFromBottom: () => ptToMm(word.footerDistance()),
+
     /** Both answers at once, for a report that wants to show the pair. */
     compare(anchor) {
       return {

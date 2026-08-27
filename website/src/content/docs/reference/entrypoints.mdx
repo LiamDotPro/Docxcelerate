@@ -127,6 +127,33 @@ Call it after `renderAsync` and before the container is measured or serialised.
 It works the same in a browser as in a `jsdom`, and the scaffolded preview app
 already does this for you.
 
+### Pages
+
+`docx-preview` breaks where the *file* says to — an explicit break, or a
+paragraph marked to start one — and nowhere else. It does not lay text against a
+page height and start a new sheet when the old one is full, so a document Word
+prints on five pages arrives as one very long sheet. Everything read off that is
+wrong with it: which page a paragraph is on, whether a header repeats, what a
+footer's "1 of 5" should say.
+
+```ts
+import { paginateDocxPreview } from "docxcelerate/preview";
+
+paginateDocxPreview(body);
+```
+
+It flows the body's blocks into boxes the height of the page, carries the
+running furniture onto each new sheet, and recounts the page numbers. It is a
+separate call from `settleDocxPreview` because it needs something to have laid
+the page out — a browser, or headless Chrome. In a `jsdom` every height is zero,
+which would read as "it all fits", so it declines to answer instead and tells
+you why.
+
+It breaks *between* blocks, never through the middle of one, so a paragraph Word
+would split across a sheet moves whole here. On documents made of ordinary
+paragraphs the two agree exactly; that is measured rather than claimed, by
+`conformance/cases/preview/content-pagination`.
+
 ## docxcelerate/scaffold and /cli
 
 The workspace generator and its command-line front end, for building your own

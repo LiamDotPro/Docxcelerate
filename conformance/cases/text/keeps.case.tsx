@@ -89,24 +89,26 @@ export default defineCase({
     },
 
     /**
-     * Only what a preview that does not paginate can honestly be asked.
+     * The question this case is really about, now that it can be asked.
      *
-     * The obvious assertion here — "both engines put the kept block on the
-     * same page" — cannot pass and would not mean anything if it did:
-     * docx-preview breaks only where the file says to, so it draws this
-     * document as one long sheet and reports page one for everything. That is
-     * `preview/content-pagination`'s finding, not this case's, and repeating
-     * it here would make a working feature look broken.
-     *
-     * So this tier asks the question that survives: the two engines agree
-     * where the kept pair *sits*, which is the part the preview can answer.
+     * Until the preview paginated, "both engines put the kept block on the same
+     * page" could not pass and would have meant nothing if it had: docx-preview
+     * drew the whole document as one sheet and reported page one for
+     * everything. With pages, the keep is checkable on both sides — which is
+     * the point, because a keep is a statement about where a page break may
+     * fall and there is nothing to check without breaks.
      */
     parity: (p, is) => {
-      is.within(
-        p.previewY("must not be orphaned"),
-        p.wordY("must not be orphaned"),
-        "1mm",
-        "the kept heading sits where Word puts it on its page",
+      is.equal(p.previewPages(), p.wordPages(), "both engines break the document into the same pages");
+      is.equal(
+        p.previewPage("must not be orphaned"),
+        p.previewPage("has to land on the same page"),
+        "the preview keeps the heading with its paragraph",
+      );
+      is.equal(
+        p.previewPage("An address block"),
+        p.wordPage("An address block"),
+        "and puts the kept block on the page Word puts it on",
       );
     },
   },
