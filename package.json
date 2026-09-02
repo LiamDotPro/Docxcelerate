@@ -1,6 +1,6 @@
 {
   "name": "docxcelerate",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Write DOCX documents like you write websites — compose Word files from typed JSX components, preview them locally, generate at scale.",
   "license": "MIT",
   "type": "module",
