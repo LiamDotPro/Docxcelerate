@@ -183,18 +183,6 @@ test("document scaffold can create documents inside a workspace", async () => {
   assertEquals(await exists(`${workspace.projectDir}/documents/case-review/document-style.ts`), true);
 });
 
-test("the old lettersDir option still scaffolds where it says", async () => {
-  const root = await tempDir();
-
-  const document = await scaffoldDocumentProject({
-    name: "arrears notice",
-    lettersDir: `${root}/letters`,
-  });
-
-  assertEquals(document.projectDir, `${root}/letters/arrears-notice`);
-  assertEquals(await exists(`${root}/letters/arrears-notice/document.project.ts`), true);
-});
-
 test("node generator supports image and graph node types", async () => {
   const documentsDir = await tempDir();
   const scaffold = await scaffoldDocumentProject({

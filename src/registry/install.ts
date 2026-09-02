@@ -151,7 +151,7 @@ export async function findDocumentProjects(root = "."): Promise<string[]> {
 }
 
 /** Whether a directory holds a `document.project.ts`. */
-export async function isDocumentProject(path: string): Promise<boolean> {
+async function isDocumentProject(path: string): Promise<boolean> {
   return await exists(join(path, "document.project.ts"));
 }
 

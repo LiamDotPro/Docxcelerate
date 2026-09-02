@@ -263,35 +263,6 @@ export async function createDeriverRegistryFromBundle(
 }
 
 /**
- * Names a deriver, for the list form of {@linkcode DeriverDefinitions}.
- *
- * @param name The name invocations refer to.
- * @param run The computation to run.
- * @returns The definition.
- */
-export function defineDeriver(name: string, run: DeriverFunction): DeriverDefinition {
-  return { name, run };
-}
-
-/**
- * Types a project's derivers without changing them, so mistakes surface where
- * they are written rather than where they are used.
- *
- * @param definitions The project's derivers.
- * @returns The same value.
- *
- * @example
- * ```ts
- * export const derivers = defineDerivers({
- *   total: (inputs) => inputs.reduce<number>((sum, n) => sum + Number(n), 0),
- * });
- * ```
- */
-export function defineDerivers(definitions: DeriverDefinitions): DeriverDefinitions {
-  return definitions;
-}
-
-/**
  * The names a set of definitions provides.
  *
  * @param definitions The derivers to read, in either form.

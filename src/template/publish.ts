@@ -74,7 +74,7 @@ export function createPublishData(path: string[] = []): unknown {
  * @param path Where in the bound context this stand-in sits.
  * @returns The stand-in.
  */
-export function createContextStandIn(path: string[]): unknown {
+function createContextStandIn(path: string[]): unknown {
   return createStandIn("ctx", path);
 }
 

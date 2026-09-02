@@ -111,7 +111,7 @@ function paragraphsOf(nodes: readonly DocumentNode[], style: DocumentStyle): (Pa
  * @example
  * ```ts
  * const blob = await createDocxBlob(model);
- * await Deno.writeFile("letter.docx", new Uint8Array(await blob.arrayBuffer()));
+ * await Deno.writeFile("document.docx", new Uint8Array(await blob.arrayBuffer()));
  * ```
  */
 export async function createDocxBlob(doc: DocumentModel): Promise<Blob> {

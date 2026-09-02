@@ -17,13 +17,6 @@ export interface ScaffoldDocumentProjectOptions {
   title?: string;
   /** Where document projects live. Defaults to `documents`. */
   documentsDir?: string;
-  /**
-   * What `documentsDir` was called before the vocabulary settled on documents.
-   * Still honoured so an existing script keeps scaffolding where it expects.
-   *
-   * @deprecated Use {@link ScaffoldDocumentProjectOptions.documentsDir}.
-   */
-  lettersDir?: string;
   /** Overwrite files that are already there, rather than refusing. */
   force?: boolean;
 }
@@ -113,7 +106,7 @@ export async function scaffoldDocumentProject(
 ): Promise<ScaffoldDocumentProjectResult> {
   const slug = slugify(options.name);
   const title = options.title ?? titleFromSlug(slug);
-  const projectDir = joinPath(options.documentsDir ?? options.lettersDir ?? "documents", slug);
+  const projectDir = joinPath(options.documentsDir ?? "documents", slug);
   const entrypoint = joinPath(projectDir, "document.project.ts");
   const files = [
     {

@@ -103,7 +103,7 @@ export async function renderDocumentFurniture(
   };
 }
 
-export async function renderYield(
+async function renderYield(
   value: Yield,
   context: RenderContext,
   frame: Frame,

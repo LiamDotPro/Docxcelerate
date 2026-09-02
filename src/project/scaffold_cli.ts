@@ -290,16 +290,12 @@ async function askForRegistryEntries(): Promise<string[]> {
 /**
  * Strips the namespace off `dxcl document new` and friends, leaving the bare
  * verb the dispatch below matches on.
- *
- * `letter` is still accepted as a namespace. It was the only spelling before
- * the vocabulary settled on documents, and it costs one array entry to keep
- * every script and habit that already types it working.
  */
 function normalizeCommand(
   command: string | undefined,
   args: string[],
 ): { command: string | undefined; commandArgs: string[] } {
-  if (command !== "document" && command !== "letter") {
+  if (command !== "document") {
     return { command, commandArgs: args };
   }
 
@@ -639,6 +635,5 @@ Aliases:
   dxcl new       -> dxcl document new
   dxcl node      -> dxcl document node
   dxcl registry  -> dxcl list
-  dxcl letter .. -> dxcl document ..   (the old spelling, still accepted)
 `);
 }
