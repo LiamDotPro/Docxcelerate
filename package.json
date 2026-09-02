@@ -40,6 +40,7 @@
     "bin/dxcl.mjs",
     "dist/",
     "registry/",
+    "templates/",
     "README.md"
   ],
   "exports": {
@@ -99,15 +100,18 @@
     "prepare": "node scripts/prepare.mjs",
     "prepublishOnly": "npm run clean && npm run build",
     "lint": "deno lint",
-    "typecheck": "npm run build && tsc -p tsconfig.json",
+    "typecheck": "npm run build && tsc -p tsconfig.json && tsc -p tsconfig.templates.json",
     "jsr:doc": "node scripts/jsr-doc-check.mjs",
     "launch": "node scripts/submit.mjs",
     "launch:check": "node scripts/submit.mjs check",
-    "dxcl": "node ./bin/dxcl.mjs"
+    "dxcl": "node ./bin/dxcl.mjs",
+    "templates": "tsc -p tsconfig.templates.json"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
-    "typescript": "^6.0.3"
+    "docx-preview": "^0.3.7",
+    "typescript": "^6.0.3",
+    "vite": "^8.2.2"
   },
   "dependencies": {
     "docx": "^9.6.1"

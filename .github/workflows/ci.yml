@@ -53,10 +53,10 @@ jobs:
       - name: Test
         run: npm test
 
-      # tsconfig.json is the one that also covers tests/ and registry/, which
-      # the build config does not. Neither of those ships, but both have to
-      # compile against what does.
-      - name: Type-check tests and the registry
+      # tsconfig.json also covers tests/ and registry/; tsconfig.templates.json
+      # covers the files a scaffolded project is written from. None of the three
+      # ships as-is, and all three have to compile against what does.
+      - name: Type-check tests, the registry and the templates
         run: npm run typecheck
 
   lint:

@@ -24,6 +24,7 @@
     "include": [
       "src",
       "registry",
+      "templates",
       "README.md",
       "deno.json",
       "LICENSE"

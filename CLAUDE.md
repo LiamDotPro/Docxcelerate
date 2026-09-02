@@ -8,6 +8,7 @@ source tree.
 
 ```
 src/          the framework; every published entrypoint is declared in deno.json
+templates/    the files a scaffolded project is written from, as real source
 tests/        node:test suites, compiled to dist-tests/ before they run
 registry/     component sources `dxcl add` copies into a project, read from disk
 skills/       the agent skill published alongside the package
@@ -34,6 +35,7 @@ conformance/  the conformance suite
 npm test          # clean, build, compile tests, run them
 npm run typecheck # build, then type-check tests/ and registry/ too
 npm run lint      # deno lint; rules and file list live in deno.json
+npm run templates # type-check the files a scaffolded project is written from
 npm run build     # tsc -p tsconfig.build.json into dist/
 npm run jsr:doc   # every entrypoint and exported symbol is documented
 ```
@@ -71,6 +73,25 @@ passed through whole rather than copied.
 **Export only what callers need.** A helper used inside one module is not
 exported from it. Every export in `src/` is either reachable from an entrypoint
 in `deno.json` or has no reason to exist.
+
+**Generated project files are real files under `templates/`, never strings.**
+If you are about to write TypeScript inside a template literal, put it in a
+file instead. `npm run templates` type-checks the whole directory against this
+package, which is how a scaffolded workspace type-checks against the published
+one.
+
+- Placeholders are `__UPPER_SNAKE__`, written so the file stays valid source —
+  an identifier where an identifier goes, a string where a string goes. That is
+  what lets them be compiled rather than only pattern-matched. `readTemplate`
+  throws on a placeholder nothing was given for.
+- A template whose own name would make a tool act on it carries a `.template`
+  suffix: `package.json.template`, `tsconfig.json.template`,
+  `gitignore.template`. A real `package.json` in there becomes the enclosing
+  package for every file beside it and `docxcelerate` stops resolving.
+- `templates/document/` is the blank project, `templates/sample/` the worked
+  example a new workspace comes with, `templates/workspace/` the workspace
+  around them. The node templates live in `templates/document/nodes/` so their
+  `../types.ts` import resolves like it will where they land.
 
 **Entrypoints are declared in `deno.json` and mirrored in `package.json`.**
 The two export maps have to agree, and every npm target has to exist after a

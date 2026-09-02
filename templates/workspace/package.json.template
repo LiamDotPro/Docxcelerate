@@ -1,0 +1,20 @@
+{
+  "name": "__WORKSPACE_NAME__",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4507",
+    "document:new": "dxcl document new",
+    "document:node": "dxcl document node",
+    "documents:check": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "docxcelerate": "^__VERSION__",
+    "docx": "^9.6.1",
+    "docx-preview": "^0.3.7"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "vite": "^8.0.13"
+  }
+}
