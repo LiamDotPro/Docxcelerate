@@ -830,17 +830,20 @@ function blockBorders(block: DocumentBlockStyle | undefined) {
  * The hairline a row is separated from the next one by.
  *
  * One line under each body cell, in the palette's rule colour, and nothing
- * else: a heading already has its fill to set it apart, a cell that draws its
+ * else: a heading already has its fill to set it apart, a row that draws its
  * own ground would be cut across by a rule at its foot, and running furniture
  * is not prose being separated into rows.
+ *
+ * A row, not a cell. A rule that covers the plain columns of a part-filled
+ * row and stops at the filled ones is not a separator, it is a stray line.
  */
 function separatorBorder(
   row: TableRowNode,
-  fill: string | undefined,
+  rowIsFilled: boolean,
   furniture: boolean,
   style: DocumentStyle,
 ) {
-  if (row.header === true || fill !== undefined || furniture) {
+  if (row.header === true || rowIsFilled || furniture) {
     return undefined;
   }
 
@@ -1089,8 +1092,14 @@ function renderTable(node: TableNode, style: DocumentStyle, furniture: boolean):
     // ever asked for and the screen never draws. The lines a table shows are
     // the ones decided below, one per row and in the palette's rule colour.
     borders: gridlessBorders,
+    // A zebra is a reading aid for a column of like rows, and what says a
+    // table is one of those is its header. A table without one is a layout —
+    // a letterhead, a totals block, a running strip — where striping tints
+    // whichever cells happen to be on an odd row. On the invoice that put a
+    // grey band in the empty spacer beside the totals panel: a stripe of
+    // nothing, next to the figures rather than under them.
     rows: rows.map((row, index) =>
-      renderRow(row, node, style, index < headers, furniture, index - headers)),
+      renderRow(row, node, style, index < headers, furniture, headers === 0 ? -1 : index - headers)),
   });
 }
 
@@ -1134,10 +1143,24 @@ function renderRow(
   // variant chosen by a `.map` index works in preview and dies on publish —
   // the map becomes one loop the engine walks, and a variant is a static
   // string, so every row would get whatever the build happened to decide.
+  //
+  // `bodyIndex` is -1 for every row of a table with no header, which is how
+  // a layout table opts out without having to say so.
   const alt = blockOf(style, "rowAlt");
   const striped = alt !== undefined && bodyIndex >= 0 && bodyIndex % 2 === 1;
   const cells: TableCell[] = [];
   let column = 0;
+
+  // Whether any of this row draws its own ground, worked out before a single
+  // cell is built. The separator is a property of the row — deciding it from
+  // each cell's own fill drew it under the columns that happened to be plain
+  // and not under the ones that were not, which on a totals block is a rule
+  // to the left of the panel that stops where the panel starts.
+  const rowIsFilled = row.children.some((child) =>
+    child.kind === "tableCell" &&
+    (blockFor(style, table.variant, row.variant, child.variant)?.fill !== undefined ||
+      (striped && alt?.fill !== undefined))
+  );
 
   for (const child of row.children) {
     if (child.kind !== "tableCell") {
@@ -1172,7 +1195,7 @@ function renderRow(
             // Naming no edges is a decision, not an omission: it says this
             // block draws none, so the row hairline does not step in.
             ? undefined
-            : separatorBorder(row, fill, furniture, style)),
+            : separatorBorder(row, rowIsFilled, furniture, style)),
         margins: {
           marginUnitType: WidthType.DXA,
           top: ptToTwips(inset.top),
