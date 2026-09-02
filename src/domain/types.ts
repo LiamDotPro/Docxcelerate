@@ -106,6 +106,20 @@ export interface DocumentPageStyle {
   orientation: DocumentPageOrientation;
   /** The margins around the body text. */
   margins: DocumentPageMargins;
+  /**
+   * How far the running header stands from the top of the *paper*, in
+   * millimetres.
+   *
+   * Measured from the sheet's edge rather than from the margin, because that is
+   * what the distance is for: whether a letterhead clears a printer's
+   * unprintable edge, whether a running strip collides with a punched hole, how
+   * much air stands between the strip and the first line of text. A document
+   * that says nothing gets 12.5mm, which is what Word's own default template
+   * uses.
+   */
+  headerMm?: number;
+  /** How far the running footer stands from the foot of the paper, in mm. */
+  footerMm?: number;
 }
 
 /** How body text is set. */
@@ -296,6 +310,76 @@ export interface DocumentBlockStyle {
    * that everything else stands on.
    */
   maxWidthMm?: number;
+  /**
+   * How this block's lines sit in the width they are given.
+   *
+   * The theme's half of alignment: a `standfirst` is centred because that is
+   * what a standfirst looks like here, and a document that says
+   * `variant="standfirst"` should not also have to say `align="center"`. A
+   * node that states its own wins.
+   */
+  align?: TextAlign;
+  /**
+   * Space left above the block, in points.
+   *
+   * The counterpart to {@linkcode spacingAfterPt}, and not the same thing.
+   * Space above is how a block is set apart from whatever precedes it without
+   * the paragraph above having to know that anything follows — which is why
+   * Word has both, and why a document built only on space-after ends up with a
+   * stray gap at the foot of every page.
+   */
+  spacingBeforePt?: number;
+  /**
+   * How far the block is inset from the left margin, in millimetres.
+   *
+   * Positive numbers only. Reaching *past* the margin is what
+   * {@linkcode bleed} is for, and the two would otherwise be two spellings of
+   * one thing that disagree about the sign.
+   */
+  indentMm?: number;
+  /** How far the block stops short of the right margin, in millimetres. */
+  indentRightMm?: number;
+  /**
+   * How far the block's first line is indented past the rest, in millimetres.
+   *
+   * The other way a new paragraph is marked: a book indents rather than
+   * leaving a gap, and the two together look like a mistake. Mutually
+   * exclusive with {@linkcode hangingIndentMm} — a first line cannot be both
+   * pushed in and pulled out — and the hang wins if both are set.
+   */
+  firstLineIndentMm?: number;
+  /**
+   * How far the block's first line is pulled back from the rest, in
+   * millimetres.
+   *
+   * What makes a definition's continuation lines clear its term, and what a
+   * list marker sits in. Usually the same distance as {@linkcode indentMm}, so
+   * the first line starts at the margin and the rest clear it.
+   */
+  hangingIndentMm?: number;
+  /**
+   * Whether the block refuses to be the last thing on a page.
+   *
+   * A heading whose section is overleaf is a heading in the wrong place, and
+   * it is not a fault anybody sees in a preview of page one.
+   */
+  keepWithNext?: boolean;
+  /**
+   * Whether the block refuses to be split across a page break.
+   *
+   * For a block that is one thing rather than several — an address, a
+   * signature panel — where a break through the middle turns one object into
+   * two halves that each look like an accident.
+   */
+  keepLines?: boolean;
+  /**
+   * The tab stops this block's text aligns to.
+   *
+   * A contents line, a signature block, a price beside a description: all of
+   * them are one paragraph with a tab in it, and the alternative is a table
+   * that draws a grid where a line was wanted.
+   */
+  tabStopsMm?: TabStop[];
 }
 
 /**
@@ -435,6 +519,16 @@ export interface ParagraphNode extends BaseNode {
   /** The prose, when the paragraph is static or has a fallback. */
   text?: string;
   /**
+   * How the paragraph's lines sit in the text column.
+   *
+   * On the node rather than only in the theme, because alignment is often
+   * what the thing *is* rather than how it looks — a date ranged right is
+   * ranged right in every theme, the way a money column is. A theme can still
+   * say it for a named block, and the node wins when both do, exactly as a
+   * cell wins over its column.
+   */
+  align?: TextAlign;
+  /**
    * Pictures set in the line rather than above it.
    *
    * A mark beside a line of credit is one line; given a paragraph of its own
@@ -503,6 +597,38 @@ export interface GraphNode extends BaseNode {
 
 /** How a column's cells sit in the width they are given. */
 export type TableAlign = "left" | "center" | "right";
+
+/**
+ * How a paragraph's lines sit in the width they are given.
+ *
+ * A superset of {@linkcode TableAlign}: prose can also be justified, which a
+ * table column cannot usefully be. Word writes `justify` as `both`, meaning
+ * both edges are flush — that translation is the renderer's business, and a
+ * document says the word people say.
+ */
+export type TextAlign = "left" | "center" | "right" | "justify";
+
+/**
+ * One tab stop: where it is, what it does to the text that lands on it, and
+ * what fills the gap in front of it.
+ *
+ * The position is measured in millimetres from the left margin, like every
+ * other horizontal distance in the model, so a stop at the right margin of an
+ * A4 page with 20mm margins is written `170` rather than as a number of twips
+ * nobody can check against a ruler.
+ */
+export interface TabStop {
+  /** Where the stop is, in millimetres from the left margin. */
+  at: number;
+  /** What the text does when it reaches the stop. Left unless it is said. */
+  align?: TableAlign | "decimal";
+  /**
+   * What fills the run-up to the stop.
+   *
+   * `dot` is a contents line; `none` is the default and is a plain gap.
+   */
+  leader?: "none" | "dot" | "dash" | "underscore";
+}
 
 /**
  * One column's shape, which every row shares.
@@ -704,6 +830,22 @@ export interface DocumentModel {
   firstHeader?: DocumentNode[];
   /** Nodes drawn at the foot of the first page, in place of `footer`. */
   firstFooter?: DocumentNode[];
+  /**
+   * Nodes drawn at the top of left-hand pages, in place of `header`.
+   *
+   * A document printed on both sides and bound has two kinds of page, not one.
+   * The reference belongs at the *outside* edge of each — right on a recto,
+   * left on a verso — so it is always the corner a thumb reaches, and a folio
+   * that sat in the same place on every sheet would sit in the gutter on half
+   * of them.
+   *
+   * Naming either of these turns on Word's `w:evenAndOddHeaders`, which is a
+   * setting for the whole document rather than for one section: from then on
+   * `header` and `footer` are what a *right-hand* page shows.
+   */
+  evenHeader?: DocumentNode[];
+  /** Nodes drawn at the foot of left-hand pages, in place of `footer`. */
+  evenFooter?: DocumentNode[];
 }
 
 /** Everything a node can reach while a single document is being written. */

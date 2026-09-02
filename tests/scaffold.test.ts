@@ -90,10 +90,16 @@ test("workspace scaffold creates a project container for documents", async () =>
   //
   // It reads the packed file back, and docx-preview does not read all of it —
   // a dropped field, a table indent under an attribute that never carries it,
-  // a picture in an element a paragraph may not hold. Without this the preview
-  // a scaffolded workspace shows differs from the file it was made from.
+  // a run's letter spacing, a picture in an element a paragraph may not hold.
+  // Without this the preview a scaffolded workspace shows differs from the file
+  // it was made from.
   assertEquals(previewMain.includes('from "docxcelerate/preview"'), true);
-  assertEquals(previewMain.includes("settleDocxPreview(body, model)"), true);
+  assertEquals(previewMain.includes("settleDocxPreview(body, model"), true);
+  // And it hands settle the bytes as well as the model. Two of docx-preview's
+  // omissions can only be recovered from the file, and recovering them from the
+  // theme instead would be a second copy of the packer's arithmetic — which is
+  // the one thing a preview must not have.
+  assertEquals(previewMain.includes("readPackedParagraphs(packed)"), true);
   // And nothing may name a `DocumentModel` parameter `document`: it shadows the
   // global the same function calls `createElement` on, which threw on the first
   // line of both preview paths for as long as nobody looked.

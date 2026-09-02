@@ -12,6 +12,7 @@ import {
   Header,
   HeadingLevel,
   ImageRun,
+  LeaderType,
   LineRuleType,
   Packer,
   PageBreak,
@@ -19,9 +20,11 @@ import {
   PageOrientation,
   Paragraph,
   ShadingType,
+  Tab,
   Table,
   TableCell,
   TableRow,
+  TabStopType,
   TextRun,
   VerticalAlign,
   WidthType,
@@ -41,9 +44,19 @@ import type {
   TableColumn,
   TableNode,
   TableRowNode,
+  TextAlign,
 } from "../domain/types.ts";
 import { cleanMinimalDocumentStyle } from "../project/style.ts";
 import { imageSourceOf, isSvg, rasterTypeOf } from "./image_source.ts";
+
+/**
+ * How far a running strip stands from the paper when a document says nothing.
+ *
+ * 12.5mm, which is what Word's own default template uses and what documents
+ * packed before `headerMm` existed already got. Changing it would move the
+ * furniture of every document that never asked for it to move.
+ */
+const DEFAULT_FURNITURE_MM = 12.5;
 
 /**
  * Lays a document model out as a `docx` document — page size, margins, styles
@@ -59,9 +72,14 @@ export function createDocxDocument(doc: DocumentModel): Document {
   // header or footer part. An empty array still counts — it is the document
   // saying the first page shows nothing where the others show the strip.
   const titlePage = doc.firstHeader !== undefined || doc.firstFooter !== undefined;
+  // Naming either even strip turns the whole document over to two kinds of
+  // page. It is a document setting rather than a section one, which is why it
+  // sits out here beside the styles rather than in the section below.
+  const evenAndOdd = doc.evenHeader !== undefined || doc.evenFooter !== undefined;
 
   return new Document({
     styles: createDocxStyles(style),
+    evenAndOddHeaderAndFooters: evenAndOdd || undefined,
     sections: [
       {
         properties: {
@@ -78,6 +96,13 @@ export function createDocxDocument(doc: DocumentModel): Document {
               right: mmToTwips(style.page.margins.rightMm),
               bottom: mmToTwips(style.page.margins.bottomMm),
               left: mmToTwips(style.page.margins.leftMm),
+              // Where the running strips stand, measured from the paper rather
+              // than from the margin. Stated rather than left to the packing
+              // library's own default, which was 708 twips for every document
+              // whatever its margins were — a number no document had chosen and
+              // none could change.
+              header: mmToTwips(style.page.headerMm ?? DEFAULT_FURNITURE_MM),
+              footer: mmToTwips(style.page.footerMm ?? DEFAULT_FURNITURE_MM),
             },
           },
           titlePage: titlePage || undefined,
@@ -88,7 +113,7 @@ export function createDocxDocument(doc: DocumentModel): Document {
         // first header would silently lose its footer off page one — absent
         // means "the first page is like every other", which is the default
         // part repeated, not an empty one.
-        headers: doc.header || doc.firstHeader
+        headers: doc.header || doc.firstHeader || doc.evenHeader
           ? {
             default: doc.header
               ? new Header({ children: paragraphsOf(doc.header, style) })
@@ -98,9 +123,16 @@ export function createDocxDocument(doc: DocumentModel): Document {
               : titlePage && doc.firstHeader === undefined && doc.header
               ? new Header({ children: paragraphsOf(doc.header, style) })
               : undefined,
+            // The verso's own strip. Once two kinds of page are on, `header` is
+            // what a right-hand page shows and this is what a left-hand one
+            // does — so a document that named only an even header still wants
+            // the running one on its rectos, which is the `default` above.
+            even: doc.evenHeader
+              ? new Header({ children: paragraphsOf(doc.evenHeader, style) })
+              : undefined,
           }
           : undefined,
-        footers: doc.footer || doc.firstFooter
+        footers: doc.footer || doc.firstFooter || doc.evenFooter
           ? {
             default: doc.footer
               ? new Footer({ children: paragraphsOf(doc.footer, style) })
@@ -109,6 +141,9 @@ export function createDocxDocument(doc: DocumentModel): Document {
               ? new Footer({ children: paragraphsOf(doc.firstFooter, style) })
               : titlePage && doc.firstFooter === undefined && doc.footer
               ? new Footer({ children: paragraphsOf(doc.footer, style) })
+              : undefined,
+            even: doc.evenFooter
+              ? new Footer({ children: paragraphsOf(doc.evenFooter, style) })
               : undefined,
           }
           : undefined,
@@ -363,15 +398,22 @@ function renderNode(
       new Paragraph({
         children: paragraphRuns(node, block, style),
         ...breakStyle(broken),
+        // The node's alignment, then the theme's, then nothing at all — a
+        // paragraph that never said should write no `w:jc`, so it goes on
+        // inheriting whatever the style around it decides.
+        alignment: textAlignmentOf(node.align ?? block?.align),
         shading: block?.fill === undefined
           ? undefined
           : { type: ShadingType.CLEAR, fill: block.fill },
         border: blockBorders(block),
         indent: blockIndent(block, style),
         spacing: {
+          ...blockSpacingBefore(block),
           after: ptToTwips(block?.spacingAfterPt ?? style.paragraph.spacingAfterPt),
           ...blockLine(block, style),
         },
+        ...blockKeeps(block),
+        ...blockTabStops(block),
       }),
     ];
   }
@@ -546,7 +588,7 @@ function paragraphRuns(
   const inline = [...(node.inlineImages ?? [])].sort((a, b) => a.at - b.at);
 
   if (inline.length === 0) {
-    return [new TextRun({ text, ...blockRun(block, style) })];
+    return [textRun(text, blockRun(block, style))];
   }
 
   const runs: (TextRun | ImageRun)[] = [];
@@ -555,7 +597,7 @@ function paragraphRuns(
   for (const { at, image } of inline) {
     const before = text.slice(cut, Math.max(cut, Math.min(at, text.length)));
     if (before.length > 0) {
-      runs.push(new TextRun({ text: before, ...blockRun(block, style) }));
+      runs.push(textRun(before, blockRun(block, style)));
     }
     runs.push(imageRunOf(image));
     cut = Math.max(cut, Math.min(at, text.length));
@@ -563,10 +605,42 @@ function paragraphRuns(
 
   const rest = text.slice(cut);
   if (rest.length > 0 || runs.length === 0) {
-    runs.push(new TextRun({ text: rest, ...blockRun(block, style) }));
+    runs.push(textRun(rest, blockRun(block, style)));
   }
 
   return runs;
+}
+
+/**
+ * One run of text, with any tabs in it written as tabs.
+ *
+ * A tab character left inside `<w:t>` is not a tab: it is whitespace, and what
+ * a tab stop aligns to is the `<w:tab/>` element. Word is forgiving enough to
+ * draw the literal one anyway, which is worse than if it were not — the file
+ * looks right in Word and collapses to a single space everywhere else,
+ * including in the preview.
+ *
+ * So the text is cut at every tab and the element goes in between. A string
+ * with no tab in it is the single run it always was.
+ */
+function textRun(text: string, props: Record<string, unknown>): TextRun {
+  if (!text.includes("\t")) {
+    return new TextRun({ text, ...props });
+  }
+
+  const pieces = text.split("\t");
+  const children: (string | Tab)[] = [];
+
+  pieces.forEach((piece, index) => {
+    if (index > 0) {
+      children.push(new Tab());
+    }
+    if (piece.length > 0) {
+      children.push(piece);
+    }
+  });
+
+  return new TextRun({ children, ...props });
 }
 
 /**
@@ -699,6 +773,18 @@ function blockLine(block: DocumentBlockStyle | undefined, style: DocumentStyle) 
   // A number of points is the one form both read the same way. `exact` is what
   // makes Word honour it rather than growing the line to fit the face, which is
   // the same growth the preview does not do.
+  // Measured against Word, over the same three-paragraph page, as the distance
+  // between where the preview draws each paragraph and where Word does:
+  //
+  //   exact                       1.62mm   <- this
+  //   auto                        2.29mm
+  //   atLeast, reading corrected  2.35mm
+  //   atLeast, as read today     20.93mm
+  //
+  // `atLeast` is the kinder rule in Word — it grows a line rather than clipping
+  // one — but it is the rule the two engines agree about least, because Word
+  // grows to the *face's* natural line height and CSS does not grow at all.
+  // The conformance case `text/line-height` holds this to the numbers above.
   return {
     line: Math.round(multiple * sizePt * 20),
     lineRule: LineRuleType.EXACT,
@@ -759,11 +845,17 @@ function separatorBorder(
 }
 
 /**
- * What a bleeding block indents by, so it reaches past the margins.
+ * What a block indents by: past the margin to bleed, or inside it to sit in.
  *
  * Word measures a paragraph from the margin, so reaching outside one is a
  * negative indent — the same distance the margin is wide, which puts the block
- * flush with the edge of the sheet.
+ * flush with the edge of the sheet. Everything else here is positive and sits
+ * within the text column.
+ *
+ * The three are exclusive by construction rather than by documentation: a
+ * block that bleeds is not also inset, and a measure is a different way of
+ * saying the same thing as a right indent. Ordering them settles which wins
+ * without a document having to know it asked two questions at once.
  */
 function blockIndent(block: DocumentBlockStyle | undefined, style: DocumentStyle) {
   if (block?.bleed === true) {
@@ -784,7 +876,96 @@ function blockIndent(block: DocumentBlockStyle | undefined, style: DocumentStyle
     return spare > 0 ? { right: mmToTwips(spare) } : undefined;
   }
 
-  return undefined;
+  const indent: { left?: number; right?: number; firstLine?: number; hanging?: number } = {};
+
+  if (block?.indentMm !== undefined) {
+    indent.left = mmToTwips(block.indentMm);
+  }
+  if (block?.indentRightMm !== undefined) {
+    indent.right = mmToTwips(block.indentRightMm);
+  }
+
+  // A hang and a first-line indent are the same attribute pulling opposite
+  // ways, and Word writes only one of them. The hang wins because it is the
+  // structural one: a block that hangs is shaped that way, where a first-line
+  // indent is a typographic flourish on top.
+  if (block?.hangingIndentMm !== undefined) {
+    indent.hanging = mmToTwips(block.hangingIndentMm);
+  } else if (block?.firstLineIndentMm !== undefined) {
+    indent.firstLine = mmToTwips(block.firstLineIndentMm);
+  }
+
+  return Object.keys(indent).length === 0 ? undefined : indent;
+}
+
+/**
+ * How a paragraph's lines sit in the column, as Word names it.
+ *
+ * `justify` is `both` in OOXML — both edges flush — which is a better name for
+ * what happens and a worse one for what people call it. The document says the
+ * word people say and the translation stops here.
+ */
+function textAlignmentOf(align: TextAlign | undefined) {
+  if (align === undefined) {
+    return undefined;
+  }
+
+  return {
+    left: AlignmentType.LEFT,
+    center: AlignmentType.CENTER,
+    right: AlignmentType.RIGHT,
+    justify: AlignmentType.JUSTIFIED,
+  }[align];
+}
+
+/** The space a block leaves above itself, when it leaves any. */
+function blockSpacingBefore(block: DocumentBlockStyle | undefined) {
+  return block?.spacingBeforePt === undefined
+    ? {}
+    : { before: ptToTwips(block.spacingBeforePt) };
+}
+
+/**
+ * The breaks a block refuses to be on the wrong side of.
+ *
+ * Only written when the block asks. A paragraph that said nothing must write
+ * nothing: `w:keepNext w:val="0"` is Word being told to *allow* the break,
+ * which is a different statement from having no opinion, and it would override
+ * a style that had one.
+ */
+function blockKeeps(block: DocumentBlockStyle | undefined) {
+  return {
+    ...(block?.keepWithNext === true ? { keepNext: true } : {}),
+    ...(block?.keepLines === true ? { keepLines: true } : {}),
+  };
+}
+
+/** The stops a block's tabs align to, in the twips Word measures them in. */
+function blockTabStops(block: DocumentBlockStyle | undefined) {
+  if (block?.tabStopsMm === undefined || block.tabStopsMm.length === 0) {
+    return {};
+  }
+
+  const types = {
+    left: TabStopType.LEFT,
+    center: TabStopType.CENTER,
+    right: TabStopType.RIGHT,
+    decimal: TabStopType.DECIMAL,
+  };
+  const leaders = {
+    none: LeaderType.NONE,
+    dot: LeaderType.DOT,
+    dash: LeaderType.HYPHEN,
+    underscore: LeaderType.UNDERSCORE,
+  };
+
+  return {
+    tabStops: block.tabStopsMm.map((stop) => ({
+      type: types[stop.align ?? "left"],
+      position: mmToTwips(stop.at),
+      leader: leaders[stop.leader ?? "none"],
+    })),
+  };
 }
 
 /**

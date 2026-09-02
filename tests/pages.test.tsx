@@ -255,6 +255,47 @@ test("running furniture is packed as Word's own, so it repeats on every page", a
   assertEquals((await documentXml(doc)).includes("INV-2026-0142"), false);
 });
 
+test("a document says how far its running strips stand from the paper", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document
+        id="d"
+        title="D"
+        header={<Paragraph id="head">Letterhead.</Paragraph>}
+        footer={<Paragraph id="foot">Registered in England.</Paragraph>}
+      >
+        <Paragraph id="a">Body.</Paragraph>
+      </Document>,
+      {
+        ...styleWithBlocks,
+        page: { ...styleWithBlocks.page, headerMm: 15, footerMm: 18 },
+      },
+    ),
+  );
+
+  // Measured from the sheet's edge, not from the margin: 15mm is 850 twips and
+  // 18mm is 1020. It is what decides whether a letterhead clears a printer's
+  // unprintable edge, and it is a different distance from the margin.
+  assertStringIncludes(xml, 'w:header="850"');
+  assertStringIncludes(xml, 'w:footer="1020"');
+});
+
+test("a document that says nothing about them still gets Word's own distance", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D" header={<Paragraph id="head">Letterhead.</Paragraph>}>
+        <Paragraph id="a">Body.</Paragraph>
+      </Document>,
+    ),
+  );
+
+  // 12.5mm, which is what Word's default template uses. Stated rather than left
+  // to the packing library, which chose 708 twips for every document whatever
+  // its margins were — a number nobody here had decided and none could change.
+  assertStringIncludes(xml, 'w:header="709"');
+  assertStringIncludes(xml, 'w:footer="709"');
+});
+
 test("a section prints its heading, unless it says its content already does", async () => {
   const printed = await documentXml(
     await build(

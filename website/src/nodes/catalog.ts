@@ -239,6 +239,17 @@ export const NODE_TYPES: NodeTypeEntry[] = [
           "Static only. The same thing as children, for when a computed string " +
           "reads better as a prop than as a body.",
       },
+      {
+        name: "align",
+        type: `"left" | "center" | "right" | "justify"`,
+        summary:
+          "How the lines sit in the text column. Say it here when the " +
+          "alignment is what the paragraph *is* — a date ranged right, a " +
+          "standfirst centred. Leave it out and let a `variant` carry it when " +
+          "the alignment is what the theme thinks that kind of block looks " +
+          "like. A node that states both wins over its block, the same way a " +
+          "cell wins over its column.",
+      },
       ...PROMPT_OPTIONS.map((option) => ({
         ...option,
         summary: `Dynamic only. ${option.summary}`,

@@ -19,7 +19,7 @@
  * is what jsdom is for: the pages are baked here, at build time, and the site
  * ships flat HTML rather than a renderer and a `.docx` to every visitor.
  */
-import { settleDocxPreview } from "docxcelerate/preview";
+import { readPackedParagraphs, settleDocxPreview } from "docxcelerate/preview";
 import { JSDOM } from "jsdom";
 
 /** The one window the whole build renders in. */
@@ -71,11 +71,12 @@ export async function renderDocxPreview(document) {
   ]);
 
   const blob = await createDocxBlob(document);
+  const packed = new Uint8Array(await blob.arrayBuffer());
   const styleContainer = window.document.createElement("div");
   const bodyContainer = window.document.createElement("div");
 
   await docxPreview.renderAsync(
-    new Uint8Array(await blob.arrayBuffer()),
+    packed,
     bodyContainer,
     styleContainer,
     {
@@ -95,12 +96,145 @@ export async function renderDocxPreview(document) {
   // for under the wrong attribute, a picture in an element a paragraph cannot
   // hold. The framework owns that now, so a scaffolded workspace and this site
   // finish a preview the same way rather than each discovering it separately.
-  settleDocxPreview(bodyContainer, document);
+  settleDocxPreview(bodyContainer, document, await readPackedParagraphs(packed));
 
   return {
     styles: withFontFallbacks(styleContainer.innerHTML),
     pages: withImageTypes(withFontFallbacks(bodyContainer.innerHTML)),
+    running: await renderRunningFurniture(packed, docxPreview, window),
+    packed: await readPackedParagraphs(packed),
   };
+}
+
+/**
+ * The strip a title-page document draws on every page *after* the first.
+ *
+ * docx-preview picks one header and one footer per page it renders, and it
+ * renders one page — so for a document whose first page differs it draws the
+ * letterhead and never asks for the running header at all. The default part is
+ * in the package and Word draws it from page two; it simply never reaches the
+ * DOM, so the paginator has nothing but the letterhead to carry forward.
+ *
+ * The fix is to ask docx-preview for it, rather than to build it. The file is
+ * parsed, the section's title-page flag is turned off in the parsed tree only,
+ * and the same renderer draws the same document again into a scratch container
+ * — where page one now takes the *default* parts. What comes out is
+ * docx-preview's rendering of the document's own running header, which is the
+ * only thing that would not be a second opinion.
+ *
+ * Nothing is written back to the file, and the real preview is rendered from
+ * the untouched bytes. A document that is not a title page skips this entirely.
+ */
+async function renderRunningFurniture(packed, docxPreview, window) {
+  const parsed = await docxPreview.parseAsync(packed);
+  // The section properties live on the body itself — `body.props` — not on a
+  // `sections` list. A document with one section has one set of them, and it is
+  // the same object `renderHeaderFooter` consults.
+  const properties = parsed?.documentPart?.body?.props;
+
+  if (properties === undefined) {
+    return { header: null, footer: null, evenHeader: null, evenFooter: null };
+  }
+
+  const running = properties.titlePage === true
+    ? await drawStrips(parsed, docxPreview, window, () => {
+      properties.titlePage = false;
+    })
+    : { header: null, footer: null };
+
+  // The verso's strip, by the same means. docx-preview chooses `even` only for
+  // a page it is rendering second, and it renders one — so instead the *even*
+  // reference is put where the default one goes and the same renderer is asked
+  // again. It draws the document's own even-page part; nothing about the file
+  // changes, and the real preview is rendered from the untouched bytes.
+  const hasEven = (properties.headerRefs ?? []).some((ref) => ref.type === "even") ||
+    (properties.footerRefs ?? []).some((ref) => ref.type === "even");
+
+  const even = hasEven
+    ? await drawStrips(parsed, docxPreview, window, () => {
+      properties.titlePage = false;
+      promoteEven(properties.headerRefs);
+      promoteEven(properties.footerRefs);
+    })
+    : { header: null, footer: null };
+
+  return {
+    header: running.header,
+    footer: running.footer,
+    evenHeader: even.header,
+    evenFooter: even.footer,
+  };
+}
+
+/** The even reference, moved to where docx-preview looks for the default one. */
+function promoteEven(refs) {
+  const even = (refs ?? []).find((ref) => ref.type === "even");
+  const fallback = (refs ?? []).find((ref) => ref.type === "default");
+
+  if (even !== undefined && fallback !== undefined) {
+    fallback.id = even.id;
+  }
+}
+
+/** One scratch render, and the strips it drew. */
+async function drawStrips(parsed, docxPreview, window, prepare) {
+  prepare();
+
+  const body = window.document.createElement("div");
+  const head = window.document.createElement("div");
+
+  await docxPreview.renderDocument(parsed, body, head, {
+    inWrapper: false,
+    breakPages: true,
+    ignoreLastRenderedPageBreak: false,
+    useBase64URL: true,
+  });
+
+  const page = body.querySelector("section.docx");
+
+  return {
+    header: page?.querySelector(":scope > header")?.outerHTML ?? null,
+    footer: page?.querySelector(":scope > footer")?.outerHTML ?? null,
+  };
+}
+
+/**
+ * What the file says about its paragraphs, safe to sit in a `<script>`.
+ *
+ * Only `<` needs escaping, and only because a `</script` anywhere inside the
+ * block would end it early — a paragraph whose text happens to say so would
+ * otherwise take the rest of the page with it.
+ */
+function escapeJson(value) {
+  return JSON.stringify(value).replaceAll("<", String.fromCharCode(92) + "u003c");
+}
+
+/**
+ * The running furniture, parked in the page for the paginator to find.
+ *
+ * Hidden, and outside every sheet: it is not drawn, it is the pattern each new
+ * sheet is given after the first. `display: none` would cost it its layout and
+ * with it the reserve heights the paginator reads, so it is moved off the page
+ * instead.
+ */
+function runningMarkup(running) {
+  if (!running.header && !running.footer && !running.evenHeader && !running.evenFooter) {
+    return "";
+  }
+
+  const parked = 'style="position:absolute;left:-99999px;top:0"';
+
+  const strips = [
+    ["running-header", running.header],
+    ["running-footer", running.footer],
+    ["even-header", running.evenHeader],
+    ["even-footer", running.evenFooter],
+  ];
+
+  return strips
+    .filter(([, markup]) => Boolean(markup))
+    .map(([id, markup]) => `    <div id="${id}" ${parked}>${markup}</div>`)
+    .join("\n");
 }
 
 /**
@@ -183,7 +317,7 @@ function imageTypeOf(base64) {
  * @returns {Promise<string>} The page, as HTML.
  */
 export async function renderDocxPage(document, { title, style = PAGE_ONLY_STYLE }) {
-  const { styles, pages } = await renderDocxPreview(document);
+  const { styles, pages, running, packed } = await renderDocxPreview(document);
 
   return `<!doctype html>
 <html lang="en">
@@ -202,6 +336,9 @@ export async function renderDocxPage(document, { title, style = PAGE_ONLY_STYLE 
   </head>
   <body>
 ${pages}
+${runningMarkup(running)}
+    <script id="packed" type="application/json">${escapeJson(packed)}</script>
+${await paginatorScript()}
   </body>
 </html>
 `;
@@ -245,6 +382,47 @@ export const NODE_ONLY_STYLE = `
          unexplained whitespace once the frame is sized to its content. */
       section.docx > :first-child { margin-top: 0; }
       section.docx > :last-child { margin-bottom: 0; }`;
+
+/**
+ * The paginator, inlined into the baked page so the visitor's browser runs it.
+ *
+ * Everything else about these pages is decided here, at build time, and shipped
+ * as flat HTML. Pagination cannot be: it is entirely a question of how tall
+ * things drew, and jsdom lays nothing out — every height it reports is zero,
+ * which reads as "the document fits on one page" whatever the document is. So
+ * this one step travels with the page and runs where there is a layout.
+ *
+ * Inlined rather than linked because these pages are embedded in iframes and an
+ * external module fetched from inside one does not load under a fast-forwarded
+ * clock — and because a single self-contained file is what an embed wants. The
+ * source is read from the built package, so the site runs the framework's own
+ * paginator rather than a copy that could drift from it.
+ */
+async function paginatorScript() {
+  const { readFile } = await import("node:fs/promises");
+  const { createRequire } = await import("node:module");
+  const path = createRequire(import.meta.url)
+    .resolve("docxcelerate/preview")
+    .replace(/docx_preview\.js$/, "docx_paginate.js");
+
+  const source = (await readFile(path, "utf8")).replace(/^export /gm, "");
+
+  return `    <script type="module">
+${source}
+      try {
+        applyTabStops(
+          document.body,
+          JSON.parse(document.getElementById("packed").textContent),
+        );
+        paginateDocxPreview(document.body, {
+          runningHeader: document.getElementById("running-header")?.firstElementChild ?? null,
+          runningFooter: document.getElementById("running-footer")?.firstElementChild ?? null,
+          evenHeader: document.getElementById("even-header")?.firstElementChild ?? null,
+          evenFooter: document.getElementById("even-footer")?.firstElementChild ?? null,
+        });
+      } catch (error) { /* one long sheet, as before */ }
+    </script>`;
+}
 
 function escapeHtml(value) {
   return value
