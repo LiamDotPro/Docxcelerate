@@ -1,10 +1,21 @@
 /**
- * The whole toolkit: the document model, the components that build one, and the
- * runtime that settles it against data.
+ * Building a document and settling it: the model, the build, the artifact, and
+ * the runtime that resolves what a build left open.
  *
- * This is the default entrypoint, and the widest one. The narrower entrypoints
- * are subsets of it — `/template` for writing documents, `/docx` for packing
- * them, `/scaffold` for creating projects.
+ * This is the default entrypoint, and it is the one for the code that *runs*
+ * documents — a build step, a generation service, an engine. It is not the
+ * widest one and the others are not subsets of it; the entrypoints are split by
+ * job, not by size:
+ *
+ * - `/template` writes documents — the elements, the hooks, `template`.
+ * - `/document` is what a document project imports: `/template` plus the model
+ *   and `defineDocumentProject`. It is larger than this one.
+ * - `/docx` packs a settled model into a Word file.
+ * - `/scaffold` and `/cli` create projects; `/registry` and `/registry/install`
+ *   describe and install components; `/themes` and `/transform` are themselves.
+ *
+ * Where two entrypoints carry the same thing, they carry the same thing —
+ * `tests/surface.test.ts` fails if they drift.
  *
  * @example Building a project and packing the result
  * ```ts
