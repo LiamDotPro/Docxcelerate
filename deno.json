@@ -10,7 +10,6 @@
     "./docx": "./src/render/docx_document.ts",
     "./registry": "./src/registry/mod.ts",
     "./registry/install": "./src/registry/install.ts",
-    "./renderer": "./src/renderer/mod.ts",
     "./scaffold": "./src/project/scaffold.ts",
     "./template": "./src/template.ts",
     "./template/jsx-dev-runtime": "./src/template/jsx-dev-runtime.ts",

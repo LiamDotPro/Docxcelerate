@@ -67,13 +67,12 @@ falsche Art zurückzugeben abgelehnt wird.
 Ihre JSX-Runtime liegt unter `docxcelerate/template/jsx-runtime` (und
 `.../jsx-dev-runtime`) — genau dorthin löst `jsxImportSource` auf.
 
-## docxcelerate/renderer
+## docxcelerate/docx
 
-Der Renderer, der ein `DocumentModel` in die Datei verwandelt, für die es
-gedacht ist — unter einem Einstiegspunkt erneut exportiert.
+DOCX-Konstruktion.
 
 ```ts
-import { createDocxBlob } from "docxcelerate/renderer";
+import { createDocxBlob, createDocxDocument, renderDocxBytes } from "docxcelerate/docx";
 ```
 
 Es gibt einen Renderer, und er schreibt Word-Dateien. Um ein Dokument auf einem
@@ -82,14 +81,6 @@ DOCX-Betrachter wieder ein — genau das tut die Vorschau-App Ihres Workspace ü
 `docx-preview`, und ebenso die Vorschauen auf dieser Site. Ein zweiter Renderer,
 der das Modell in HTML setzt, wäre eine zweite Antwort darauf, wie ein Dokument
 aussieht, und diejenige, die niemand in Word öffnet, driftet ab.
-
-## docxcelerate/docx
-
-DOCX-Konstruktion.
-
-```ts
-import { createDocxDocument } from "docxcelerate/docx";
-```
 
 ## docxcelerate/scaffold und /cli
 

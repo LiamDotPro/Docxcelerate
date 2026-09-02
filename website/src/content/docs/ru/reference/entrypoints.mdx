@@ -67,13 +67,12 @@ Paragraph = () => <Paragraph … />` называет, что компонент
 Её JSX-рантайм доступен по адресу `docxcelerate/template/jsx-runtime` (а также
 `.../jsx-dev-runtime`) — именно туда разрешается `jsxImportSource`.
 
-## docxcelerate/renderer
+## docxcelerate/docx
 
-Рендерер, превращающий `DocumentModel` в файл, ради которого он и существует, —
-реэкспортированный под одной точкой входа.
+Построение DOCX.
 
 ```ts
-import { createDocxBlob } from "docxcelerate/renderer";
+import { createDocxBlob, createDocxDocument, renderDocxBytes } from "docxcelerate/docx";
 ```
 
 Рендерер один, и он пишет файлы Word. Чтобы показать документ на экране,
@@ -82,14 +81,6 @@ import { createDocxBlob } from "docxcelerate/renderer";
 устроены предпросмотры на этом сайте. Второй рендерер, раскладывающий модель в
 HTML, был бы вторым ответом на вопрос, как выглядит документ, а тот, который
 никто не открывает в Word, и уходит в сторону.
-
-## docxcelerate/docx
-
-Построение DOCX.
-
-```ts
-import { createDocxDocument } from "docxcelerate/docx";
-```
 
 ## docxcelerate/scaffold и /cli
 

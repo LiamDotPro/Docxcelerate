@@ -118,6 +118,19 @@ export async function createDocxBlob(doc: DocumentModel): Promise<Blob> {
   return await Packer.toBlob(createDocxDocument(doc));
 }
 
+/**
+ * Packs a document model into `.docx` bytes.
+ *
+ * The counterpart to {@linkcode createDocxBlob}, for writing straight to a file
+ * or a response body rather than handing a blob to a browser.
+ *
+ * @param doc The finished document.
+ * @returns The file's bytes.
+ */
+export async function renderDocxBytes(doc: DocumentModel): Promise<Uint8Array> {
+  return await Packer.toBuffer(createDocxDocument(doc));
+}
+
 function renderNode(
   node: DocumentNode,
   style: DocumentStyle,

@@ -59,10 +59,6 @@
       "types": "./dist/render/docx_document.d.ts",
       "default": "./dist/render/docx_document.js"
     },
-    "./renderer": {
-      "types": "./dist/renderer/mod.d.ts",
-      "default": "./dist/renderer/mod.js"
-    },
     "./registry": {
       "types": "./dist/registry/mod.d.ts",
       "default": "./dist/registry/mod.js"

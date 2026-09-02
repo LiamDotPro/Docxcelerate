@@ -66,13 +66,12 @@ wrong kind.
 Its JSX runtime is exposed at `docxcelerate/template/jsx-runtime` (and
 `.../jsx-dev-runtime`), which is what `jsxImportSource` resolves to.
 
-## docxcelerate/renderer
+## docxcelerate/docx
 
-The renderer that turns a `DocumentModel` into the file it is for, re-exported
-under one entrypoint.
+DOCX construction.
 
 ```ts
-import { createDocxBlob } from "docxcelerate/renderer";
+import { createDocxBlob, createDocxDocument, renderDocxBytes } from "docxcelerate/docx";
 ```
 
 There is one renderer, and it writes Word files. To show a document on a screen,
@@ -81,14 +80,6 @@ workspace is scaffolded with does that over `docx-preview`, and so do the
 previews on this site. A second renderer laying the model out in HTML would be a
 second answer to what a document looks like, and the one nobody opens in Word is
 the one that drifts.
-
-## docxcelerate/docx
-
-DOCX construction.
-
-```ts
-import { createDocxDocument } from "docxcelerate/docx";
-```
 
 ## docxcelerate/scaffold and /cli
 

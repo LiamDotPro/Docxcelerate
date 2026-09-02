@@ -46,6 +46,19 @@ catches slow types and unresolvable imports that `tsc` accepts.
 
 ## Conventions
 
+**`letter` is either the engine's wire format or a typographic term — never a
+leftover rename.** The vocabulary is "document" everywhere the toolkit owns the
+name. What is left is deliberate and must not be "finished":
+
+- `schemaVersion: "docxcelerate.letter/v0"` on every DocumentModel
+- `previewLetter` / `engineLetter` on an artifact manifest
+- `/api/letters`, and the `stored-letter` upload body
+- `letterSpacing`, `Letterhead`, `warm-letter`, the US `LETTER` page size
+
+The first three are what the generation engine reads. Renaming them here does
+not finish anything; it moves the mismatch onto the wire. The engine changes
+first, or they stay.
+
 **Every module has a `@module` doc comment**, and every exported symbol has a
 doc comment. This is not decoration — `npm run jsr:doc` fails the build without
 them, and the JSR score depends on it.
