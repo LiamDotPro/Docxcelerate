@@ -847,7 +847,9 @@ const totalFiles = FILES.length;
   .preview-frame {
     display: block;
     border: 0;
-    background: #ffffff;
+    /* The desk, only until the frame paints its own. It was white, which
+       flashed a sheet-coloured rectangle before the pages arrived on grey. */
+    background: #e6e8ed;
   }
 
   .demo-caption {
