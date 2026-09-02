@@ -9,15 +9,6 @@
  * @module
  */
 
-/**
- * The theme a style came from, by id.
- *
- * A string rather than a union of the shipped themes: the model is data that
- * travels, and a document set in a theme someone wrote themselves should say so
- * rather than claim to be one of ours. The shipped ids are listed by
- * {@linkcode https://docxcelerate.com/themes | the theme catalog} and typed as
- * `ShippedThemeId` in `docxcelerate/themes`.
- */
 export type DocumentStylePreset = string;
 
 /** The paper a document is laid out for. */
@@ -112,6 +103,14 @@ export interface DocumentTextBlockStyle {
   color?: string;
   /** Whether the text is printed as written. Defaults to `none`. */
   transform?: DocumentTextTransform;
+  /**
+   * Letter spacing in ems, for small capitals that need opening up.
+   *
+   * Capitals set at a text size are set at the wrong spacing: the letterforms
+   * were drawn to sit under lower case, and a label in tracked capitals is
+   * what a heading at 7pt has to be to read as one.
+   */
+  letterSpacingEm?: number;
 }
 
 /**
@@ -182,6 +181,28 @@ export interface DocumentBlockStyle {
   /** Space between the block's edge and its content, in points. */
   paddingPt?: number;
   /**
+   * The sides whose padding differs from the rest.
+   *
+   * A bar that runs to the paper's edge still wants its last words to stop
+   * short of it. Naming one side beats inventing a spacer column to hold the
+   * gap, which is a column the document does not otherwise have.
+   */
+  paddingSidesPt?: {
+    top?: number;
+    right?: number;
+    bottom?: number;
+    left?: number;
+  };
+  /**
+   * How deep the block is, in points, when it is a strip rather than type.
+   *
+   * A rule is a band of colour with no words in it, and its depth is the whole
+   * of what it looks like. Without this a theme has to reach that depth by
+   * shrinking a font nobody reads until the line collapses around it, which
+   * says nothing about what is being drawn.
+   */
+  heightPt?: number;
+  /**
    * Whether the block runs the full width of the page rather than the text.
    *
    * A tinted strip of dates under a letterhead is a band across the sheet, not
@@ -197,4 +218,51 @@ export interface DocumentBlockStyle {
   transform?: DocumentTextTransform;
   /** Letter spacing in ems, for small capitals that need opening up. */
   letterSpacingEm?: number;
+  /**
+   * The face this block is set in, when it is not the body's.
+   *
+   * A money column is the reason: proportional digits do not line up under one
+   * another, so a figure needs a face whose digits are all one width. Word
+   * substitutes a face it does not have exactly as it does for the body font.
+   */
+  font?: string;
+  /**
+   * Leading, as a multiple of the font size, when the body's is wrong here.
+   *
+   * A table row is set tighter than prose and a note under a description
+   * tighter still; one leading for a whole document is what makes a row of
+   * charges taller than it was drawn.
+   */
+  lineHeight?: number;
+  /**
+   * How the block sits against the height of the cell it is in.
+   *
+   * A band of dates beside a status pill reads as a band only when the two are
+   * on the same line as each other, which they are not when a short cell and a
+   * tall one both start at the top.
+   */
+  valign?: "top" | "center" | "bottom";
+  /**
+   * Space left below the block, in points, when the document's is wrong here.
+   *
+   * A rule is a strip, not a paragraph of prose: the gap that belongs after a
+   * paragraph belongs after prose, and after a hairline it is a hole.
+   */
+  spacingAfterPt?: number;
+  /**
+   * The widest the block's lines may run, in millimetres.
+   *
+   * Prose set across a whole page is prose nobody's eye can track back from;
+   * a measure is how a paragraph is kept readable without moving the margin
+   * that everything else stands on.
+   */
+  maxWidthMm?: number;
 }
+
+/**
+ * What a prompt is for, which is how an engine decides where to put it.
+ *
+ * `general` asks for something, `info` supplies facts to write from, `negative`
+ * rules something out, `example` shows the shape a good answer takes, and
+ * `system` sets the standing instructions.
+ */

@@ -72,8 +72,13 @@ export function imageSourceOf(path: string | undefined): ImageSource {
 
   const head = path.slice(5, comma);
   const body = path.slice(comma + 1);
-  const base64 = head.endsWith(";base64");
-  const mediaType = (base64 ? head.slice(0, -7) : head) || "text/plain";
+  // A data URI's head is a media type followed by any number of parameters,
+  // of which `base64` is one. Reading the whole head as the type leaves the
+  // parameters stuck to it — `image/svg+xml;utf8` is not a media type anything
+  // recognises, so a perfectly good picture came back as nothing to draw.
+  const parameters = head.split(";").map((part) => part.trim());
+  const base64 = parameters.includes("base64");
+  const mediaType = parameters[0] || "text/plain";
 
   try {
     const bytes = base64

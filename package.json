@@ -60,6 +60,10 @@
       "types": "./dist/render/docx_document.d.ts",
       "default": "./dist/render/docx_document.js"
     },
+    "./preview": {
+      "types": "./dist/render/docx_preview.d.ts",
+      "default": "./dist/render/docx_preview.js"
+    },
     "./registry": {
       "types": "./dist/registry/mod.d.ts",
       "default": "./dist/registry/mod.js"

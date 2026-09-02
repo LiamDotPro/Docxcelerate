@@ -12,7 +12,6 @@
 import type { Condition, DataReference, DeriverInvocation, PromptSpec } from "./expressions.ts";
 import type { DocumentStyle } from "./style.ts";
 
-
 /** A plain JSON object, used wherever the model carries caller-defined data. */
 export type JsonObject = Record<string, unknown>;
 
@@ -41,7 +40,16 @@ export type NodeMode = "static" | "dynamic";
 /** The chart a {@linkcode GraphNode} draws. */
 export type GraphType = "bar" | "line" | "pie";
 
-/** What every node in a document carries, whatever its kind. */
+/**
+ * The theme a style came from, by id.
+ *
+ * A string rather than a union of the shipped themes: the model is data that
+ * travels, and a document set in a theme someone wrote themselves should say so
+ * rather than claim to be one of ours. The shipped ids are listed by
+ * {@linkcode https://docxcelerate.com/themes | the theme catalog} and typed as
+ * `ShippedThemeId` in `docxcelerate/themes`.
+ */
+
 export interface BaseNode {
   /** Identifier, unique within the document. */
   id: string;
@@ -73,6 +81,16 @@ export interface BaseNode {
 export interface SectionNode extends BaseNode {
   /** Discriminator. */
   kind: "section";
+  /**
+   * Whether a renderer prints the section's title above its children.
+   *
+   * `false` keeps the title as the section's name — the id it derives, the TOC
+   * entry, the address a request targets — without printing it. For a section
+   * whose content already says what it is: a charges table whose header row
+   * reads "Description", an address block headed by its own label. Absent
+   * means printed, which is what a heading is for.
+   */
+  showTitle?: boolean;
   /** The nodes the section contains, in order. */
   children: DocumentNode[];
 }
@@ -85,6 +103,24 @@ export interface ParagraphNode extends BaseNode {
   mode: NodeMode;
   /** The prose, when the paragraph is static or has a fallback. */
   text?: string;
+  /**
+   * Pictures set in the line rather than above it.
+   *
+   * A mark beside a line of credit is one line; given a paragraph of its own
+   * it becomes a picture with a caption under it, and a one-line footer bar
+   * three lines deep. Each picture records where in `text` it sits, so `text`
+   * stays exactly what it was — everything that reads a paragraph's words
+   * still reads all of them, in order.
+   */
+  inlineImages?: InlineImage[];
+}
+
+/** A picture set in a paragraph's line, and where along the text it sits. */
+export interface InlineImage {
+  /** The offset in the paragraph's `text` the picture is placed at. */
+  at: number;
+  /** The picture itself. */
+  image: ImageNode;
 }
 
 /** A picture, either supplied at build time or produced by the engine. */
@@ -326,4 +362,17 @@ export interface DocumentModel {
   header?: DocumentNode[];
   /** Nodes drawn at the foot of every page. */
   footer?: DocumentNode[];
+  /**
+   * Nodes drawn at the top of the first page, in place of `header`.
+   *
+   * Present only when the document said its first page differs — a letter
+   * whose letterhead *is* the top of page one does not want the running strip
+   * repeating above it. An empty array means the first page shows nothing
+   * where the other pages show `header`.
+   */
+  firstHeader?: DocumentNode[];
+  /** Nodes drawn at the foot of the first page, in place of `footer`. */
+  firstFooter?: DocumentNode[];
 }
+
+/** Everything a node can reach while a single document is being written. */

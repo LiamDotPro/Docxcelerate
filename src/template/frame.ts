@@ -61,6 +61,14 @@ export function instanceAt(context: RenderContext, path: string): ComponentInsta
 }
 
 /**
+ * Settles a node's id.
+ *
+ * An explicit id is kept, because that is what an engine and a reviewer refer
+ * to. Without one the position supplies it, so a branch or a loop does not force
+ * anybody to invent names. Two nodes answering to the same id is always a
+ * mistake, and it is reported here rather than resolved by whichever came last.
+ */
+/**
  * Names a node, and makes sure nothing else has that name.
  *
  * An id is an address: an engine targets a node by it, and two builds of the

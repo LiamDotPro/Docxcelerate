@@ -11,6 +11,7 @@ import {
   PageNumber,
   Paragraph,
   Row,
+  Section,
   Table,
   template,
 } from "docxcelerate/template";
@@ -56,9 +57,16 @@ function build(node: unknown, style?: DocumentStyle): Promise<DocumentModel> {
   ).then((doc) => (style ? { ...doc, style } : doc)) as Promise<DocumentModel>;
 }
 
-/** How many breaks the packed document turns a page on. */
+/**
+ * How many breaks the packed document turns a page on.
+ *
+ * A break between siblings travels as a break-carrying *style* named by
+ * whatever follows it — a property of where the next thing starts, not a
+ * paragraph of its own. The standalone `w:br w:type="page"` form survives only
+ * where there is no following paragraph to carry the style.
+ */
 function breaksIn(xml: string): number {
-  return (xml.match(/w:type="page"/g) ?? []).length;
+  return (xml.match(/w:type="page"|w:val="PageBreakBefore/g) ?? []).length;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,11 +98,130 @@ test("a break turns the page where the document said, and prints nothing itself"
   );
 
   assertEquals(breaksIn(xml), 1);
-  // Between the two, which is the whole of what a break says.
-  assertEquals(xml.indexOf("What is owed.") < xml.indexOf('w:type="page"'), true);
-  assertEquals(xml.indexOf('w:type="page"') < xml.indexOf("How to pay it."), true);
+  // The break rides the next paragraph's style, so nothing — not even an empty
+  // line — is left at the foot of the outgoing page.
+  assertStringIncludes(xml, '<w:pStyle w:val="PageBreakBefore"/>');
+  assertEquals(xml.includes('w:type="page"'), false);
+  assertEquals(xml.indexOf("What is owed.") < xml.indexOf('w:val="PageBreakBefore"'), true);
+  assertEquals(xml.indexOf('w:val="PageBreakBefore"') < xml.indexOf("How to pay it."), true);
   // And it is a break, not a run of empty paragraphs standing in for one.
   assertEquals(xml.includes("turn"), false);
+});
+
+test("a break into a table rides a hairline paragraph, not an empty line", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a">Before.</Paragraph>
+        <PageBreak id="turn" />
+        <Table id="t" columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell id="c">After.</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  // A table carries no break of its own — Word has no break-before on one and
+  // docx-preview splits only on top-level elements — so a paragraph goes in
+  // front to carry it. It is the hairline separator wearing the break style,
+  // so what lands is one point at the head of the new page rather than a full
+  // empty line at the foot of the old one.
+  assertEquals(breaksIn(xml), 1);
+  assertEquals(xml.includes('w:type="page"'), false);
+  assertStringIncludes(xml, '<w:pStyle w:val="PageBreakBefore"/>');
+  assertStringIncludes(xml, '<w:spacing w:after="0" w:before="0" w:line="20" w:lineRule="exact"/>');
+});
+
+test("two tables in a row stay two tables, which Word needs saying explicitly", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Section id="one" title="One" showTitle={false}>
+          <Table id="t1" columns={[{ width: "auto" }]}>
+            <Row>
+              <Cell id="c1">First.</Cell>
+            </Row>
+          </Table>
+        </Section>
+        <Section id="two" title="Two" showTitle={false}>
+          <Table id="t2" columns={[{ width: "auto" }, { width: "auto" }]}>
+            <Row>
+              <Cell id="c2">Second.</Cell>
+              <Cell id="c3">Also second.</Cell>
+            </Row>
+          </Table>
+        </Section>
+      </Document>,
+    ),
+  );
+
+  // Word reads two `w:tbl` written back to back as one table and lays the
+  // second out on the first one's grid. A paragraph between them is what says
+  // they are two — so no two table elements may ever be adjacent.
+  assertEquals(/<\/w:tbl>\s*<w:tbl[ >]/.test(xml), false);
+  assertEquals((xml.match(/<w:tbl>/g) ?? []).length, 2);
+});
+
+test("a break falls through a section's suppressed heading to its first child", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a">Before.</Paragraph>
+        <PageBreak id="turn" />
+        <Section id="s" title="Payment" showTitle={false}>
+          <Paragraph id="b">After.</Paragraph>
+        </Section>
+      </Document>,
+    ),
+  );
+
+  assertStringIncludes(xml, '<w:pStyle w:val="PageBreakBefore"/>');
+  assertEquals(xml.indexOf('w:val="PageBreakBefore"') < xml.indexOf("After."), true);
+});
+
+test("a break onto a printed heading leaves it looking like a heading", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a">Before.</Paragraph>
+        <PageBreak id="turn" />
+        <Section id="s" title="Payment">
+          <Paragraph id="b">After.</Paragraph>
+        </Section>
+      </Document>,
+    ),
+  );
+
+  // A paragraph names one style, so the heading cannot say both "Heading1" and
+  // "carries a break". It names the style based on Heading1 instead: the page
+  // turns and the heading still sets like every other section heading.
+  assertStringIncludes(xml, '<w:pStyle w:val="PageBreakBeforeHeading1"/>');
+  assertEquals(breaksIn(xml), 1);
+  assertEquals(xml.includes('w:type="page"'), false);
+  assertEquals(xml.indexOf('w:val="PageBreakBeforeHeading1"') < xml.indexOf("Payment"), true);
+});
+
+test("a break onto a printed heading keeps the heading looking like one", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a">Before.</Paragraph>
+        <PageBreak id="turn" />
+        <Section id="s" title="Payment">
+          <Paragraph id="b">After.</Paragraph>
+        </Section>
+      </Document>,
+    ),
+  );
+
+  // A paragraph names one style, so the heading cannot say both "Heading1" and
+  // "carries a break". It names the style that is based on Heading1 instead —
+  // the break happens and the heading still sets like every other heading.
+  assertStringIncludes(xml, '<w:pStyle w:val="PageBreakBeforeHeading1"/>');
+  assertEquals(xml.includes('w:type="page"'), false);
+  assertEquals(xml.indexOf('w:val="PageBreakBeforeHeading1"') < xml.indexOf("Payment"), true);
 });
 
 // ---------------------------------------------------------------------------
@@ -126,6 +253,97 @@ test("running furniture is packed as Word's own, so it repeats on every page", a
   assertStringIncludes(await partXml(doc, "word/footer1.xml"), "Fernhill Systems Ltd");
   // Not folded into the body, where it would print once and in the wrong place.
   assertEquals((await documentXml(doc)).includes("INV-2026-0142"), false);
+});
+
+test("a section prints its heading, unless it says its content already does", async () => {
+  const printed = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Section id="s" title="Charges">
+          <Paragraph id="a">A line.</Paragraph>
+        </Section>
+      </Document>,
+    ),
+  );
+
+  assertStringIncludes(printed, 'w:val="Heading1"');
+  assertStringIncludes(printed, "Charges");
+
+  const suppressed = await build(
+    <Document id="d" title="D">
+      <Section id="s" title="Charges" showTitle={false}>
+        <Paragraph id="a">A line.</Paragraph>
+      </Section>
+    </Document>,
+  );
+  const xml = await documentXml(suppressed);
+
+  // Nothing printed — no heading style, no title text.
+  assertEquals(xml.includes('w:val="Heading1"'), false);
+  assertEquals(xml.includes("Charges"), false);
+  assertStringIncludes(xml, "A line.");
+  // But the section keeps its name: the model still says what it is, so ids,
+  // the TOC and an engine's addressing are unchanged by not printing it.
+  const section = suppressed.nodes[0];
+  assertEquals(section.kind, "section");
+  assertEquals(section.title, "Charges");
+  assertEquals(section.kind === "section" && section.showTitle, false);
+});
+
+test("first-page furniture packs as Word's title page, not a conditional hack", async () => {
+  const doc = await build(
+    <Document
+      id="d"
+      title="D"
+      header={<Paragraph id="head">INV-2026-0142</Paragraph>}
+      firstHeader={false}
+      footer={<Paragraph id="foot">Running foot.</Paragraph>}
+      firstFooter={<Paragraph id="firstfoot">Page one foot.</Paragraph>}
+    >
+      <Paragraph id="a">One.</Paragraph>
+      <PageBreak id="turn" />
+      <Paragraph id="b">Two.</Paragraph>
+    </Document>,
+  );
+
+  // The section says the first page differs.
+  assertStringIncludes(await documentXml(doc), "w:titlePg");
+
+  // Two header parts: the running one carries the strip, the first-page one
+  // is present and empty — that emptiness is the whole statement.
+  const names = await partNames(doc);
+  const headerParts = names.filter((name) => /^word\/header\d+\.xml$/.test(name));
+  assertEquals(headerParts.length, 2);
+  const headerTexts = await Promise.all(headerParts.map(async (part) => {
+    const xml = await partXml(doc, part);
+    return [...xml.matchAll(/<w:t(?: [^>]*)?>([^<]*)<\/w:t>/g)].map((m) => m[1]).join("");
+  }));
+  assertEquals(headerTexts.filter((text) => text.includes("INV-2026-0142")).length, 1);
+  assertEquals(headerTexts.filter((text) => text.trim() === "").length, 1);
+
+  // Two footer parts, each carrying its own text.
+  const footerParts = names.filter((name) => /^word\/footer\d+\.xml$/.test(name));
+  assertEquals(footerParts.length, 2);
+  const footerTexts = await Promise.all(footerParts.map((part) => partXml(doc, part)));
+  assertEquals(footerTexts.filter((xml) => xml.includes("Running foot.")).length, 1);
+  assertEquals(footerTexts.filter((xml) => xml.includes("Page one foot.")).length, 1);
+
+  // The model records the decision: `false` became an empty array, and the
+  // first footer's nodes are ordinary nodes.
+  assertEquals(doc.firstHeader, []);
+  assertEquals(doc.firstFooter?.length, 1);
+});
+
+test("a document with no first-page furniture packs no title page", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D" header={<Paragraph id="head">Strip.</Paragraph>}>
+        <Paragraph id="a">One.</Paragraph>
+      </Document>,
+    ),
+  );
+
+  assertEquals(xml.includes("w:titlePg"), false);
 });
 
 test("furniture is kept apart from the body, not folded into it", async () => {

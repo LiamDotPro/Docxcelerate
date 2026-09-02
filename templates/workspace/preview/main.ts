@@ -1,5 +1,6 @@
 import { buildDocument, createDocumentProjectArtifact } from "docxcelerate";
 import type { DocumentModel, DocumentProject } from "docxcelerate/document";
+import { settleDocxPreview } from "docxcelerate/preview";
 import "./styles.css";
 
 interface DocumentProjectModule {
@@ -471,8 +472,15 @@ async function renderClientDocxPreview(model: DocumentModel, documentBlob: Blob)
 
   await docxPreview.renderAsync(documentBlob, body, head, {
     inWrapper: true,
+    breakPages: true,
     ignoreLastRenderedPageBreak: false,
   });
+
+  // docx-preview does not read everything the file says: it drops a field run,
+  // looks for a table's indent under an attribute that never carries it, and
+  // wraps a picture in an element a paragraph may not hold. This finishes the
+  // reading, so what is shown is what Word will show.
+  settleDocxPreview(body, model);
 
   const style = document.createElement("style");
   style.textContent = previewFrameStyles();

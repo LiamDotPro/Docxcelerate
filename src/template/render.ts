@@ -4,6 +4,7 @@ import type {
   DocumentNode,
   GraphNode,
   ImageNode,
+  InlineImage,
   JsonObject,
   PageBreakNode,
   PageNumberNode,
@@ -43,13 +44,10 @@ import type {
 } from "./elements.ts";
 import type { LoopProps } from "./loop.ts";
 import {
-  generateGraph,
-  generateImage,
-  generateParagraph,
-} from "../runtime/ai_request.ts";
-import {
+  formatPromptText,
   isDynamic,
   joinText,
+  type InlineImageElement,
   jsonText,
   mergePrompts,
   placeholderText,
@@ -87,7 +85,12 @@ export async function renderDocumentChildren(
 export async function renderDocumentFurniture(
   props: DocumentProps,
   context: RenderContext,
-): Promise<{ header?: DocumentNode[]; footer?: DocumentNode[] }> {
+): Promise<{
+  header?: DocumentNode[];
+  footer?: DocumentNode[];
+  firstHeader?: DocumentNode[];
+  firstFooter?: DocumentNode[];
+}> {
   const header = props.header === undefined
     ? undefined
     : await renderYield(props.header, context, { path: "@header" });
@@ -95,13 +98,30 @@ export async function renderDocumentFurniture(
     ? undefined
     : await renderYield(props.footer, context, { path: "@footer" });
 
+  // First-page furniture distinguishes `false` from absent: `false` is a
+  // statement — the first page shows nothing where the others show the running
+  // strip — so it becomes an empty array the packer turns into an empty part.
+  // Absent means the first page is like every other, and nothing is carried.
+  const firstHeader = props.firstHeader === undefined
+    ? undefined
+    : props.firstHeader === false
+    ? []
+    : await renderYield(props.firstHeader, context, { path: "@firstHeader" });
+  const firstFooter = props.firstFooter === undefined
+    ? undefined
+    : props.firstFooter === false
+    ? []
+    : await renderYield(props.firstFooter, context, { path: "@firstFooter" });
+
   return {
     header: header && header.length > 0 ? header : undefined,
     footer: footer && footer.length > 0 ? footer : undefined,
+    firstHeader,
+    firstFooter,
   };
 }
 
-async function renderYield(
+export async function renderYield(
   value: Yield,
   context: RenderContext,
   frame: Frame,
@@ -397,6 +417,10 @@ async function renderSection(
     id,
     kind: "section",
     title: await requiredText(props.title, context),
+    // Only `false` is worth carrying: absent means printed, and `prune` drops
+    // `undefined` while keeping `false` — so the model says only what departs
+    // from the default.
+    showTitle: props.showTitle === false ? false : undefined,
     when,
     children: await renderYield(props.children, context, {
       path: `${frame.path}/${id}`,
@@ -574,7 +598,22 @@ async function renderParagraph(
   id: string,
   when: Condition | undefined,
 ): Promise<ParagraphNode> {
-  const body = props.text ?? joinText(props.children, frame);
+  const inlineElements: InlineImageElement[] = [];
+  const body = props.text ?? joinText(props.children, frame, inlineElements);
+
+  // Pictures are rendered as the nodes they are, then carried on the
+  // paragraph rather than emitted beside it.
+  const inlineImages: InlineImage[] = [];
+  for (const found of inlineElements) {
+    const image = await renderImage(
+      found.element.props as unknown as ImageProps,
+      context,
+      frame,
+      claimId(context, found.element.props as CommonElementProps, frame, "image"),
+      undefined,
+    );
+    inlineImages.push({ at: found.at, image });
+  }
   const prompts = settled(body, props, frame, id);
 
   if (!isDynamic(prompts)) {
@@ -584,6 +623,7 @@ async function renderParagraph(
       mode: "static",
       when,
       text: await requiredText(body, context),
+      inlineImages: inlineImages.length === 0 ? undefined : inlineImages,
     };
 
     return prune(node);
@@ -602,9 +642,18 @@ async function renderParagraph(
   const specs = await promptSpecs(prompts, context);
   const node: ParagraphNode = { id, kind: "paragraph", mode: "dynamic", when, prompts: specs };
 
+  if (!context.aiClient) {
+    throw new Error(`Dynamic paragraph "${id}" requires an aiClient.`);
+  }
+
   return prune({
     ...node,
-    text: await generateParagraph(context.aiClient, node, specs, context.state),
+    text: await context.aiClient.generateParagraph({
+      node,
+      prompt: formatPromptText(specs),
+      prompts: specs,
+      state: context.state,
+    }),
   });
 }
 
@@ -665,7 +714,16 @@ async function renderImage(
     prompts: specs,
   };
 
-  const result = await generateImage(context.aiClient, node, specs, context.state);
+  if (!context.aiClient?.generateImage) {
+    throw new Error(`Dynamic image "${id}" requires an aiClient.generateImage method.`);
+  }
+
+  const result = await context.aiClient.generateImage({
+    node,
+    prompt: formatPromptText(specs),
+    prompts: specs,
+    state: context.state,
+  });
 
   return prune({ ...node, ...result, path: result.path });
 }
@@ -712,7 +770,16 @@ async function renderGraph(
   const specs = await promptSpecs(prompts, context);
   const node: GraphNode = { id, kind: "graph", mode: "dynamic", when, graphType, prompts: specs };
 
-  const result = await generateGraph(context.aiClient, node, specs, context.state);
+  if (!context.aiClient?.generateGraph) {
+    throw new Error(`Dynamic graph "${id}" requires an aiClient.generateGraph method.`);
+  }
+
+  const result = await context.aiClient.generateGraph({
+    node,
+    prompt: formatPromptText(specs),
+    prompts: specs,
+    state: context.state,
+  });
 
   return prune({
     ...node,

@@ -8,6 +8,7 @@
     "./cli": "./src/project/scaffold_cli.ts",
     "./document": "./src/document.ts",
     "./docx": "./src/render/docx_document.ts",
+    "./preview": "./src/render/docx_preview.ts",
     "./registry": "./src/registry/mod.ts",
     "./registry/install": "./src/registry/install.ts",
     "./scaffold": "./src/project/scaffold.ts",

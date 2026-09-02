@@ -435,8 +435,7 @@ export const NODE_TYPES: NodeTypeEntry[] = [
       "each names itself. That is what lets a published invoice carry one loop " +
       "the engine walks rather than a table full of special cases.",
     children: "`Row`s, and any `.map()` producing them. A `Row` holds `Cell`s.",
-    resolves: "Static",
-    renderNote: null,
+    resolves: "Both",
     options: [
       ID,
       {

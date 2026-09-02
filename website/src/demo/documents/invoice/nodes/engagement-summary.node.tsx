@@ -1,4 +1,9 @@
-import { Paragraph, useSetPlaceholders, useSetPrompts, useState } from "docxcelerate/template";
+import {
+  Paragraph,
+  useSetPlaceholders,
+  useSetPrompts,
+  useState,
+} from "docxcelerate/template";
 import type { InvoiceData } from "../types.ts";
 
 /**
@@ -17,7 +22,6 @@ export const EngagementSummary: Paragraph = () => {
   const [state] = useState((data: InvoiceData) => ({
     client: data.billedTo.name,
     lead: data.deliveryLead,
-    work: data.lines.map((line) => `${line.desc} (${line.meta})`).join("; "),
   }));
 
   useSetPrompts({
@@ -27,7 +31,12 @@ export const EngagementSummary: Paragraph = () => {
     generalPrompt:
       `Write three sentences for ${state.client} summarising what this month's ` +
       "work delivered, leading with whatever the largest line paid for.",
-    infoPrompt: `The lines billed were: ${state.work}. The delivery lead is ${state.lead}.`,
+    // The lines are named by pointing at them rather than by being pasted in.
+    // Spelling them out here would mean walking the list while building, which
+    // publishing refuses — there is no list until a request arrives — and the
+    // engine is writing into a document that carries the table anyway.
+    infoPrompt: "The work billed is itemised in the charges table below, each " +
+      `line with its own note. The delivery lead is ${state.lead}.`,
     negativePrompt:
       "Do not restate any figure, total or rate — they are in the table below. " +
       "Do not thank the client, and do not mention the invoice itself.",
@@ -40,5 +49,5 @@ export const EngagementSummary: Paragraph = () => {
       "continues under the support retainer.",
   );
 
-  return <Paragraph id="engagement-summary" />;
+  return <Paragraph id="engagement-summary" variant="summary" />;
 };

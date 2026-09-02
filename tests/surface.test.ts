@@ -143,6 +143,12 @@ const surface: Record<string, string[]> = {
     "createDocxDocument",
     "renderDocxBytes",
   ],
+  "./preview": [
+    "applyTableIndents",
+    "fillPageFields",
+    "inlinePictureWrappers",
+    "settleDocxPreview",
+  ],
   "./registry": [
     "COMPONENTS",
     "COMPONENT_CATEGORIES",

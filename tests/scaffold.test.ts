@@ -107,6 +107,22 @@ test("a workspace is filled in with its own name, version and endpoint", async (
   );
 });
 
+test("the preview app finishes what docx-preview does not read", async () => {
+  const parentDir = await tempDir();
+  const workspace = await scaffoldWorkspaceProject({ name: "reading workspace", parentDir });
+  const previewMain = await readTextFile(`${workspace.projectDir}/preview/main.ts`);
+
+  // Whether the generated app compiles is answered by compiling it —
+  // `npm run templates` type-checks templates/ the way a scaffolded workspace
+  // type-checks itself, and that is what caught the `document: DocumentModel`
+  // parameter shadowing the global one that the same function calls
+  // createElement on. What a typecheck cannot say is whether the app still
+  // calls this — and a preview that skips it shows something the packed file
+  // does not.
+  assertEquals(previewMain.includes("settleDocxPreview(body, model)"), true);
+  assertEquals(previewMain.includes(`from "docxcelerate/preview"`), true);
+});
+
 test("nothing a scaffold writes is left carrying a placeholder", async () => {
   const parentDir = await tempDir();
   const sample = await scaffoldWorkspaceProject({ name: "sample workspace", parentDir });

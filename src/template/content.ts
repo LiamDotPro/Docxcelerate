@@ -1,7 +1,7 @@
 import type { PromptKind, PromptSpec } from "../domain/types.ts";
 import { renderTemplate } from "../runtime/templates.ts";
 import { type PromptDraft, promptPropByKind, type RenderContext } from "./context.ts";
-import { isTemplateElement, type Yield } from "./element.ts";
+import { hostKindOf, isTemplateElement, type TemplateElement, type Yield } from "./element.ts";
 import type { PromptProps } from "./elements.ts";
 import { describe, type Frame } from "./frame.ts";
 
@@ -104,7 +104,20 @@ export async function placeholderText(
     : `[Dynamic placeholder: ${id}]`;
 }
 
-export function joinText(children: Yield, frame: Frame): string {
+export function formatPromptText(prompts: PromptSpec[]): string {
+  return prompts.map((entry) => `${entry.kind.toUpperCase()}: ${entry.text}`).join("\n");
+}
+
+/** A picture found among a paragraph's children, and where it was found. */
+export type InlineImageElement = { at: number; element: TemplateElement };
+
+/**
+ * The words a paragraph's children spell, and any pictures set among them.
+ *
+ * Passing `inlineAt` opts into collecting pictures; without it an element
+ * child is still the error it always was.
+ */
+export function joinText(children: Yield, frame: Frame, inlineAt?: InlineImageElement[]): string {
   const parts: string[] = [];
 
   const walk = (value: Yield): void => {
@@ -118,9 +131,17 @@ export function joinText(children: Yield, frame: Frame): string {
     }
 
     if (isTemplateElement(value)) {
+      // A picture is the one element that belongs inside a line rather than
+      // beside it. Where it sits is remembered as an offset into the text
+      // built so far, so the words stay one string and the order survives.
+      if (hostKindOf(value.type) === "image") {
+        inlineAt?.push({ at: parts.join("").length, element: value });
+        return;
+      }
+
       throw new Error(
         `A <Paragraph> at ${describe(frame)} was given an element as a child. ` +
-          "A paragraph holds text; put elements beside it, not inside it.",
+          "A paragraph holds text; put a picture inside it, and anything else beside it.",
       );
     }
 
