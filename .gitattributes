@@ -1,0 +1,15 @@
+# Line endings are LF in the repository, whatever a contributor's editor or
+# `core.autocrlf` does in their working copy. Without this the answer depends
+# on each machine's git config, and a Windows checkout can commit a whole file
+# back as changed because every line ending moved.
+* text=auto eol=lf
+
+# Binary, so git never tries to translate anything inside them.
+*.png binary
+*.webp binary
+*.ico binary
+*.docx binary
+
+# Generated, and noise in a diff nobody reads.
+package-lock.json -diff
+deno.lock -diff

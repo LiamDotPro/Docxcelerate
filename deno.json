@@ -25,8 +25,22 @@
       "src",
       "registry",
       "README.md",
-      "jsr.json",
+      "deno.json",
       "LICENSE"
     ]
+  },
+  "lint": {
+    "include": [
+      "src",
+      "tests",
+      "registry",
+      "scripts",
+      "bin"
+    ],
+    "rules": {
+      "exclude": [
+        "jsx-key"
+      ]
+    }
   }
 }

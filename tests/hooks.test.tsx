@@ -270,6 +270,7 @@ test("placeholder generators produce the kinds of value they claim", async () =>
 
 test("a hook called outside a build says so", async () => {
   await assertRejects(
+    // deno-lint-ignore require-await -- assertRejects needs a promise; the call throws.
     async () => {
       useAvailableTokens();
     },
@@ -278,6 +279,7 @@ test("a hook called outside a build says so", async () => {
   );
 
   await assertRejects(
+    // deno-lint-ignore require-await -- assertRejects needs a promise; the call throws.
     async () => {
       useSetPrompts({ generalPrompt: "nowhere" });
     },

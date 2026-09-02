@@ -27,6 +27,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
+import process from "node:process";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const launch = join(root, ".launch");

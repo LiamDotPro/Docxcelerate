@@ -17,11 +17,11 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import process from "node:process";
 
-const jsr = JSON.parse(readFileSync(new URL("../jsr.json", import.meta.url), "utf8"));
+const jsr = JSON.parse(readFileSync(new URL("../deno.json", import.meta.url), "utf8"));
 const entrypoints = Object.entries(jsr.exports ?? {});
 
 if (entrypoints.length === 0) {
-  fail("jsr.json declares no exports.");
+  fail("deno.json declares no exports.");
 }
 
 const failures = [];

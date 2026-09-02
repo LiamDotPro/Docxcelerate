@@ -98,10 +98,11 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "test": "npm run build && tsc -p tsconfig.test.json && node --test \"dist-tests/**/*.test.js\"",
+    "test": "npm run clean && npm run build && tsc -p tsconfig.test.json && node --test \"dist-tests/**/*.test.js\"",
     "clean": "node -e \"for (const d of ['dist','dist-tests']) require('node:fs').rmSync(d,{recursive:true,force:true})\"",
     "prepare": "node scripts/prepare.mjs",
     "prepublishOnly": "npm run clean && npm run build",
+    "lint": "deno lint",
     "typecheck": "npm run build && tsc -p tsconfig.json",
     "jsr:doc": "node scripts/jsr-doc-check.mjs",
     "launch": "node scripts/submit.mjs",
