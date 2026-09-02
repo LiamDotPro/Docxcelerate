@@ -19,7 +19,7 @@
  * is what jsdom is for: the pages are baked here, at build time, and the site
  * ships flat HTML rather than a renderer and a `.docx` to every visitor.
  */
-import { readPackedParagraphs, settleDocxPreview } from "docxcelerate/preview";
+import { previewPageStyles, readPackedParagraphs, settleDocxPreview } from "docxcelerate/preview";
 import { JSDOM } from "jsdom";
 
 /** The one window the whole build renders in. */
@@ -351,16 +351,22 @@ ${await paginatorScript()}
  * taken from the file, so nothing here touches the layout — only the ground it
  * sits on and the seam between one page and the next.
  */
-export const PAGE_ONLY_STYLE = `
-      html, body { margin: 0; padding: 0; background: transparent; }
-
-      section.docx {
-        margin: 0 auto;
-        background: #ffffff;
-        box-sizing: border-box;
-      }
-
-      section.docx + section.docx { margin-top: 26px; }`;
+/**
+ * The desk the pages sit on, from the framework.
+ *
+ * This used to be four rules written here: transparent ground, white sheets,
+ * 26px between them. On a one-page document that was invisible and fine. The
+ * invoice is two pages, and two white sheets 26px apart on a white ground read
+ * as one long sheet with a seam across it.
+ *
+ * `inset: 0` because the embed is framed to the width of a page — padding here
+ * would inset the first sheet inside a frame drawn to fit it. The sheets carry
+ * their own edge now, which is what makes the second one a second one.
+ */
+export const PAGE_ONLY_STYLE = previewPageStyles({ inset: "0" })
+  .split("\n")
+  .map((line) => `      ${line}`)
+  .join("\n");
 
 /**
  * Single-node embeds: the same paper and the same typography, cropped to the

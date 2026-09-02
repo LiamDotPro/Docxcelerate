@@ -33,6 +33,10 @@ export {
   type PaginationResult,
 } from "./docx_paginate.ts";
 export { applyTabStops } from "./docx_tabs.ts";
+export {
+  previewPageStyles,
+  type PreviewPageStyleOptions,
+} from "./preview_styles.ts";
 
 export {
   type PackedBorderSpace,

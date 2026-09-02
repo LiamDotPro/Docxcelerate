@@ -149,6 +149,7 @@ const surface: Record<string, string[]> = {
     "fillPageFields",
     "inlinePictureWrappers",
     "paginateDocxPreview",
+    "previewPageStyles",
     "readPackedParagraphs",
     "readPart",
     "settleDocxPreview",

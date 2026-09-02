@@ -12,4 +12,4 @@
  */
 
 /** The version of this package, as published. */
-export const version = "0.4.1";
+export const version = "0.4.2";

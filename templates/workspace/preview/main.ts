@@ -3,6 +3,7 @@ import type { DocumentModel, DocumentProject } from "docxcelerate/document";
 import {
   applyTabStops,
   paginateDocxPreview,
+  previewPageStyles,
   readPackedParagraphs,
   settleDocxPreview,
 } from "docxcelerate/preview";
@@ -731,12 +732,16 @@ function isPrivatePreviewHost(hostname = window.location.hostname): boolean {
     /^172[.](1[6-9]|2[0-9]|3[0-1])[.]/.test(host);
 }
 
+/**
+ * The desk, from the framework rather than from here.
+ *
+ * The site's embeds and this app both show a run of pages, and each had its
+ * own idea of what that looks like. One of them was wrong.
+ */
 function previewFrameStyles(): string {
   return [
-    "html, body { margin: 0; min-height: 100%; background: #e6e8ed; }",
-    "body { overflow: auto; padding: 32px 0 72px; }",
-    ".docx-wrapper { background: transparent !important; padding: 0 !important; }",
-    ".docx-wrapper > section.docx { margin: 0 auto 34px !important; box-shadow: 0 1px 2px rgb(15 23 42 / 12%), 0 18px 46px rgb(15 23 42 / 24%); }",
+    previewPageStyles({ inset: "32px 0 72px" }),
+    "body { overflow: auto; min-height: 100%; }",
   ].join("\n");
 }
 
