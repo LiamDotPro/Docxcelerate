@@ -1,6 +1,6 @@
 {
   "name": "docxcelerate",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Write DOCX documents like you write websites — compose Word files from typed JSX components, preview them locally, generate at scale.",
   "license": "MIT",
   "type": "module",
@@ -106,6 +106,7 @@
     "lint": "deno lint",
     "typecheck": "npm run build && tsc -p tsconfig.json && tsc -p tsconfig.templates.json",
     "jsr:doc": "node scripts/jsr-doc-check.mjs",
+    "version:guard": "node scripts/version-guard.mjs",
     "launch": "node scripts/submit.mjs",
     "launch:check": "node scripts/submit.mjs check",
     "dxcl": "node ./bin/dxcl.mjs",

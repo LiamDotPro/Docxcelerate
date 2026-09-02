@@ -38,6 +38,7 @@ npm run lint      # deno lint; rules and file list live in deno.json
 npm run templates # type-check the files a scaffolded project is written from
 npm run build     # tsc -p tsconfig.build.json into dist/
 npm run jsr:doc   # every entrypoint and exported symbol is documented
+npm run version:guard # a version bump has to ship something
 ```
 
 Run `npm test` before proposing a change. The suite is the safety net for
@@ -92,6 +93,13 @@ one.
   example a new workspace comes with, `templates/workspace/` the workspace
   around them. The node templates live in `templates/document/nodes/` so their
   `../types.ts` import resolves like it will where they land.
+
+**A version bump ships something, or it does not happen.** Merging a version
+change to main publishes it to npm and JSR both, so a bump on a branch that
+only touched the website or the conformance suite would cut a release
+identical to the one before it. `npm run version:guard` refuses that, and CI
+runs it on every pull request. The other way round is fine: a change can land
+without a bump, and several of them can ship under one number.
 
 **Entrypoints are declared in `deno.json` and mirrored in `package.json`.**
 The two export maps have to agree, and every npm target has to exist after a

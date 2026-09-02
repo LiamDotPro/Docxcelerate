@@ -78,6 +78,7 @@ export function settleDocxPreview(
 ): void {
   inlinePictureWrappers(container);
   fillPageFields(container);
+  seatFooters(container);
 
   if (model !== undefined) {
     applyTableIndents(container, model);
@@ -102,6 +103,33 @@ export function settleDocxPreview(
  * miss leaves the preview exactly as docx-preview drew it, where a wrong match
  * would make it say something the document never did.
  */
+/**
+ * A footer sits on the line the file measures it from, not above it.
+ *
+ * `w:pgMar/@w:footer` is the distance from the bottom of the paper to the
+ * *bottom* of the footer, so Word grows a footer upward from that line.
+ * docx-preview instead reserves the strip a box the height of the margin it
+ * has to play with and lays the content out from the top of it — so a bar
+ * shorter than its reserve floats above where Word draws it.
+ *
+ * Measured rather than reasoned: the invoice's footer bar is packed with a
+ * distance of zero, Word's own export puts its ink one pixel off the edge of
+ * the sheet, and the preview drew it six pixels up. Six pixels of white under
+ * a bar that reaches every other edge of the paper is the kind of difference
+ * somebody signs off on and then does not get.
+ *
+ * Bottom-aligning is right whichever way the sizes fall: content taller than
+ * the reserve overflows upward, which is the direction Word grows it too.
+ */
+function seatFooters(container: Element): void {
+  for (const footer of container.querySelectorAll("section.docx > footer")) {
+    const style = (footer as HTMLElement).style;
+    style.display = "flex";
+    style.flexDirection = "column";
+    style.justifyContent = "flex-end";
+  }
+}
+
 function matchParagraphs(
   container: Element,
   packed: readonly PackedParagraph[],

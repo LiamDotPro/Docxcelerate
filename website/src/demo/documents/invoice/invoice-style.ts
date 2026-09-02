@@ -18,6 +18,12 @@ export const invoiceStyle: DocumentStyle = {
     size: "A4",
     orientation: "portrait",
     margins: { topMm: 16, rightMm: 16, bottomMm: 16, leftMm: 16 },
+    // The footer strip is a bar, not a line of small print: it bleeds to the
+    // left and right edges of the paper, so floating it above the bottom one
+    // left a band of white under a bar that reaches every other edge. Word
+    // stands a footer 12.5mm off the paper unless a document says otherwise,
+    // and this one has reason to.
+    footerMm: 0,
   },
   typography: {
     bodyFont: "Aptos",

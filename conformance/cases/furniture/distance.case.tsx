@@ -73,10 +73,18 @@ export default defineCase({
 
     preview: (b, is) => {
       is.within(b.furniture("header").y, b.mm(15), "1mm", "the preview draws the letterhead 15mm down");
+      is.within(b.furniture("footer").fromBottom, b.mm(18), "1mm", "and the footer 18mm up");
     },
 
     parity: (p, is) => {
       is.within(p.previewHeaderY(), p.wordHeaderY(), "1mm", "and puts it where Word puts it");
+      // The footer had no assertion here, and the preview was drawing it above
+      // where Word draws it: `w:footer` is the distance to the *bottom* of the
+      // footer, so Word grows one upward from that line, and docx-preview laid
+      // its content out from the top of the box it reserves instead. A bar
+      // shorter than its reserve floated, which on the invoice was six pixels
+      // of white under a strip that reaches every other edge of the paper.
+      is.within(p.previewFooterFromBottom(), p.wordFooterFromBottom(), "1mm", "and the footer where Word puts that");
     },
   },
 });
