@@ -102,6 +102,11 @@ build. `tests/package.test.ts` fails when they drift, and when the version in
 
 `core.autocrlf` is irrelevant here — `.gitattributes` pins the repository to LF.
 
+`deno lint` runs with two React rules off, in deno.json: `jsx-key`, because
+this JSX is not React's and a key means something else here, and
+`jsx-curly-braces`, because an expression child is the only way to write a
+string containing an escape such as a tab.
+
 There is no formatter configured. `deno fmt` would rewrite most of the tree,
 and there are a lot of open branches; if you want to adopt it, do it as one
 isolated commit and add the hash to `.git-blame-ignore-revs`.

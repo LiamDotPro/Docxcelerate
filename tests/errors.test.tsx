@@ -96,7 +96,6 @@ test("a Document cannot be nested inside another element", async () => {
 
 test("text where an element belongs says where it was found", async () => {
   await assertBuildRejects(
-    // deno-lint-ignore jsx-curly-braces -- written as an expression child on purpose: that is what is rejected.
     <Section id="s" title="S">{"loose text"}</Section>,
     "Text only lives inside a <Paragraph>",
   );

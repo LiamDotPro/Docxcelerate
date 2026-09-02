@@ -81,6 +81,98 @@ previews on this site. A second renderer laying the model out in HTML would be a
 second answer to what a document looks like, and the one nobody opens in Word is
 the one that drifts.
 
+## docxcelerate/preview
+
+Finishing a preview that `docx-preview` has laid out.
+
+```ts
+import { readPackedParagraphs, settleDocxPreview } from "docxcelerate/preview";
+
+const packed = new Uint8Array(await blob.arrayBuffer());
+await renderAsync(packed, body, head, { breakPages: true });
+settleDocxPreview(body, model, await readPackedParagraphs(packed));
+```
+
+`docx-preview` does not read everything a `.docx` says. It drops a field run, so
+a footer Word prints as "1 / 2" arrives as a bare slash. It looks for a table's
+indent under an attribute that never carries it. It reads `w:spacing` only when
+the parent is `w:pPr`, so a run's letter spacing never reaches the page. It
+writes a paragraph border without the gap the border holds its text off by. And
+it puts a picture in an element a paragraph may not contain, which survives in
+a DOM and does not survive being written down.
+
+`settleDocxPreview` puts each of those back. Every one of them is a fact the
+packed file already declares and Word already draws — nothing here is a
+stylesheet, and nothing invents a layout. A preview patched with CSS that Word
+cannot reproduce is a preview that lies, which is the one thing reading the file
+back exists to prevent.
+
+Two of them can only be recovered from the file, so `readPackedParagraphs` reads
+the bytes and settle is handed the result. Recomputing them from the style that
+produced the document would put a second copy of the packer's arithmetic beside
+the first, and the copy nobody opens in Word is the one free to drift. Reading is
+asynchronous because inflating is; settle stays synchronous, because it mutates a
+DOM somebody is about to measure.
+
+Call it after `renderAsync` and before the container is measured or serialised.
+It works the same in a browser as in a `jsdom`, and the scaffolded preview app
+already does this for you.
+
+### Pages
+
+`docx-preview` breaks where the *file* says to — an explicit break, or a
+paragraph marked to start one — and nowhere else. It does not lay text against a
+page height and start a new sheet when the old one is full, so a document Word
+prints on five pages arrives as one very long sheet. Everything read off that is
+wrong with it: which page a paragraph is on, whether a header repeats, what a
+footer's "1 of 5" should say.
+
+```ts
+import { paginateDocxPreview } from "docxcelerate/preview";
+
+paginateDocxPreview(body);
+```
+
+It flows the body's blocks into boxes the height of the page, carries the
+running furniture onto each new sheet, and recounts the page numbers. It is a
+separate call from `settleDocxPreview` because it needs something to have laid
+the page out — a browser, or headless Chrome. In a `jsdom` every height is zero,
+which would read as "it all fits", so it declines to answer instead and tells
+you why.
+
+It breaks *between* blocks, never through the middle of one, so a paragraph Word
+would split across a sheet moves whole here. On documents made of ordinary
+paragraphs the two agree exactly; that is measured rather than claimed, by
+`conformance/cases/preview/content-pagination`.
+
+### Tab stops
+
+```ts
+import { applyTabStops, readPackedParagraphs } from "docxcelerate/preview";
+
+applyTabStops(body, await readPackedParagraphs(packed));
+```
+
+A tab stop is the one paragraph property whose effect cannot be written as a
+style: where the text after a tab lands depends on how wide the text *before* it
+drew. So like pagination it needs a layout, and runs in the same place — before
+paginating, since a line that has not found its stop is the wrong height to
+measure a page against.
+
+Put together, a preview is finished in three steps, and the order is the order:
+
+```ts
+const packed = new Uint8Array(await blob.arrayBuffer());
+const paragraphs = await readPackedParagraphs(packed);
+
+await renderAsync(packed, body, head, { breakPages: true });
+settleDocxPreview(body, model, paragraphs);   // no layout needed
+applyTabStops(body, paragraphs);              // needs layout
+paginateDocxPreview(body);                    // needs layout, and settled heights
+```
+
+The scaffolded preview app already does all of this.
+
 ## docxcelerate/scaffold and /cli
 
 The workspace generator and its command-line front end, for building your own

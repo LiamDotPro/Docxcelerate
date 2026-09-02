@@ -1,0 +1,22 @@
+{
+  "name": "docxcelerate-conformance",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "One small document per Word feature: what the code says, what the preview shows, what Word makes of it.",
+  "scripts": {
+    "conf": "node runner.mjs",
+    "conf:a": "node runner.mjs --tier a"
+  },
+  "dependencies": {
+    "docxcelerate": "file:.."
+  },
+  "devDependencies": {
+    "docx-preview": "^0.3.7",
+    "esbuild": "^0.28.2",
+    "jsdom": "^30.0.1",
+    "pdfjs-dist": "^6.2.108",
+    "pixelmatch": "^7.2.0",
+    "pngjs": "^7.0.0"
+  }
+}

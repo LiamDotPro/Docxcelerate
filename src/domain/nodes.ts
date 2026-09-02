@@ -10,7 +10,7 @@
  */
 
 import type { Condition, DataReference, DeriverInvocation, PromptSpec } from "./expressions.ts";
-import type { DocumentStyle } from "./style.ts";
+import type { DocumentStyle, TableAlign, TextAlign } from "./style.ts";
 
 /** A plain JSON object, used wherever the model carries caller-defined data. */
 export type JsonObject = Record<string, unknown>;
@@ -104,6 +104,16 @@ export interface ParagraphNode extends BaseNode {
   /** The prose, when the paragraph is static or has a fallback. */
   text?: string;
   /**
+   * How the paragraph's lines sit in the text column.
+   *
+   * On the node rather than only in the theme, because alignment is often
+   * what the thing *is* rather than how it looks — a date ranged right is
+   * ranged right in every theme, the way a money column is. A theme can still
+   * say it for a named block, and the node wins when both do, exactly as a
+   * cell wins over its column.
+   */
+  align?: TextAlign;
+  /**
    * Pictures set in the line rather than above it.
    *
    * A mark beside a line of credit is one line; given a paragraph of its own
@@ -169,9 +179,6 @@ export interface GraphNode extends BaseNode {
   /** What to show while the chart has no data yet. */
   placeholder?: string;
 }
-
-/** How a column's cells sit in the width they are given. */
-export type TableAlign = "left" | "center" | "right";
 
 /**
  * One column's shape, which every row shares.
@@ -373,6 +380,20 @@ export interface DocumentModel {
   firstHeader?: DocumentNode[];
   /** Nodes drawn at the foot of the first page, in place of `footer`. */
   firstFooter?: DocumentNode[];
+  /**
+   * Nodes drawn at the top of left-hand pages, in place of `header`.
+   *
+   * A document printed on both sides and bound has two kinds of page, not one.
+   * The reference belongs at the *outside* edge of each — right on a recto,
+   * left on a verso — so it is always the corner a thumb reaches, and a folio
+   * that sat in the same place on every sheet would sit in the gutter on half
+   * of them.
+   *
+   * Naming either of these turns on Word's `w:evenAndOddHeaders`, which is a
+   * setting for the whole document rather than for one section: from then on
+   * `header` and `footer` are what a *right-hand* page shows.
+   */
+  evenHeader?: DocumentNode[];
+  /** Nodes drawn at the foot of left-hand pages, in place of `footer`. */
+  evenFooter?: DocumentNode[];
 }
-
-/** Everything a node can reach while a single document is being written. */

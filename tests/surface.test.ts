@@ -144,9 +144,13 @@ const surface: Record<string, string[]> = {
     "renderDocxBytes",
   ],
   "./preview": [
+    "applyTabStops",
     "applyTableIndents",
     "fillPageFields",
     "inlinePictureWrappers",
+    "paginateDocxPreview",
+    "readPackedParagraphs",
+    "readPart",
     "settleDocxPreview",
   ],
   "./registry": [

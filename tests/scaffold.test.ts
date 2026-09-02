@@ -119,8 +119,13 @@ test("the preview app finishes what docx-preview does not read", async () => {
   // createElement on. What a typecheck cannot say is whether the app still
   // calls this — and a preview that skips it shows something the packed file
   // does not.
-  assertEquals(previewMain.includes("settleDocxPreview(body, model)"), true);
+  assertEquals(previewMain.includes("settleDocxPreview(body, model"), true);
   assertEquals(previewMain.includes(`from "docxcelerate/preview"`), true);
+  // And it hands settle the bytes as well as the model. Two of docx-preview's
+  // omissions can only be recovered from the file, and recovering them from the
+  // theme instead would be a second copy of the packer's arithmetic — which is
+  // the one thing a preview must not have.
+  assertEquals(previewMain.includes("readPackedParagraphs(packed)"), true);
 });
 
 test("nothing a scaffold writes is left carrying a placeholder", async () => {

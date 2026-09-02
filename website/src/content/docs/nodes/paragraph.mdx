@@ -77,6 +77,54 @@ const [state] = useState((data: MemberData) => ({
 return <Paragraph id="balance">{state.line}</Paragraph>;
 ```
 
+## How it sits on the page
+
+`align` is the one appearance a paragraph states for itself, because alignment
+is often what the paragraph *is* rather than how it looks — a date is ranged
+right in every theme, the way a money column is:
+
+```tsx
+<Paragraph id="issued" align="right">{state.issuedOn}</Paragraph>
+```
+
+Everything else about how a paragraph is set belongs to the theme, reached by
+name through `variant`. The block decides; the node only says which block it is:
+
+```ts
+blocks: {
+  standfirst: { align: "center", spacingBeforePt: 4, spacingAfterPt: 14 },
+  quote:      { indentMm: 10, indentRightMm: 10 },
+  heading:    { keepWithNext: true },
+  contents:   { tabStopsMm: [{ at: 170, align: "right", leader: "dot" }] },
+}
+```
+
+```tsx
+<Paragraph id="lead" variant="standfirst">What this letter is about.</Paragraph>
+<Paragraph id="terms" variant="contents">{"What the agreement covers\t3"}</Paragraph>
+```
+
+A node that states its own `align` wins over its block's, the same way a cell
+wins over its column. What a block can set, beyond fill, border and type:
+
+| | |
+| --- | --- |
+| `align` | how the lines sit in the column |
+| `spacingBeforePt`, `spacingAfterPt` | space above and below, in points |
+| `indentMm`, `indentRightMm` | inset from the left and right margins |
+| `firstLineIndentMm` | the first line only — a book's paragraph mark |
+| `hangingIndentMm` | the first line pulled back from the rest |
+| `keepWithNext`, `keepLines` | never the last thing on a page; never split across one |
+| `tabStopsMm` | `[{ at, align?, leader? }]` from the left margin. Put a `\t` in the text to reach one |
+| `lineHeight` | leading, as a multiple of the font size |
+
+Each of these means the same thing on screen as it does in Word, and that is
+checked rather than assumed: every property here has a conformance case that
+packs a document, opens it in Word, and holds the preview to what Word draws to
+the millimetre. Two limits fall out of Word's own format and are worth knowing —
+padding needs a border to hang on, and a left border pushes the *rule* outward
+rather than the text inward.
+
 ## Dynamic paragraphs
 
 A dynamic paragraph has no text of its own; it carries prompts and a

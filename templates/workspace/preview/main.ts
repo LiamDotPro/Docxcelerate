@@ -1,6 +1,11 @@
 import { buildDocument, createDocumentProjectArtifact } from "docxcelerate";
 import type { DocumentModel, DocumentProject } from "docxcelerate/document";
-import { settleDocxPreview } from "docxcelerate/preview";
+import {
+  applyTabStops,
+  paginateDocxPreview,
+  readPackedParagraphs,
+  settleDocxPreview,
+} from "docxcelerate/preview";
 import "./styles.css";
 
 interface DocumentProjectModule {
@@ -285,7 +290,7 @@ async function renderPreview(
   paths: string[],
   currentPath: string,
   project: DocumentProject<unknown>,
-  document: DocumentModel,
+  model: DocumentModel,
 ): Promise<void> {
   const shell = createShell({
     currentPath,
@@ -293,7 +298,7 @@ async function renderPreview(
     titleText: project.name + " " + previewRendererLabel(previewRenderer),
     project,
   });
-  shell.querySelector(".workspace")?.append(await renderDocumentPreview(document, previewRenderer));
+  shell.querySelector(".workspace")?.append(await renderDocumentPreview(model, previewRenderer));
   app.replaceChildren(shell);
 }
 
@@ -477,10 +482,16 @@ async function renderClientDocxPreview(model: DocumentModel, documentBlob: Blob)
   });
 
   // docx-preview does not read everything the file says: it drops a field run,
-  // looks for a table's indent under an attribute that never carries it, and
-  // wraps a picture in an element a paragraph may not hold. This finishes the
-  // reading, so what is shown is what Word will show.
-  settleDocxPreview(body, model);
+  // looks for a table's indent under an attribute that never carries it, drops
+  // a run's letter spacing, and wraps a picture in an element a paragraph may
+  // not hold. This finishes the reading, so what is shown is what Word shows.
+  //
+  // The packed bytes go in as well: two of those omissions can only be put
+  // back from the file, and reading them from it rather than from the theme is
+  // what keeps the preview and the packer from drifting apart.
+  const packed = new Uint8Array(await documentBlob.arrayBuffer());
+  const paragraphs = await readPackedParagraphs(packed);
+  settleDocxPreview(body, model, paragraphs);
 
   const style = document.createElement("style");
   style.textContent = previewFrameStyles();
@@ -489,10 +500,147 @@ async function renderClientDocxPreview(model: DocumentModel, documentBlob: Blob)
   const html = document.createElement("html");
   html.append(head, body);
 
+  // Pagination waits for the frame, and has to.
+  //
+  // Everything above happens in a document that was never put on the page, so
+  // nothing in it has a height — and pagination is entirely a question of
+  // heights. Inside the frame the browser has laid the sheet out for real, so
+  // that is where the body is flowed into pages and the running strips are
+  // carried onto each one. Without this the preview is one sheet as long as the
+  // document, however many pages Word will print.
+  // A title-page document also needs its *running* strip, which docx-preview
+  // never drew: it picks one header per page it renders, renders one page, and
+  // takes the first page's. Asking for it is a second render of the same bytes
+  // with the title-page flag turned off in the parsed tree only — so what comes
+  // back is docx-preview's rendering of the document's own default part, not a
+  // guess at one.
+  const running = await renderRunningFurniture(packed, docxPreview);
+
+  frame.addEventListener("load", () => {
+    const inner = frame.contentDocument;
+    if (inner === null) {
+      return;
+    }
+
+    // Tab stops first: a stop is the one paragraph property whose effect
+    // depends on how wide the text before it drew, so it cannot be settled
+    // into a detached document either. Placing them before paginating means
+    // the page is measured against lines that have found their stops.
+    applyTabStops(inner.body, paragraphs);
+
+    paginateDocxPreview(inner.body, {
+      runningHeader: adopt(inner, running.header),
+      runningFooter: adopt(inner, running.footer),
+    });
+  });
+
   frame.srcdoc = "<!doctype html>" + html.outerHTML;
   stage.append(frame);
 
   return stage;
+}
+
+/**
+ * The strip a title-page document draws on every page after the first.
+ *
+ * docx-preview picks one header and one footer per page it renders, and it
+ * renders one page, so for a document whose first page differs it draws the
+ * letterhead and never asks for the running header. The default part is in the
+ * package and Word draws it from page two; it simply never reaches the DOM.
+ *
+ * So it is asked for: the file is parsed, the title-page flag is turned off in
+ * the parsed tree only, and the same renderer draws the same bytes again into a
+ * scratch container, where page one now takes the default parts. Nothing is
+ * written back, and the preview itself is rendered from the untouched file. A
+ * document that is not a title page skips this and pays nothing.
+ */
+interface SectionRefs {
+  titlePage?: boolean;
+  headerRefs?: { id: string; type: string }[];
+  footerRefs?: { id: string; type: string }[];
+}
+
+async function renderRunningFurniture(
+  packed: Uint8Array,
+  docxPreview: typeof import("docx-preview"),
+): Promise<{
+  header: Element | null;
+  footer: Element | null;
+  evenHeader: Element | null;
+  evenFooter: Element | null;
+}> {
+  const parsed = await docxPreview.parseAsync(packed);
+  // The section properties live on the body itself, not on a list of sections.
+  const properties = (parsed as { documentPart?: { body?: { props?: SectionRefs } } })
+    .documentPart?.body?.props;
+  const empty = { header: null, footer: null };
+
+  if (properties === undefined) {
+    return { ...empty, evenHeader: null, evenFooter: null };
+  }
+
+  const draw = async (prepare: () => void) => {
+    prepare();
+
+    const body = document.createElement("div");
+    const head = document.createElement("div");
+
+    await docxPreview.renderDocument(parsed, body, head, {
+      inWrapper: false,
+      breakPages: true,
+      ignoreLastRenderedPageBreak: false,
+    });
+
+    const page = body.querySelector("section.docx");
+
+    return {
+      header: page?.querySelector(":scope > header") ?? null,
+      footer: page?.querySelector(":scope > footer") ?? null,
+    };
+  };
+
+  const running = properties.titlePage === true
+    ? await draw(() => {
+      properties.titlePage = false;
+    })
+    : empty;
+
+  // The verso strip, by the same means. docx-preview picks the even part only
+  // for a page it renders second, and it renders one — so the even reference is
+  // put where it looks for the default one and the same renderer is asked
+  // again. Nothing about the file changes.
+  const hasEven = (properties.headerRefs ?? []).some((ref) => ref.type === "even") ||
+    (properties.footerRefs ?? []).some((ref) => ref.type === "even");
+
+  const even = hasEven
+    ? await draw(() => {
+      properties.titlePage = false;
+      promoteEven(properties.headerRefs);
+      promoteEven(properties.footerRefs);
+    })
+    : empty;
+
+  return {
+    header: running.header,
+    footer: running.footer,
+    evenHeader: even.header,
+    evenFooter: even.footer,
+  };
+}
+
+/** The even reference, moved to where docx-preview looks for the default one. */
+function promoteEven(refs: { id: string; type: string }[] | undefined): void {
+  const even = (refs ?? []).find((ref) => ref.type === "even");
+  const fallback = (refs ?? []).find((ref) => ref.type === "default");
+
+  if (even !== undefined && fallback !== undefined) {
+    fallback.id = even.id;
+  }
+}
+
+/** A node from this document, brought into the frame's. */
+function adopt(inner: Document, node: Element | null): Element | null {
+  return node === null ? null : (inner.importNode(node, true) as Element);
 }
 
 async function renderHostedDocxPreview(
