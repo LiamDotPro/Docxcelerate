@@ -61,7 +61,8 @@ in `deno.json` or has no reason to exist.
 
 **Entrypoints are declared in `deno.json` and mirrored in `package.json`.**
 The two export maps have to agree, and every npm target has to exist after a
-build.
+build. `tests/package.test.ts` fails when they drift, and when the version in
+`src/version.ts` disagrees with either of them.
 
 ## Things worth knowing
 

@@ -10,6 +10,7 @@ import {
   scaffoldDocumentProject,
   scaffoldWorkspaceProject,
 } from "docxcelerate/scaffold";
+import { version } from "docxcelerate";
 
 test("scaffold creates a structured document project and node generator updates exports", async () => {
   const documentsDir = await tempDir();
@@ -71,7 +72,9 @@ test("workspace scaffold creates a project container for documents", async () =>
   assertEquals(workspace.template, "sample");
   assertEquals(packageJson.scripts.dev, "vite --host 127.0.0.1 --port 4507");
   assertEquals(packageJson.scripts["document:new"], "dxcl document new");
-  assertEquals(packageJson.dependencies.docxcelerate, "^0.1.3");
+  // A scaffolded workspace depends on the toolkit that scaffolded it, not on
+  // whatever version happened to be current when this template was written.
+  assertEquals(packageJson.dependencies.docxcelerate, `^${version}`);
   assertEquals(packageJson.dependencies.docx, "^9.6.1");
   assertEquals(packageJson.dependencies["docx-preview"], "^0.3.7");
   assertEquals(packageJson.devDependencies.vite, "^8.0.13");

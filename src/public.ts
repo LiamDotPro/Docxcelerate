@@ -40,3 +40,4 @@ export * from "./runtime/resolver.ts";
 // asks for `/registry/install` and says so.
 export * from "./registry/mod.ts";
 export * from "./theme/mod.ts";
+export * from "./version.ts";

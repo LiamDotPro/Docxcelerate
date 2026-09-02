@@ -7,6 +7,8 @@
  * @module
  */
 
+import { version } from "../version.ts";
+
 /** What {@linkcode scaffoldDocumentProject} needs to write a document project. */
 export interface ScaffoldDocumentProjectOptions {
   /** The document's name; slugified into the directory name. */
@@ -474,7 +476,7 @@ function workspacePackageJsonTemplate(name: string): string {
           "documents:check": "tsc -p tsconfig.json",
         },
         dependencies: {
-          docxcelerate: "^0.1.3",
+          docxcelerate: `^${version}`,
           docx: "^9.6.1",
           "docx-preview": "^0.3.7",
         },

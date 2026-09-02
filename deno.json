@@ -15,7 +15,8 @@
     "./template": "./src/template.ts",
     "./template/jsx-dev-runtime": "./src/template/jsx-dev-runtime.ts",
     "./template/jsx-runtime": "./src/template/jsx-runtime.ts",
-    "./themes": "./src/theme/mod.ts"
+    "./themes": "./src/theme/mod.ts",
+    "./transform": "./src/transform/mod.ts"
   },
   "imports": {
     "docx": "npm:docx@^9.6.1"
