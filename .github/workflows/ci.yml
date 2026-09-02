@@ -59,6 +59,25 @@ jobs:
       - name: Type-check tests, the registry and the templates
         run: npm run typecheck
 
+  # Merging a version change publishes it, so a bump made on a branch that only
+  # touched the website or the conformance suite would cut a release identical to
+  # the one before it. This says a bump has to ship something.
+  version:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The guard diffs against the merge base, which a shallow clone has not got.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: A version bump has to ship something
+        run: node scripts/version-guard.mjs origin/${{ github.base_ref }}
+
   lint:
     runs-on: ubuntu-latest
     steps:
