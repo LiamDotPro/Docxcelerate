@@ -58,6 +58,7 @@ let qrRuns = 0;
 
 const paymentQr = deriver({
   name: "paymentQr",
+  // deno-lint-ignore require-await -- the point of the fixture is an async deriver.
   run: async (reference: string) => {
     qrRuns += 1;
     return `qr:${reference}`;
@@ -361,7 +362,7 @@ test("an engine without the deriver fails on the document rather than guessing",
   );
 });
 
-test("a deriver module registers straight into a registry", async () => {
+test("a deriver module registers straight into a registry", () => {
   const registry = createDeriverRegistry([invoiceTotals, paymentQr]);
 
   assertEquals(registry.has("invoiceTotals"), true);

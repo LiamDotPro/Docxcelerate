@@ -16,7 +16,7 @@
 #   repository the package names, so an unlinked package rejects every token
 #   this job can offer.
 #
-# The version in jsr.json decides whether anything is released, and it has to
+# The version in deno.json decides whether anything is released, and it has to
 # agree with package.json — the check below fails the run when it does not,
 # rather than letting the two registries drift a version apart.
 name: Release to JSR
@@ -26,7 +26,7 @@ on:
     branches: [main]
     paths:
       - "src/**"
-      - "jsr.json"
+      - "deno.json"
       - "package.json"
   # For re-running a release whose publish failed after the version was merged.
   workflow_dispatch:
@@ -76,14 +76,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          name=$(node -p "require('./jsr.json').name")
-          version=$(node -p "require('./jsr.json').version")
+          name=$(node -p "require('./deno.json').name")
+          version=$(node -p "require('./deno.json').version")
           npm_version=$(node -p "require('./package.json').version")
 
           # The one number lives in two files, so the mismatch gets caught here
           # instead of on jsr.io a version later.
           if [ "$version" != "$npm_version" ]; then
-            echo "::error::jsr.json is $version but package.json is $npm_version. Bump both to the same number."
+            echo "::error::deno.json is $version but package.json is $npm_version. Bump both to the same number."
             exit 1
           fi
 
@@ -110,7 +110,7 @@ jobs:
           if [ "$state" = "live" ]; then
             echo "release=false" >> "$GITHUB_OUTPUT"
             echo "$name@$version is already published — nothing to release."
-            echo "Bump the version in jsr.json and package.json to ship a new build." \
+            echo "Bump the version in deno.json and package.json to ship a new build." \
               >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi

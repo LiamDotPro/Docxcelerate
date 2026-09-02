@@ -1,4 +1,13 @@
 import { dirname, join } from "node:path";
+import {
+  ensureDirectory,
+  exists,
+  isNotFoundError,
+  parentPath,
+  readDirectoryNames,
+  readTextFile,
+  writeTextFile,
+} from "../internal/fs.ts";
 import { fileURLToPath } from "node:url";
 import { findRegistryEntry, type RegistryEntry, registryEntry } from "./mod.ts";
 
@@ -151,7 +160,7 @@ export async function findDocumentProjects(root = "."): Promise<string[]> {
 }
 
 /** Whether a directory holds a `document.project.ts`. */
-export async function isDocumentProject(path: string): Promise<boolean> {
+async function isDocumentProject(path: string): Promise<boolean> {
   return await exists(join(path, "document.project.ts"));
 }
 
@@ -337,30 +346,10 @@ function camelCase(value: string): string {
     .join("");
 }
 
-function parentPath(path: string): string {
-  return dirname(path);
-}
-
-async function exists(path: string): Promise<boolean> {
-  const { stat } = await import("node:fs/promises");
-
-  try {
-    await stat(path);
-    return true;
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      return false;
-    }
-
-    throw error;
-  }
-}
-
+/** The names in a directory, treating a missing one as empty rather than an error. */
 async function directoryNames(path: string): Promise<string[]> {
-  const { readdir } = await import("node:fs/promises");
-
   try {
-    return await readdir(path);
+    return await readDirectoryNames(path);
   } catch (error) {
     if (isNotFoundError(error)) {
       return [];
@@ -370,27 +359,3 @@ async function directoryNames(path: string): Promise<string[]> {
   }
 }
 
-async function readTextFile(path: string): Promise<string> {
-  const { readFile } = await import("node:fs/promises");
-  return await readFile(path, "utf8");
-}
-
-async function writeTextFile(path: string, contents: string): Promise<void> {
-  const { writeFile } = await import("node:fs/promises");
-  await writeFile(path, contents, "utf8");
-}
-
-async function ensureDirectory(path: string): Promise<void> {
-  if (path === "" || path === ".") {
-    return;
-  }
-
-  const { mkdir } = await import("node:fs/promises");
-  await mkdir(path, { recursive: true });
-}
-
-function isNotFoundError(error: unknown): boolean {
-  return Boolean(
-    error && typeof error === "object" && "code" in error && error.code === "ENOENT",
-  );
-}

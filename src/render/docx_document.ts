@@ -338,11 +338,24 @@ function breakStyles(): IParagraphStyleOptions[] {
  * @example
  * ```ts
  * const blob = await createDocxBlob(model);
- * await Deno.writeFile("letter.docx", new Uint8Array(await blob.arrayBuffer()));
+ * await Deno.writeFile("document.docx", new Uint8Array(await blob.arrayBuffer()));
  * ```
  */
 export async function createDocxBlob(doc: DocumentModel): Promise<Blob> {
   return await Packer.toBlob(createDocxDocument(doc));
+}
+
+/**
+ * Packs a document model into `.docx` bytes.
+ *
+ * The counterpart to {@linkcode createDocxBlob}, for writing straight to a file
+ * or a response body rather than handing a blob to a browser.
+ *
+ * @param doc The finished document.
+ * @returns The file's bytes.
+ */
+export async function renderDocxBytes(doc: DocumentModel): Promise<Uint8Array> {
+  return await Packer.toBuffer(createDocxDocument(doc));
 }
 
 /**
@@ -430,7 +443,7 @@ function renderNode(
     // so the box is a single-cell table — which is also what makes the card
     // hold its shape whether the picture has arrived yet or not.
     return blockDrawsABox(block) && cell === undefined
-      ? [imageCard(node, block, style, picture)]
+      ? [imageCard(node, block, picture)]
       : [picture];
   }
 
@@ -681,7 +694,6 @@ function blockDrawsABox(block: DocumentBlockStyle | undefined): block is Documen
 function imageCard(
   node: ImageNode,
   block: DocumentBlockStyle,
-  style: DocumentStyle,
   picture: Paragraph,
 ): Table {
   const padding = block.paddingPt ?? 0;

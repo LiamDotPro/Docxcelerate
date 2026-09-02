@@ -173,7 +173,7 @@ export function isTemplateElement(value: unknown): value is TemplateElement {
  * @param value The value to test.
  * @returns `true` when it carries the host marker.
  */
-export function isHostElementType(value: unknown): value is HostElementType<unknown, HostKind> {
+function isHostElementType(value: unknown): value is HostElementType<unknown, HostKind> {
   return typeof value === "function" &&
     typeof (value as unknown as Record<symbol, unknown>)[hostMarker] === "string";
 }

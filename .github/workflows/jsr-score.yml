@@ -22,7 +22,7 @@ on:
   pull_request:
     paths:
       - "src/**"
-      - "jsr.json"
+      - "deno.json"
       - "scripts/jsr-doc-check.mjs"
       - ".github/workflows/jsr-score.yml"
   # So the check can be re-run against main after a merge, and so a change to

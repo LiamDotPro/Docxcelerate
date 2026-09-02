@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "docxcelerate.config/v0",
+  "activePreset": "local",
+  "presets": {
+    "local": {
+      "build": {
+        "outDir": "build"
+      },
+      "upload": {
+        "endpoint": "__API_ENDPOINT__",
+        "method": "POST",
+        "headers": {},
+        "body": "stored-document"
+      }
+    }
+  }
+}

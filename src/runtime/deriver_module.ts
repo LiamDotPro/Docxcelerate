@@ -112,21 +112,6 @@ export function deriver<TInputs extends readonly unknown[], TResult>(
 }
 
 /**
- * Whether a value is a deriver declared by {@linkcode deriver}.
- *
- * @param value The value to test.
- * @returns `true` when it is one.
- */
-export function isDeriverModule(value: unknown): value is DeriverModule {
-  return Boolean(
-    value &&
-      typeof value === "object" &&
-      typeof (value as DeriverModule).name === "string" &&
-      typeof (value as DeriverModule).run === "function",
-  );
-}
-
-/**
  * What a deriver produces, for the components that read its result.
  *
  * @typeParam TModule The deriver being read.

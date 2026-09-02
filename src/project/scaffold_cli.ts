@@ -1,8 +1,11 @@
 /**
- * The `dxcl` command line, as an executable module.
+ * The `dxcl` command line.
  *
- * Importing this runs it — it reads `process.argv` at module scope and exits
- * when it is done. To drive the same work from code, call
+ * Importing this module does nothing; {@linkcode runCli} is what reads
+ * `process.argv` and exits. It used to happen at module scope, which made
+ * importing an entrypoint enough to end the importing process.
+ *
+ * To drive the same work from code without a terminal, call
  * {@linkcode scaffoldWorkspaceProject}, {@linkcode scaffoldDocumentProject} or
  * {@linkcode generateNodeDefinition} from `/scaffold` instead.
  *
@@ -45,189 +48,201 @@ let inputIterator: AsyncIterator<string> | undefined;
 let inputBuffer = "";
 let inputEnded = false;
 
-const [rawCommand, ...rawCommandArgs] = process.argv.slice(2);
-const { command, commandArgs } = normalizeCommand(rawCommand, rawCommandArgs);
+/**
+ * Runs the command line.
+ *
+ * Reads `process.argv`, does the work and exits. Importing this module used
+ * to do all of that at module scope, which made `docxcelerate/cli` an
+ * entrypoint that ended your process if you imported it. `bin/dxcl.mjs` calls
+ * this instead.
+ *
+ * @returns Nothing; every path through it exits.
+ */
+export async function runCli(): Promise<void> {
+  const [rawCommand, ...rawCommandArgs] = process.argv.slice(2);
+  const { command, commandArgs } = normalizeCommand(rawCommand, rawCommandArgs);
 
-if (!command || command === "help" || command === "--help") {
-  printHelp();
-  process.exit(0);
-}
-
-if (commandArgs.includes("--help") || commandArgs.includes("-h")) {
-  printHelp();
-  process.exit(0);
-}
-
-if (command === "init" || command === "project") {
-  const args = parseArgs(commandArgs);
-  const guided = args.positionals.length === 0;
-  const name = args.positionals[0] ?? await askRequired("Docxcelerate project name");
-  const parentDir = args.options.dir;
-  const template = await resolveInitTemplate(args, guided);
-  const apiEndpoint = await resolveInitApiEndpoint(args, guided);
-  const force = args.flags.has("force") ||
-    (guided ? await askBoolean("Overwrite existing files if needed?", false) : false);
-
-  const result = await scaffoldWorkspaceProject({ name, parentDir, apiEndpoint, template, force });
-
-  console.log(`Created Docxcelerate project -> ${result.projectDir}`);
-  console.log(`Template: ${result.template}`);
-  console.log(`API endpoint: ${result.apiEndpoint || "not configured"}`);
-  console.log(`Files: ${result.files.length}`);
-  await useLocalPackageDependencyWhenAvailable(result.projectDir);
-  await runNpmInstall(result.projectDir);
-  console.log(`Next: cd ${result.projectDir} && npm run dev`);
-  process.exit(0);
-}
-
-if (command === "new" || command === "scaffold") {
-  const args = parseArgs(commandArgs);
-  const guided = args.positionals.length === 0;
-  const name = args.positionals[0] ?? await askRequired("Document project name");
-  const title = args.options.title ??
-    (guided ? await askText("Document title", titleFromName(name)) : undefined);
-  const documentsDir = args.options.dir ??
-    (guided ? await askText("Documents directory", "documents") : undefined);
-  const force = args.flags.has("force") ||
-    (guided ? await askBoolean("Overwrite existing files if needed?", false) : false);
-
-  const result = await scaffoldDocumentProject({
-    name,
-    title,
-    documentsDir,
-    force,
-  });
-
-  console.log(`Created document -> ${result.projectDir}`);
-  console.log(`Entrypoint: ${result.entrypoint}`);
-  console.log(`Files: ${result.files.length}`);
-  process.exit(0);
-}
-
-if (command === "node" || command === "generate-node") {
-  const args = parseArgs(commandArgs);
-  const guided = args.positionals.length < 2;
-  const projectDir = args.positionals[0] ??
-    await askRequired("Document project directory", "documents/welcome");
-  const name = args.positionals[1] ?? await askRequired("Node name");
-  const type = args.options.type ??
-    (guided
-      ? await askChoice("Node type", ["paragraph", "image", "graph"], "paragraph")
-      : "paragraph");
-  if (type !== "paragraph" && type !== "image" && type !== "graph") {
-    fail(`Unsupported node type: ${type}. Expected "paragraph", "image", or "graph".`);
-  }
-  const force = args.flags.has("force") ||
-    (guided ? await askBoolean("Overwrite existing node file if needed?", false) : false);
-
-  const result = await generateNodeDefinition({
-    projectDir,
-    name,
-    type,
-    force,
-  });
-
-  console.log(`Created ${type} node ${result.componentName} -> ${result.filePath}`);
-  console.log(`Updated exports -> ${result.exportPath}`);
-  process.exit(0);
-}
-
-if (command === "add") {
-  const args = parseArgs(commandArgs);
-  const guided = args.positionals.length === 0;
-  const refs = guided ? await askForRegistryEntries() : args.positionals;
-  const projectDir = await resolveTargetProject(args.options.project, guided);
-  const force = args.flags.has("force");
-
-  for (const id of resolveInstallOrder(refs)) {
-    const result = await installRegistryEntry({ ref: id, projectDir, force });
-
-    console.log(`Added ${result.kind} ${result.title} -> ${projectDir}`);
-    for (const file of result.files) {
-      console.log(`  ${file}`);
-    }
-    for (const note of result.followUp) {
-      console.log(`  - ${note}`);
-    }
+  if (!command || command === "help" || command === "--help") {
+    printHelp();
+    process.exit(0);
   }
 
-  process.exit(0);
-}
-
-if (command === "list" || command === "registry") {
-  const args = parseArgs(commandArgs);
-  const filter = args.positionals[0];
-
-  if (filter !== undefined && filter !== "themes" && filter !== "components") {
-    fail(`Unknown registry listing: ${filter}. Expected "themes" or "components".`);
+  if (commandArgs.includes("--help") || commandArgs.includes("-h")) {
+    printHelp();
+    process.exit(0);
   }
 
-  if (filter !== "components") {
-    console.log("Themes");
-    for (const entry of REGISTRY_THEMES) {
-      console.log(`  ${entry.id.padEnd(18)} ${entry.theme.summary}`);
-    }
+  if (command === "init" || command === "project") {
+    const args = parseArgs(commandArgs);
+    const guided = args.positionals.length === 0;
+    const name = args.positionals[0] ?? await askRequired("Docxcelerate project name");
+    const parentDir = args.options.dir;
+    const template = await resolveInitTemplate(args, guided);
+    const apiEndpoint = await resolveInitApiEndpoint(args, guided);
+    const force = args.flags.has("force") ||
+      (guided ? await askBoolean("Overwrite existing files if needed?", false) : false);
+
+    const result = await scaffoldWorkspaceProject({ name, parentDir, apiEndpoint, template, force });
+
+    console.log(`Created Docxcelerate project -> ${result.projectDir}`);
+    console.log(`Template: ${result.template}`);
+    console.log(`API endpoint: ${result.apiEndpoint || "not configured"}`);
+    console.log(`Files: ${result.files.length}`);
+    await useLocalPackageDependencyWhenAvailable(result.projectDir);
+    await runNpmInstall(result.projectDir);
+    console.log(`Next: cd ${result.projectDir} && npm run dev`);
+    process.exit(0);
   }
 
-  if (filter !== "themes") {
-    if (filter === undefined) {
-      console.log("");
-    }
+  if (command === "new" || command === "scaffold") {
+    const args = parseArgs(commandArgs);
+    const guided = args.positionals.length === 0;
+    const name = args.positionals[0] ?? await askRequired("Document project name");
+    const title = args.options.title ??
+      (guided ? await askText("Document title", titleFromName(name)) : undefined);
+    const documentsDir = args.options.dir ??
+      (guided ? await askText("Documents directory", "documents") : undefined);
+    const force = args.flags.has("force") ||
+      (guided ? await askBoolean("Overwrite existing files if needed?", false) : false);
 
-    console.log("Components");
-    for (const category of COMPONENT_CATEGORIES) {
-      for (const component of COMPONENTS.filter((entry) => entry.category === category)) {
-        console.log(`  ${component.id.padEnd(18)} ${component.summary}`);
+    const result = await scaffoldDocumentProject({
+      name,
+      title,
+      documentsDir,
+      force,
+    });
+
+    console.log(`Created document -> ${result.projectDir}`);
+    console.log(`Entrypoint: ${result.entrypoint}`);
+    console.log(`Files: ${result.files.length}`);
+    process.exit(0);
+  }
+
+  if (command === "node" || command === "generate-node") {
+    const args = parseArgs(commandArgs);
+    const guided = args.positionals.length < 2;
+    const projectDir = args.positionals[0] ??
+      await askRequired("Document project directory", "documents/welcome");
+    const name = args.positionals[1] ?? await askRequired("Node name");
+    const type = args.options.type ??
+      (guided
+        ? await askChoice("Node type", ["paragraph", "image", "graph"], "paragraph")
+        : "paragraph");
+    if (type !== "paragraph" && type !== "image" && type !== "graph") {
+      fail(`Unsupported node type: ${type}. Expected "paragraph", "image", or "graph".`);
+    }
+    const force = args.flags.has("force") ||
+      (guided ? await askBoolean("Overwrite existing node file if needed?", false) : false);
+
+    const result = await generateNodeDefinition({
+      projectDir,
+      name,
+      type,
+      force,
+    });
+
+    console.log(`Created ${type} node ${result.componentName} -> ${result.filePath}`);
+    console.log(`Updated exports -> ${result.exportPath}`);
+    process.exit(0);
+  }
+
+  if (command === "add") {
+    const args = parseArgs(commandArgs);
+    const guided = args.positionals.length === 0;
+    const refs = guided ? await askForRegistryEntries() : args.positionals;
+    const projectDir = await resolveTargetProject(args.options.project, guided);
+    const force = args.flags.has("force");
+
+    for (const id of resolveInstallOrder(refs)) {
+      const result = await installRegistryEntry({ ref: id, projectDir, force });
+
+      console.log(`Added ${result.kind} ${result.title} -> ${projectDir}`);
+      for (const file of result.files) {
+        console.log(`  ${file}`);
+      }
+      for (const note of result.followUp) {
+        console.log(`  - ${note}`);
       }
     }
+
+    process.exit(0);
   }
 
-  console.log("");
-  console.log("Add one with: dxcl add <id> [--project documents/<name>]");
-  console.log("Browse them at: https://docxcelerate.com/themes and /components");
-  process.exit(0);
-}
+  if (command === "list" || command === "registry") {
+    const args = parseArgs(commandArgs);
+    const filter = args.positionals[0];
 
-if (command === "show") {
-  const args = parseArgs(commandArgs);
-  const id = args.positionals[0] ?? await askRequired("Theme or component id");
-  const entry = registryEntry(id);
+    if (filter !== undefined && filter !== "themes" && filter !== "components") {
+      fail(`Unknown registry listing: ${filter}. Expected "themes" or "components".`);
+    }
 
-  if (entry.kind === "theme") {
-    const { theme } = entry;
-    console.log(`${theme.title} (theme ${theme.id})`);
-    console.log(theme.detail);
-    console.log(`Category: ${theme.category}`);
-    console.log(`Tags: ${theme.tags.join(", ")}`);
-    console.log(`Fonts: ${theme.fonts.join(", ")}`);
-    console.log(`Page: ${theme.style.page.size} ${theme.style.page.orientation}`);
-    console.log(
-      `Body: ${theme.style.typography.bodyFont} ${theme.style.typography.bodySizePt}pt`,
-    );
-  } else {
-    console.log(`${entry.title} (component ${entry.id})`);
-    console.log(entry.detail);
-    console.log(`Category: ${entry.category}`);
-    console.log(`Tags: ${entry.tags.join(", ")}`);
-    console.log(`Exports: ${entry.exports.join(", ")}`);
-    console.log("Reads:");
-    for (const field of entry.dataFields) {
-      console.log(`  ${field.path}: ${field.type} — ${field.summary}`);
+    if (filter !== "components") {
+      console.log("Themes");
+      for (const entry of REGISTRY_THEMES) {
+        console.log(`  ${entry.id.padEnd(18)} ${entry.theme.summary}`);
+      }
     }
-    console.log("Files:");
-    for (const file of entry.files) {
-      console.log(`  ${file.target}`);
+
+    if (filter !== "themes") {
+      if (filter === undefined) {
+        console.log("");
+      }
+
+      console.log("Components");
+      for (const category of COMPONENT_CATEGORIES) {
+        for (const component of COMPONENTS.filter((entry) => entry.category === category)) {
+          console.log(`  ${component.id.padEnd(18)} ${component.summary}`);
+        }
+      }
     }
+
+    console.log("");
+    console.log("Add one with: dxcl add <id> [--project documents/<name>]");
+    console.log("Browse them at: https://docxcelerate.com/themes and /components");
+    process.exit(0);
   }
 
-  console.log("");
-  console.log(`Add it with: dxcl add ${entry.id}`);
-  process.exit(0);
-}
+  if (command === "show") {
+    const args = parseArgs(commandArgs);
+    const id = args.positionals[0] ?? await askRequired("Theme or component id");
+    const entry = registryEntry(id);
 
-console.error(`Unknown scaffold command: ${command}`);
-printHelp();
-process.exit(1);
+    if (entry.kind === "theme") {
+      const { theme } = entry;
+      console.log(`${theme.title} (theme ${theme.id})`);
+      console.log(theme.detail);
+      console.log(`Category: ${theme.category}`);
+      console.log(`Tags: ${theme.tags.join(", ")}`);
+      console.log(`Fonts: ${theme.fonts.join(", ")}`);
+      console.log(`Page: ${theme.style.page.size} ${theme.style.page.orientation}`);
+      console.log(
+        `Body: ${theme.style.typography.bodyFont} ${theme.style.typography.bodySizePt}pt`,
+      );
+    } else {
+      console.log(`${entry.title} (component ${entry.id})`);
+      console.log(entry.detail);
+      console.log(`Category: ${entry.category}`);
+      console.log(`Tags: ${entry.tags.join(", ")}`);
+      console.log(`Exports: ${entry.exports.join(", ")}`);
+      console.log("Reads:");
+      for (const field of entry.dataFields) {
+        console.log(`  ${field.path}: ${field.type} — ${field.summary}`);
+      }
+      console.log("Files:");
+      for (const file of entry.files) {
+        console.log(`  ${file.target}`);
+      }
+    }
+
+    console.log("");
+    console.log(`Add it with: dxcl add ${entry.id}`);
+    process.exit(0);
+  }
+
+  console.error(`Unknown scaffold command: ${command}`);
+  printHelp();
+  process.exit(1);
+}
 
 /**
  * Which document project an install lands in.
@@ -290,16 +305,12 @@ async function askForRegistryEntries(): Promise<string[]> {
 /**
  * Strips the namespace off `dxcl document new` and friends, leaving the bare
  * verb the dispatch below matches on.
- *
- * `letter` is still accepted as a namespace. It was the only spelling before
- * the vocabulary settled on documents, and it costs one array entry to keep
- * every script and habit that already types it working.
  */
 function normalizeCommand(
   command: string | undefined,
   args: string[],
 ): { command: string | undefined; commandArgs: string[] } {
-  if (command !== "document" && command !== "letter") {
+  if (command !== "document") {
     return { command, commandArgs: args };
   }
 
@@ -639,6 +650,5 @@ Aliases:
   dxcl new       -> dxcl document new
   dxcl node      -> dxcl document node
   dxcl registry  -> dxcl list
-  dxcl letter .. -> dxcl document ..   (the old spelling, still accepted)
 `);
 }

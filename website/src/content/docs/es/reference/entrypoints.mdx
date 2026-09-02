@@ -69,13 +69,12 @@ y rechaza devolver el tipo equivocado.
 Su runtime de JSX está expuesto en `docxcelerate/template/jsx-runtime` (y
 `.../jsx-dev-runtime`), que es a donde resuelve `jsxImportSource`.
 
-## docxcelerate/renderer
+## docxcelerate/docx
 
-El renderizador que convierte un `DocumentModel` en el archivo para el que
-existe, reexportado bajo un solo punto de entrada.
+Construcción de DOCX.
 
 ```ts
-import { createDocxBlob } from "docxcelerate/renderer";
+import { createDocxBlob, createDocxDocument, renderDocxBytes } from "docxcelerate/docx";
 ```
 
 Hay un solo renderizador y escribe archivos de Word. Para mostrar un documento en
@@ -84,14 +83,6 @@ hace la app de vista previa de tu workspace mediante `docx-preview`, y también
 las vistas previas de este sitio. Un segundo renderizador que maquetara el modelo
 en HTML sería una segunda respuesta a qué aspecto tiene un documento, y la que
 nadie abre en Word es la que se desvía.
-
-## docxcelerate/docx
-
-Construcción de DOCX.
-
-```ts
-import { createDocxDocument } from "docxcelerate/docx";
-```
 
 ## docxcelerate/scaffold y /cli
 

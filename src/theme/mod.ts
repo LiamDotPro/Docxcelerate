@@ -66,7 +66,7 @@ export const THEME_IDS: readonly ShippedThemeId[] = THEMES.map(
  * @param id The theme's id, as it appears in a URL or on the command line.
  * @returns The theme, or `undefined` when nothing carries that id.
  */
-export function findTheme(id: string): Theme | undefined {
+function findTheme(id: string): Theme | undefined {
   return THEMES.find((theme) => theme.id === id);
 }
 

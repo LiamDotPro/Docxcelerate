@@ -91,7 +91,7 @@ export function registryEntry(id: string): RegistryEntry {
  * carrying a prefix that names no kind, comes back whole and unnarrowed — so a
  * future id with a colon in it is not silently mistaken for a prefix.
  */
-export function splitRegistryRef(ref: string): { kind?: RegistryKind; bare: string } {
+function splitRegistryRef(ref: string): { kind?: RegistryKind; bare: string } {
   const separator = ref.indexOf(":");
 
   if (separator === -1) {
@@ -107,12 +107,3 @@ export function splitRegistryRef(ref: string): { kind?: RegistryKind; bare: stri
   return { kind: prefix, bare: ref.slice(separator + 1) };
 }
 
-/** One line per entry, for `dxcl list` and anything else printing a catalog. */
-export function registrySummary(entry: RegistryEntry): string {
-  return entry.kind === "theme" ? entry.theme.summary : entry.summary;
-}
-
-/** The title an entry is printed under. */
-export function registryTitle(entry: RegistryEntry): string {
-  return entry.kind === "theme" ? entry.theme.title : entry.title;
-}

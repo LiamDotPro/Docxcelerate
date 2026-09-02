@@ -1,0 +1,75 @@
+# Builds, type-checks, lints and tests the framework on every pull request.
+#
+# This is the check the other workflows assumed was already here. `release.yml`
+# and `release-jsr.yml` do run the suite, but only on a push to main — which is
+# after the change has landed, and after the version has been decided. A test
+# that only fails once it is on main is a test that tells you nothing you can
+# act on before the merge.
+#
+# `jsr-score.yml` deliberately does not run the suite: it guards the JSR score
+# and says so in its own header. Keeping the two apart means a failing test and
+# a lost documentation point read as different problems, because they are.
+#
+# The website lives in website/ with its own dependencies and its own deploy,
+# so nothing here touches it.
+name: CI
+
+on:
+  pull_request:
+    paths-ignore:
+      - "website/**"
+      - "**/*.md"
+  push:
+    branches: [main]
+    paths-ignore:
+      - "website/**"
+      - "**/*.md"
+  workflow_dispatch:
+
+# A second push to the same branch makes the first run's answer worthless.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      # `npm ci` runs the prepare hook, which builds. The build is repeated by
+      # `npm test` below, and it is cheap; the alternative is a flag that makes
+      # the install stop behaving like a consumer's install.
+      - run: npm ci
+
+      # Builds src/, compiles tests/, then runs them. The clean is inside the
+      # script, so a stale dist-tests from an earlier job cannot pass for a
+      # passing suite.
+      - name: Test
+        run: npm test
+
+      # tsconfig.json also covers tests/ and registry/; tsconfig.templates.json
+      # covers the files a scaffolded project is written from. None of the three
+      # ships as-is, and all three have to compile against what does.
+      - name: Type-check tests, the registry and the templates
+        run: npm run typecheck
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # The rules, and the files they cover, are in deno.json. Nothing is
+      # configured here, so running `deno lint` locally gives the same answer
+      # this job does.
+      - name: Lint
+        run: deno lint

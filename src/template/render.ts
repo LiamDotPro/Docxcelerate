@@ -9,8 +9,6 @@ import type {
   PageBreakNode,
   PageNumberNode,
   ParagraphNode,
-  PromptKind,
-  PromptSpec,
   RepeatNode,
   SectionNode,
   TableCellNode,
@@ -20,19 +18,14 @@ import type {
 } from "../domain/types.ts";
 import { evaluateCondition, invertCondition } from "../runtime/conditions.ts";
 import { runDerivers } from "../runtime/derivers.ts";
-import { renderTemplate } from "../runtime/templates.ts";
 import type { BranchProps } from "./branch.ts";
 import {
-  type ComponentInstance,
-  type PromptDraft,
-  promptPropByKind,
   type RenderContext,
   withInstance,
 } from "./context.ts";
 import {
   type CommonElementProps,
   hostKindOf,
-  isStaticChildren,
   isTemplateElement,
   type TemplateElement,
   type Yield,
@@ -44,34 +37,36 @@ import type {
   ImageProps,
   PageNumberProps,
   ParagraphProps,
-  PromptProps,
   RowProps,
   SectionProps,
   TableOfContentsProps,
   TableProps,
 } from "./elements.ts";
 import type { LoopProps } from "./loop.ts";
-
-interface Frame {
-  /** Where this sits in the tree. Identity for hooks, and a fallback id. */
-  readonly path: string;
-  /** Conditions gathered from branches above, carried onto published nodes. */
-  readonly when?: Condition;
-  /** Prompts set by the component that yielded this element. */
-  readonly prompts?: PromptDraft;
-  /** The component this came out of, which is what names the node it yields. */
-  readonly componentName?: string;
-  /** Derivers a component asked for, to be carried onto the node it yields. */
-  readonly derivers?: readonly DeriverInvocation[];
-  /**
-   * Which pass of a loop this is.
-   *
-   * A body written once and walked many times names its nodes once, so the pass
-   * has to distinguish them. The engine suffixes published loops the same way,
-   * which is what keeps a previewed id and a written one the same string.
-   */
-  readonly idSuffix?: string;
-}
+import {
+  formatPromptText,
+  isDynamic,
+  joinText,
+  type InlineImageElement,
+  jsonText,
+  mergePrompts,
+  placeholderText,
+  promptSpecs,
+  requiredText,
+  settled,
+  text,
+} from "./content.ts";
+import {
+  allOf,
+  childFrame,
+  claimId,
+  describe,
+  type Frame,
+  indexedFrame,
+  instanceAt,
+  isLoopPasses,
+  prune,
+} from "./frame.ts";
 
 export async function renderDocumentChildren(
   props: DocumentProps,
@@ -818,329 +813,6 @@ async function renderGraph(
   });
 }
 
-function instanceAt(context: RenderContext, path: string): ComponentInstance {
-  const existing = context.instances.get(path);
-
-  if (existing) {
-    existing.cursor = 0;
-    existing.prompts.systemPrompt = undefined;
-    existing.prompts.generalPrompt = undefined;
-    existing.prompts.infoPrompt = undefined;
-    existing.prompts.negativePrompt = undefined;
-    existing.prompts.examplePrompt = undefined;
-    existing.prompts.placeholder = undefined;
-    return existing;
-  }
-
-  const created: ComponentInstance = { path, cells: [], cursor: 0, prompts: {},
-      derivers: [] };
-  context.instances.set(path, created);
-
-  return created;
-}
-
-/**
- * Settles a node's id.
- *
- * An explicit id is kept, because that is what an engine and a reviewer refer
- * to. Without one the position supplies it, so a branch or a loop does not force
- * anybody to invent names. Two nodes answering to the same id is always a
- * mistake, and it is reported here rather than resolved by whichever came last.
- */
-/**
- * Names a node, and makes sure nothing else has that name.
- *
- * An id is an address: an engine targets a node by it, and two builds of the
- * same document line up in a diff by it. So an id nobody wrote still has to be
- * worth having. One taken from where a node sits is not — it changes the moment
- * a paragraph is inserted above it, quietly repointing every address below.
- *
- * The name comes from whatever already says what the node is: the id if one was
- * written, then the heading, then the component that yielded it, and only then
- * the kind. Each of those survives a node being moved, and changes only when
- * somebody deliberately renames something.
- */
-function claimId(
-  context: RenderContext,
-  props: CommonElementProps,
-  frame: Frame,
-  kind: string,
-): string {
-  const explicit = props.id;
-  const base = explicit ?? derivedId(props, frame, kind);
-  const id = frame.idSuffix === undefined ? base : `${base}-${frame.idSuffix}`;
-  const owner = context.usedIds.get(id);
-
-  if (owner !== undefined && explicit !== undefined) {
-    throw new Error(
-      `Two nodes claim the id "${id}" — one at ${owner}, one at ${describe(frame)}. ` +
-        "Ids name a node for the engine, so they have to be unique.",
-    );
-  }
-
-  const unique = owner === undefined ? id : uniqueId(context, id);
-  context.usedIds.set(unique, describe(frame));
-
-  return unique;
-}
-
-/**
- * The name a node takes when nobody wrote one.
- *
- * A heading is already the human name of the thing it heads, and a component is
- * already named after the node it yields. So a `<Greeting />` becomes `greeting`
- * and a section titled "Fees and funding" becomes `fees-and-funding`, and
- * neither has to be said twice.
- */
-function derivedId(props: CommonElementProps, frame: Frame, kind: string): string {
-  const title = (props as { title?: unknown }).title;
-  const fromTitle = typeof title === "string" ? slug(title) : "";
-
-  return fromTitle || slug(frame.componentName ?? "") || slug(kind) || "node";
-}
-
-/**
- * Turns a name people read into one an engine can address.
- *
- * The word boundary in `SignOff` and the one in `Sign off` are the same
- * boundary, so both arrive as `sign-off` and renaming between the two styles
- * leaves the address alone.
- */
-function slug(value: string): string {
-  return value
-    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function uniqueId(context: RenderContext, id: string): string {
-  let suffix = 2;
-
-  while (context.usedIds.has(`${id}-${suffix}`)) {
-    suffix += 1;
-  }
-
-  return `${id}-${suffix}`;
-}
-
-/**
- * Gathers the conditions a node sits under.
- *
- * Branches nest, so a node can be selected by more than one decision, and the
- * engine has to agree with all of them. Flattening as they combine keeps the
- * published condition a list rather than a chain of pairs.
- */
-function allOf(...conditions: Array<Condition | undefined>): Condition | undefined {
-  const present = conditions.filter((condition): condition is Condition => condition !== undefined);
-
-  if (present.length <= 1) {
-    return present[0];
-  }
-
-  return {
-    type: "and",
-    conditions: present.flatMap((condition) =>
-      condition.type === "and" ? condition.conditions : [condition]
-    ),
-  };
-}
-
-function childFrame(frame: Frame, index: number): Frame {
-  return { ...frame, path: `${frame.path}/${index}` };
-}
-
-/**
- * Whether a list of siblings is the passes of a loop.
- *
- * Two things arrive here as the same array: children written out in the source,
- * and a list an expression produced. A repeated id means something different in
- * each. Children were chosen one at a time, so a repeat there is a typo and is
- * reported. A `.map()` is one body written once, so every pass is the same
- * element with the same id, and naming them by position is the only thing that
- * could be meant.
- *
- * Every entry has to match, not merely two of them. A loop over one entry is
- * still a loop, and the engine names its single pass by position — so a build
- * that waited to see a repetition would name that node one thing in a preview
- * and another in the document a recipient gets.
- */
-function isLoopPasses(children: readonly unknown[]): boolean {
-  if (children.length === 0 || isStaticChildren(children)) {
-    return false;
-  }
-
-  const first = siblingKey(children[0]);
-
-  return first !== undefined && children.every((child) => siblingKey(child) === first);
-}
-
-/** What makes two siblings the same element, written once and walked twice. */
-function siblingKey(child: unknown): string | undefined {
-  if (!isTemplateElement(child)) {
-    return undefined;
-  }
-
-  const typeName = typeof child.type === "function" ? child.type.name : String(child.type);
-
-  return `${child.kind}:${typeName}:${(child.props as CommonElementProps).id ?? ""}`;
-}
-
-/**
- * Names one pass of a loop, the same way a published loop is walked — so a
- * previewed id and a written one stay the same string.
- */
-function indexedFrame(frame: Frame, index: number): Frame {
-  return {
-    ...frame,
-    idSuffix: frame.idSuffix === undefined ? String(index) : `${frame.idSuffix}-${index}`,
-  };
-}
-
-function describe(frame: Frame): string {
-  return frame.path === "" ? "the document root" : frame.path;
-}
-
-function mergePrompts(...drafts: Array<PromptDraft | undefined>): PromptDraft {
-  const merged: PromptDraft = {};
-
-  for (const draft of drafts) {
-    for (const [key, value] of Object.entries(draft ?? {})) {
-      if (value !== undefined) {
-        merged[key as keyof PromptDraft] = value as string;
-      }
-    }
-  }
-
-  return merged;
-}
-
-/**
- * Decides which prompts a node actually has.
- *
- * A component sets prompts once, before any branch, because hooks run in call
- * order. Its arms need not all want them: one may know exactly what it says.
- * So content settles the question — a node given its own text, source or data
- * is static, and the prompts standing in the air around it were meant for the
- * arm that did not supply any.
- *
- * Saying both on one element is different. That is a single node claiming to be
- * two things, and it is a contradiction rather than a precedence question.
- */
-function settled(
-  content: string | undefined,
-  props: PromptProps,
-  frame: Frame,
-  id: string,
-): PromptDraft {
-  const hasContent = content !== undefined && String(content).trim() !== "";
-
-  if (!hasContent) {
-    return mergePrompts(frame.prompts, props);
-  }
-
-  if (isDynamic(props)) {
-    throw new Error(
-      `The node "${id}" at ${describe(frame)} supplies both its content and a prompt to ` +
-        "generate it. A node is written or it is generated; supply one of them.",
-    );
-  }
-
-  return {};
-}
-
-function isDynamic(prompts: PromptProps): boolean {
-  return prompts.systemPrompt !== undefined || prompts.generalPrompt !== undefined ||
-    prompts.infoPrompt !== undefined || prompts.negativePrompt !== undefined ||
-    prompts.examplePrompt !== undefined;
-}
-
-async function promptSpecs(
-  prompts: PromptDraft,
-  context: RenderContext,
-): Promise<PromptSpec[]> {
-  // The example reads last because it is the thing the answer is measured
-  // against: whatever an engine puts closest to where the writing starts is
-  // what the writing ends up shaped like.
-  const order: PromptKind[] = ["system", "general", "info", "negative", "example"];
-  const specs: PromptSpec[] = [];
-
-  for (const kind of order) {
-    const value = prompts[promptPropByKind[kind]];
-
-    if (value !== undefined && value.trim() !== "") {
-      specs.push({ kind, text: await requiredText(value, context) });
-    }
-  }
-
-  return specs;
-}
-
-async function placeholderText(
-  prompts: PromptDraft,
-  id: string,
-  context: RenderContext,
-): Promise<string> {
-  const placeholder = prompts.placeholder;
-
-  return placeholder && placeholder.trim() !== ""
-    ? await requiredText(placeholder, context)
-    : `[Dynamic placeholder: ${id}]`;
-}
-
-function formatPromptText(prompts: PromptSpec[]): string {
-  return prompts.map((entry) => `${entry.kind.toUpperCase()}: ${entry.text}`).join("\n");
-}
-
-/** A picture found among a paragraph's children, and where it was found. */
-type InlineImageElement = { at: number; element: TemplateElement };
-
-/**
- * The words a paragraph's children spell, and any pictures set among them.
- *
- * Passing `inlineAt` opts into collecting pictures; without it an element
- * child is still the error it always was.
- */
-function joinText(children: Yield, frame: Frame, inlineAt?: InlineImageElement[]): string {
-  const parts: string[] = [];
-
-  const walk = (value: Yield): void => {
-    if (value === false || value === null || value === undefined) {
-      return;
-    }
-
-    if (Array.isArray(value)) {
-      value.forEach(walk);
-      return;
-    }
-
-    if (isTemplateElement(value)) {
-      // A picture is the one element that belongs inside a line rather than
-      // beside it. Where it sits is remembered as an offset into the text
-      // built so far, so the words stay one string and the order survives.
-      if (hostKindOf(value.type) === "image") {
-        inlineAt?.push({ at: parts.join("").length, element: value });
-        return;
-      }
-
-      throw new Error(
-        `A <Paragraph> at ${describe(frame)} was given an element as a child. ` +
-          "A paragraph holds text; put a picture inside it, and anything else beside it.",
-      );
-    }
-
-    // Anything else is a value being interpolated. Stringifying rather than
-    // testing for `string` is what lets a published build interpolate a
-    // stand-in, which is not a string but knows what it is called.
-    parts.push(String(value));
-  };
-
-  walk(children);
-
-  return parts.join("");
-}
-
 async function runNodeDerivers(
   props: CommonElementProps,
   context: RenderContext,
@@ -1157,52 +829,3 @@ async function runNodeDerivers(
   );
 }
 
-async function text(
-  value: string | undefined,
-  context: RenderContext,
-): Promise<string | undefined> {
-  if (value === undefined) {
-    return value;
-  }
-
-  // A prop can carry a stand-in straight through, so it becomes its own name
-  // before anything treats it as text.
-  const source = typeof value === "string" ? value : String(value);
-
-  return context.deriverMode === "preserve" ? source : await renderTemplate(source, context.state);
-}
-
-async function requiredText(value: string, context: RenderContext): Promise<string> {
-  return await text(value, context) ?? "";
-}
-
-async function jsonText(value: unknown, context: RenderContext): Promise<unknown> {
-  if (context.deriverMode === "preserve") {
-    return value;
-  }
-
-  if (typeof value === "string") {
-    return await renderTemplate(value, context.state);
-  }
-
-  if (Array.isArray(value)) {
-    return await Promise.all(value.map((item) => jsonText(item, context)));
-  }
-
-  if (value && typeof value === "object") {
-    const entries = await Promise.all(
-      Object.entries(value).map(async ([key, nested]) => [key, await jsonText(nested, context)]),
-    );
-
-    return Object.fromEntries(entries);
-  }
-
-  return value;
-}
-
-/** Keeps undefined fields out of the published JSON. */
-function prune<TNode extends object>(node: TNode): TNode {
-  return Object.fromEntries(
-    Object.entries(node).filter(([, value]) => value !== undefined),
-  ) as TNode;
-}

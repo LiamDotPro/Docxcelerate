@@ -2,9 +2,11 @@ import { buildDocument, type ComponentRuntimeOptions } from "../components.ts";
 import type { AiClient, JsonObject, DocumentModel } from "../domain/types.ts";
 import {
   collectDocumentDeriverNames,
-  createDefaultDeriverRegistry,
   createDeriverBundle,
   type DocumentDeriverBundle,
+} from "../runtime/deriver_bundle.ts";
+import {
+  createDefaultDeriverRegistry,
   listDeriverDefinitionNames,
 } from "../runtime/derivers.ts";
 import { createPublishData } from "../template/publish.ts";

@@ -211,13 +211,13 @@ test("a loop names its passes from the node inside it", async () => {
 // The document itself
 // ---------------------------------------------------------------------------
 
-test("a document is named after its title", async () => {
+test("a document is named after its title", () => {
   const tree = template<Data>(<Document title="Tenancy Renewal" />);
 
   assertEquals(tree.id, "tenancy-renewal");
 });
 
-test("a document that says its own id keeps it", async () => {
+test("a document that says its own id keeps it", () => {
   const tree = template<Data>(<Document id="renewal-2026" title="Tenancy Renewal" />);
 
   assertEquals(tree.id, "renewal-2026");

@@ -1,6 +1,6 @@
 {
   "name": "docxcelerate",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Write DOCX documents like you write websites — compose Word files from typed JSX components, preview them locally, generate at scale.",
   "license": "MIT",
   "type": "module",
@@ -40,6 +40,7 @@
     "bin/dxcl.mjs",
     "dist/",
     "registry/",
+    "templates/",
     "README.md"
   ],
   "exports": {
@@ -62,10 +63,6 @@
     "./preview": {
       "types": "./dist/render/docx_preview.d.ts",
       "default": "./dist/render/docx_preview.js"
-    },
-    "./renderer": {
-      "types": "./dist/renderer/mod.d.ts",
-      "default": "./dist/renderer/mod.js"
     },
     "./registry": {
       "types": "./dist/registry/mod.d.ts",
@@ -102,19 +99,23 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "test": "npm run build && tsc -p tsconfig.test.json && node --test \"dist-tests/**/*.test.js\"",
+    "test": "npm run clean && npm run build && tsc -p tsconfig.test.json && node --test \"dist-tests/**/*.test.js\"",
     "clean": "node -e \"for (const d of ['dist','dist-tests']) require('node:fs').rmSync(d,{recursive:true,force:true})\"",
     "prepare": "node scripts/prepare.mjs",
     "prepublishOnly": "npm run clean && npm run build",
-    "typecheck": "npm run build && tsc -p tsconfig.json",
+    "lint": "deno lint",
+    "typecheck": "npm run build && tsc -p tsconfig.json && tsc -p tsconfig.templates.json",
     "jsr:doc": "node scripts/jsr-doc-check.mjs",
     "launch": "node scripts/submit.mjs",
     "launch:check": "node scripts/submit.mjs check",
-    "dxcl": "node ./bin/dxcl.mjs"
+    "dxcl": "node ./bin/dxcl.mjs",
+    "templates": "tsc -p tsconfig.templates.json"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
-    "typescript": "^6.0.3"
+    "docx-preview": "^0.3.7",
+    "typescript": "^6.0.3",
+    "vite": "^8.2.2"
   },
   "dependencies": {
     "docx": "^9.6.1"

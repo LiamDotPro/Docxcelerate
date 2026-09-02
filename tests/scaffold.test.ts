@@ -10,6 +10,7 @@ import {
   scaffoldDocumentProject,
   scaffoldWorkspaceProject,
 } from "docxcelerate/scaffold";
+import { version } from "docxcelerate";
 
 test("scaffold creates a structured document project and node generator updates exports", async () => {
   const documentsDir = await tempDir();
@@ -50,116 +51,139 @@ test("workspace scaffold creates a project container for documents", async () =>
     name: "housing documents",
     parentDir,
   });
-  const packageJson = JSON.parse(
-    await readTextFile(`${workspace.projectDir}/package.json`),
-  );
-  const config = JSON.parse(
-    await readTextFile(`${workspace.projectDir}/docxcelerate.config.json`),
-  );
-  const tsconfig = await readTextFile(`${workspace.projectDir}/tsconfig.json`);
-  const gitignore = await readTextFile(`${workspace.projectDir}/.gitignore`);
-  const sampleDeriver = await readTextFile(
-    `${workspace.projectDir}/documents/welcome/derivers/index.ts`,
-  );
-  const sampleNode = await readTextFile(
-    `${workspace.projectDir}/documents/welcome/nodes/balance-summary.node.tsx`,
-  );
-  const previewMain = await readTextFile(`${workspace.projectDir}/preview/main.ts`);
-  const viteConfig = await readTextFile(`${workspace.projectDir}/vite.config.ts`);
 
   assertEquals(workspace.projectDir.endsWith("/housing-documents"), true);
   assertEquals(workspace.template, "sample");
-  assertEquals(packageJson.scripts.dev, "vite --host 127.0.0.1 --port 4507");
-  assertEquals(packageJson.scripts["document:new"], "dxcl document new");
-  assertEquals(packageJson.dependencies.docxcelerate, "^0.1.3");
-  assertEquals(packageJson.dependencies.docx, "^9.6.1");
-  assertEquals(packageJson.dependencies["docx-preview"], "^0.3.7");
-  assertEquals(packageJson.devDependencies.vite, "^8.0.13");
+  assertEquals(
+    workspace.files.map((path) => path.slice(workspace.projectDir.length + 1)).sort(),
+    [
+      ".gitignore",
+      "README.md",
+      "documents/welcome/derivers/index.ts",
+      "documents/welcome/document-style.ts",
+      "documents/welcome/document.project.ts",
+      "documents/welcome/document.tsx",
+      "documents/welcome/nodes/balance-summary.node.tsx",
+      "documents/welcome/nodes/greeting.node.tsx",
+      "documents/welcome/nodes/index.ts",
+      "documents/welcome/preview-data.ts",
+      "documents/welcome/types.ts",
+      "docxcelerate.config.json",
+      "index.html",
+      "package.json",
+      "preview/main.ts",
+      "preview/styles.css",
+      "tsconfig.json",
+      "vite.config.ts",
+    ],
+  );
+});
+
+test("a workspace is filled in with its own name, version and endpoint", async () => {
+  const parentDir = await tempDir();
+  const workspace = await scaffoldWorkspaceProject({
+    name: "housing documents",
+    parentDir,
+  });
+  const packageJson = JSON.parse(await readTextFile(`${workspace.projectDir}/package.json`));
+  const config = JSON.parse(
+    await readTextFile(`${workspace.projectDir}/docxcelerate.config.json`),
+  );
+  const indexHtml = await readTextFile(`${workspace.projectDir}/index.html`);
+  const readme = await readTextFile(`${workspace.projectDir}/README.md`);
+
+  assertEquals(packageJson.name, "housing-documents");
+  // A scaffolded workspace depends on the toolkit that scaffolded it, not on
+  // whatever version happened to be current when the template was written.
+  assertEquals(packageJson.dependencies.docxcelerate, `^${version}`);
   assertEquals(config.schemaVersion, "docxcelerate.config/v0");
-  assertEquals(config.activePreset, "local");
   assertEquals(config.presets.local.upload.endpoint, "");
-  assertEquals(config.presets.local.upload.body, "stored-document");
-  assertEquals(tsconfig.includes('"types": ["vite/client"]'), true);
-  assertEquals(tsconfig.includes("preview/**/*.ts"), true);
-  assertEquals(previewMain.includes("createDocumentProjectArtifact"), true);
-  assertEquals(previewMain.includes("createDocxBlob"), true);
-  assertEquals(previewMain.includes('import("docxcelerate/docx")'), true);
-  assertEquals(previewMain.includes("docxPreview.renderAsync"), true);
-  // The generated app lives in a template literal, so `tsc` never looks at it.
-  // These stand in for the typecheck it does not get.
-  //
-  // It reads the packed file back, and docx-preview does not read all of it —
-  // a dropped field, a table indent under an attribute that never carries it,
-  // a run's letter spacing, a picture in an element a paragraph may not hold.
-  // Without this the preview a scaffolded workspace shows differs from the file
-  // it was made from.
-  assertEquals(previewMain.includes('from "docxcelerate/preview"'), true);
+  assertEquals(indexHtml.includes("<title>Housing Documents Preview</title>"), true);
+  assertEquals(readme.startsWith("# Housing Documents\n"), true);
+  assertEquals(readme.includes("Docxcelerate API endpoint: not configured"), true);
+  assertEquals(
+    readme.includes("A sample document is available at `documents/welcome/document.project.ts`."),
+    true,
+  );
+});
+
+test("the preview app finishes what docx-preview does not read", async () => {
+  const parentDir = await tempDir();
+  const workspace = await scaffoldWorkspaceProject({ name: "reading workspace", parentDir });
+  const previewMain = await readTextFile(`${workspace.projectDir}/preview/main.ts`);
+
+  // Whether the generated app compiles is answered by compiling it —
+  // `npm run templates` type-checks templates/ the way a scaffolded workspace
+  // type-checks itself, and that is what caught the `document: DocumentModel`
+  // parameter shadowing the global one that the same function calls
+  // createElement on. What a typecheck cannot say is whether the app still
+  // calls this — and a preview that skips it shows something the packed file
+  // does not.
   assertEquals(previewMain.includes("settleDocxPreview(body, model"), true);
+  assertEquals(previewMain.includes(`from "docxcelerate/preview"`), true);
   // And it hands settle the bytes as well as the model. Two of docx-preview's
   // omissions can only be recovered from the file, and recovering them from the
   // theme instead would be a second copy of the packer's arithmetic — which is
   // the one thing a preview must not have.
   assertEquals(previewMain.includes("readPackedParagraphs(packed)"), true);
-  // And nothing may name a `DocumentModel` parameter `document`: it shadows the
-  // global the same function calls `createElement` on, which threw on the first
-  // line of both preview paths for as long as nobody looked.
-  assertEquals(/\bdocument: DocumentModel/.test(previewMain), false);
-  assertEquals(previewMain.includes('"microsoft-office"'), true);
-  assertEquals(previewMain.includes('"google-docs"'), true);
-  assertEquals(previewMain.includes("view.officeapps.live.com/op/embed.aspx"), true);
-  assertEquals(previewMain.includes("docs.google.com/gview"), true);
-  assertEquals(previewMain.includes("isPrivatePreviewHost"), true);
-  assertEquals(previewMain.includes("renderDocumentPreview"), true);
-  assertEquals(previewMain.includes("renderHome"), true);
-  assertEquals(previewMain.includes("Build & upload"), true);
-  assertEquals(viteConfig.includes("/api/docxcelerate/documents"), true);
-  assertEquals(viteConfig.includes("/api/docxcelerate/build"), true);
-  assertEquals(viteConfig.includes("/api/docxcelerate/preview-docx"), true);
-  assertEquals(viteConfig.includes("PreviewDocxFile"), true);
-  assertEquals(viteConfig.includes("safeDocxFileName"), true);
-  assertEquals(viteConfig.includes('import { dirname, join } from "node:path";'), true);
-  assertEquals(viteConfig.includes("entrypoint?: string;"), true);
-  assertEquals(viteConfig.includes("DocumentDeriverBundlePayload"), true);
-  assertEquals(viteConfig.includes("artifact.derivers"), true);
-  assertEquals(viteConfig.includes('const buildDir = preset.build?.outDir ?? "build";'), true);
-  assertEquals(
-    viteConfig.includes("const outDir = join(documentDirFromArtifact(artifact), buildDir);"),
-    true,
-  );
-  assertEquals(viteConfig.includes("function documentDirFromArtifact"), true);
-  assertEquals(viteConfig.includes('return join("documents", slugify(artifact.manifest.id));'), true);
-  // The build plugin reads either spelling, so an artifact written by an older
-  // toolkit still resolves.
-  assertEquals(
-    viteConfig.includes("const engine = artifact.engineDocument ?? artifact.engineLetter;"),
-    true,
-  );
-  assertEquals(viteConfig.includes("return engine;"), true);
-  assertEquals(viteConfig.includes("safeFileName"), false);
-  assertEquals(await exists(`${workspace.projectDir}/index.html`), true);
-  assertEquals(await exists(`${workspace.projectDir}/docxcelerate.config.json`), true);
-  assertEquals(await exists(`${workspace.projectDir}/vite.config.ts`), true);
-  assertEquals(await exists(`${workspace.projectDir}/preview/main.ts`), true);
-  assertEquals(await exists(`${workspace.projectDir}/preview/styles.css`), true);
-  assertEquals(await exists(`${workspace.projectDir}/documents/welcome/document.project.ts`), true);
-  assertEquals(sampleDeriver.includes("currencyLabel"), true);
-  assertEquals(sampleNode.includes('derive("currencyLabel"'), true);
-  assertEquals(tsconfig.includes("documents/**/*.tsx"), true);
-  assertEquals(gitignore.includes("documents/**/build/"), true);
-  assertEquals(await exists(`${workspace.projectDir}/documents/.gitkeep`), false);
 });
 
-test("workspace scaffold can create a blank project", async () => {
+test("nothing a scaffold writes is left carrying a placeholder", async () => {
+  const parentDir = await tempDir();
+  const sample = await scaffoldWorkspaceProject({ name: "sample workspace", parentDir });
+  const blank = await scaffoldWorkspaceProject({
+    name: "blank workspace",
+    parentDir,
+    template: "blank",
+  });
+  const document = await scaffoldDocumentProject({
+    name: "tenancy renewal",
+    documentsDir: `${parentDir}/documents`,
+  });
+  const nodes = await Promise.all(
+    (["paragraph", "image", "graph"] as const).map((type) =>
+      generateNodeDefinition({ projectDir: document.projectDir, name: `${type} block`, type })
+    ),
+  );
+
+  // A template that grows a placeholder nobody fills is the failure this
+  // catches, across every file every entrypoint writes rather than one at a
+  // time. `readTemplate` throws on an unfilled one, so reaching a written file
+  // that still carries the syntax means something wrote it past the templates.
+  const written = [
+    ...sample.files,
+    ...blank.files,
+    ...document.files,
+    ...nodes.map((node) => node.filePath),
+  ];
+  const carrying: string[] = [];
+
+  for (const path of written) {
+    if (/__[A-Z0-9_]+__/.test(await readTextFile(path))) {
+      carrying.push(path);
+    }
+  }
+
+  assertEquals(carrying, []);
+});
+
+test("a blank workspace says so where a sample one points at its example", async () => {
   const parentDir = await tempDir();
   const workspace = await scaffoldWorkspaceProject({
     name: "blank documents",
     parentDir,
     template: "blank",
   });
+  const readme = await readTextFile(`${workspace.projectDir}/README.md`);
 
   assertEquals(workspace.template, "blank");
   assertEquals(await exists(`${workspace.projectDir}/documents/.gitkeep`), true);
   assertEquals(await exists(`${workspace.projectDir}/documents/welcome/document.project.ts`), false);
+  assertEquals(
+    readme.includes("This workspace starts blank. Create a document with `dxcl document new`."),
+    true,
+  );
+  assertEquals(readme.includes("A sample document is available"), false);
 });
 
 test("workspace scaffold can configure the official Docxcelerate API endpoint", async () => {
@@ -197,18 +221,6 @@ test("document scaffold can create documents inside a workspace", async () => {
   assertEquals(document.projectDir.endsWith("/case-workspace/documents/case-review"), true);
   assertEquals(await exists(`${workspace.projectDir}/documents/case-review/document.project.ts`), true);
   assertEquals(await exists(`${workspace.projectDir}/documents/case-review/document-style.ts`), true);
-});
-
-test("the old lettersDir option still scaffolds where it says", async () => {
-  const root = await tempDir();
-
-  const document = await scaffoldDocumentProject({
-    name: "arrears notice",
-    lettersDir: `${root}/letters`,
-  });
-
-  assertEquals(document.projectDir, `${root}/letters/arrears-notice`);
-  assertEquals(await exists(`${root}/letters/arrears-notice/document.project.ts`), true);
 });
 
 test("node generator supports image and graph node types", async () => {

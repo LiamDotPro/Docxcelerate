@@ -505,7 +505,10 @@ test("a method-shorthand deriver survives the round trip", async () => {
 });
 
 test("an async deriver survives the round trip", async () => {
-  const bundle = createDeriverBundle({ later: async ([a]: unknown[]) => Number(a) + 1 });
+  const bundle = createDeriverBundle({
+    // deno-lint-ignore require-await -- an async deriver is what the round trip is testing.
+    later: async ([a]: unknown[]) => Number(a) + 1,
+  });
   const registry = await createDeriverRegistryFromBundle(bundle);
 
   assertEquals(
