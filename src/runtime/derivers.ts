@@ -1,23 +1,15 @@
-import type {
-  DataReference,
-  DeriverInvocation,
-  DocumentModel,
-  DocumentNode,
-  RuntimeState,
-  ValueExpression,
-} from "../domain/types.ts";
-import { expr } from "../template/publish.ts";
+import type { DeriverInvocation, RuntimeState } from "../domain/types.ts";
 import { setPath } from "./object_path.ts";
 import { resolveValueExpression } from "./templates.ts";
 
 /**
- * Computations a document defers to the engine, and the plumbing that carries
- * them there.
+ * The derivers a build can run, and running them.
  *
- * A deriver runs where the data is, not where the document was written. So the
- * document publishes an invocation — a name, its arguments and where to put the
- * answer — and the function itself travels separately, as a
- * {@linkcode DocumentDeriverBundle} of plain ESM source.
+ * A deriver runs where the data is, not where the document was written, so a
+ * document carries invocations — a name, its arguments and where to put the
+ * answer — rather than functions. This module is the registry those names are
+ * looked up in. Getting the functions to an engine is `deriver_bundle.ts`, and
+ * writing the arguments is `deriver_refs.ts`.
  *
  * @module
  */
@@ -60,35 +52,6 @@ export interface DeriverDefinition {
 export type DeriverDefinitions =
   | Record<string, DeriverFunction>
   | readonly DeriverDefinition[];
-
-/**
- * Derivers serialized to source, so an engine can load the functions a document
- * needs without the document project being installed anywhere near it.
- */
-export interface DocumentDeriverBundle {
-  /** The bundle version, so a reader knows what it is looking at. */
-  schemaVersion: "docxcelerate.deriver-bundle/v0";
-  /** How `source` is written. */
-  format: "esm";
-  /** The names the bundle defines. */
-  names: string[];
-  /** An ES module exporting the derivers, both by default and as `derivers`. */
-  source: string;
-  /** The document project the bundle was built from. */
-  entrypoint?: string;
-  /** When the bundle was built, as an ISO 8601 string. */
-  bundledAt?: string;
-}
-
-/** What {@linkcode createDeriverBundle} takes beyond the definitions themselves. */
-export interface CreateDeriverBundleOptions {
-  /** Bundle only these derivers. Everything is bundled when absent. */
-  names?: Iterable<string>;
-  /** The document project being bundled, recorded on the bundle. */
-  entrypoint?: string;
-  /** The timestamp to record, as an ISO 8601 string. */
-  bundledAt?: string;
-}
 
 /** The derivers available while a document is being written, by name. */
 export class DeriverRegistry {
@@ -231,38 +194,6 @@ export function createDeriverRegistry(
 }
 
 /**
- * The same as {@linkcode createDeriverRegistry}, but also accepting a
- * {@linkcode DocumentDeriverBundle} — which has to be imported before its
- * derivers exist, hence the promise.
- *
- * @param definitions Derivers, a registry, or a bundle to load.
- * @returns The registry to run a document against.
- * @throws If a bundle's source exports no derivers.
- */
-export async function createDeriverRegistryFromBundle(
-  definitions?: DeriverDefinitions | DeriverRegistry | DocumentDeriverBundle,
-): Promise<DeriverRegistry> {
-  if (!definitions) {
-    return createDefaultDeriverRegistry();
-  }
-
-  if (definitions instanceof DeriverRegistry || !isDocumentDeriverBundle(definitions)) {
-    return createDeriverRegistry(definitions);
-  }
-
-  const registry = createDefaultDeriverRegistry();
-  const mod = await import(sourceModuleDataUrl(definitions.source));
-  const exported = (mod.default ?? mod.derivers) as DeriverDefinitions | undefined;
-
-  if (!exported) {
-    throw new Error("Deriver bundle must export default derivers or a named derivers export.");
-  }
-
-  registerDeriverDefinitions(registry, exported);
-  return registry;
-}
-
-/**
  * The names a set of definitions provides.
  *
  * @param definitions The derivers to read, in either form.
@@ -272,147 +203,6 @@ export function listDeriverDefinitionNames(definitions: DeriverDefinitions | und
   return definitions
     ? normalizeDeriverDefinitions(definitions).map((definition) => definition.name)
     : [];
-}
-
-/**
- * Serializes derivers to ESM source an engine can import.
- *
- * The functions are read back with `Function.prototype.toString`, so a deriver
- * has to stand on its own: anything it closes over will not be there when the
- * bundle runs.
- *
- * @param definitions The derivers to bundle.
- * @param options Which of them to include, and what to record alongside.
- * @returns The bundle, or `undefined` when nothing was selected.
- * @throws If a selected deriver is native code and cannot be read back.
- */
-export function createDeriverBundle(
-  definitions: DeriverDefinitions | undefined,
-  options: CreateDeriverBundleOptions = {},
-): DocumentDeriverBundle | undefined {
-  if (!definitions) {
-    return undefined;
-  }
-
-  const requestedNames = options.names ? new Set(options.names) : undefined;
-  const selected = normalizeDeriverDefinitions(definitions).filter((definition) =>
-    !requestedNames || requestedNames.has(definition.name)
-  );
-
-  if (selected.length === 0) {
-    return undefined;
-  }
-
-  return {
-    schemaVersion: "docxcelerate.deriver-bundle/v0",
-    format: "esm",
-    names: selected.map((definition) => definition.name),
-    source: deriverModuleSource(selected),
-    entrypoint: options.entrypoint,
-    bundledAt: options.bundledAt,
-  };
-}
-
-/**
- * Every deriver a built document invokes, found by walking it — including the
- * nodes inside sections and repeats.
- *
- * @param doc The built document.
- * @returns The names, sorted and deduplicated.
- */
-export function collectDocumentDeriverNames(doc: DocumentModel): string[] {
-  const names = new Set<string>();
-  collectNodeDeriverNames(doc.nodes, names);
-  return [...names].sort((left, right) => left.localeCompare(right));
-}
-
-/**
- * Builds the invocation a node carries: which deriver to run, with what, and
- * where the answer goes.
- *
- * @param name The registered deriver to run.
- * @param options Where to write the result, and what to pass in.
- * @returns The invocation to attach to a node.
- *
- * @example
- * ```ts
- * derive("sum", { output: "total", inputs: [dataRef("charges.rent")] });
- * ```
- */
-export function derive(
-  name: string,
-  options: { output: string; inputs?: readonly unknown[] },
-): DeriverInvocation {
-  return {
-    name,
-    output: options.output,
-    inputs: (options.inputs ?? []).map(toValueExpression),
-  };
-}
-
-/**
- * An input as written: either an expression built by hand, or the value itself.
- *
- * Passing the value is the shorter road and the only one that works inside a
- * `.map()`, where what the component holds is a real entry on one build and a
- * stand-in on the other.
- */
-function toValueExpression(input: unknown): ValueExpression {
-  if (isValueExpression(input)) {
-    return input;
-  }
-
-  return expr(input);
-}
-
-function isValueExpression(input: unknown): input is ValueExpression {
-  if (typeof input !== "object" || input === null) {
-    return false;
-  }
-
-  const type = (input as { type?: unknown }).type;
-
-  return type === "literal" || type === "ref";
-}
-
-/**
- * A pointer into the data the caller supplied.
- *
- * @param path A dotted path, such as `tenant.name`.
- * @returns The expression to use as a deriver input or comparison side.
- */
-export function dataRef(path: string): ValueExpression {
-  return ref("data", path);
-}
-
-/**
- * A pointer into what the surrounding repeat or component bound.
- *
- * @param path A dotted path, such as `charge.amount`.
- * @returns The expression to use as a deriver input or comparison side.
- */
-export function ctxRef(path: string): ValueExpression {
-  return ref("ctx", path);
-}
-
-/**
- * A pointer into what an earlier deriver wrote.
- *
- * @param path A dotted path, such as `total`.
- * @returns The expression to use as a deriver input or comparison side.
- */
-export function derivedRef(path: string): ValueExpression {
-  return ref("derived", path);
-}
-
-/**
- * A value fixed at build time.
- *
- * @param value The value to carry.
- * @returns The expression to use as a deriver input or comparison side.
- */
-export function literalValue(value: string | number | boolean): ValueExpression {
-  return { type: "literal", value };
 }
 
 /**
@@ -456,7 +246,16 @@ function registerDeriverDefinitions(
   }
 }
 
-function normalizeDeriverDefinitions(definitions: DeriverDefinitions): DeriverDefinition[] {
+/**
+ * The definitions in either form, as a list.
+ *
+ * A project may write its derivers as an object keyed by name or as an array of
+ * definitions; everything downstream wants the array.
+ *
+ * @param definitions The derivers to read, in either form.
+ * @returns One definition per deriver.
+ */
+export function normalizeDeriverDefinitions(definitions: DeriverDefinitions): DeriverDefinition[] {
   if (Array.isArray(definitions)) {
     return definitions.map((definition) => ({
       name: definition.name,
@@ -466,86 +265,6 @@ function normalizeDeriverDefinitions(definitions: DeriverDefinitions): DeriverDe
   }
 
   return Object.entries(definitions).map(([name, run]) => ({ name, run }));
-}
-
-function deriverModuleSource(definitions: DeriverDefinition[]): string {
-  const entries = definitions.map((definition) =>
-    `  ${JSON.stringify(definition.name)}: ${serializableFunctionSource(definition)},`
-  );
-
-  return [
-    "const derivers = {",
-    ...entries,
-    "};",
-    "export { derivers };",
-    "export default derivers;",
-    "",
-  ].join("\n");
-}
-
-function serializableFunctionSource(definition: DeriverDefinition): string {
-  const source = definition.run.toString();
-
-  if (source.includes("[native code]")) {
-    throw new Error(`Deriver "${definition.name}" cannot be bundled from native code.`);
-  }
-
-  if (
-    /^(async\s+)?function\b/.test(source) ||
-    /^(async\s+)?\(?[\w\s,[\]{}.:=]*\)?\s*=>/.test(source)
-  ) {
-    return source;
-  }
-
-  if (/^async\s+[A-Za-z_$][\w$]*\s*\(/.test(source)) {
-    return source.replace(/^async\s+([A-Za-z_$][\w$]*)\s*\(/, "async function $1(");
-  }
-
-  if (/^[A-Za-z_$][\w$]*\s*\(/.test(source)) {
-    return `function ${source}`;
-  }
-
-  return source;
-}
-
-function collectNodeDeriverNames(nodes: DocumentNode[], names: Set<string>): void {
-  for (const node of nodes) {
-    for (const invocation of node.derivers ?? []) {
-      names.add(invocation.name);
-    }
-
-    // Both kinds that hold children. Missing one here is not a missing name in
-    // a list — it is a deriver left out of the published bundle, and an engine
-    // that fails on the document rather than on the build.
-    if (node.kind === "section" || node.kind === "repeat") {
-      collectNodeDeriverNames(node.children, names);
-    }
-  }
-}
-
-function ref(scope: DataReference["scope"], path: string): ValueExpression {
-  return {
-    type: "ref",
-    ref: {
-      scope,
-      path,
-    },
-  };
-}
-
-function isDocumentDeriverBundle(value: unknown): value is DocumentDeriverBundle {
-  return Boolean(
-    value &&
-      typeof value === "object" &&
-      "schemaVersion" in value &&
-      value.schemaVersion === "docxcelerate.deriver-bundle/v0" &&
-      "source" in value &&
-      typeof value.source === "string",
-  );
-}
-
-function sourceModuleDataUrl(source: string): string {
-  return `data:text/javascript;charset=utf-8,${encodeURIComponent(source)}`;
 }
 
 function numberOrZero(value: unknown): number {

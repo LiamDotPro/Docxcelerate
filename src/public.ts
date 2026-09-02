@@ -32,7 +32,9 @@ export * from "./runtime/ai.ts";
 // two functions that do it are part of the surface rather than an internal.
 export * from "./runtime/conditions.ts";
 export * from "./runtime/data.ts";
+export * from "./runtime/deriver_bundle.ts";
 export * from "./runtime/deriver_module.ts";
+export * from "./runtime/deriver_refs.ts";
 export * from "./runtime/derivers.ts";
 export * from "./runtime/resolver.ts";
 // The catalogs, but not the installer: describing what is in the registry is

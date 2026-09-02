@@ -1,5 +1,6 @@
 import type { DeriverModule } from "../runtime/deriver_module.ts";
 import { setPath } from "../runtime/object_path.ts";
+import { createPlaceholderData, type PlaceholderData } from "./placeholders.ts";
 import { createDerivedStandIn, expr } from "./publish.ts";
 import {
   type ComponentInstance,
@@ -133,58 +134,6 @@ export function useSetPlaceholders(placeholder: string | { placeholder?: string 
   return { ...instance.prompts };
 }
 
-/** The stand-in values {@linkcode usePlaceholderData} hands out. */
-export interface PlaceholderData {
-  /**
-   * A person's name.
-   *
-   * @returns A first and last name.
-   */
-  name(): string;
-  /**
-   * A place name.
-   *
-   * @returns A city.
-   */
-  city(): string;
-  /**
-   * A date, formatted for the build's locale.
-   *
-   * @param offsetDays Days from the fixed base date. Defaults to `0`.
-   * @returns The formatted date.
-   */
-  date(offsetDays?: number): string;
-  /**
-   * An amount of money, formatted for the build's locale.
-   *
-   * @param amount The amount. A stable arbitrary one is used when absent.
-   * @returns The formatted amount.
-   */
-  currency(amount?: number): string;
-  /**
-   * A sentence of filler.
-   *
-   * @param words How many words. Defaults to `12`.
-   * @returns The sentence, capitalised and stopped.
-   */
-  sentence(words?: number): string;
-  /**
-   * A paragraph of filler.
-   *
-   * @param sentences How many sentences. Defaults to `3`.
-   * @returns The paragraph.
-   */
-  paragraph(sentences?: number): string;
-  /**
-   * One of your own values, chosen the same way every build.
-   *
-   * @typeParam TValue What the list holds.
-   * @param values The values to choose between.
-   * @returns One of them.
-   */
-  pick<TValue>(values: readonly TValue[]): TValue;
-}
-
 /**
  * Stand-in values for a preview.
  *
@@ -195,32 +144,8 @@ export interface PlaceholderData {
 export function usePlaceholderData(): PlaceholderData {
   const instance = requireInstance("usePlaceholderData");
   const context = requireContext("usePlaceholderData");
-  const random = seededRandom(instance.path);
 
-  const pick = <TValue>(values: readonly TValue[]): TValue =>
-    values[Math.floor(random() * values.length)];
-
-  return {
-    pick,
-    name: () => `${pick(firstNames)} ${pick(lastNames)}`,
-    city: () => pick(cities),
-    date: (offsetDays = 0) => {
-      const base = new Date(Date.UTC(2024, 0, 15));
-      base.setUTCDate(base.getUTCDate() + offsetDays);
-      return new Intl.DateTimeFormat(context.locale, { dateStyle: "long", timeZone: "UTC" })
-        .format(base);
-    },
-    currency: (amount) =>
-      new Intl.NumberFormat(context.locale, { style: "currency", currency: "GBP" })
-        .format(amount ?? Math.round(random() * 100_000) / 100),
-    sentence: (words = 12) =>
-      capitalize(Array.from({ length: words }, () => pick(lorem)).join(" ")) + ".",
-    paragraph: (sentences = 3) =>
-      Array.from({ length: sentences }, () =>
-        capitalize(
-          Array.from({ length: 8 + Math.floor(random() * 8) }, () => pick(lorem)).join(" "),
-        ) + ".").join(" "),
-  };
+  return createPlaceholderData(instance.path, context.locale);
 }
 
 /** The formatting {@linkcode useFormat} hands out, bound to one locale. */
@@ -391,33 +316,5 @@ function assign(target: PromptDraft, source: PromptDraft): void {
   }
 }
 
-function seededRandom(seed: string): () => number {
-  let hash = 2166136261;
-
-  for (let index = 0; index < seed.length; index += 1) {
-    hash ^= seed.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-
-  return () => {
-    hash += 0x6d2b79f5;
-    let value = hash;
-    value = Math.imul(value ^ (value >>> 15), value | 1);
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function capitalize(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-const firstNames = ["Avery", "Rowan", "Imani", "Tomas", "Neela", "Fintan", "Marta", "Osei"];
-const lastNames = ["Whitfield", "Okonkwo", "Lindqvist", "Bassey", "Moreau", "Ferreira", "Nolan"];
-const cities = ["Leeds", "Cork", "Antwerp", "Porto", "Malmo", "Bristol", "Ghent"];
-const lorem = [
-  "tenancy", "notice", "balance", "review", "account", "period", "statement",
-  "renewal", "property", "schedule", "payment", "reference", "agreement",
-];
-
+export type { PlaceholderData };
 export type { PromptDraft };

@@ -19,4 +19,6 @@ process.on("unhandledRejection", (error) => {
   process.exit(1);
 });
 
-await import(`file://${cliEntry.replaceAll("\\", "/")}`);
+const { runCli } = await import(`file://${cliEntry.replaceAll("\\", "/")}`);
+
+await runCli();
