@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
-import { buildDocument } from "docxcelerate";
+import {
+  buildDocument,
+  createDeriverRegistry,
+  EchoAiClient,
+  InMemoryDataProvider,
+  resolveDocument,
+} from "docxcelerate";
 import { documentXml, partNames, partXml } from "./docx.ts";
 import type { DocumentModel, DocumentStyle } from "docxcelerate";
 import {
@@ -13,6 +19,7 @@ import {
   Row,
   Table,
   template,
+  createPublishData,
 } from "docxcelerate/template";
 
 /**
@@ -499,6 +506,69 @@ test("a row that draws its own ground draws no rule under the rest of it", async
   assertEquals(ruled.length, 0);
   assertStringIncludes(xml, 'w:fill="1E2A66"');
 });
+
+test("a document decorates the same whether it was built here or by an engine", async () => {
+  const tree = template(
+    <Document id="d" title="D">
+      <Table id="t" columns={[{ width: "auto" }, { width: 34 }]}>
+        <Row header>
+          <Cell>Description</Cell>
+          <Cell>Amount</Cell>
+        </Row>
+        <Row>
+          <Cell>One</Cell>
+          <Cell>1.00</Cell>
+        </Row>
+        <Row>
+          <Cell>Two</Cell>
+          <Cell>2.00</Cell>
+        </Row>
+      </Table>
+    </Document>,
+  );
+
+  // Striping and the row rule are decided when the file is packed, from
+  // `header` on the row. That is only sound if the flag reaches the packer on
+  // both roads to it: the build that produces a preview, and the published
+  // document an engine resolves against data nobody had at build time.
+  //
+  // If it travelled on one and not the other, a person would be sent a file
+  // decorated differently from the one they approved — which is the single
+  // thing a preview exists not to do.
+  const here = await buildDocument(tree, {});
+  const published = await buildDocument(tree, createPublishData(), {
+    branchMode: "publish",
+    deriverMode: "preserve",
+  });
+  const sent = await resolveDocument(published, {
+    ctx: {},
+    derived: {},
+    dataProvider: new InMemoryDataProvider({}),
+    aiClient: new EchoAiClient(),
+  }, { derivers: createDeriverRegistry() });
+
+  here.style = style;
+  sent.style = style;
+
+  assertEquals(decorationOf(await documentXml(here)), decorationOf(await documentXml(sent)));
+  // And it is the decoration the theme asked for, not two matching blanks.
+  assertEquals(decorationOf(await documentXml(here)), [
+    { fill: "2C3D8F", rule: false },
+    { fill: "2C3D8F", rule: false },
+    { fill: null, rule: true },
+    { fill: null, rule: true },
+    { fill: "F7F8FD", rule: false },
+    { fill: "F7F8FD", rule: false },
+  ]);
+});
+
+/** Every cell's fill and whether a rule was drawn under it, in table order. */
+function decorationOf(xml: string): Array<{ fill: string | null; rule: boolean }> {
+  return (xml.match(/<w:tc>[\s\S]*?<\/w:tc>/g) ?? []).map((cell) => ({
+    fill: cell.match(/w:fill="([0-9A-Fa-f]{6})"/)?.[1] ?? null,
+    rule: /<w:bottom [^>]*w:val="single"/.test(cell),
+  }));
+}
 
 test("a block that names no edges turns the row hairline off with them", async () => {
   const xml = await documentXml(
