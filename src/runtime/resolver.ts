@@ -9,6 +9,7 @@ import type {
   RepeatNode,
   RuntimeState,
 } from "../domain/types.ts";
+import { generateGraph, generateImage, generateParagraph } from "./ai_request.ts";
 import { evaluateCondition } from "./conditions.ts";
 import { createDefaultDeriverRegistry, type DeriverRegistry, runDerivers } from "./derivers.ts";
 import { renderTemplate } from "./templates.ts";
@@ -200,17 +201,11 @@ async function resolveParagraph(
   }
 
   const prompts = await resolvePrompts(node.prompts, state);
-  const prompt = formatPromptText(prompts);
 
   return {
     ...node,
     prompts,
-    text: await state.aiClient.generateParagraph({
-      node,
-      prompt,
-      prompts,
-      state,
-    }),
+    text: await generateParagraph(state.aiClient, node, prompts, state),
   };
 }
 
@@ -227,21 +222,7 @@ async function resolveImage(
   }
 
   const prompts = await resolvePrompts(node.prompts, state);
-  const prompt = formatPromptText(prompts);
-
-  if (!state.aiClient.generateImage) {
-    throw new Error(`Dynamic image "${node.id}" requires an aiClient.generateImage method.`);
-  }
-
-  const result = await state.aiClient.generateImage({
-    node: {
-      ...node,
-      prompts,
-    },
-    prompt,
-    prompts,
-    state,
-  });
+  const result = await generateImage(state.aiClient, { ...node, prompts }, prompts, state);
 
   return {
     ...node,
@@ -266,21 +247,7 @@ async function resolveGraph(
   }
 
   const prompts = await resolvePrompts(node.prompts, state);
-  const prompt = formatPromptText(prompts);
-
-  if (!state.aiClient.generateGraph) {
-    throw new Error(`Dynamic graph "${node.id}" requires an aiClient.generateGraph method.`);
-  }
-
-  const result = await state.aiClient.generateGraph({
-    node: {
-      ...node,
-      prompts,
-    },
-    prompt,
-    prompts,
-    state,
-  });
+  const result = await generateGraph(state.aiClient, { ...node, prompts }, prompts, state);
 
   return {
     ...node,
@@ -301,10 +268,6 @@ async function resolvePrompts(
       text: await renderTemplate(prompt.text, state),
     })),
   );
-}
-
-function formatPromptText(prompts: PromptSpec[]): string {
-  return prompts.map((entry) => `${entry.kind.toUpperCase()}: ${entry.text}`).join("\n");
 }
 
 async function renderJsonObjectTemplates(

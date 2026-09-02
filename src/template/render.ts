@@ -43,7 +43,11 @@ import type {
 } from "./elements.ts";
 import type { LoopProps } from "./loop.ts";
 import {
-  formatPromptText,
+  generateGraph,
+  generateImage,
+  generateParagraph,
+} from "../runtime/ai_request.ts";
+import {
   isDynamic,
   joinText,
   jsonText,
@@ -598,18 +602,9 @@ async function renderParagraph(
   const specs = await promptSpecs(prompts, context);
   const node: ParagraphNode = { id, kind: "paragraph", mode: "dynamic", when, prompts: specs };
 
-  if (!context.aiClient) {
-    throw new Error(`Dynamic paragraph "${id}" requires an aiClient.`);
-  }
-
   return prune({
     ...node,
-    text: await context.aiClient.generateParagraph({
-      node,
-      prompt: formatPromptText(specs),
-      prompts: specs,
-      state: context.state,
-    }),
+    text: await generateParagraph(context.aiClient, node, specs, context.state),
   });
 }
 
@@ -670,16 +665,7 @@ async function renderImage(
     prompts: specs,
   };
 
-  if (!context.aiClient?.generateImage) {
-    throw new Error(`Dynamic image "${id}" requires an aiClient.generateImage method.`);
-  }
-
-  const result = await context.aiClient.generateImage({
-    node,
-    prompt: formatPromptText(specs),
-    prompts: specs,
-    state: context.state,
-  });
+  const result = await generateImage(context.aiClient, node, specs, context.state);
 
   return prune({ ...node, ...result, path: result.path });
 }
@@ -726,16 +712,7 @@ async function renderGraph(
   const specs = await promptSpecs(prompts, context);
   const node: GraphNode = { id, kind: "graph", mode: "dynamic", when, graphType, prompts: specs };
 
-  if (!context.aiClient?.generateGraph) {
-    throw new Error(`Dynamic graph "${id}" requires an aiClient.generateGraph method.`);
-  }
-
-  const result = await context.aiClient.generateGraph({
-    node,
-    prompt: formatPromptText(specs),
-    prompts: specs,
-    state: context.state,
-  });
+  const result = await generateGraph(context.aiClient, node, specs, context.state);
 
   return prune({
     ...node,

@@ -7,6 +7,15 @@
  * @module
  */
 
+import {
+  ensureDirectory,
+  exists,
+  isNotFoundError,
+  parentPath,
+  readDirectoryNames,
+  readTextFile,
+  writeTextFile,
+} from "../internal/fs.ts";
 import { readTemplate, type TemplateValues } from "./templates.ts";
 import { version } from "../version.ts";
 
@@ -363,58 +372,6 @@ async function appendNodeExport(
   await writeTextFile(indexPath, `${lines.join("\n")}\n`);
 }
 
-async function ensureDirectory(path: string): Promise<void> {
-  if (path === "" || path === ".") {
-    return;
-  }
-
-  await mkdir(path);
-}
-
-async function exists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-    return true;
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      return false;
-    }
-
-    throw error;
-  }
-}
-
-async function readDirectoryNames(path: string): Promise<string[]> {
-  const { readdir } = await import("node:fs/promises");
-  return await readdir(path);
-}
-
-async function readTextFile(path: string): Promise<string> {
-  const { readFile } = await import("node:fs/promises");
-  return await readFile(path, "utf8");
-}
-
-async function writeTextFile(path: string, contents: string): Promise<void> {
-  const { writeFile } = await import("node:fs/promises");
-  await writeFile(path, contents, "utf8");
-}
-
-async function mkdir(path: string): Promise<void> {
-  const { mkdir: nodeMkdir } = await import("node:fs/promises");
-  await nodeMkdir(path, { recursive: true });
-}
-
-async function stat(path: string): Promise<void> {
-  const { stat: nodeStat } = await import("node:fs/promises");
-  await nodeStat(path);
-}
-
-function isNotFoundError(error: unknown): boolean {
-  return Boolean(
-    error && typeof error === "object" && "code" in error && error.code === "ENOENT",
-  );
-}
-
 function slugify(value: string): string {
   const slug = value
     .trim()
@@ -480,11 +437,4 @@ function joinPath(...parts: string[]): string {
     .join("/")
     .replaceAll("\\", "/")
     .replace(/\/+/g, "/");
-}
-
-function parentPath(path: string): string {
-  const normalized = path.replaceAll("\\", "/");
-  const index = normalized.lastIndexOf("/");
-
-  return index === -1 ? "." : normalized.slice(0, index);
 }
