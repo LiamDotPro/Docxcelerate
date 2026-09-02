@@ -433,6 +433,73 @@ test("the theme's zebra is drawn by the renderer, not chosen by the document", a
   assertStringIncludes(xml, 'w:fill="2C3D8F"');
 });
 
+test("a table with no header row is not a list, so it is not striped", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }, { width: 50 }, { width: 34 }]}>
+          <Row>
+            <Cell></Cell>
+            <Cell>Subtotal</Cell>
+            <Cell>18,650.00</Cell>
+          </Row>
+          <Row>
+            <Cell></Cell>
+            <Cell>VAT (20%)</Cell>
+            <Cell>3,730.00</Cell>
+          </Row>
+          <Row>
+            <Cell></Cell>
+            <Cell variant="totalRow">Total due</Cell>
+            <Cell variant="totalRow">22,380.00</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  // A totals block is three rows and a spacer column, not a list anybody
+  // scans down. Striping it tinted whichever cells landed on the second row —
+  // including the empty spacer, which came out as a grey band of nothing
+  // beside the figures rather than under them.
+  //
+  // A zebra is a reading aid for a column of like rows, and what says a table
+  // is one of those is its header. Without one there is nothing to help read.
+  assertEquals(xml.includes('w:fill="F7F8FD"'), false);
+  // The row that asked for a fill still has it.
+  assertStringIncludes(xml, 'w:fill="1E2A66"');
+});
+
+test("a row that draws its own ground draws no rule under the rest of it", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }, { width: 50 }, { width: 34 }]}>
+          <Row>
+            <Cell></Cell>
+            <Cell variant="totalRow">Total due</Cell>
+            <Cell variant="totalRow">22,380.00</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  // The row hairline is a property of the row, not of each cell. Deciding it
+  // per cell from that cell's own fill drew it under the columns that
+  // happened to be plain and not under the ones that were not — on the
+  // invoice, three rules to the left of the totals panel, each stopping where
+  // the panel began. A rule across part of a row is not a rule.
+  //
+  // Once any of the row is filled the row is already set apart, which is what
+  // the rule was for.
+  const cells = xml.match(/<w:tc>[\s\S]*?<\/w:tc>/g) ?? [];
+  const ruled = cells.filter((cell) => cell.includes("w:bottom") && cell.includes('w:val="single"'));
+
+  assertEquals(ruled.length, 0);
+  assertStringIncludes(xml, 'w:fill="1E2A66"');
+});
+
 test("a block that names no edges turns the row hairline off with them", async () => {
   const xml = await documentXml(
     await build(
