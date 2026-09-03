@@ -90,6 +90,52 @@ export function parityView(preview, word) {
     /** Which page Word put it on. */
     wordPage: (anchor) => word.para(anchor).page,
 
+    // --- cells --------------------------------------------------------------
+    //
+    // The paragraph pair above will not find a cell: the preview's paragraph
+    // slice is the article's own children and Word's leaves in-table
+    // paragraphs out, both deliberately. A table's parity is asked of the cell
+    // instead, and the two sides are matched by the words a reader sees in it.
+    //
+    // Word reports where a cell's *text* begins, which is inside whatever
+    // padding the cell has. So the preview's side is its drawn text too, never
+    // the cell box — comparing a box to a character is how a harness invents a
+    // divergence the size of the padding.
+
+    /** Where a cell's words start, in mm from the text column. */
+    previewCellX: (anchor) => pxToMm(preview.cellTextLeft(anchor)),
+    /** Word's answer to the same question. */
+    wordCellX: (anchor) => ptToMm(word.cell(anchor).x),
+
+    /** How far down the page the preview draws a cell's first line, in mm. */
+    previewCellY(anchor) {
+      const cell = preview.cell(anchor);
+      return pxToMm(cell.lines[0]?.y ?? cell.y);
+    },
+    /** Word's. */
+    wordCellY: (anchor) => ptToMm(word.cell(anchor).y),
+
+    /** The furthest right a cell's words reach on screen, in mm. */
+    previewCellRight: (anchor) => pxToMm(preview.cellTextRight(anchor)),
+
+    /** How wide the preview draws the cell itself, in mm. */
+    previewCellWidth: (anchor) => pxToMm(preview.cell(anchor).w),
+    /** How wide Word makes it. */
+    wordCellWidth: (anchor) => ptToMm(word.cell(anchor).width),
+
+    /** Which page the preview put a cell on, counting from one. */
+    previewCellPage(anchor) {
+      const page = preview.cell(anchor).pageIndex;
+      return page === null || page === undefined ? null : page + 1;
+    },
+    /** Which page Word put it on. */
+    wordCellPage: (anchor) => word.cell(anchor).page,
+
+    /** How wide the preview draws a whole table, in mm. */
+    previewTableWidth: (index = 0) => pxToMm(preview.table(index).w),
+    /** Where the preview puts its left edge, in mm from the text column. */
+    previewTableX: (index = 0) => pxToMm(preview.table(index).x),
+
     // --- running furniture --------------------------------------------------
     //
     // Both sides reduced to millimetres from the top of the *sheet*. A strip is
@@ -172,5 +218,44 @@ export function parityTable(preview, word) {
     });
   }
 
+  // And every cell, by the same rule. Without this a table case's survey is
+  // empty — the paragraph slices on both sides leave a cell's paragraphs out
+  // on purpose — and the board would show a case with four green tiers and
+  // nothing measured underneath.
+  for (const cell of previewCells(preview)) {
+    const text = (cell.text ?? "").trim();
+    if (text.length === 0) continue;
+
+    const match = word.cells(text)[0];
+    if (match === undefined) {
+      rows.push({ text: text.slice(0, 60), cell: true, previewOnly: true });
+      continue;
+    }
+
+    const previewXmm = (cell.lines[0]?.x ?? cell.x) / PX_PER_MM;
+    const previewYmm = (cell.lines[0]?.y ?? cell.y) / PX_PER_MM;
+
+    rows.push({
+      text: text.slice(0, 60),
+      cell: true,
+      previewPage: (cell.pageIndex ?? 0) + 1,
+      wordPage: match.page,
+      // Word's side is already content-relative: `wordView.cells` reduces it.
+      dxMm: match.x === null ? null : round(previewXmm - match.x / PT_PER_MM),
+      dyMm: match.y === null ? null : round(previewYmm - match.y / PT_PER_MM),
+    });
+  }
+
   return rows;
+}
+
+/** Every cell the preview drew, innermost tables first, in one flat list. */
+function previewCells(preview) {
+  return [...(preview.tables ?? [])]
+    .sort((a, b) => (b.depth ?? 0) - (a.depth ?? 0))
+    .flatMap((table) =>
+      table.rows.flatMap((row) =>
+        row.cells.map((cell) => ({ ...cell, pageIndex: table.pageIndex }))
+      )
+    );
 }

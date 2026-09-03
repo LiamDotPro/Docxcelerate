@@ -5,6 +5,7 @@ import {
   paginateDocxPreview,
   previewPageStyles,
   readPackedParagraphs,
+  readPackedTables,
   settleDocxPreview,
 } from "docxcelerate/preview";
 import "./styles.css";
@@ -487,12 +488,14 @@ async function renderClientDocxPreview(model: DocumentModel, documentBlob: Blob)
   // a run's letter spacing, and wraps a picture in an element a paragraph may
   // not hold. This finishes the reading, so what is shown is what Word shows.
   //
-  // The packed bytes go in as well: two of those omissions can only be put
+  // The packed bytes go in as well: three of those omissions can only be put
   // back from the file, and reading them from it rather than from the theme is
-  // what keeps the preview and the packer from drifting apart.
+  // what keeps the preview and the packer from drifting apart. The tables are
+  // read for one fact — which rows repeat at the top of each page — which is
+  // what lets the paginator carry a heading onto a new sheet.
   const packed = new Uint8Array(await documentBlob.arrayBuffer());
   const paragraphs = await readPackedParagraphs(packed);
-  settleDocxPreview(body, model, paragraphs);
+  settleDocxPreview(body, model, paragraphs, await readPackedTables(packed));
 
   const style = document.createElement("style");
   style.textContent = previewFrameStyles();

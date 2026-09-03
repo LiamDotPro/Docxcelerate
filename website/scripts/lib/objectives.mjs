@@ -34,7 +34,7 @@
  *        pages, firstPageHeaderText, primaryHeaderText
  *        regions         {name: {page, x, y, xEnd?}}
  *        suppressedHeadingFinds  {"Invoice details": bool, ...} (F1.C1)
- *        footerTable     {xPt, widthPt} (F3.C1)
+ *        footerTable     {xPt, widthPt, width} (F3.C1)
  *        footer          {heightPt, lineCount} (F4.C1)
  *        pageNumberParagraph  {alignment, spaceAfter} (F5.C1)
  *        fieldsTextByPage[]   footer text per page after Fields.Update() (F5.C2/C6.C1)
@@ -629,10 +629,17 @@ export const OBJECTIVES = [
       const startPt = typeof leftMargin === "number" && typeof t.leftIndent === "number"
         ? leftMargin + t.leftIndent
         : t.x;
+      // Across the cells, not through PreferredWidth. Word reports the
+      // latter as wdUndefined for a multi-column table laid out fixed — the
+      // widths belong to the columns then, not to a preference the table
+      // expresses — so asking the table would measure the reading rather than
+      // the document. The old value stays as the fallback for a table Word
+      // will still answer for.
+      const widthPt = typeof t.width === "number" ? t.width : t.preferredWidth;
       const ok = near(startPt, FOOTER_X_PT, FOOTER_TABLE_TOL_PT)
-        && near(t.preferredWidth, FOOTER_WIDTH_PT, FOOTER_TABLE_TOL_PT);
+        && near(widthPt, FOOTER_WIDTH_PT, FOOTER_TABLE_TOL_PT);
       return (ok ? pass : fail)(
-        `starts ${round2(startPt)}pt w=${t.preferredWidth}pt (text at ${t.x}pt)`,
+        `starts ${round2(startPt)}pt w=${widthPt}pt (text at ${t.x}pt)`,
         expected,
       );
     },

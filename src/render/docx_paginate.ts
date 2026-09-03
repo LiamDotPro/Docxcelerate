@@ -195,27 +195,120 @@ function splitSection(section: HTMLElement, options: PaginationOptions): HTMLEle
   // at 785.2 — and lets its trailing 10pt hang past that into the margin rather
   // than turning the page. So the border box is the right edge to test, and
   // adding the margin to it costs a paragraph a page.
-  //
-  // Never the first block on the page: something taller than a whole sheet has
-  // to go somewhere, and moving it to a sheet of its own would move it for ever.
-  const breakAt = blocks.findIndex((block, index) =>
-    index > 0 && block.getBoundingClientRect().bottom > limit
-  );
+  const overrunAt = blocks.findIndex((block) => block.getBoundingClientRect().bottom > limit);
 
-  if (breakAt === -1) {
+  if (overrunAt === -1) {
+    return null;
+  }
+
+  // A table is the one block that can be broken through the middle, because it
+  // is the one with a seam Word breaks at too: the gap between two rows.
+  // Everything else moves whole.
+  const overrun = blocks[overrunAt];
+  const carried = isTable(overrun) ? splitTable(overrun, limit) : null;
+
+  // Never move the first block on the page as a whole: something taller than a
+  // sheet has to go somewhere, and moving it to a sheet of its own would move
+  // it for ever. A split table is the exception — the rows that did not fit
+  // go and the ones that did stay behind — which is why this is asked after
+  // the split rather than before it.
+  if (carried === null && overrunAt === 0) {
     return null;
   }
 
   const next = newSheet(section, options);
   const nextArticle = next.querySelector(":scope > article") as HTMLElement;
 
-  for (const block of blocks.slice(breakAt)) {
+  // The rest of the split table first, so the rows keep the order they were
+  // written in.
+  if (carried !== null) {
+    nextArticle.appendChild(carried);
+  }
+
+  for (const block of blocks.slice(carried === null ? overrunAt : overrunAt + 1)) {
     nextArticle.appendChild(block);
   }
 
   section.insertAdjacentElement("afterend", next);
 
   return next;
+}
+
+/** Whether a block is a table, without needing the DOM's constructor to hand. */
+function isTable(block: HTMLElement): block is HTMLTableElement {
+  return block.tagName === "TABLE";
+}
+
+/**
+ * Breaks a table at the last row that fits, and hands back the rest of it.
+ *
+ * Word breaks a long table between two of its rows and carries on with the
+ * same columns on the next page. Without this the preview could do neither,
+ * and what it did instead was worse than stopping: docx-preview writes the
+ * page height as a `min-height`, so a block too tall to move simply made its
+ * page taller, and a table Word prints over three pages was drawn as one sheet
+ * 593mm deep standing above an ordinary one. A sheet of paper is not a thing
+ * that stretches, and a preview showing one that does is showing something the
+ * document cannot become.
+ *
+ * The carried table is a shallow clone with the `<colgroup>` copied onto it,
+ * so its columns line up with the half left behind — the widths live there,
+ * and a second table without them would be laid out around its own contents.
+ *
+ * A `<thead>` is copied too, and repeated rather than moved. That is Word's
+ * `w:tblHeader`: the rows a table opens with are drawn again at the top of
+ * every page it runs onto, so a reader on page three still knows which column
+ * is which. `settleDocxPreview` is what puts those rows in a `<thead>` — the
+ * fact comes from the packed file, because docx-preview does not record it —
+ * so a preview settled without it simply carries no heading, which is the
+ * behaviour this replaced rather than a new way to be wrong.
+ *
+ * @returns A table holding the rows that did not fit, or null when there is no
+ * seam worth breaking at: a table whose first body row is already taller than
+ * the sheet. That one has to overrun somewhere, and what to do about it is the
+ * caller's business.
+ */
+function splitTable(table: HTMLTableElement, limit: number): HTMLTableElement | null {
+  const rows = [...table.rows];
+  // The heading is never the seam. It repeats onto the next sheet rather than
+  // moving to it, so breaking inside it would carry away the very rows that
+  // are supposed to stay — and it always fits, being at the top.
+  const heading = table.tHead === null ? 0 : table.tHead.rows.length;
+  const breakAt = rows.findIndex((row, index) =>
+    index >= heading && row.getBoundingClientRect().bottom > limit
+  );
+
+  // -1 is a table that fits, which cannot be true of the block that overran but
+  // is worth answering honestly. Anything at or before the heading is a first
+  // body row taller than the sheet, where breaking would leave nothing but a
+  // heading behind and move the whole table on to meet the same problem on the
+  // next page.
+  if (breakAt <= heading) {
+    return null;
+  }
+
+  const rest = table.cloneNode(false) as HTMLTableElement;
+  const colgroup = table.querySelector(":scope > colgroup");
+
+  if (colgroup !== null) {
+    rest.appendChild(colgroup.cloneNode(true));
+  }
+
+  if (table.tHead !== null) {
+    rest.appendChild(table.tHead.cloneNode(true));
+  }
+
+  // Into a `tbody` rather than straight onto the table element: a browser puts
+  // one there when it parses the markup, and a row appended to the table itself
+  // is a row somewhere the DOM does not allow it.
+  const body = table.ownerDocument.createElement("tbody");
+  rest.appendChild(body);
+
+  for (const row of rows.slice(breakAt)) {
+    body.appendChild(row);
+  }
+
+  return rest;
 }
 
 /**

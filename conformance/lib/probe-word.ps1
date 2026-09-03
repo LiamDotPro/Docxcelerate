@@ -44,6 +44,12 @@ $wdUndefined = 9999999
 
 # Alignment, as Word numbers it.
 $alignNames = @{ 0 = 'left'; 1 = 'center'; 2 = 'right'; 3 = 'justify' }
+# How a cell's content sits against the height of the cell.
+$vAlignNames = @{ 0 = 'top'; 1 = 'center'; 3 = 'bottom' }
+# How a row's height is meant: taken from the content, a floor, or a ceiling.
+$rowHeightRules = @{ 0 = 'auto'; 1 = 'atLeast'; 2 = 'exactly' }
+# Where a table sits across the text column.
+$rowAlignNames = @{ 0 = 'left'; 1 = 'center'; 2 = 'right' }
 # Tab alignment and leader, likewise.
 $tabAlignNames = @{ 0 = 'left'; 1 = 'center'; 2 = 'right'; 3 = 'decimal'; 4 = 'bar' }
 $tabLeaderNames = @{ 0 = 'spaces'; 1 = 'dot'; 2 = 'dash'; 3 = 'line'; 4 = 'heavy'; 5 = 'middleDot' }
@@ -116,6 +122,157 @@ function Get-ParaText {
     return $text.TrimEnd([char]13, [char]7)
 }
 
+
+# One table, and everything Word will say about it.
+#
+# The cells are walked through the table's RANGE, not through Rows and Columns.
+# Table.Cell(r, c), Table.Columns and Table.Rows are all documented to fail on
+# a table whose cells do not line up -- "cannot access individual rows in this
+# collection because the table has mixed cell widths" -- and that is exactly
+# the table a merge case is about, so a probe reading cells that way would
+# report nothing for the documents it was written for. Range.Cells does not
+# depend on the table being a plain grid, and every cell it yields carries the
+# RowIndex and ColumnIndex the other reading would have given.
+#
+# Rows are still walked, in their own try, for the handful of properties that
+# belong to a row rather than to a cell. Coming back empty is itself a
+# measurement.
+function Read-Table {
+    param($table, [int]$index, [string]$path, [int]$depth)
+
+    $record = [ordered]@{
+        index              = $index
+        path               = $path
+        depth              = $depth
+        rowCount           = $null
+        columnCount        = $null
+        uniform            = $null
+        style              = $null
+        preferredWidth     = $null
+        preferredWidthType = $null
+        alignment          = $null
+        leftIndent         = $null
+        wrapAroundText     = $null
+        allowAutoFit       = $null
+        page               = $null
+        x                  = $null
+        y                  = $null
+        rows               = @()
+        cells              = @()
+        nested             = @()
+    }
+
+    try { $record.rowCount = [int]$table.Rows.Count } catch { }
+    try { $record.columnCount = [int]$table.Columns.Count } catch { }
+    # False for a table whose cells do not all line up -- which is what a
+    # merged or spanned table is, and the fact a merge case asks Word for.
+    try { $record.uniform = [bool]$table.Uniform } catch { }
+    try { $record.style = [string]$table.Style.NameLocal } catch { }
+    try { $record.preferredWidth = Clean-Undefined $table.PreferredWidth } catch { }
+    try { $record.preferredWidthType = [int]$table.PreferredWidthType } catch { }
+    try { $record.alignment = $rowAlignNames[[int]$table.Rows.Alignment] } catch { }
+    try { $record.leftIndent = [math]::Round([double]$table.Rows.LeftIndent, 2) } catch { }
+    # Whether the text runs around the table rather than above and below it.
+    try { $record.wrapAroundText = [bool]$table.Rows.WrapAroundText } catch { }
+    try { $record.allowAutoFit = [bool]$table.AllowAutoFit } catch { }
+
+    try {
+        $start = $table.Range.Duplicate
+        $null = $start.Collapse($wdCollapseStart)
+        $record.page = [int](Get-Info $start $wdInfoPage)
+        $record.x = Get-Info $start $wdInfoX
+        $record.y = Get-Info $start $wdInfoY
+    } catch { }
+
+    $rows = @()
+    try {
+        $rowIndex = 0
+        foreach ($r in $table.Rows) {
+            $rowIndex += 1
+            $row = [ordered]@{ index = ($rowIndex - 1) }
+            # HeadingFormat is Word's name for w:tblHeader: the row repeats at
+            # the top of every page the table runs onto.
+            try { $row.headingFormat = Clean-Bool $r.HeadingFormat } catch { $row.headingFormat = $null }
+            try { $row.height = Clean-Undefined $r.Height } catch { $row.height = $null }
+            try { $row.heightRule = $rowHeightRules[[int]$r.HeightRule] } catch { $row.heightRule = $null }
+            try { $row.allowBreakAcrossPages = Clean-Bool $r.AllowBreakAcrossPages } catch { $row.allowBreakAcrossPages = $null }
+            try { $row.cellCount = [int]$r.Cells.Count } catch { $row.cellCount = $null }
+            $rows += $row
+        }
+    } catch { }
+    $record.rows = @($rows)
+
+    $cells = @()
+    try {
+        foreach ($c in $table.Range.Cells) {
+            $cell = [ordered]@{ row = $null; column = $null; text = '' }
+
+            try { $cell.row = ([int]$c.RowIndex - 1) } catch { }
+            try { $cell.column = ([int]$c.ColumnIndex - 1) } catch { }
+            # A cell's range ends in the cell marker Word writes, which is two
+            # invisible characters that would otherwise be part of every anchor.
+            try { $cell.text = ($c.Range.Text -replace "[`a`v`f`n`r]", '').Trim() } catch { }
+
+            try { $cell.width = Clean-Undefined $c.Width } catch { $cell.width = $null }
+            try { $cell.preferredWidth = Clean-Undefined $c.PreferredWidth } catch { $cell.preferredWidth = $null }
+            try { $cell.height = Clean-Undefined $c.Height } catch { $cell.height = $null }
+            try { $cell.heightRule = $rowHeightRules[[int]$c.HeightRule] } catch { $cell.heightRule = $null }
+            try { $cell.vAlign = $vAlignNames[[int]$c.VerticalAlignment] } catch { $cell.vAlign = $null }
+            try { $cell.shading = To-Hex $c.Shading.BackgroundPatternColor } catch { $cell.shading = $null }
+
+            # The room inside the cell, which Word calls padding and the file
+            # calls w:tcMar. In points, like everything else this probe reports.
+            try {
+                $cell.padding = [ordered]@{
+                    top    = [math]::Round([double]$c.TopPadding, 2)
+                    right  = [math]::Round([double]$c.RightPadding, 2)
+                    bottom = [math]::Round([double]$c.BottomPadding, 2)
+                    left   = [math]::Round([double]$c.LeftPadding, 2)
+                }
+            } catch { $cell.padding = $null }
+
+            try {
+                $cell.borders = [ordered]@{
+                    top    = ([int]$c.Borders(-1).LineStyle -ne 0)
+                    left   = ([int]$c.Borders(-2).LineStyle -ne 0)
+                    bottom = ([int]$c.Borders(-3).LineStyle -ne 0)
+                    right  = ([int]$c.Borders(-4).LineStyle -ne 0)
+                }
+            } catch { $cell.borders = $null }
+
+            # How the cell's own paragraphs are set. A column's alignment
+            # reaches the page through them, not through the cell.
+            try { $cell.alignment = $alignNames[[int]$c.Range.ParagraphFormat.Alignment] } catch { $cell.alignment = $null }
+
+            try {
+                $at = $c.Range.Duplicate
+                $null = $at.Collapse($wdCollapseStart)
+                $cell.page = [int](Get-Info $at $wdInfoPage)
+                $cell.x = Get-Info $at $wdInfoX
+                $cell.y = Get-Info $at $wdInfoY
+            } catch { }
+
+            $cells += $cell
+        }
+    } catch { }
+    $record.cells = @($cells)
+
+    # The tables inside this one's cells. Depth-limited rather than trusted:
+    # a document that nested tables forever would take the probe with it.
+    if ($depth -lt 3) {
+        $nested = @()
+        try {
+            $at = 0
+            foreach ($inner in $table.Tables) {
+                $nested += Read-Table $inner $at "$path.$at" ($depth + 1)
+                $at += 1
+            }
+        } catch { }
+        $record.nested = @($nested)
+    }
+
+    return $record
+}
 $docxFull = (Resolve-Path -LiteralPath $DocxPath).Path
 $pdfFull = [System.IO.Path]::GetFullPath($PdfPath)
 
@@ -128,6 +285,7 @@ $out = [ordered]@{
     pages       = $null
     pageSetup   = $null
     furniture   = $null
+    tables      = @()
     paragraphs  = @()
     pdfExported = $false
     errors      = @()
@@ -217,6 +375,19 @@ try {
 
         $out.furniture = $furniture
     } catch { $errors += "furniture: $($_.Exception.Message)" }
+
+    # The body's tables. Only the top-level ones are walked here; a table
+    # inside a cell is reached through the cell that holds it, which is where
+    # it belongs and where the nesting is a fact rather than a flat list.
+    try {
+        $tables = @()
+        $tableIndex = 0
+        foreach ($t in $d.Tables) {
+            $tables += Read-Table $t $tableIndex "$tableIndex" 0
+            $tableIndex += 1
+        }
+        $out.tables = @($tables)
+    } catch { $errors += "tables: $($_.Exception.Message)" }
 
     $paragraphs = @()
     $index = 0
@@ -388,4 +559,4 @@ try {
 }
 
 $out.errors = $errors
-$out | ConvertTo-Json -Depth 8 -Compress
+$out | ConvertTo-Json -Depth 12 -Compress

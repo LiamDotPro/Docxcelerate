@@ -47,6 +47,13 @@ the fixed ones leave — and an optional `align`.
 shares them, so declaring them once is what makes the rows line up. It also means
 a cell only has to say what is in it.
 
+A width you give is a width you get. The table is packed with a fixed layout, so
+Word lays the columns out where you put them rather than resizing them around
+whatever happens to be in the cells — which is what makes a money column line up
+with the total under it. That is checked rather than assumed: the conformance
+suite packs this table, opens it in Word, and holds every column boundary to a
+millimetre of where the preview drew it.
+
 ## Rows are ordinary nodes
 
 This is the part worth knowing, because it means there is less to learn than you
@@ -96,6 +103,10 @@ Only the rows a table **starts** with repeat onto each new page. That matters if
 you mark a totals row as a header to give it emphasis: it still gets drawn as a
 heading, but it stays put at the bottom, under the figures it adds up. It won't
 be lifted to the top of page two.
+
+The preview repeats it too. A table longer than a page is broken between two of
+its rows — the same seam Word breaks at — and the heading is drawn again at the
+top of each piece, so a fifty-line invoice looks on screen the way it prints.
 
 ## Variants
 

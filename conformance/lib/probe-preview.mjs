@@ -181,6 +181,38 @@ function harnessHtml(bodyFont) {
       return lines;
     }
 
+    // How many tables a table is standing inside.
+    function depthOf(table) {
+      var depth = 0;
+      var at = table.parentNode;
+      while (at && at.closest) {
+        var outer = at.closest("table");
+        if (outer === null) break;
+        depth += 1;
+        at = outer.parentNode;
+      }
+      return depth;
+    }
+
+    // The lines a cell's words are drawn on.
+    //
+    // Not lineRectsOf(td). A range over a cell's contents holds a block
+    // element -- the paragraph docx-preview put there -- and a range holding a
+    // block reports that block's box, which is the full width of the column
+    // whichever way the text inside it is set. Measured that way a
+    // right-ranged cell and a left one start in the same place, and the number
+    // is the cell's, not the text's. So the paragraphs are measured, and the
+    // cell is only measured directly when it holds none.
+    function cellLinesOf(td) {
+      var paras = [].slice.call(td.querySelectorAll("p"));
+      if (paras.length === 0) return lineRectsOf(td);
+
+      var lines = [];
+      paras.forEach(function (p) { lines = lines.concat(lineRectsOf(p)); });
+      lines.sort(function (a, b) { return a.top - b.top; });
+      return lines;
+    }
+
     var paragraphs = [];
     var articles = boxes.map(function (b) {
       return b.el.querySelector(":scope > article") || b.el;
@@ -262,6 +294,106 @@ function harnessHtml(bodyFont) {
       });
     });
 
+    // Every table drawn on the page, cell by cell.
+    //
+    // Separate from the paragraph slice on purpose: the paragraphs above are
+    // the article's own children, so a cell's paragraph is deliberately not
+    // one of them. A table case asks about the cell, not about a paragraph
+    // that happens to be inside one — where it sits, how wide it is, what it
+    // is filled with and where its words are drawn inside it.
+    //
+    // Nested tables are collected too, in document order, each marked. A
+    // table inside a cell is a table.
+    var tables = [];
+
+    articles.forEach(function (article, pageIndex) {
+      var content = boxes[pageIndex].content;
+
+      [].slice.call(article.querySelectorAll("table")).forEach(function (table) {
+        var rect = table.getBoundingClientRect();
+        var rows = [].slice.call(table.rows);
+
+        tables.push({
+          pageIndex: pageIndex,
+          index: tables.length,
+          // A table whose parent chain holds another table. Its own rows are
+          // all that table.rows returns, so the two never double-count.
+          nested: depthOf(table) > 0,
+          depth: depthOf(table),
+
+          x: r2(rect.x - content.x),
+          y: r2(rect.y - content.y),
+          w: r2(rect.width),
+          h: r2(rect.height),
+
+          rowCount: rows.length,
+          rows: rows.map(function (tr, rowIndex) {
+            var rowRect = tr.getBoundingClientRect();
+            var column = 0;
+
+            return {
+              index: rowIndex,
+              y: r2(rowRect.y - content.y),
+              h: r2(rowRect.height),
+              cells: [].slice.call(tr.cells).map(function (td, cellIndex) {
+                var cellRect = td.getBoundingClientRect();
+                var cs = view.getComputedStyle(td);
+                var span = td.colSpan || 1;
+                var at = column;
+                var lines = cellLinesOf(td);
+                // Alignment lives on the paragraph docx-preview put inside the
+                // cell, never on the cell itself: reading it off the td
+                // returns the browser's own default for a right-ranged column.
+                var para = td.querySelector("p");
+                var pcs = para === null ? null : view.getComputedStyle(para);
+
+                column += span;
+
+                return {
+                  index: cellIndex,
+                  column: at,
+                  colSpan: span,
+                  text: td.textContent,
+
+                  x: r2(cellRect.x - content.x),
+                  y: r2(cellRect.y - content.y),
+                  w: r2(cellRect.width),
+                  h: r2(cellRect.height),
+
+                  background: cs.backgroundColor,
+                  verticalAlign: cs.verticalAlign,
+                  textAlign: pcs === null ? null : pcs.textAlign,
+
+                  paddingLeft: r2(parseFloat(cs.paddingLeft) || 0),
+                  paddingTop: r2(parseFloat(cs.paddingTop) || 0),
+                  paddingRight: r2(parseFloat(cs.paddingRight) || 0),
+                  paddingBottom: r2(parseFloat(cs.paddingBottom) || 0),
+
+                  borderTopColor: parseFloat(cs.borderTopWidth) > 0 ? cs.borderTopColor : null,
+                  borderRightColor: parseFloat(cs.borderRightWidth) > 0 ? cs.borderRightColor : null,
+                  borderBottomColor: parseFloat(cs.borderBottomWidth) > 0 ? cs.borderBottomColor : null,
+                  borderLeftColor: parseFloat(cs.borderLeftWidth) > 0 ? cs.borderLeftColor : null,
+
+                  // Where the words are drawn inside the cell, which is not
+                  // where the cell is: a right-ranged column's cells are the
+                  // width of the column whichever way their text is set.
+                  lineCount: lines.length,
+                  lines: lines.map(function (line) {
+                    return {
+                      x: r2(line.left - content.x),
+                      y: r2(line.top - content.y),
+                      w: r2(line.right - line.left),
+                      h: r2(line.bottom - line.top)
+                    };
+                  })
+                };
+              })
+            };
+          })
+        });
+      });
+    });
+
     // How tall a running strip actually draws.
     //
     // Not the container's height: docx-preview gives a header and a footer a
@@ -321,6 +453,7 @@ function harnessHtml(bodyFont) {
       }),
       furniture: furniture,
       paragraphs: paragraphs,
+      tables: tables,
       fontProbe: fontProbe(BODY_FONT),
       // What the paginator did, straight from the page it ran on. Without
       // this a preview that failed to paginate is indistinguishable from one
@@ -431,6 +564,7 @@ export async function runPreviewProbe({ outDir, htmlPath, bodyFont, screenshots 
     sections: [],
     furniture: [],
     paragraphs: [],
+    tables: [],
     fontProbe: null,
     screenshots: [],
   };
@@ -466,6 +600,7 @@ export async function runPreviewProbe({ outDir, htmlPath, bodyFont, screenshots 
     output.sections = measured.sections;
     output.furniture = measured.furniture ?? [];
     output.paragraphs = measured.paragraphs;
+    output.tables = measured.tables ?? [];
     output.fontProbe = measured.fontProbe;
     output.paginated = measured.paginated ?? null;
     output.tabsPlaced = measured.tabsPlaced ?? null;
@@ -514,6 +649,25 @@ export function previewView(measure) {
   };
 
   const lastLine = (p) => p.lines[p.lines.length - 1];
+  // A cell, by the words a reader sees in it. Same case-insensitivity as the
+  // paragraph side, and for the same reason: a heading cell set in `w:caps`
+  // says one thing in the file and prints another.
+  const findCell = (anchor) => {
+    const wanted = anchor.toLowerCase();
+
+    for (const table of byDepth(measure.tables)) {
+      for (const row of table.rows) {
+        for (const cell of row.cells) {
+          if ((cell.text ?? "").toLowerCase().includes(wanted)) {
+            return { ...cell, pageIndex: table.pageIndex, table: table.index, row: row.index };
+          }
+        }
+      }
+    }
+
+    return missingCell(anchor);
+  };
+
 
   return {
     ...measure,
@@ -611,6 +765,153 @@ export function previewView(measure) {
     headerText: (page = 1) => (measure.furniture?.[page - 1]?.header?.text ?? "").trim(),
     /** What the footer prints on a given page. */
     footerText: (page = 1) => (measure.furniture?.[page - 1]?.footer?.text ?? "").trim(),
+    // --- tables -------------------------------------------------------------
+    //
+    // A cell is not a paragraph, and the lookups above will not find one: the
+    // paragraph slice is the article's own children, so a cell's paragraph is
+    // deliberately not in it. These are the same questions asked of a cell.
+
+    /** Every table the preview drew, nested ones included, in document order. */
+    tables: measure.tables ?? [],
+
+    /** One table, counting from zero. */
+    table(index = 0) {
+      return (measure.tables ?? [])[index] ?? missingTable(`#${index}`);
+    },
+
+    /** Only the tables one is standing inside another. */
+    nestedTables() {
+      return (measure.tables ?? []).filter((table) => table.nested);
+    },
+
+    /** The cell whose text contains this anchor. First match wins. */
+    cell: findCell,
+
+    /**
+     * Every cell whose text contains this anchor.
+     *
+     * How a repeated header row is counted: the words appear once in the file
+     * and twice on the page, so the question "was it drawn again" is a
+     * question about how many cells say it.
+     */
+    cells(anchor) {
+      const wanted = anchor.toLowerCase();
+
+      return byDepth(measure.tables).flatMap((table) =>
+        table.rows.flatMap((row) =>
+          row.cells
+            .filter((cell) => (cell.text ?? "").toLowerCase().includes(wanted))
+            .map((cell) => ({ ...cell, pageIndex: table.pageIndex, table: table.index, row: row.index }))
+        )
+      );
+    },
+
+    /** One cell by where it sits: table, row, then cell across the row. */
+    cellAt(table, row, cell) {
+      const found = (measure.tables ?? [])[table]?.rows?.[row]?.cells?.[cell];
+      return found ?? missingCell(`#${table}.${row}.${cell}`);
+    },
+
+    /** The row a cell sits in, as the preview drew it. */
+    row(table, row) {
+      const found = (measure.tables ?? [])[table]?.rows?.[row];
+      return found ?? { index: -1, missing: true, y: null, h: null, cells: [] };
+    },
+
+    /**
+     * Where a cell's words start, which is not where the cell starts.
+     *
+     * The same distinction the paragraph side draws: a right-ranged column's
+     * cells are the full width of the column whichever way their text is set,
+     * and only the lines inside them move.
+     */
+    cellTextLeft(anchor) {
+      const line = findCell(anchor).lines[0];
+      return line === undefined ? null : line.x;
+    },
+
+    /** The furthest right a cell's words reach. */
+    cellTextRight(anchor) {
+      const lines = findCell(anchor).lines;
+      return lines.length === 0 ? null : Math.max(...lines.map((line) => line.x + line.w));
+    },
+
+    /** The axis a cell's words are centred on. */
+    cellTextCentre(anchor) {
+      const line = findCell(anchor).lines[0];
+      return line === undefined ? null : line.x + line.w / 2;
+    },
+
+    /** How far down the cell a cell's first line is drawn, from the cell's top. */
+    cellTextTop(anchor) {
+      const cell = findCell(anchor);
+      const line = cell.lines[0];
+      return line === undefined || cell.y === null ? null : line.y - cell.y;
+    },
+
+  };
+}
+
+/**
+ * The tables a page drew, innermost first.
+ *
+ * A cell's text is everything printed inside it, so an outer cell matches
+ * every anchor its inner table matches — and the inner cell is the one an
+ * anchor names. Both other probes order theirs the same way, which is what
+ * keeps one anchor meaning one cell across all three.
+ */
+function byDepth(tables) {
+  return [...(tables ?? [])].sort((a, b) => (b.depth ?? 0) - (a.depth ?? 0));
+}
+
+/**
+ * The stand-ins for a table and a cell the preview never drew.
+ *
+ * Null rather than undefined, for the same reason a missing paragraph is: an
+ * assertion against a table that is not there should report the property it
+ * wanted as `null`, not die reaching for it.
+ */
+function missingTable(anchor) {
+  return {
+    missing: true,
+    anchor,
+    pageIndex: null,
+    index: -1,
+    nested: false,
+    x: null,
+    y: null,
+    w: null,
+    h: null,
+    rowCount: 0,
+    rows: [],
+  };
+}
+
+function missingCell(anchor) {
+  return {
+    missing: true,
+    anchor,
+    index: -1,
+    column: null,
+    colSpan: null,
+    text: "",
+    x: null,
+    y: null,
+    w: null,
+    h: null,
+    background: null,
+    verticalAlign: null,
+    textAlign: null,
+    paddingLeft: null,
+    paddingTop: null,
+    paddingRight: null,
+    paddingBottom: null,
+    borderTopColor: null,
+    borderRightColor: null,
+    borderBottomColor: null,
+    borderLeftColor: null,
+    lineCount: 0,
+    lines: [],
   };
 }
 

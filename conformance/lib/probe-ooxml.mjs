@@ -288,6 +288,299 @@ function numAttr(xml, name) {
   return Number.isFinite(number) ? number : null;
 }
 
+// ---------------------------------------------------------------------------
+// Tables
+//
+// A table is the one shape in this file that nests: a cell holds paragraphs,
+// and it may hold another table. So none of the reading below can use the
+// first-match helpers above without saying where to stop — `element(cellXml,
+// "w:tcPr")` on a plain cell that happens to contain a nested table returns
+// the *inner* cell's properties, which is a measurement of the wrong cell that
+// looks exactly like a measurement of the right one.
+//
+// Two rules keep that from happening. Children are found by a depth-aware
+// scan rather than by a non-greedy regex, and properties are read only from
+// the head of an element — the part before its first child — because OOXML
+// always writes `w:tblPr`, `w:trPr` and `w:tcPr` first.
+// ---------------------------------------------------------------------------
+
+/**
+ * Every `<name>` element directly inside this XML, ignoring any nested inside
+ * one of `notInside`.
+ *
+ * A non-greedy `<w:tbl>[\s\S]*?</w:tbl>` stops at the first closing tag, which
+ * for a table holding a table is halfway through the outer one. Depth is the
+ * only way to read a shape that can contain itself.
+ */
+function scanElements(xml, name, notInside = []) {
+  const source = xml ?? "";
+  const guards = new Set(notInside);
+  const found = [];
+
+  let guardDepth = 0;
+  let depth = 0;
+  let start = -1;
+
+  for (const match of source.matchAll(/<(\/?)(w:[A-Za-z]+)(?:\s[^>]*?)?(\/?)>/g)) {
+    const [whole, close, tag, selfClose] = match;
+
+    if (guards.has(tag)) {
+      if (selfClose !== "/") guardDepth += close === "/" ? -1 : 1;
+      continue;
+    }
+    if (tag !== name) continue;
+
+    if (selfClose === "/") {
+      // An empty element, written closed. It still occupies its place.
+      if (guardDepth === 0 && depth === 0) found.push(whole);
+      continue;
+    }
+
+    if (close === "/") {
+      depth -= 1;
+      if (depth === 0 && guardDepth === 0 && start !== -1) {
+        found.push(source.slice(start, match.index + whole.length));
+        start = -1;
+      }
+      continue;
+    }
+
+    if (guardDepth === 0 && depth === 0 && start === -1) start = match.index;
+    depth += 1;
+  }
+
+  return found;
+}
+
+/**
+ * The head of an element: everything before the first child of these names.
+ *
+ * This is the region an element's own properties live in, and reading them
+ * from anywhere else is how a nested table's cell ends up answering for the
+ * cell that holds it.
+ */
+function headOf(xml, ...stops) {
+  const source = xml ?? "";
+  const cut = stops.map((stop) => source.indexOf(`<${stop}`)).filter((index) => index !== -1);
+
+  return cut.length === 0 ? source : source.slice(0, Math.min(...cut));
+}
+
+/**
+ * What is inside an element, with its own opening and closing tags removed.
+ *
+ * Children are scanned for inside this, never inside the whole element. A
+ * table's rows are found by skipping anything within a nested `w:tbl` — and
+ * the table's own `<w:tbl>` is a `w:tbl`, so scanning the element whole finds
+ * every row nested inside itself and returns none of them.
+ */
+function innerOf(xml) {
+  const open = (xml ?? "").indexOf(">");
+  const close = (xml ?? "").lastIndexOf("</");
+
+  return open === -1 || close <= open ? "" : xml.slice(open + 1, close);
+}
+
+/** A `w:tblW`-shaped width: the number, and the unit it is counted in. */
+function widthOf(xml, name) {
+  const found = element(xml, name);
+  if (found === null) return null;
+  return { size: numAttr(found, "w:w") ?? 0, type: attr(found, "w:type") };
+}
+
+/** The four sides of a `w:tcMar` or `w:tblCellMar`, in twips. */
+function marginsOf(xml, name) {
+  const found = element(xml, name);
+  if (found === null) return null;
+
+  return {
+    top: childNum(found, "w:top", "w:w"),
+    right: childNum(found, "w:right", "w:w"),
+    bottom: childNum(found, "w:bottom", "w:w"),
+    left: childNum(found, "w:left", "w:w"),
+  };
+}
+
+/** Every edge of a `w:tblBorders` or `w:tcBorders`. An undrawn edge is null. */
+function bordersOf(xml, name) {
+  const found = element(xml, name);
+  if (found === null) return null;
+
+  return {
+    top: borderOf(found, "top"),
+    right: borderOf(found, "right"),
+    bottom: borderOf(found, "bottom"),
+    left: borderOf(found, "left"),
+    insideH: borderOf(found, "insideH"),
+    insideV: borderOf(found, "insideV"),
+  };
+}
+
+/**
+ * One cell, read whole.
+ *
+ * `column` is the grid column the cell begins in rather than its place among
+ * its siblings. The two are the same number until something spans, and a case
+ * about spanning that counted siblings would be counting the wrong thing.
+ */
+function readCell(xml, index, column) {
+  const inner = innerOf(xml);
+  const tcPr = element(headOf(inner, "w:p", "w:tbl"), "w:tcPr");
+  const vMerge = tcPr === null ? null : element(tcPr, "w:vMerge");
+  const gridSpan = childNum(tcPr, "w:gridSpan", "w:val");
+
+  return {
+    index,
+    /** Where the cell begins in the table's grid, spans counted. */
+    column,
+    text: textOf(xml),
+
+    /** The cell's own declared width, when it has one. */
+    width: widthOf(tcPr, "w:tcW"),
+    /** How many grid columns it runs across. */
+    gridSpan: gridSpan ?? 1,
+    /**
+     * A vertical merge, in the two halves OOXML writes it in: `restart` opens
+     * one, `continue` is a cell swallowed by the one above it. Null is a cell
+     * that merges with nothing.
+     */
+    vMerge: vMerge === null ? null : attr(vMerge, "w:val") ?? "continue",
+
+    /** Cell shading, as the fill hex without a `#`. */
+    shd: childAttr(tcPr, "w:shd", "w:fill"),
+    /** How the content sits against the height of the cell. */
+    vAlign: childAttr(tcPr, "w:vAlign", "w:val"),
+    /** Borders, by edge. An undrawn edge is null. */
+    borders: bordersOf(tcPr, "w:tcBorders"),
+    /** The room left inside the cell, in twips. */
+    margins: marginsOf(tcPr, "w:tcMar"),
+
+    /** The paragraphs the cell holds, read exactly as a body paragraph is. */
+    paragraphs: scanElements(inner, "w:p", ["w:tbl"]).map(readParagraph),
+    /** The tables inside it. A table that holds a table holds it here. */
+    tables: scanElements(inner, "w:tbl").map((table, at) => readTable(table, at)),
+
+    xml,
+  };
+}
+
+/** One row, and the cells across it. */
+function readRow(xml, index) {
+  const inner = innerOf(xml);
+  const trPr = element(headOf(inner, "w:tc"), "w:trPr");
+  const height = trPr === null ? null : element(trPr, "w:trHeight");
+
+  let column = 0;
+  const cells = scanElements(inner, "w:tc", ["w:tbl"]).map((cell, at) => {
+    const record = readCell(cell, at, column);
+    column += record.gridSpan;
+    return record;
+  });
+
+  return {
+    index,
+    text: textOf(xml),
+
+    /**
+     * Whether the row repeats at the top of every page the table runs onto.
+     *
+     * Three-state, like every OOXML toggle: `<w:tblHeader/>` is on,
+     * `<w:tblHeader w:val="false"/>` is explicitly off, and no element at all
+     * is inherit. The packer writes the middle one, and a probe that collapsed
+     * it into the last would report a row as having said nothing when it said
+     * no.
+     */
+    tblHeader: toggle(trPr, "w:tblHeader"),
+    /** Whether the row is forbidden to split across a page. */
+    cantSplit: toggle(trPr, "w:cantSplit"),
+
+    /** A declared row height, in twips. */
+    heightTwips: height === null ? null : numAttr(height, "w:val"),
+    /** `atLeast` grows to fit, `exact` clips, `auto` takes the content's. */
+    heightRule: height === null ? null : attr(height, "w:hRule") ?? "atLeast",
+
+    cellCount: cells.length,
+    cells,
+  };
+}
+
+/** One table, and everything under it. */
+function readTable(xml, index) {
+  const inner = innerOf(xml);
+  const head = headOf(inner, "w:tr");
+  const tblPr = element(head, "w:tblPr");
+  const grid = element(head, "w:tblGrid");
+  const rows = scanElements(inner, "w:tr", ["w:tbl"]).map(readRow);
+
+  return {
+    index,
+    text: textOf(xml),
+
+    /** What the table declares its own width to be. */
+    width: widthOf(tblPr, "w:tblW"),
+    /**
+     * How far the table is indented from the text column's left edge.
+     *
+     * Negative is a bleed — a table pulled out past the margin to the paper's
+     * edge. `w:tblInd` carries its value in `w:w`, not the `w:left` a reader
+     * of `w:ind` would look for, which is the whole reason the preview needed
+     * a fix here.
+     */
+    indent: widthOf(tblPr, "w:tblInd"),
+    /** Table alignment, when the table is not simply left where it stands. */
+    jc: childAttr(tblPr, "w:jc", "w:val"),
+    /** `fixed` honours the declared widths; `autofit` lets Word rework them. */
+    layout: childAttr(tblPr, "w:tblLayout", "w:type"),
+    /** A named Word table style, when the file leans on one. */
+    style: childAttr(tblPr, "w:tblStyle", "w:val"),
+    /** Whether the table floats, with the text wrapped around it. */
+    floating: element(tblPr, "w:tblpPr") !== null,
+    /** The grid every row's cells are laid on, in twips. */
+    gridTwips: grid === null
+      ? []
+      : elements(grid, "w:gridCol").map((column) => numAttr(column, "w:w") ?? 0),
+    /** The borders the table draws around and between its cells. */
+    borders: bordersOf(tblPr, "w:tblBorders"),
+    /** The room every cell leaves unless it says otherwise, in twips. */
+    cellMargins: marginsOf(tblPr, "w:tblCellMar"),
+
+    rowCount: rows.length,
+    rows,
+  };
+}
+
+/**
+ * Every table in a list, the nested ones included, innermost first.
+ *
+ * `path` names where each one was found — `0` is the first body table, and
+ * `0.1.2.0` is the first table inside the third cell of its second row. A
+ * nested-table case is asking about exactly that string.
+ *
+ * The order is what makes an anchor mean the cell a reader would point at. A
+ * cell's text is everything printed inside it, a nested table's words
+ * included, so an outer cell matches every anchor its inner table matches —
+ * and the outer one is never the answer, because the inner cell is the more
+ * specific of the two. Deepest first settles it once, here, rather than in
+ * every lookup.
+ */
+function flattenTables(tables, prefix = "", depth = 0) {
+  const found = [];
+
+  for (const table of tables) {
+    const path = `${prefix}${table.index}`;
+
+    for (const row of table.rows) {
+      for (const cell of row.cells) {
+        found.push(...flattenTables(cell.tables, `${path}.${row.index}.${cell.index}.`, depth + 1));
+      }
+    }
+
+    found.push({ ...table, path, depth });
+  }
+
+  return found;
+}
+
 /**
  * Everything probe A reports about one packed file.
  *
@@ -309,6 +602,11 @@ export function measureOoxml(zip) {
   // shift every index a paragraph case counts on.
   const body = element(document, "w:body") ?? document;
   const paragraphs = topLevelParagraphs(body).map(readParagraph);
+  // The body's own tables, each read whole — its rows, its cells, and any
+  // table one of those cells holds. The body slice above deliberately leaves a
+  // cell's paragraphs out; this is where they are.
+  const tables = scanElements(body, "w:tbl").map(readTable);
+
 
   const sectPr = element(body, "w:sectPr");
   const pgSz = sectPr === null ? null : element(sectPr, "w:pgSz");
@@ -321,6 +619,9 @@ export function measureOoxml(zip) {
     paragraphs,
     /** Every paragraph in the file, cells and furniture included. */
     allParagraphCount: elements(document, "w:p").length,
+    /** The body's tables, in order, each holding its own rows and cells. */
+    tableCount: tables.length,
+    tables,
     section: {
       widthTwips: pgSz === null ? null : numAttr(pgSz, "w:w"),
       heightTwips: pgSz === null ? null : numAttr(pgSz, "w:h"),
@@ -440,9 +741,144 @@ export function ooxmlView(measure) {
     paras(anchor) {
       return measure.paragraphs.filter((p) => p.text.includes(anchor));
     },
+    /**
+     * One of the body's tables, wrapped so a row and a cell are one step away.
+     *
+     * `a.table(0).row(1).cell(2)` is the shape every table assertion is
+     * written in. The wrapping happens here rather than in the measurement so
+     * `measure-a.json` stays plain data — a reader of the evidence should not
+     * have to know which of its fields were functions.
+     */
+    table(index = 0) {
+      return tableView(measure.tables?.[index] ?? missingTable(`#${index}`));
+    },
+
+    /** Every cell whose text contains this anchor, nested tables included. */
+    cells(anchor) {
+      const wanted = anchor.toLowerCase();
+
+      return flattenTables(measure.tables ?? []).flatMap((table) =>
+        table.rows.flatMap((row) =>
+          row.cells
+            .filter((cell) => cell.text.toLowerCase().includes(wanted))
+            .map((cell) => ({ ...cell, table: table.path, row: row.index }))
+        )
+      );
+    },
+
+    /** Every table in the file, the nested ones included, each with its path. */
+    allTables() {
+      return flattenTables(measure.tables ?? []);
+    },
+
+    /**
+     * The cell whose text contains this anchor, wherever in the document it is.
+     *
+     * Nested tables included, and case-insensitively — a heading cell set in
+     * `w:caps` says one thing in the file and another on the page, and an
+     * anchor names what a reader sees.
+     */
+    cell(anchor) {
+      const wanted = anchor.toLowerCase();
+
+      for (const table of flattenTables(measure.tables ?? [])) {
+        for (const row of table.rows) {
+          for (const cell of row.cells) {
+            if (cell.text.toLowerCase().includes(wanted)) {
+              return { ...cell, table: table.path, row: row.index };
+            }
+          }
+        }
+      }
+
+      return missingCell(anchor);
+    },
+
   };
 }
 
+
+/** A table with its rows one step away, and its cells two. */
+function tableView(table) {
+  return {
+    ...table,
+    /** The nth row, counting from zero. */
+    row(index = 0) {
+      const found = table.rows?.[index] ?? missingRow(`#${index}`);
+      return {
+        ...found,
+        /** The nth cell of that row, counting from zero. */
+        cell(at = 0) {
+          return found.cells?.[at] ?? missingCell(`#${index}.${at}`);
+        },
+      };
+    },
+  };
+}
+
+/**
+ * The stand-ins for a table, a row and a cell that are not there.
+ *
+ * Every field is null or empty rather than the object being undefined, so an
+ * assertion against a table the packer never wrote reports the property it
+ * wanted as `null` instead of dying on a property access. "Not found" is a
+ * measurement, and it is exactly the measurement an unsupported-feature case
+ * exists to record.
+ */
+function missingTable(anchor) {
+  return {
+    index: -1,
+    missing: true,
+    anchor,
+    text: "",
+    width: null,
+    indent: null,
+    jc: null,
+    layout: null,
+    style: null,
+    floating: false,
+    gridTwips: [],
+    borders: null,
+    cellMargins: null,
+    rowCount: 0,
+    rows: [],
+  };
+}
+
+function missingRow(anchor) {
+  return {
+    index: -1,
+    missing: true,
+    anchor,
+    text: "",
+    tblHeader: null,
+    cantSplit: null,
+    heightTwips: null,
+    heightRule: null,
+    cellCount: 0,
+    cells: [],
+  };
+}
+
+function missingCell(anchor) {
+  return {
+    index: -1,
+    missing: true,
+    anchor,
+    column: null,
+    text: "",
+    width: null,
+    gridSpan: null,
+    vMerge: null,
+    shd: null,
+    vAlign: null,
+    borders: null,
+    margins: null,
+    paragraphs: [],
+    tables: [],
+    xml: "",
+  };
+}
 /**
  * The stand-in for a paragraph that is not there.
  *

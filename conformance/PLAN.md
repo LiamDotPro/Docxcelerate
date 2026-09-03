@@ -214,6 +214,9 @@ case is the first case to write for that row.
 | --- | --- | --- | --- |
 | **Paginates by content** | **yes — added** | `preview/content-pagination` | `paginateDocxPreview`; matches Word exactly on ordinary paragraphs |
 | Splits a paragraph across a break | no | — | breaks between blocks only, so a paragraph moves whole |
+| **Splits a table between its rows** | **yes — added** | `preview/table-pagination` | `splitTable`; three pages where Word takes three, the seam within one row |
+| **Holds a page to the size of the paper** | **yes — was silently false** | `preview/table-pagination` | a block that would not fit used to make its page taller: a first sheet 593mm deep above a second of ordinary A4 |
+| **Repeats a heading row onto a new page** | **yes — added** | `tables/header-row-repeat` | `readPackedTables` reads `w:tblHeader`, settle moves those rows into a `<thead>`, and the split copies it |
 
 ### Paragraphs — **done**
 
@@ -263,22 +266,49 @@ the paragraph can vary. Everything in this block is a single design decision
 | Bookmarks, cross-references | no | — | `fields/bookmark-crossref` |
 | Footnotes / endnotes | no | — | `fields/footnote` |
 
-### Tables
+### Tables — **done**
 
-| Feature | State | Evidence | Seed case |
+The suite has been through this area on all four tiers against Word 16. Every
+row below is a case under `conformance/cases/tables/`. Three of them were red
+when they were written and are green now: writing the case found the bug, and
+the bug was one or two lines each.
+
+| Feature | State | Case | Note |
 | --- | --- | --- | --- |
-| Column widths (mm and `auto`) | yes | `columnWidths` | `tables/column-widths` |
-| Column / cell alignment | yes | `alignments` | `tables/cell-align` |
-| Header row repeat | yes | `TableRowNode.header` | `tables/header-row-repeat` |
-| Horizontal span | yes | `TableCellNode.span` | `tables/colspan` |
-| **Vertical merge** | no — no `rowSpan` in the model | — | `tables/rowspan` |
-| Cell fill, per-side borders, padding | yes | `blockBorders`, `cellPadding` | `tables/cell-borders` |
-| Vertical alignment in a cell | yes | `verticalAlignOf` | `tables/cell-valign` |
-| Bleeding table (negative `tblInd`) | yes — the preview needed a fix | `applyTableIndents` | `tables/bleed` |
-| Fixed row height | no | — | `tables/row-height` |
-| Nested table | untested | — | `tables/nested` |
-| Table style / banded rows from Word | no | — | `tables/banded-style` |
-| Table alignment and float | no | — | `tables/float` |
+| Column widths (mm and `auto`) | **yes — was silently wrong** | `tables/column-widths` | A·B·C·X green since `w:tblLayout`, see below |
+| Column / cell alignment | **yes — added** | `tables/cell-align` | A·B·C·X green |
+| Header row repeat | **yes — all four tiers** | `tables/header-row-repeat` | the preview repeats it too now, see below |
+| Horizontal span | **yes — added** | `tables/colspan` | A·B·C·X green; Word reads the table as non-uniform |
+| **Vertical merge** | no — no `rowSpan` in the model | `tables/rowspan` | nothing writes `w:vMerge`; the label is repeated or left blank |
+| Cell fill, per-side borders, padding | **yes — was spaced twice** | `tables/cell-borders` | A·B·C·X green since the `w:space` fix, see below |
+| Vertical alignment in a cell | **yes — added** | `tables/cell-valign` | A·B·C·X green |
+| Bleeding table (negative `tblInd`) | yes — the preview needed a fix | `tables/bleed` | A·B·C·X green; `applyTableIndents` holds |
+| Fixed row height | no | `tables/row-height` | no height on a row; `heightPt` sets leading, which is not the same thing |
+| Nested table | **yes — measured** | `tables/nested` | was untested; A·B·C·X green |
+| Banded rows | **yes — added** | `tables/banded-rows` | per-cell `w:shd` counted by the renderer, never a `w:tblStyle` |
+| Table alignment and float | no | `tables/float` | no `w:jc` on a table, no `w:tblpPr` |
+
+Three bugs came out of writing these, in the order they cost most. All three
+are fixed, and the case that found each one is what keeps it fixed.
+
+1. **Word reworked the column widths.** The packer emitted a correct
+   `w:tblGrid` and no `w:tblLayout`, and a table without one is autofit to its
+   contents — so 60mm / 40mm / 70mm printed as 67.5mm / 50.9mm / 51.6mm. The
+   total was right, which is why nobody had noticed: the table still filled the
+   column and only the boundaries inside it were wrong. The preview honoured
+   the grid, so the two engines disagreed by up to 18mm about where a column
+   starts. `renderTable` now declares `TableLayoutType.FIXED`, and so does the
+   card a picture stands in. `tables/column-widths` holds the numbers.
+2. **A cell's padding was written twice.** `blockBorders` set `w:space` from
+   the block's padding, which is right for `w:pBdr` — where `w:space` is the
+   gap between the border and the text and the only room a paragraph can have
+   — and wrong for `w:tcBorders`, where the room inside is `w:tcMar`'s job.
+   Word added the two and drew a padded panel 12pt lower than the preview did,
+   and everything below it 12pt lower again. `blockBorders` now takes which
+   element it is drawing for. `tables/cell-borders` holds it.
+3. **The preview could not break a table.** Covered in the preview section
+   below, along with the second failure hiding behind it.
+
 
 ### Images and graphics
 
@@ -305,8 +335,16 @@ the paragraph can vary. Everything in this block is a single design decision
 | Column / section break | no | — | `breaks/section-break` |
 | Core properties (author, subject, keywords) | title only | `createDocxDocument` | `meta/core-properties` |
 
-**26 features work, 4 are partial, 1 is untested, 29 are absent.** That count is the
-thing this plan exists to move, and the board is where it moves in public.
+**29 features work, 4 are partial, 29 are absent.** That count is the thing
+this plan exists to move, and the board is where it moves in public.
+
+It moved twice through the tables area, and the first move was downward, which
+is the suite working. Three features written down as working turned out to work
+in the file and not in Word — declared column widths, a padded cell, a header
+row on page two — and one written down as untested turned out to work. Then
+each of the three was one or two lines to fix, because a case with a failing
+assertion and a number beside it is a small problem. A count that only ever
+improves is a count nobody is measuring.
 
 ---
 
@@ -363,6 +401,29 @@ link instead of a discussion.
    `headings/nested-levels`.
 6. **Then fix them, one red case at a time.** Each is now a small problem with an
    id, a failing assertion, and a picture of what Word does instead.
+
+Steps 1 to 4 are done, and steps 5 and 6 are through the paragraph and table
+areas. What the tables pass turned up has been fixed, in the same pass:
+
+- **`w:tblLayout` on every table.** Word autofits a grid it was not told to
+  keep, so every declared column width was a suggestion it ignored. Held by
+  `tables/column-widths`.
+- **No `w:space` on a cell border.** `blockBorders` is written for `w:pBdr`,
+  where the space is the gap to the text; on `w:tcBorders` it was a second
+  helping of the padding, and Word served both. Held by `tables/cell-borders`.
+- **A table broken between its rows, on a page the size of the paper.** The
+  paginator let a block it could not split make its page taller instead, so a
+  three-page table was drawn as one sheet 593mm deep. `splitTable` breaks it at
+  the last row that fits and carries the heading over. Held by
+  `preview/table-pagination` and `tables/header-row-repeat`.
+
+What is left in this area is the two features nothing can express yet — a
+vertical merge (`tables/rowspan`) and a row with a height of its own
+(`tables/row-height`) — both of which need a field on the model rather than a
+line in the renderer. Table alignment (`tables/float`) is small and behaves;
+floating a table is a question rather than a task, because `w:tblpPr` takes a
+table out of the flow and makes the paragraphs wrap around it, and a preview
+reproducing that is a preview doing its own line breaking.
 
 ## 8. What the suite must never do
 

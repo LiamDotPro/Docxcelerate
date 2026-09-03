@@ -161,6 +161,17 @@ export function wordView(measure) {
     xEnd: para.xEnd === null || para.xEnd === undefined ? null : round(para.xEnd - setup.leftMargin),
   });
 
+  // A cell's geometry, reduced to the same content-relative points a
+  // paragraph's is. Word reports both against the sheet; every other tier
+  // reports against the text column, and a frame mismatch is how a harness
+  // invents a divergence that is really its own arithmetic.
+  const relativeCell = (cell, table) => ({
+    ...cell,
+    table: table.path ?? table.index,
+    x: cell.x === null || cell.x === undefined ? null : round(cell.x - setup.leftMargin),
+    y: cell.y === null || cell.y === undefined ? null : round(cell.y - setup.topMargin),
+  });
+
   return {
     ...measure,
     paragraphs: body,
@@ -197,9 +208,179 @@ export function wordView(measure) {
     differentFirstPage: () => measure.pageSetup?.differentFirstPageHeaderFooter ?? null,
     /** Whether Word was told left and right pages differ. */
     differentOddAndEven: () => measure.pageSetup?.oddAndEvenPagesHeaderFooter ?? null,
+    // --- tables -------------------------------------------------------------
+    //
+    // Word counts a cell's paragraph among the document's paragraphs, and the
+    // body slice above deliberately leaves it out. These are the same
+    // questions asked of a cell, with the geometry reduced to the same
+    // content-relative frame every other measurement here is in.
+
+    /** Every table Word found in the body, in order. */
+    tables: listOf(measure.tables),
+
+    /** One table, counting from zero. */
+    table(index = 0) {
+      return tableView(listOf(measure.tables)[index] ?? missingTable(`#${index}`));
+    },
+
+    /**
+     * The cell whose text contains this anchor, wherever it is.
+     *
+     * Nested tables included, and case-insensitively — a heading cell set in
+     * `w:caps` comes back from Word in capitals whatever the file says.
+     */
+    cell(anchor) {
+      const wanted = anchor.toLowerCase();
+
+      for (const table of flatTables(listOf(measure.tables))) {
+        for (const cell of listOf(table.cells)) {
+          if ((cell.text ?? "").toLowerCase().includes(wanted)) {
+            return relativeCell(cell, table);
+          }
+        }
+      }
+
+      return missingCell(anchor);
+    },
+
+    /** Every cell whose text contains this anchor, nested tables included. */
+    cells(anchor) {
+      const wanted = anchor.toLowerCase();
+
+      return flatTables(listOf(measure.tables)).flatMap((table) =>
+        listOf(table.cells)
+          .filter((cell) => (cell.text ?? "").toLowerCase().includes(wanted))
+          .map((cell) => relativeCell(cell, table))
+      );
+    },
+
+    /** One cell by where it sits: table, then row and column of the grid. */
+    cellAt(table, row, column) {
+      const found = flatTables(listOf(measure.tables))[table];
+      if (found === undefined) return missingCell(`#${table}.${row}.${column}`);
+
+      const cell = listOf(found.cells)
+        .find((entry) => entry.row === row && entry.column === column);
+
+      return cell === undefined
+        ? missingCell(`#${table}.${row}.${column}`)
+        : relativeCell(cell, found);
+    },
+
   };
 }
 
+
+/**
+ * A list, whatever the probe made of it.
+ *
+ * A field the Word probe could not fill is absent rather than empty — a run
+ * that failed before it reached the tables, an older `measure-c.json` read
+ * back from disk — and a case asking about a table in one of those should get
+ * "not found" rather than a crash, which is the rule everything else in this
+ * harness follows. It also absorbs the one shape `ConvertTo-Json` can make of
+ * a single-item collection, which the probe's own `@(...)` already guards
+ * against; two cheap guards against a silent shape change are worth one bug
+ * that only appears on a table with one row.
+ */
+function listOf(value) {
+  if (Array.isArray(value)) return value;
+  return value === null || value === undefined ? [] : [value];
+}
+
+/**
+ * Every table in a list, the nested ones included, innermost first.
+ *
+ * Word reports a cell's range as everything inside it, a nested table's words
+ * included, so an outer cell matches every anchor its inner table matches.
+ * The inner cell is the more specific of the two and is what an anchor names,
+ * so the deepest tables are searched first. Probe A orders its own the same
+ * way, which is what keeps one anchor meaning one cell on both sides.
+ */
+function flatTables(tables) {
+  return tables.flatMap((table) => [...flatTables(listOf(table.nested)), table]);
+}
+
+/** A table with its rows and cells one step away, in the grid's own terms. */
+function tableView(table) {
+  return {
+    ...table,
+    cells: listOf(table.cells),
+    rows: listOf(table.rows),
+
+    /** One row's properties — what it repeats as, and how tall it is. */
+    row(index = 0) {
+      return listOf(table.rows)[index] ?? { index: -1, missing: true, headingFormat: null };
+    },
+
+    /** One cell, by the row and column of the grid it occupies. */
+    cell(row = 0, column = 0) {
+      const found = listOf(table.cells)
+        .find((entry) => entry.row === row && entry.column === column);
+
+      return found === undefined ? missingCell(`#${row}.${column}`) : found;
+    },
+
+    /** Which pages the table's cells landed on, in order, without repeats. */
+    pages() {
+      return [...new Set(listOf(table.cells).map((cell) => cell.page).filter((page) => page))];
+    },
+  };
+}
+
+/**
+ * The stand-ins for a table and a cell Word did not find.
+ *
+ * Null rather than undefined throughout, so an assertion about a table the
+ * packer never wrote reports the property it wanted rather than dying on it.
+ */
+function missingTable(anchor) {
+  return {
+    missing: true,
+    anchor,
+    index: -1,
+    path: null,
+    depth: null,
+    rowCount: null,
+    columnCount: null,
+    uniform: null,
+    style: null,
+    preferredWidth: null,
+    preferredWidthType: null,
+    alignment: null,
+    leftIndent: null,
+    wrapAroundText: null,
+    allowAutoFit: null,
+    page: null,
+    x: null,
+    y: null,
+    rows: [],
+    cells: [],
+    nested: [],
+  };
+}
+
+function missingCell(anchor) {
+  return {
+    missing: true,
+    anchor,
+    row: null,
+    column: null,
+    text: "",
+    width: null,
+    preferredWidth: null,
+    height: null,
+    heightRule: null,
+    vAlign: null,
+    shading: null,
+    padding: null,
+    borders: null,
+    alignment: null,
+    page: null,
+    x: null,
+    y: null,
+  };
+}
 function round(value) {
   return Math.round(value * 100) / 100;
 }

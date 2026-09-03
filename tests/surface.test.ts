@@ -151,6 +151,7 @@ const surface: Record<string, string[]> = {
     "paginateDocxPreview",
     "previewPageStyles",
     "readPackedParagraphs",
+    "readPackedTables",
     "readPart",
     "settleDocxPreview",
   ],

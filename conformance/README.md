@@ -77,7 +77,7 @@ export default defineCase({
 });
 ```
 
-Two things worth knowing before you write assertions.
+A few things worth knowing before you write assertions.
 
 **Measure drawn text, not boxes.** A centred paragraph's `<p>` is the full width
 of the column whether it is centred or not; only the lines inside it move. The
@@ -88,6 +88,36 @@ line rectangles for this reason.
 without changing the text, so the file says `Invoice reference` and Word says
 `INVOICE REFERENCE`. An anchor names what a reader sees, and both spellings are
 the same words.
+
+**A cell is not a paragraph, and `para` will not find one.** Every probe leaves
+a cell's paragraphs out of its paragraph slice deliberately, so that a
+paragraph case's index means what it looks like it means. Tables have their own
+vocabulary, and it is the same three words on all three tiers:
+
+```tsx
+a.table(0).row(1).cell(2)      // by position, in the file
+a.cell("1,250.00")             // by the words a reader sees in it
+b.cell("1,250.00").w           // the same cell, as the preview drew it
+c.cell("1,250.00").width       // and as Word made it
+p.previewCellX("1,250.00")     // where its words start, on screen
+p.wordCellX("1,250.00")        // and in Word
+```
+
+`b.cellTextLeft` / `cellTextRight` / `cellTextCentre` / `cellTextTop` are the
+cell's version of the paragraph lookups above, and read line rectangles for the
+same reason.
+
+**A cell's text includes its nested table's, so the innermost cell wins.** A
+table is the only shape in a document that contains itself: the text of a cell
+holding a table is everything printed inside it, so an outer cell matches every
+anchor its inner table matches. All three probes therefore search the deepest
+tables first, and an anchor names the cell a reader would point at. Where that
+is not specific enough, `cellAt(table, row, column)` says exactly which.
+
+**`column` is the grid column, not the cell's place in its row.** They are the
+same number until something spans. On a row whose first cell spans two of three
+columns, the second cell is sibling 1 and column 2, and a case that asserted
+the first would pass while proving nothing.
 
 ## Things that bit us, so they need not bite again
 
@@ -119,6 +149,30 @@ the same words.
   measures a case and then rebuilds it can land inside that moment and get
   `EBUSY` for a reason that has nothing to do with the document. `buildCase`
   retries three times over a second and a half.
+- **A non-greedy regex cannot read a table.** `<w:tbl>[\s\S]*?</w:tbl>` ends at
+  the first closing tag, which for a table holding a table is halfway through
+  the outer one — and `element(cellXml, "w:tcPr")` returns the *inner* cell's
+  properties for an outer cell that holds one. Both give a plausible number for
+  the wrong element, which is the worst kind. Probe A scans children by depth
+  and reads an element's properties only from its head, the part before its
+  first child, because OOXML always writes `w:tblPr`, `w:trPr` and `w:tcPr`
+  first.
+- **A range over a cell's contents reports the cell, not the text.** The range
+  holds a block element — the paragraph docx-preview put there — and a range
+  holding a block reports that block's box, which is the full width of the
+  column whichever way the text inside it is set. Measured that way a
+  right-ranged cell and a left one start in the same place. The paragraphs are
+  measured instead, and the cell only directly when it holds none.
+- **Word's cells are walked through the table's range, not through its rows.**
+  `Table.Cell(r, c)`, `Table.Rows` and `Table.Columns` are all documented to
+  fail on a table whose cells do not line up, and that is exactly the table a
+  merge case is about — so the one reading that does not depend on the table
+  being a plain grid is the one to use. `Table.Range.Cells` yields every cell
+  with the `RowIndex` and `ColumnIndex` the other reading would have given.
+  Measured so far: a horizontally spanned table reports `Uniform` as false and
+  still gives up its rows, so this is a precaution rather than a scar — the
+  suite cannot yet build a vertically merged table to find out (see
+  `tables/rowspan`).
 - **`settleDocxPreview` reads the packed file, never the theme.** Two of
   docx-preview's omissions — a run's letter spacing and a border's gap to its
   text — can only be put back from the file. Recomputing them from the style
