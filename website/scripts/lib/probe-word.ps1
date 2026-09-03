@@ -403,7 +403,21 @@ try {
             # table flush to the paper still reads a few points in.
             $leftIndent = $null
             try { $leftIndent = [math]::Round([double]$ft.Rows.LeftIndent, 2) } catch { }
+            # How wide the table actually is, added up across its first row.
+            #
+            # PreferredWidth is the table's *setting*, and Word reports it as
+            # wdUndefined for a multi-column table laid out fixed -- the widths
+            # are the columns' then, not a preference the table expresses. The
+            # cells are where the number lives, and adding them is the same
+            # reading whichever layout the table is in.
+            $width = $null
+            try {
+                $total = 0
+                foreach ($cell in $ft.Rows.Item(1).Cells) { $total += [double]$cell.Width }
+                $width = [math]::Round($total, 2)
+            } catch { }
             $out.footerTable = [ordered]@{
+                width              = $width
                 preferredWidth     = [math]::Round([double]$ft.PreferredWidth, 2)
                 preferredWidthType = [int]$ft.PreferredWidthType
                 rows               = [int]$ft.Rows.Count

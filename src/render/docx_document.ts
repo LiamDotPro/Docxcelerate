@@ -23,6 +23,7 @@ import {
   Tab,
   Table,
   TableCell,
+  TableLayoutType,
   TableRow,
   TabStopType,
   TextRun,
@@ -418,7 +419,7 @@ function renderNode(
         shading: block?.fill === undefined
           ? undefined
           : { type: ShadingType.CLEAR, fill: block.fill },
-        border: blockBorders(block),
+        border: blockBorders(block, "paragraph"),
         indent: blockIndent(block, style),
         spacing: {
           ...blockSpacingBefore(block),
@@ -703,12 +704,15 @@ function imageCard(
   return new Table({
     columnWidths: [width],
     width: { size: width, type: WidthType.DXA },
+    // Sized to the picture, so it is not Word's to resize. Same reason as
+    // `renderTable`: without this the card is autofit around whatever is in it.
+    layout: TableLayoutType.FIXED,
     borders: block.border === undefined ? gridlessBorders : undefined,
     rows: [
       new TableRow({
         children: [
           new TableCell({
-            borders: blockBorders(block),
+            borders: blockBorders(block, "cell"),
             shading: block.fill === undefined
               ? undefined
               : { type: ShadingType.CLEAR, fill: block.fill },
@@ -809,8 +813,21 @@ function blockLine(block: DocumentBlockStyle | undefined, style: DocumentStyle) 
  * Width is in eighths of a point and the gap to the text in whole points, both
  * of which Word caps — a border it cannot draw is worse than one drawn a shade
  * thinner, so the numbers are clamped rather than passed through.
+ *
+ * `on` decides whether the padding is written into the border, and it is not a
+ * detail: `w:space` means two different things on the two elements this
+ * builds. On a `w:pBdr` it is the gap between the border and the text, and it
+ * is the *only* way a paragraph holds its words off its own edge — Word has no
+ * padding on a paragraph. On a `w:tcBorders` it is the gap between the cell's
+ * edge and the border, and the room inside is `w:tcMar`'s job, which the cell
+ * has already been given. Writing it on both put the padding in twice: Word
+ * drew a 12pt-padded panel 24pt in, docx-preview drew it 12pt in, and every
+ * row under it moved down by the difference.
+ *
+ * @param on Which element the borders are for. A cell has margins of its own;
+ * a paragraph does not.
  */
-function blockBorders(block: DocumentBlockStyle | undefined) {
+function blockBorders(block: DocumentBlockStyle | undefined, on: "paragraph" | "cell") {
   if (!block?.border) {
     return undefined;
   }
@@ -819,7 +836,7 @@ function blockBorders(block: DocumentBlockStyle | undefined) {
     style: BorderStyle.SINGLE,
     color: block.border,
     size: Math.max(1, Math.round((block.borderWidthPt ?? 1) * 8)),
-    space: Math.min(31, Math.round(block.paddingPt ?? 0)),
+    ...(on === "paragraph" ? { space: Math.min(31, Math.round(block.paddingPt ?? 0)) } : {}),
   };
   const sides = block.borderSides ?? ["top", "right", "bottom", "left"];
 
@@ -1083,6 +1100,15 @@ function renderTable(node: TableNode, style: DocumentStyle, furniture: boolean):
   return new Table({
     columnWidths: widths,
     width: { size: widths.reduce((total, width) => total + width, 0), type: WidthType.DXA },
+    // A table that does not say which layout algorithm it means is autofit,
+    // and an autofit table's grid is a suggestion: Word reworks the columns
+    // around the words in the cells. Measured on a 60/40/70mm table, it
+    // printed 67.5/50.9/51.6 — the total right, every boundary wrong, which is
+    // the shape of the bug nobody notices until a figure fails to line up. The
+    // widths were worked out here precisely so a money column comes out the
+    // width it was given, and `fixed` is what makes Word honour them.
+    // `tables/column-widths` in the conformance suite holds this.
+    layout: TableLayoutType.FIXED,
     // Word indents a table from the text column's left edge, so reaching the
     // paper's edge means indenting back by the margin.
     indent: bleed
@@ -1190,7 +1216,7 @@ function renderRow(
         columnSpan: span > 1 ? span : undefined,
         verticalAlign: verticalAlignOf(block),
         shading: fill === undefined ? undefined : { type: ShadingType.CLEAR, fill },
-        borders: blockBorders(block) ??
+        borders: blockBorders(block, "cell") ??
           (block?.borderSides?.length === 0
             // Naming no edges is a decision, not an omission: it says this
             // block draws none, so the row hairline does not step in.

@@ -96,12 +96,15 @@ function renderCase(entry, source, previewShots, wordShots) {
 
   const parityRows = (entry.parityTable ?? []).length === 0
     ? ""
-    : `<details class="parity"><summary>Every paragraph, preview against Word</summary>
-       <table><thead><tr><th>paragraph</th><th>page</th><th>Δx</th><th>Δy</th></tr></thead><tbody>${
+    : `<details class="parity"><summary>Every paragraph and cell, preview against Word</summary>
+       <table><thead><tr><th>what</th><th>page</th><th>Δx</th><th>Δy</th></tr></thead><tbody>${
       entry.parityTable.map((row) => {
         const drift = Math.max(Math.abs(row.dxMm ?? 0), Math.abs(row.dyMm ?? 0));
         const cls = drift > 1 ? "bad" : drift > 0.5 ? "warn" : "";
-        return `<tr><td>${esc(row.text)}</td><td class="mono">${row.previewPage ?? "—"} / ${row.wordPage ?? "—"}</td><td class="mono ${cls}">${fmt(row.dxMm)}</td><td class="mono ${cls}">${fmt(row.dyMm)}</td></tr>`;
+        // A cell and a paragraph are measured the same way and mean different
+        // things, so the survey says which each row is.
+        const kind = row.cell === true ? "cell" : "para";
+        return `<tr><td><span class="kind">${kind}</span> ${esc(row.text)}</td><td class="mono">${row.previewPage ?? "—"} / ${row.wordPage ?? "—"}</td><td class="mono ${cls}">${fmt(row.dxMm)}</td><td class="mono ${cls}">${fmt(row.dyMm)}</td></tr>`;
       }).join("")
     }</tbody></table></details>`;
 
@@ -250,6 +253,8 @@ function page(body, tally, generatedAt) {
                 border: 1px dashed var(--firm); padding: 2rem 1rem; text-align: center;
                 letter-spacing: .06em; text-transform: uppercase; line-height: 2; }
   .shot.empty small { text-transform: none; letter-spacing: 0; font-size: .95em; opacity: .8; }
+  .kind { font: 600 .72em ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase;
+          color: var(--muted); margin-right: .5em; }
 
   table { border-collapse: collapse; width: 100%; font-size: .82rem; margin-top: 1.2rem; }
   th { font-family: var(--font-display); font-size: .62rem; font-weight: 600; letter-spacing: .11em;

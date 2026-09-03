@@ -114,6 +114,58 @@ export async function readPackedParagraphs(packed: Uint8Array): Promise<PackedPa
 
   return paragraphsOf(xml).map(readParagraph);
 }
+/**
+ * What a packed document says about one of its tables.
+ *
+ * One field so far, because one is what the preview cannot work out for
+ * itself. Everything else about a table — its columns, its fills, its borders
+ * — docx-preview reads and draws; `w:tblHeader` it neither reads nor records,
+ * so there is nothing in the DOM to say which row is a heading.
+ */
+export interface PackedTable {
+  /**
+   * How many rows the table opens with that repeat at the top of every page it
+   * runs onto.
+   *
+   * A count of the *leading* run rather than a flag per row, because that is
+   * what the property means: only the rows a table opens with are its heading.
+   * A `w:tblHeader` further down would print a subtotal above the figures it
+   * adds up on every page but the first, so the packer never writes one and
+   * this never counts one.
+   */
+  headerRows: number;
+}
+
+/**
+ * What a packed document says about its tables, in document order.
+ *
+ * The order is the contract: it is the order `querySelectorAll("table")`
+ * returns, outer table before the tables inside it, so the nth entry here
+ * describes the nth table in the DOM. Matching by position rather than by
+ * content is safe for the same reason it is unsafe for paragraphs — a table
+ * has no words of its own to match on, and its position is not something the
+ * renderer can change.
+ *
+ * @param packed The `.docx` bytes — the same ones handed to `renderAsync`.
+ * @returns One entry per table, nested tables included, in document order.
+ *
+ * @example
+ * ```ts
+ * const packed = new Uint8Array(await blob.arrayBuffer());
+ * await renderAsync(packed, body, head, { breakPages: true });
+ * settleDocxPreview(body, model, await readPackedParagraphs(packed), await readPackedTables(packed));
+ * ```
+ */
+export async function readPackedTables(packed: Uint8Array): Promise<PackedTable[]> {
+  const xml = await readPart(packed, "word/document.xml");
+
+  if (xml === undefined) {
+    return [];
+  }
+
+  return tablesOf(between(xml, "w:body") ?? xml).map(readTable);
+}
+
 
 // ---------------------------------------------------------------------------
 // The zip
@@ -235,6 +287,107 @@ function paragraphsOf(xml: string): string[] {
   }
 
   return found;
+}
+
+/**
+ * Every table in the body, in document order, nested ones included.
+ *
+ * A table is the one element here that contains itself, so this cannot be a
+ * non-greedy regex: `<w:tbl>…</w:tbl>` matched lazily ends at the first
+ * closing tag, which for a table holding a table is halfway through the outer
+ * one. Depth is the only way to read a shape that nests, and the outer table
+ * is emitted before the tables inside it because that is the order the DOM
+ * puts them in.
+ */
+function tablesOf(body: string): string[] {
+  const found: Array<{ at: number; xml: string }> = [];
+  const open: number[] = [];
+
+  for (const match of body.matchAll(/<w:tbl(?:\s[^>]*)?(\/?)>|<\/w:tbl>/g)) {
+    const [whole, selfClose] = match;
+
+    if (whole.startsWith("</")) {
+      const start = open.pop();
+      if (start !== undefined) {
+        found.push({ at: start, xml: body.slice(start, match.index + whole.length) });
+      }
+      continue;
+    }
+    if (selfClose !== "/") {
+      open.push(match.index);
+    }
+  }
+
+  // Closing tags arrive innermost first, so the list is built inside out and
+  // has to be put back into the order the tables were opened in.
+  return found.sort((a, b) => a.at - b.at).map((entry) => entry.xml);
+}
+
+/** One table's own rows, with the rows of any table inside it left out. */
+function rowsOf(table: string): string[] {
+  const found: string[] = [];
+  let depth = 0;
+  let start = -1;
+
+  // The table's own opening tag is skipped: it is a `w:tbl` like any other,
+  // and counted as one it would put every row of the table inside itself.
+  const inner = table.slice(table.indexOf(">") + 1);
+
+  for (const match of inner.matchAll(/<w:(tr|tbl)(?:\s[^>]*)?(\/?)>|<\/w:(tr|tbl)>/g)) {
+    const [whole, open, selfClose, close] = match;
+
+    if (open === "tbl" || close === "tbl") {
+      depth += close === "tbl" ? -1 : selfClose === "/" ? 0 : 1;
+      continue;
+    }
+    if (depth > 0) continue;
+
+    if (open === "tr") {
+      if (selfClose === "/") {
+        found.push(whole);
+        continue;
+      }
+      if (start === -1) start = match.index;
+    } else if (close === "tr" && start !== -1) {
+      found.push(inner.slice(start, match.index + whole.length));
+      start = -1;
+    }
+  }
+
+  return found;
+}
+
+function readTable(xml: string): PackedTable {
+  const rows = rowsOf(xml);
+  const leading = rows.findIndex((row) => !repeatsAsHeader(row));
+
+  return { headerRows: leading === -1 ? rows.length : leading };
+}
+
+/**
+ * Whether a row declares itself a heading that repeats.
+ *
+ * Three-state, like every OOXML toggle: `<w:tblHeader/>` is on,
+ * `<w:tblHeader w:val="false"/>` is explicitly off — which is what the packer
+ * writes on every body row — and no element at all is inherit, which for this
+ * property means off.
+ */
+function repeatsAsHeader(row: string): boolean {
+  const properties = element(row, "w:trPr");
+
+  if (properties === null) {
+    return false;
+  }
+
+  const header = element(properties, "w:tblHeader");
+
+  if (header === null) {
+    return false;
+  }
+
+  const value = attribute(header, "w:val");
+
+  return value === undefined || !["0", "false", "off"].includes(value);
 }
 
 function readParagraph(xml: string): PackedParagraph {

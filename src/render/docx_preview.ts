@@ -24,7 +24,7 @@
 
 import type { DocumentModel } from "../domain/types.ts";
 import { fillPageFields } from "./docx_fields.ts";
-import type { PackedParagraph } from "./docx_packed.ts";
+import type { PackedParagraph, PackedTable } from "./docx_packed.ts";
 
 export { fillPageFields } from "./docx_fields.ts";
 export {
@@ -42,8 +42,10 @@ export {
   type PackedBorderSpace,
   type PackedParagraph,
   type PackedRun,
+  type PackedTable,
   type PackedTabStop,
   readPackedParagraphs,
+  readPackedTables,
   readPart,
 } from "./docx_packed.ts";
 
@@ -63,18 +65,28 @@ const PAGE_WIDTH_MM: Record<string, number> = { A4: 210, Letter: 215.9 };
  * {@linkcode readPackedParagraphs}. Two of docx-preview's omissions can only be
  * put back from the file itself; without this they stay omitted, and the
  * preview is as complete as docx-preview left it rather than wrong.
+ * @param tables What the file says about its own tables, from
+ * {@linkcode readPackedTables}. One omission so far and the same rule: which
+ * rows a table repeats at the top of each page it runs onto is a fact only the
+ * file carries, and without it the paginator has no heading to carry.
  *
  * @example
  * ```ts
  * const bytes = new Uint8Array(await blob.arrayBuffer());
  * await renderAsync(bytes, body, head, { breakPages: true });
- * settleDocxPreview(body, model, await readPackedParagraphs(bytes));
+ * settleDocxPreview(
+ *   body,
+ *   model,
+ *   await readPackedParagraphs(bytes),
+ *   await readPackedTables(bytes),
+ * );
  * ```
  */
 export function settleDocxPreview(
   container: Element,
   model?: DocumentModel,
   packed?: readonly PackedParagraph[],
+  tables?: readonly PackedTable[],
 ): void {
   inlinePictureWrappers(container);
   fillPageFields(container);
@@ -86,6 +98,55 @@ export function settleDocxPreview(
 
   if (packed !== undefined) {
     applyPackedParagraphs(container, packed);
+  }
+
+  if (tables !== undefined) {
+    markHeaderRows(container, tables);
+  }
+}
+
+/**
+ * The rows a table repeats at the top of every page, moved into a `<thead>`.
+ *
+ * `w:tblHeader` is a third thing docx-preview neither reads nor records: every
+ * row comes out as a plain `<tr>`, so nothing in the DOM says which of them is
+ * a heading and the paginator has nothing to carry onto a new sheet. Word
+ * repeats them, and a preview of a two-page table with its column headings on
+ * only the first page is a preview of a document nobody will receive.
+ *
+ * A `<thead>` rather than an attribute, because that is what the element
+ * already means — "these rows head the table, and repeat" is the definition of
+ * `<thead>` in HTML and of `w:tblHeader` in OOXML. Anything reading the DOM
+ * afterwards, this package's paginator included, gets the fact in the form it
+ * would have looked for.
+ *
+ * Matched by position: the nth table here is the nth `<table>` in the DOM,
+ * outer tables before the ones nested inside them, which is the order both
+ * lists are built in. A table has no words of its own to be matched on the way
+ * a paragraph does.
+ */
+function markHeaderRows(container: Element, tables: readonly PackedTable[]): void {
+  const drawn = [...container.querySelectorAll("table")];
+
+  for (const [index, table] of drawn.entries()) {
+    const count = tables[index]?.headerRows ?? 0;
+
+    // A table whose every row is a heading has no body to repeat above, and
+    // one already carrying a `<thead>` has been settled once already.
+    if (count === 0 || count >= table.rows.length || table.tHead !== null) {
+      continue;
+    }
+
+    const head = table.ownerDocument.createElement("thead");
+    const rows = [...table.rows].slice(0, count);
+
+    // Before everything else in the table, which is where a `<thead>` goes and
+    // where these rows already are.
+    table.insertBefore(head, table.firstChild);
+
+    for (const row of rows) {
+      head.appendChild(row);
+    }
   }
 }
 

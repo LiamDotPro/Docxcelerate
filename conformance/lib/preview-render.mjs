@@ -52,7 +52,7 @@ function browser() {
  */
 export async function renderPreview(model) {
   const window = browser();
-  const [{ createDocxBlob }, { readPackedParagraphs, settleDocxPreview }, docxPreview] =
+  const [{ createDocxBlob }, { readPackedParagraphs, readPackedTables, settleDocxPreview }, docxPreview] =
     await Promise.all([
       import("docxcelerate/docx"),
       import("docxcelerate/preview"),
@@ -76,7 +76,12 @@ export async function renderPreview(model) {
   // picture in an element a paragraph cannot hold. The framework owns finishing
   // that, and a conformance run has to measure the preview a person actually
   // sees — which is the settled one, read back from the very bytes it drew.
-  settleDocxPreview(bodyContainer, model, await readPackedParagraphs(packed));
+  settleDocxPreview(
+    bodyContainer,
+    model,
+    await readPackedParagraphs(packed),
+    await readPackedTables(packed),
+  );
 
   return {
     styles: styleContainer.innerHTML,
