@@ -3,13 +3,11 @@ import { type Nodes, Paragraph, useFormat, useState } from "docxcelerate/templat
 /**
  * The block at the top of the page saying who sent this and when.
  *
- * Written as loose paragraphs rather than a section, because a letterhead has
- * no heading — it is the thing a heading would sit under. The address is one
- * paragraph with the lines joined, so a sender with two address lines and one
- * with five both come out as a block rather than as a ragged run of nodes.
+ * Loose paragraphs rather than a section, because a letterhead has no heading.
+ * The address is joined into one paragraph, so two lines and five both come
+ * out as a block rather than a ragged run of nodes.
  *
- * Installed by `dxcl add letterhead`. It is your copy: rename it, re-order it,
- * or drop the date once it is in the project.
+ * Installed by `dxcl add letterhead`.
  */
 
 /** What this component reads. Add these fields to your document data type. */

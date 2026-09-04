@@ -3,11 +3,8 @@ import { Paragraph, type Section as SectionComponent, Section, useFormat, useSta
 /**
  * What is owed, by when, and what happens next.
  *
- * Three outcomes, three ids: in credit, clear, or owing. Branching on the
- * amount rather than papering over it with one sentence that reads oddly at
- * zero is the whole point — a recipient who owes nothing should not be told
- * about a payment deadline, and a recipient in credit should be told plainly
- * that they are.
+ * Three outcomes, three ids: in credit, clear, or owing. A recipient who owes
+ * nothing should not be shown a payment deadline.
  *
  * Installed by `dxcl add payment-summary`.
  */

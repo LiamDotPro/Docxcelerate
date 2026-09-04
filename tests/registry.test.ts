@@ -48,9 +48,11 @@ test("every component names a source file that exists", async () => {
  * is *for* belongs in the catalog's `detail`, which is where the site reads it
  * from and the only copy that cannot drift from what people are shown.
  *
- * Fifteen is the house norm with room to breathe, not a target to fill.
+ * Twelve is a ceiling, not a target: the seven shipped components run to eight
+ * or ten, and a component that needs more is usually one explaining itself
+ * instead of the decision a reader could not guess.
  */
-const HEADER_LIMIT = 15;
+const HEADER_LIMIT = 12;
 
 test("a component's opening comment stays short enough to read past", async () => {
   for (const component of COMPONENTS) {

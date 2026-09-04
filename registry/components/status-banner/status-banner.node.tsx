@@ -3,15 +3,12 @@ import { type Nodes, Paragraph, Shape, useState } from "docxcelerate/template";
 /**
  * The coloured block at the top of a document saying where things stand.
  *
- * A `<Shape>` rather than a filled paragraph, because a banner has to be the
- * same depth whatever it says — one that grew with its wording would read as a
- * different kind of notice on every document. Three tones, three ids, written
- * as three shapes rather than one with a computed `variant`: a published
- * document carries every arm and lets the engine choose, so a variant worked
- * out here would be frozen at publish time.
+ * A `<Shape>` rather than a filled paragraph, so every banner is the same
+ * depth whatever it says. Three tones as three shapes rather than one with a
+ * computed variant: a published document ships every arm for the engine to
+ * choose from, so a variant decided here would be frozen at publish time.
  *
- * Installed by `dxcl add status-banner`. It is your copy: change the wording,
- * the height, or the three tones it branches on.
+ * Installed by `dxcl add status-banner`.
  */
 
 /** What this component reads. Add these fields to your document data type. */

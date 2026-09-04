@@ -3,10 +3,8 @@ import { Image, type Nodes, Paragraph, useState } from "docxcelerate/template";
 /**
  * How a letter ends: a closing line, a signature, and who signed it.
  *
- * The signature image is optional and the name is not, which is the right way
- * round — a letter signed by nobody is a letter nobody owns, whereas a missing
- * image is a rendering detail. Where there is no image the block simply closes
- * with the typed name.
+ * The image is optional and the name is not — a letter signed by nobody is a
+ * letter nobody owns, whereas a missing image is a rendering detail.
  *
  * Installed by `dxcl add signature-block`.
  */

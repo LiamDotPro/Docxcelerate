@@ -3,13 +3,9 @@ import { type Paragraph as ParagraphComponent, Paragraph, useState } from "docxc
 /**
  * The paragraph telling a reader what to do now — written per document.
  *
- * All four prompts are set, because this is the node most likely to invent
- * something. The info prompt hands the engine the facts it is allowed to use,
- * and the negative prompt closes off the two failures that matter in a document
- * somebody acts on: inventing a deadline, and inventing a way to contact you.
- *
- * Previews show the placeholder rather than calling anything, so the shape of
- * the finished document is readable before an engine exists.
+ * All four prompts are set because this is the node most likely to invent
+ * something: the info prompt hands the engine its facts, the negative prompt
+ * closes off inventing a deadline or a way to contact you.
  *
  * Installed by `dxcl add next-steps`.
  */

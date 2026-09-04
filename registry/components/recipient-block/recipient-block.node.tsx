@@ -3,11 +3,9 @@ import { type Nodes, Paragraph, useState } from "docxcelerate/template";
 /**
  * Who the document is addressed to, and how it greets them.
  *
- * The salutation is the interesting half. A document generated in bulk meets
- * recipients whose names it does not have — a joint tenancy, a company, a
- * record where the field was never filled in — and "Dear ," is the kind of
- * mistake that gets screenshotted. So the greeting branches, and the fallback
- * is deliberately formal rather than clever.
+ * The greeting branches because documents generated in bulk meet recipients
+ * whose names they do not have, and "Dear ," is the kind of mistake that gets
+ * screenshotted. The fallback is formal rather than clever.
  *
  * Installed by `dxcl add recipient-block`.
  */

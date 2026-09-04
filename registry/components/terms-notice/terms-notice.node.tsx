@@ -3,12 +3,9 @@ import { Paragraph, type Section as SectionComponent, Section, useState } from "
 /**
  * The small print, as a section rather than a footnote.
  *
- * Boilerplate is the part of a document nobody rereads and everybody copies, so
- * it is worth having one node that owns it: the clauses arrive as data, each
- * becomes its own paragraph, and the id of each is stable, which is what lets a
+ * The clauses arrive as data and each keeps a stable id, which is what lets a
  * later version of the terms be diffed against this one clause by clause.
- *
- * Reads well in the Legal Serif theme, which is what it was drawn against.
+ * Drawn against the Legal Serif theme.
  *
  * Installed by `dxcl add terms-notice`.
  */

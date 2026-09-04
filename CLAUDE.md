@@ -79,8 +79,8 @@ in `deno.json` or has no reason to exist.
 `dxcl add` and the file lands in their project as their own code — it should be
 readable in one screen and then edited. Say the decision a reader could not
 guess (why a shape rather than a filled paragraph, why three ids), name the
-install command, and stop. Fifteen lines is the ceiling and
-`tests/registry.test.ts` enforces it; the norm is ten to twelve.
+install command, and stop. Twelve lines is the ceiling and
+`tests/registry.test.ts` enforces it; the shipped components run to eight or ten.
 
 The prose about what the component is *for* goes in the catalog's `detail` in
 `src/registry/catalog.ts`, which is what the website renders. Writing it in both
