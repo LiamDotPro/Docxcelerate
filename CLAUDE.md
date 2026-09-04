@@ -75,6 +75,18 @@ passed through whole rather than copied.
 exported from it. Every export in `src/` is either reachable from an entrypoint
 in `deno.json` or has no reason to exist.
 
+**A registry component opens with a short comment, not an essay.** Someone runs
+`dxcl add` and the file lands in their project as their own code — it should be
+readable in one screen and then edited. Say the decision a reader could not
+guess (why a shape rather than a filled paragraph, why three ids), name the
+install command, and stop. Fifteen lines is the ceiling and
+`tests/registry.test.ts` enforces it; the norm is ten to twelve.
+
+The prose about what the component is *for* goes in the catalog's `detail` in
+`src/registry/catalog.ts`, which is what the website renders. Writing it in both
+places means two copies that drift, and only one of them is the one people are
+shown.
+
 **Generated project files are real files under `templates/`, never strings.**
 If you are about to write TypeScript inside a template literal, put it in a
 file instead. `npm run templates` type-checks the whole directory against this

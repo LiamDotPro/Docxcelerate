@@ -39,6 +39,41 @@ test("every component names a source file that exists", async () => {
   }
 });
 
+/**
+ * How long a component's opening comment may run, in lines.
+ *
+ * A component is meant to be read in one screen and then edited, so the file
+ * explains the decision a reader could not guess — why a shape rather than a
+ * filled paragraph, why three ids — and stops. The prose about what the thing
+ * is *for* belongs in the catalog's `detail`, which is where the site reads it
+ * from and the only copy that cannot drift from what people are shown.
+ *
+ * Fifteen is the house norm with room to breathe, not a target to fill.
+ */
+const HEADER_LIMIT = 15;
+
+test("a component's opening comment stays short enough to read past", async () => {
+  for (const component of COMPONENTS) {
+    for (const file of component.files) {
+      const source = await readFile(join(registryRoot(), ...file.source.split("/")), "utf8");
+      const lines = source.split(/\r?\n/);
+      const opens = lines.findIndex((line) => line.trimStart().startsWith("/**"));
+
+      if (opens === -1) continue;
+
+      const closes = lines.findIndex((line, at) => at >= opens && line.includes("*/"));
+      const length = closes - opens + 1;
+
+      if (length > HEADER_LIMIT) {
+        throw new Error(
+          `${file.source} opens with a ${length}-line comment; ${HEADER_LIMIT} is the limit. ` +
+            "Say the decision a reader could not guess and move the rest to the catalog's detail.",
+        );
+      }
+    }
+  }
+});
+
 test("installing a component copies it in and re-exports it", async () => {
   const projectDir = await documentProject();
 
