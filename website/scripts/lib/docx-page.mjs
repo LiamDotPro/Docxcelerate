@@ -57,6 +57,15 @@ function browser() {
     globalThis.File = dom.window.File;
     globalThis.FileReader = dom.window.FileReader;
     globalThis.URL = dom.window.URL;
+    // docx-preview sizes a VML shape's <svg> from its rendered bounding box,
+    // one animation frame after it draws it. jsdom has neither the frame nor
+    // the box, so without a stand-in the render throws and a document with a
+    // shape in it bakes to nothing. A no-op is the right stand-in rather than
+    // jsdom's own `pretendToBeVisual` clock: the callback would then run and
+    // die on the getBBox jsdom does not implement, and the number it computes
+    // is one the <svg> already carries in the style the file gave it.
+    globalThis.requestAnimationFrame = () => 0;
+    globalThis.cancelAnimationFrame = () => {};
   }
 
   return dom.window;

@@ -89,6 +89,7 @@ export function settleDocxPreview(
   tables?: readonly PackedTable[],
 ): void {
   inlinePictureWrappers(container);
+  liftShapeText(container);
   fillPageFields(container);
   seatFooters(container);
 
@@ -355,6 +356,36 @@ export function inlinePictureWrappers(container: Element): void {
   }
 }
 
+
+/**
+ * A shape's words, moved somewhere SVG will paint them.
+ *
+ * docx-preview renders a VML shape by walking it and nesting each child inside
+ * the element it drew for the parent — so a `v:rect` holding a `v:textbox`
+ * comes out as an SVG `<rect>` holding a `<foreignObject>`. That is faithful
+ * to the file's nesting and invalid as SVG: `<rect>` is a shape, its content
+ * model holds no rendered children, and a browser paints none of them.
+ * Measured in Chrome, the words inside one report a bounding box of 0 by 0
+ * while the same `<foreignObject>` moved out beside the rect reports 92 by 17.
+ *
+ * So a shape drew as a filled block with nothing on it, which is the worst
+ * shape of all for a preview bug: it looks deliberate. Word draws the text.
+ *
+ * Moving the node is the whole fix. Both elements come from the packed file,
+ * both are drawn by Word, and their order is already right — a `<foreignObject>`
+ * after the `<rect>` paints on top of it, which is where the file says the
+ * words are. Nothing here invents a size, a colour or a position.
+ */
+export function liftShapeText(container: Element): void {
+  // Every shape element SVG will not paint children of. `rect` and `ellipse`
+  // are what docx-preview draws a `v:rect` and a `v:oval` as; a `<g>`, which
+  // is what it draws a `v:shape` as, is a container and needs no help.
+  for (const shape of [...container.querySelectorAll("svg rect, svg ellipse")]) {
+    for (const text of [...shape.querySelectorAll("foreignObject")]) {
+      shape.insertAdjacentElement("afterend", text);
+    }
+  }
+}
 /**
  * The indent a bleeding table declares, put back.
  *

@@ -124,10 +124,15 @@ async function resolveNode(
     return await resolveGraph(node, state);
   }
 
-  // A table, a row and a cell all resolve the same way: they hold nodes and
-  // nothing else, so the work is entirely their children's. That is what lets
-  // a row carry a condition and a loop produce rows — neither is a case here.
-  if (node.kind === "table" || node.kind === "tableRow" || node.kind === "tableCell") {
+  // A table, a row, a cell and a shape all resolve the same way: they hold
+  // nodes and nothing else, so the work is entirely their children's. That is
+  // what lets a row carry a condition and a loop produce rows — neither is a
+  // case here. A shape belongs with them because the words on a banner are
+  // written against the data like any others; left out, it prints its tokens.
+  if (
+    node.kind === "table" || node.kind === "tableRow" || node.kind === "tableCell" ||
+    node.kind === "shape"
+  ) {
     return { ...node, children: await resolveNodes(node.children, state, derivers) };
   }
 
@@ -191,7 +196,7 @@ function suffixIds(node: DocumentNode, index: number): DocumentNode {
   // the case that made this a list rather than two ifs.
   if (
     suffixed.kind === "section" || suffixed.kind === "repeat" || suffixed.kind === "table" ||
-    suffixed.kind === "tableRow" || suffixed.kind === "tableCell"
+    suffixed.kind === "tableRow" || suffixed.kind === "tableCell" || suffixed.kind === "shape"
   ) {
     return { ...suffixed, children: suffixed.children.map((child) => suffixIds(child, index)) };
   }

@@ -11,6 +11,7 @@ import type {
   ParagraphNode,
   RepeatNode,
   SectionNode,
+  ShapeNode,
   TableCellNode,
   TableNode,
   TableOfContentsNode,
@@ -39,6 +40,7 @@ import type {
   ParagraphProps,
   RowProps,
   SectionProps,
+  ShapeProps,
   TableOfContentsProps,
   TableProps,
 } from "./elements.ts";
@@ -372,6 +374,10 @@ async function renderHostKind(
     return await renderRow(element.props as unknown as RowProps, context, frame, id, when);
   }
 
+  if (kind === "shape") {
+    return await renderShape(element.props as unknown as ShapeProps, context, frame, id, when);
+  }
+
   if (kind === "tableCell") {
     return await renderCell(element.props as unknown as CellProps, context, frame, id, when);
   }
@@ -527,6 +533,31 @@ async function renderCell(
   return prune(cell);
 }
 
+
+async function renderShape(
+  props: ShapeProps,
+  context: RenderContext,
+  frame: Frame,
+  id: string,
+  when: Condition | undefined,
+): Promise<ShapeNode> {
+  const childFrame = { path: `${frame.path}/${id}`, idSuffix: frame.idSuffix };
+  const shape: ShapeNode = {
+    id,
+    kind: "shape",
+    width: props.width,
+    height: props.height,
+    when,
+    // The same rule a cell follows: given nodes, they are the content; given
+    // something to print, it becomes the one paragraph on the box. A callout
+    // is usually a line, and `<Shape id="x">Paid</Shape>` should read as one.
+    children: holdsElements(props.children)
+      ? await renderYield(props.children, context, childFrame)
+      : await cellText(props.children, context, childFrame, id),
+  };
+
+  return prune(shape);
+}
 /** The single paragraph a cell's text becomes. */
 async function cellText(
   children: Yield,

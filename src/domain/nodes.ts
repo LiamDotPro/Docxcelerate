@@ -24,6 +24,7 @@ export type NodeKind =
   | "table"
   | "tableRow"
   | "tableCell"
+  | "shape"
   | "tableOfContents"
   | "pageBreak"
   | "pageNumber"
@@ -246,6 +247,50 @@ export interface TableCellNode extends BaseNode {
   children: DocumentNode[];
 }
 
+
+/**
+ * A drawn box with words on it.
+ *
+ * The one thing in the model that is a *shape* rather than text: Word draws a
+ * real rectangle, and the paragraphs inside it sit on top of the fill rather
+ * than beside it. A callout, a status block, a coloured panel a heading stands
+ * in — the things a document reaches for when a paragraph with a background is
+ * not enough because the box has to be a stated size.
+ *
+ * That size is the whole difference from a filled table cell, which is the
+ * other way to draw a box here and the right one when the box should grow with
+ * its text. A shape is a box you have decided the dimensions of; a cell is a
+ * box the text decides. Neither is a substitute for the other, and a document
+ * that wants the second should use a `<Table>` with one cell in it.
+ *
+ * What it looks like — the fill, the rule around it, the room inside, how the
+ * words sit against its height — is the theme's, through `variant`, exactly as
+ * it is for every other node. A shape names what it is; the style says what
+ * that looks like.
+ */
+export interface ShapeNode extends BaseNode {
+  /** Discriminator. */
+  kind: "shape";
+  /**
+   * How wide the box is drawn, in points.
+   *
+   * The text column's full width unless it is said, which is the width a
+   * banner or a callout wants and the only width that needs no arithmetic
+   * from the document.
+   */
+  width?: number;
+  /**
+   * How deep the box is drawn, in points.
+   *
+   * A shape does not grow to fit its words — that is what makes it a shape —
+   * so this is a decision the document or its theme has to make. The theme's
+   * `heightPt` is taken when the node says nothing, because a block that
+   * declares a depth is already saying exactly this.
+   */
+  height?: number;
+  /** What is drawn on the box: paragraphs, usually, but any node fits. */
+  children: DocumentNode[];
+}
 /** A table of contents, built from the sections around it. */
 export interface TableOfContentsNode extends BaseNode {
   /** Discriminator. */
@@ -323,6 +368,7 @@ export type DocumentNode =
   | TableNode
   | TableRowNode
   | TableCellNode
+  | ShapeNode
   | TableOfContentsNode
   | PageBreakNode
   | PageNumberNode

@@ -217,6 +217,16 @@ export function wordView(measure) {
 
     /** Every table Word found in the body, in order. */
     tables: listOf(measure.tables),
+    // --- shapes -------------------------------------------------------------
+
+    /** Every shape Word found, inline and floating both, in document order. */
+    shapes: listOf(measure.shapes),
+
+    /** One shape, counting from zero. */
+    shape(index = 0) {
+      return listOf(measure.shapes)[index] ?? missingShape(`#${index}`);
+    },
+
 
     /** One table, counting from zero. */
     table(index = 0) {
@@ -334,6 +344,27 @@ function tableView(table) {
  * Null rather than undefined throughout, so an assertion about a table the
  * packer never wrote reports the property it wanted rather than dying on it.
  */
+
+/** The stand-in for a shape Word did not find. */
+function missingShape(anchor) {
+  return {
+    missing: true,
+    anchor,
+    index: -1,
+    anchored: null,
+    name: null,
+    type: null,
+    width: null,
+    height: null,
+    fill: null,
+    line: null,
+    hasText: null,
+    text: "",
+    page: null,
+    x: null,
+    y: null,
+  };
+}
 function missingTable(anchor) {
   return {
     missing: true,

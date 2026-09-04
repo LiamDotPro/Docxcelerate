@@ -24,6 +24,8 @@ import { VisitsByMonth } from "./graph/bar.node.tsx";
 import { CumulativeVisits } from "./graph/line.node.tsx";
 import { ClassMix } from "./graph/pie.node.tsx";
 import { PeakTimes } from "./graph/dynamic.node.tsx";
+import { RenewalBanner } from "./shape/basic.node.tsx";
+import { PaidStamp } from "./shape/sized.node.tsx";
 import { VisitLog } from "./table/basic.node.tsx";
 import { PriceSummary } from "./table/totals.node.tsx";
 import { Contents } from "./table-of-contents/basic.node.tsx";
@@ -473,6 +475,67 @@ export const NODE_TYPES: NodeTypeEntry[] = [
         title: "A closing row",
         summary: "A cell holding two paragraphs, and a row marked as a heading.",
         component: PriceSummary as Component,
+      },
+    ],
+  },
+  {
+    id: "shape",
+    title: "Shape",
+    kind: "shape",
+    category: "Media",
+    status: "stable",
+    helpers: ["Shape"],
+    summary: "A drawn rectangle with the document's own words on top of it.",
+    detail:
+      "Word draws a real rectangle and the paragraphs sit on its fill rather " +
+      "than beside it. What separates it from a paragraph with a background " +
+      "is the size: a shape is a box you decided the dimensions of and does " +
+      "not grow with its text, which is exactly what a banner needs — one " +
+      "that changed depth with its wording would be a different notice on " +
+      "every letter. When the box *should* grow with what is in it, a " +
+      "`Table` with one cell is the thing to reach for.",
+    children: "Paragraphs, usually. Text goes straight in for the one-line case.",
+    resolves: "Both",
+    renderNote:
+      "Packed as VML — a `w:pict` holding a `v:rect` — rather than as the " +
+      "DrawingML shape Word writes itself. Word reads both identically; " +
+      "docx-preview renders VML and has no reading of DrawingML shapes at " +
+      "all, so the other form would draw in Word and show nothing in the " +
+      "preview. Rounded corners are absent for the same reason and go in when " +
+      "the preview can draw them.",
+    options: [
+      ID,
+      {
+        name: "width",
+        type: "number",
+        summary:
+          "How wide the box is drawn, in points. The full text column unless " +
+          "it is said, which is the width a banner wants and the only one " +
+          "that needs no arithmetic from the document.",
+      },
+      {
+        name: "height",
+        type: "number",
+        summary:
+          "How deep the box is drawn, in points. A shape does not grow to fit " +
+          "its words, so this is a decision the document or its theme makes — " +
+          "the block style's `heightPt` is taken when the node says nothing.",
+      },
+      VARIANT,
+      DERIVERS,
+    ],
+    variants: [
+      {
+        id: "basic",
+        title: "A banner across the column",
+        summary: "A shape with no width, filling the text column at a stated depth.",
+        component: RenewalBanner as Component,
+      },
+      {
+        id: "sized",
+        title: "A block of its own size",
+        summary: "The same element given a width, so it sits in the column rather than spanning it.",
+        component: PaidStamp as Component,
       },
     ],
   },

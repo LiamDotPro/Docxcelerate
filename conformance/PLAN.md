@@ -323,6 +323,51 @@ are fixed, and the case that found each one is what keeps it fixed.
 | Crop, rotate | no | — | `images/crop` |
 | **Native chart** | **no — `GraphNode` packs as `[bar graph: ...]` text** | `renderNode` graph branch | `charts/bar-native` |
 
+
+### Shapes
+
+A `<Shape>` is a drawn rectangle with the document's own paragraphs on top of
+it — the thing a filled paragraph cannot be, because its size is stated rather
+than grown. Measured on all four tiers by `shapes/block-with-text`.
+
+| Feature | State | Case | Note |
+| --- | --- | --- | --- |
+| A rectangle with text on it | **yes — added** | `shapes/block-with-text` | A·B·C·X green; Word reads a real `Rectangle` |
+| Fill, stroke, the room inside | **yes — added** | `shapes/block-with-text` | the block style a cell already reads, so a variant means one thing |
+| Stated width and height | **yes — added** | `shapes/block-with-text` | the text column and the block's `heightPt` when the node says nothing |
+| Rounded corners | no | — | `shapes/round-rect` |
+| Ellipse, line, arrow | no | — | `shapes/ellipse` |
+| A floating shape text runs around | no | — | `shapes/float-wrap` |
+| A group of shapes | no | — | `shapes/group` |
+
+**It is packed as VML, and that is the decision the feature rests on.** Word
+reads a `w:pict` holding a `v:rect` back as a genuine shape, with the width,
+height, fill and text the file gives it — and it would read a DrawingML
+`wps:wsp` the same way, which is the form Word itself writes. The difference is
+entirely on the other side: docx-preview renders VML and has no reading of
+`wps:wsp` at all, so a DrawingML shape draws nothing on screen. Packing the
+form both engines read is what keeps the preview showing the document; the
+alternative was to pack DrawingML and then *build* the box in the preview,
+which is a second renderer and the thing this package exists not to have.
+
+Two things had to be said twice, and both are in the file rather than patched
+on afterwards:
+
+- **The stroke.** VML states one as attributes on the shape *and* as a
+  `v:stroke` child. Word reads either; docx-preview's `parseStroke` reads only
+  the child. Both are written, from the one block, so they cannot disagree.
+- **Nothing else.** The one repair that is not in the file is structural:
+  docx-preview nests the `<foreignObject>` carrying the words inside the
+  `<rect>`, where SVG paints no children — measured in Chrome, 0 by 0 there and
+  92 by 17 beside it. `liftShapeText` moves the node. Both elements come from
+  the file and Word draws both; only their nesting was wrong, which is the same
+  class of fix as `inlinePictureWrappers`.
+
+Rounded corners are deliberately absent rather than pending. `v:roundrect` is
+not in docx-preview's VML switch, so it would draw in Word and vanish on
+screen — and a radius that does nothing in the file is the failure `radiusPt`
+already was once. It goes in when the preview can draw it.
+
 ### Fields, furniture, breaks
 
 | Feature | State | Evidence | Seed case |
@@ -335,7 +380,7 @@ are fixed, and the case that found each one is what keeps it fixed.
 | Column / section break | no | — | `breaks/section-break` |
 | Core properties (author, subject, keywords) | title only | `createDocxDocument` | `meta/core-properties` |
 
-**29 features work, 4 are partial, 29 are absent.** That count is the thing
+**32 features work, 4 are partial, 33 are absent.** That count is the thing
 this plan exists to move, and the board is where it moves in public.
 
 It moved twice through the tables area, and the first move was downward, which

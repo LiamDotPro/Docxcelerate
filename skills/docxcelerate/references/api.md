@@ -61,6 +61,7 @@ interface PromptProps {
 | `Table` | `columns` (required), `children?` |
 | `Row` | `header?`, `children?` |
 | `Cell` | `span?`, `align?`, `children?` |
+| `Shape` | `width?`, `height?` (points), `children?` |
 | `TableOfContents` | `title?` |
 | `PageBreak` | nothing beyond the common props |
 | `PageNumber` | `format?` (`"current" \| "total" \| "currentOfTotal"`, default the last), `separator?` (default `" / "`) |
@@ -79,6 +80,12 @@ Notes worth knowing:
   `header` stays where it is rather than being lifted above its own figures.
 - **`Cell` takes text directly** — `<Cell>{line.qty}</Cell>` is the common case.
   Give it paragraphs when one line is not enough.
+- **`Shape` is a drawn box the words sit on top of**, and takes text directly
+  the way a `Cell` does. Reach for it when the box has to be a *stated* size —
+  a status banner the same depth on every document, whatever it says. When the
+  box should grow with its text, that is a `Table` with one cell in it, not a
+  shape. `width` defaults to the text column; `height` falls back to the block
+  style's `heightPt`. What it looks like is the theme's, through `variant`.
 - `Image` takes `src` and resolves to a node holding `path`. **Only a `data:`
   URI travels**: it carries the bytes, so an engine writing the document
   elsewhere still has the picture. A path or URL draws on screen, where a
@@ -324,7 +331,8 @@ A resolved paragraph:
 ```
 
 `kind` is `"section" | "paragraph" | "image" | "graph" | "table" | "tableRow" |
-"tableCell" | "tableOfContents" | "pageBreak" | "pageNumber" | "repeat"`.
+"tableCell" | "shape" | "tableOfContents" | "pageBreak" | "pageNumber" |
+"repeat"`.
 `mode` is `"static" | "dynamic"` and is **output, not input** — the build derives
 it from what the component supplied. Both modes resolve to the same `kind`; a
 renderer reads `mode` if it cares at all, and never branches on how the node was

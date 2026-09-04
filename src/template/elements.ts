@@ -196,6 +196,30 @@ export interface CellProps extends CommonElementProps {
   children?: Yield;
 }
 
+/**
+ * Props for the `<Shape>` element.
+ *
+ * @example A callout the theme draws as a filled block
+ * ```tsx
+ * <Shape id="status" variant="statusBlock" height={44}>
+ *   <Paragraph id="status-line">Paid in full — thank you</Paragraph>
+ * </Shape>
+ * ```
+ */
+export interface ShapeProps extends CommonElementProps {
+  /** How wide the box is drawn, in points. The text column unless it is said. */
+  width?: number;
+  /** How deep it is drawn, in points. The theme's `heightPt` unless it is said. */
+  height?: number;
+  /**
+   * What is drawn on the box.
+   *
+   * Text goes straight in, so `<Shape id="x">Paid</Shape>` reads as one line.
+   * Anything needing more than a line writes its paragraphs out instead.
+   */
+  children?: Yield;
+}
+
 /** Props for the `<TableOfContents>` element. */
 export interface TableOfContentsProps extends CommonElementProps {
   /** The heading printed above the contents. */
@@ -264,6 +288,24 @@ export const Table: HostElementType<TableProps, "table"> = host("table", "Table"
 export const Row: HostElementType<RowProps, "tableRow"> = host("tableRow", "Row");
 /** One cell of a `<Row>`. */
 export const Cell: HostElementType<CellProps, "tableCell"> = host("tableCell", "Cell");
+
+/**
+ * A drawn box with words on it.
+ *
+ * Word draws a real rectangle and the paragraphs sit on top of its fill, which
+ * is the difference between this and a paragraph with a background. The box is
+ * the size you give it and does not grow with its text — when it should grow,
+ * a `<Table>` with one cell in it is the thing to reach for.
+ *
+ * @example
+ * ```tsx
+ * <Shape id="status" variant="statusBlock" height={44}>
+ *   <Paragraph id="status-line">Paid in full — thank you</Paragraph>
+ * </Shape>
+ * ```
+ */
+export const Shape: HostElementType<ShapeProps, "shape"> = host("shape", "Shape");
+
 /**
  * Where one page ends and the next begins.
  *
@@ -319,6 +361,13 @@ export type Paragraph<P = Record<never, never>> = Component<P, "paragraph">;
  * @typeParam P The props the component takes.
  */
 export type Image<P = Record<never, never>> = Component<P, "image">;
+/**
+ * A component that yields a `<Shape>`.
+ *
+ * @typeParam P The props the component takes.
+ */
+export type Shape<P = Record<never, never>> = Component<P, "shape">;
+
 /**
  * A component that yields a `<Graph>`.
  *
