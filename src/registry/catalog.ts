@@ -100,45 +100,42 @@ export const COMPONENTS: RegistryComponent[] = [
     summary: "A drawn block at the top of the page saying where things stand.",
     detail:
       "The component that shows what a shape is for. A banner has to be the " +
-      "same depth on every document it goes out on — the one saying 'Paid' " +
-      "and the one saying 'Overdue, 14 days' have to be the same block, or a " +
-      "reader flicking through a stack sees the shorter one as a different " +
-      "kind of notice. A paragraph with a background grows with its words; a " +
-      "shape is the size you gave it, so the three states below are three " +
-      "wordings of one block rather than three blocks. The colours are the " +
-      "theme's, named for what the banner is rather than what it looks like.",
+      "same depth on every document it goes out on — the one saying 'Approved' " +
+      "and the one saying 'Awaiting signature, 14 days' have to be the same " +
+      "block, or a reader flicking through a stack sees the shorter one as a " +
+      "different kind of notice. A paragraph with a background grows with its " +
+      "words; a shape is the size you gave it, so the three tones are three " +
+      "wordings of one block rather than three blocks. What the banner is " +
+      "about is yours: it prints the line it is given under one of three " +
+      "tones, so the same component carries an approval, a deadline, a draft " +
+      "mark or a refusal. The colours are the theme's, named for the state " +
+      "they report rather than the colour they happen to be.",
     category: "Opening",
     tags: ["shape", "banner", "status", "branching"],
     exports: ["StatusBanner"],
     dataFields: [
       {
-        path: "account.balanceDue",
-        type: "number",
-        summary: "What is owed. Zero or less prints the paid banner.",
+        path: "status.label",
+        type: "string",
+        summary: "The line printed across the banner.",
       },
       {
-        path: "account.dueBy",
-        type: "string | number | Date | undefined",
-        summary: "When it is due. Printed on the due banner, ignored once paid.",
+        path: "status.tone",
+        type: '"positive" | "attention" | "critical" | undefined',
+        summary: "Which of the three it is drawn as. Anything else draws the attention tone.",
       },
       {
-        path: "account.currency",
+        path: "status.note",
         type: "string | undefined",
-        summary: "ISO 4217 code for the amount. Defaults to GBP.",
-      },
-      {
-        path: "account.daysOverdue",
-        type: "number | undefined",
-        summary: "Days past the due date. Anything above zero prints the overdue banner.",
+        summary: "A second thing on the line — a date, a reference, whatever follows.",
       },
     ],
     files: node("status-banner"),
     previewData: {
-      account: {
-        balanceDue: 1250,
-        dueBy: "2026-04-30",
-        currency: "GBP",
-        daysOverdue: 0,
+      status: {
+        label: "Awaiting signature",
+        tone: "attention",
+        note: "please return by 30 April 2026",
       },
     },
     requires: [],

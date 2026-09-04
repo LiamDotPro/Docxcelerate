@@ -1,4 +1,23 @@
+import type { DocumentBlockStyle } from "../../domain/style.ts";
 import { defineTheme, type Theme } from "../theme.ts";
+
+/**
+ * Everything the three banners share.
+ *
+ * No colour, because this theme has none — the three states are told apart by
+ * ink and rule the way a filing tells them apart. This is the whole point of a
+ * component naming what a banner *is* rather than what colour it should take.
+ */
+const banner: DocumentBlockStyle = {
+  heightPt: 44,
+  paddingPt: 14,
+  valign: "center",
+  fontSizePt: 12,
+  weight: "bold",
+  border: "000000",
+  borderWidthPt: 1,
+  transform: "uppercase",
+};
 
 /**
  * The theme for documents that may be read aloud in a dispute.
@@ -53,6 +72,13 @@ export const legalSerifTheme: Theme = defineTheme({
       spacingBeforePt: 15,
       spacingAfterPt: 6,
       transform: "uppercase",
+    },
+    // Three states in one ink: ruled, filled grey, reversed out. Convention, on
+    // purpose — the same reason nothing else here is coloured.
+    blocks: {
+      bannerPositive: { ...banner, fill: "FFFFFF", color: "000000" },
+      bannerAttention: { ...banner, fill: "E5E5E5", color: "000000" },
+      bannerCritical: { ...banner, fill: "000000", color: "FFFFFF" },
     },
   },
 });

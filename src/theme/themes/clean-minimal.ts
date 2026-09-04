@@ -1,4 +1,21 @@
+import type { DocumentBlockStyle } from "../../domain/style.ts";
 import { defineTheme, type Theme } from "../theme.ts";
+
+/**
+ * Everything the three banners share, so only the colour differs between them.
+ *
+ * The depth is here rather than left to the node because a banner's whole
+ * point is being the same size whatever it says, and `valign` is what stops
+ * one line of text sitting against the top edge of a 44pt box.
+ */
+const banner: DocumentBlockStyle = {
+  color: "FFFFFF",
+  heightPt: 44,
+  paddingPt: 14,
+  valign: "center",
+  fontSizePt: 12,
+  weight: "bold",
+};
 
 /**
  * The theme a document falls back to when it names none.
@@ -42,5 +59,14 @@ export const cleanMinimalTheme: Theme = defineTheme({
     paragraph: { spacingAfterPt: 10 },
     title: { fontSizePt: 20, weight: "bold", spacingBeforePt: 0, spacingAfterPt: 18 },
     sectionHeading: { fontSizePt: 12, weight: "bold", spacingBeforePt: 16, spacingAfterPt: 7 },
+    // A banner is the one place this theme raises its voice, because a notice
+    // nobody notices is not a notice. The three are named for the state they
+    // report rather than the colour they are, so a document that says
+    // `bannerCritical` keeps meaning that under a theme that draws it in black.
+    blocks: {
+      bannerPositive: { ...banner, fill: "15803D" },
+      bannerAttention: { ...banner, fill: "B45309" },
+      bannerCritical: { ...banner, fill: "B91C1C" },
+    },
   },
 });

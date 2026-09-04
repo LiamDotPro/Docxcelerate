@@ -5,10 +5,11 @@ import { Paragraph, type Shape as ShapeComponent, Shape } from "docxcelerate/tem
  *
  * A shape with no width fills the text column, which is what a banner wants.
  * Saying one makes a block that sits in the column rather than spanning it —
- * a stamp, a callout, a badge beside prose.
+ * a stamp, a callout, a badge beside prose. The tone is the theme's, named
+ * for the state it reports rather than the colour it happens to be.
  */
 export const PaidStamp: ShapeComponent = () => (
-  <Shape id="paid-stamp" variant="stamp" width={160} height={56}>
+  <Shape id="paid-stamp" variant="bannerPositive" width={160} height={56}>
     <Paragraph id="paid-stamp-line">Paid in full</Paragraph>
   </Shape>
 );

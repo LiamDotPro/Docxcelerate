@@ -350,18 +350,28 @@ form both engines read is what keeps the preview showing the document; the
 alternative was to pack DrawingML and then *build* the box in the preview,
 which is a second renderer and the thing this package exists not to have.
 
-Two things had to be said twice, and both are in the file rather than patched
-on afterwards:
+Three things the two engines do not read the same way, and all three are
+settled in the file rather than patched on afterwards:
 
-- **The stroke.** VML states one as attributes on the shape *and* as a
-  `v:stroke` child. Word reads either; docx-preview's `parseStroke` reads only
-  the child. Both are written, from the one block, so they cannot disagree.
-- **Nothing else.** The one repair that is not in the file is structural:
-  docx-preview nests the `<foreignObject>` carrying the words inside the
-  `<rect>`, where SVG paints no children — measured in Chrome, 0 by 0 there and
-  92 by 17 beside it. `liftShapeText` moves the node. Both elements come from
-  the file and Word draws both; only their nesting was wrong, which is the same
-  class of fix as `inlinePictureWrappers`.
+- **The stroke, said twice.** VML states one as attributes on the shape *and*
+  as a `v:stroke` child. Word reads either; docx-preview's `parseStroke` reads
+  only the child. Both are written, from the one block, so they cannot
+  disagree.
+- **The room inside, said once — in the other place.** VML states it as an
+  `inset` on the text box. docx-preview turns a `v:textbox` into a bare
+  `foreignObject` carrying nothing but `width` and `height`, and never reads
+  that attribute at all, so a banner's words sat hard against the fill on
+  screen while Word set them in properly. This one cannot be said twice: Word
+  would leave the gap twice over. So the sides are stated as `w:ind` on the
+  paragraphs, which both engines read, and the text box insets only top and
+  bottom. `shapes/block-with-text` measures the words' left edge against the
+  fill's, which is the assertion that caught it and the one that keeps it.
+- **The words' nesting, repaired.** docx-preview nests the `<foreignObject>`
+  carrying the words inside the `<rect>`, where SVG paints no children —
+  measured in Chrome, 0 by 0 there and 92 by 17 beside it. `liftShapeText`
+  moves the node. Both elements come from the file and Word draws both; only
+  their nesting was wrong, which is the same class of fix as
+  `inlinePictureWrappers`.
 
 Rounded corners are deliberately absent rather than pending. `v:roundrect` is
 not in docx-preview's VML switch, so it would draw in Word and vanish on
