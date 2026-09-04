@@ -39,6 +39,44 @@ test("every component names a source file that exists", async () => {
   }
 });
 
+test("every field a component documents is one its preview data actually has", () => {
+  // The two halves of an entry drift in one direction: a component grows a
+  // field, the catalog gains a row for it, and the preview data nobody has to
+  // run stays as it was. What a reader then copies out of the site is data the
+  // component reads a missing value from — which is not a crash, it is a
+  // sentence with `undefined` in it.
+  //
+  // Collected rather than asserted one at a time, so a failure names every
+  // entry that has drifted instead of only the first.
+  const missing = COMPONENTS.flatMap((component) =>
+    [...new Set(component.dataFields.map((field) => field.path.split(".")[0]))]
+      .filter((root) => !(root in component.previewData))
+      .map((root) => `${component.id}: previewData has no ${root}`)
+  );
+
+  assertEquals(missing, []);
+});
+
+test("a component that draws a chart says so in its tags", async () => {
+  // Read out of the source rather than assumed from the id, so a component
+  // that grows a chart later is held to this too. Tags are how the catalog is
+  // filtered, and a chart component nobody searching for a chart can find is
+  // a component that may as well not be in the registry.
+  const untagged: string[] = [];
+
+  for (const component of COMPONENTS) {
+    for (const file of component.files) {
+      const source = await readFile(join(registryRoot(), ...file.source.split("/")), "utf8");
+
+      if (source.includes("<Graph") && !component.tags.includes("chart")) {
+        untagged.push(component.id);
+      }
+    }
+  }
+
+  assertEquals(untagged, []);
+});
+
 test("installing a component copies it in and re-exports it", async () => {
   const projectDir = await documentProject();
 

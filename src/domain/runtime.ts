@@ -10,6 +10,7 @@
  */
 
 import type {
+  GraphData,
   GraphNode,
   GraphType,
   ImageNode,
@@ -99,7 +100,7 @@ export interface AiGraphResult {
   /** Which chart to draw. */
   graphType?: GraphType;
   /** The series to plot. */
-  data?: JsonObject;
+  data?: GraphData;
   /** A caption printed beneath the chart. */
   caption?: string;
 }

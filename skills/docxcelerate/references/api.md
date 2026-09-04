@@ -57,7 +57,7 @@ interface PromptProps {
 | `Section` | `title` (required), `children?` |
 | `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`) |
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` |
-| `Graph` | `graphType?` (`"bar" \| "line" \| "pie"`, default `bar`), `data?`, `caption?` |
+| `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter"`, default `bar`), `data?`, `title?`, `caption?`, `width?`, `height?` (points), `legend?`, `stacked?`, `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `dataLabels?` |
 | `Table` | `columns` (required), `children?` |
 | `Row` | `header?`, `children?` |
 | `Cell` | `span?`, `align?`, `children?` |
@@ -107,11 +107,37 @@ Notes worth knowing:
   both sides and bound — the reference belongs at the *outside* edge of each, so
   a folio in the same place on every sheet sits in the gutter on half of them.
   Naming either makes `header` and `footer` the right-hand page's.
-- `Graph.data` is a `JsonObject` the framework never looks inside.
-  `{ labels, series: [{ name, values }] }` is a convention, not a schema — pick
-  one shape and keep it consistent across a project. String values inside the
-  payload *are* run through the template renderer, so a label containing
-  `{{derived.total}}` resolves.
+- `Graph.data` is `{ categories?: string[], series: { label?, values: (number
+  | null)[], color? }[] }`. A `null` value is a gap in the plot, not a zero — a
+  month nobody measured is not a month that measured nothing. A series shorter
+  than the categories is padded with gaps; one with no categories is counted by
+  position. Strings inside the payload are run through the template renderer,
+  so a label containing `{{derived.total}}` resolves.
+- **A chart is packed as a real Word chart**, not as a picture of one: a
+  `c:chartSpace` part with every value cached in it, plus the workbook "Edit
+  Data" opens. The reader can select it, restyle it, change its type and open
+  its numbers, and it prints as vectors at any size. Nothing is rasterised, so
+  charts need no extra dependency and no native module.
+- Series take the theme's `palette.series` in order, which is what keeps a
+  chart re-themeable; a series naming its own `color` overrides it. The
+  gridlines take `palette.rule` and the axis and key text `palette.muted`, so a
+  chart reads as part of the document rather than as something pasted into it.
+- `numberFormat` is an OOXML format code — `"#,##0"`, `"0.0%"`, `"£#,##0"` —
+  handed to the value axis and to the data labels verbatim.
+- `legend` defaults to a key under the plot for more than one series and none
+  for one, because a key naming the only thing on the chart repeats the title.
+  A pie always keeps one: its key names the slices.
+- `barHorizontal` reads top-down, in the order the categories were written.
+  OOXML's default is bottom-up — which is what Word's own bar charts do, and
+  not what a document handing over an array means by it.
+- `barHorizontal` reads top-down in the order the categories were written,
+  rather than bottom-up the way Word.s own bar charts do.
+- `title` is drawn *on* the chart and travels with it; `caption` is a paragraph
+  printed underneath, styled by a `chartCaption` block where the theme has one.
+- The local preview draws charts with ECharts, from the packed file — see
+  `preview/charts.ts` in a scaffolded workspace. The frame comes from the file
+  and is exact; the plot inside it is another renderer's drawing of the same
+  data. Open the `.docx` when the plot itself has to be right.
 - A paragraph given an empty string is an empty paragraph, not an absent node.
   To drop a node, return `false`, `null` or `undefined`.
 - Renderers escape paragraph text. A paragraph cannot smuggle markup into a page.

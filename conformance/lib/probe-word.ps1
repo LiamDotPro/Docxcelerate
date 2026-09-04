@@ -374,6 +374,133 @@ function Read-Shapes {
 
     return @($ordered)
 }
+# The charts Word found, and what it makes of each.
+#
+# The only tier that can settle whether a chart is a chart. Every other reading
+# sees a frame and some XML; this one is Word telling us it built a chart
+# object from it, which type it chose, and -- the part nothing else can prove
+# -- the numbers it read back out of the series.
+#
+# Those numbers come back empty from a document opened read-only. It is not a
+# permission: Word defers loading the chart's data until the document is
+# writable, so a read-only open reports a chart with the right type, the right
+# title and no values at all. The runner opens writable for this reason and
+# never saves.
+function Read-Charts {
+    param($doc)
+
+    $found = @()
+
+    # Charts in the body and charts in the running strips are different
+    # collections. A letterhead with a sparkline in it is a chart the file
+    # declares, and a probe that only walked the body would report none.
+    $ranges = @(@{ range = $doc.Content; where = 'body' })
+    foreach ($section in $doc.Sections) {
+        foreach ($header in $section.Headers) {
+            try { $ranges += @{ range = $header.Range; where = 'header' } } catch { }
+        }
+        foreach ($footer in $section.Footers) {
+            try { $ranges += @{ range = $footer.Range; where = 'footer' } } catch { }
+        }
+    }
+
+    foreach ($pair in $ranges) {
+        $items = $null
+        try { $items = $pair.range.InlineShapes } catch { continue }
+        $count = 0
+        try { $count = [int]$items.Count } catch { continue }
+
+        for ($i = 1; $i -le $count; $i += 1) {
+            $s = $null
+            try { $s = $items.Item($i) } catch { continue }
+            $isChart = $false
+            try { $isChart = [bool]$s.HasChart } catch { }
+            if (-not $isChart) { continue }
+
+            $record = [ordered]@{
+                index       = $found.Count
+                where       = $pair.where
+                chartType   = $null
+                typeName    = $null
+                width       = $null
+                height      = $null
+                title       = $null
+                hasTitle    = $null
+                hasLegend   = $null
+                seriesCount = $null
+                series      = @()
+                categories  = @()
+                plotWidth   = $null
+                plotHeight  = $null
+                altText     = $null
+            }
+
+            try { $record.width = [math]::Round([double]$s.Width, 2) } catch { }
+            try { $record.height = [math]::Round([double]$s.Height, 2) } catch { }
+            try { $record.altText = [string]$s.AlternativeText } catch { }
+
+            $c = $null
+            try { $c = $s.Chart } catch { }
+            if ($null -eq $c) { $found += $record; continue }
+
+            # Word's own constants for the chart it built. Naming the ones this
+            # toolkit can produce is what lets a case say "a clustered column"
+            # rather than quote 51 at a reader; anything else keeps its number,
+            # because a case that meets one wants to see which.
+            try {
+                $t = [int]$c.ChartType
+                $names = @{
+                    51 = 'columnClustered'; 52 = 'columnStacked'
+                    57 = 'barClustered';    58 = 'barStacked'
+                    4  = 'line';            65 = 'lineMarkers'
+                    1  = 'area';            76 = 'areaStacked'
+                    5  = 'pie';             -4120 = 'doughnut'
+                    -4169 = 'xyScatter';    74 = 'xyScatterLines'
+                }
+                $record.chartType = $t
+                $record.typeName = $names[$t]
+                if ($null -eq $record.typeName) { $record.typeName = "type$t" }
+            } catch { }
+
+            try { $record.hasTitle = [bool]$c.HasTitle } catch { }
+            if ($record.hasTitle) { try { $record.title = [string]$c.ChartTitle.Text } catch { } }
+            try { $record.hasLegend = [bool]$c.HasLegend } catch { }
+            try { $record.plotWidth = [math]::Round([double]$c.PlotArea.Width, 2) } catch { }
+            try { $record.plotHeight = [math]::Round([double]$c.PlotArea.Height, 2) } catch { }
+
+            try {
+                $sc = $c.SeriesCollection()
+                $record.seriesCount = [int]$sc.Count
+                $series = @()
+
+                for ($j = 1; $j -le $record.seriesCount; $j += 1) {
+                    $one = $sc.Item($j)
+                    $entry = [ordered]@{ name = $null; values = @(); color = $null }
+
+                    try { $entry.name = [string]$one.Name } catch { }
+                    # A variant array of doubles, which is what Word reads out
+                    # of the chart's cache. Forcing it through @() keeps a
+                    # one-point series an array rather than a bare number.
+                    try { $entry.values = @($one.Values | ForEach-Object { [double]$_ }) } catch { }
+                    try { $entry.color = To-Hex $one.Format.Fill.ForeColor.RGB } catch { }
+
+                    $series += $entry
+
+                    if ($j -eq 1) {
+                        try { $record.categories = @($one.XValues | ForEach-Object { [string]$_ }) } catch { }
+                    }
+                }
+
+                $record.series = @($series)
+            } catch { }
+
+            $found += $record
+        }
+    }
+
+    return @($found)
+}
+
 $docxFull = (Resolve-Path -LiteralPath $DocxPath).Path
 $pdfFull = [System.IO.Path]::GetFullPath($PdfPath)
 
@@ -388,6 +515,7 @@ $out = [ordered]@{
     furniture   = $null
     tables      = @()
     shapes      = @()
+    charts      = @()
     paragraphs  = @()
     pdfExported = $false
     errors      = @()
@@ -404,10 +532,27 @@ try {
     $out.wordVersion = [string]$w.Version
 
     $missing = [System.Reflection.Missing]::Value
-    # Read-only, never added to recent files: the harness measures the
-    # document, it does not touch it.
-    $d = $w.Documents.Open($docxFull, $false, $true, $false,
-        $missing, $missing, $missing, $missing, $missing, $missing, $missing, $false)
+    # Writable, never added to recent files, and closed with
+    # `wdDoNotSaveChanges` below: the harness measures the document and does
+    # not touch it.
+    #
+    # Two of these arguments changed when charts arrived, and both had to.
+    #
+    # ReadOnly was $true. Word defers loading a chart's data while a document
+    # is read-only, so SeriesCollection came back with the right count, the
+    # right type, and no names and no values at all -- a chart probe measuring
+    # nothing while looking like it had. Measured both ways on the same file:
+    # read-only reports "2024=" and writable "2024=12,18,9,22".
+    #
+    # Visible -- the last argument, the DOCUMENT window rather than the
+    # application -- was $false. Without a window Word never instantiates the
+    # chart object at all: InlineShape.Type still reports 12
+    # (wdInlineShapeChart), and HasChart returns nothing while .Chart throws.
+    # Measured on the same file: visible $false gives "HasChart=[]", visible
+    # $true gives "HasChart=[-1] ChartType=51". The application above stays
+    # invisible either way, so nothing appears on screen.
+    $d = $w.Documents.Open($docxFull, $false, $false, $false,
+        $missing, $missing, $missing, $missing, $missing, $missing, $missing, $true)
 
     # Information(5/6) is page-relative only in Print Layout. In another view
     # Word reports column-relative numbers that look plausible and are wrong.
@@ -492,6 +637,7 @@ try {
     } catch { $errors += "tables: $($_.Exception.Message)" }
 
     try { $out.shapes = Read-Shapes $d } catch { $errors += "shapes: $($_.Exception.Message)" }
+    try { $out.charts = Read-Charts $d } catch { $errors += "charts: $($_.Exception.Message)" }
 
     $paragraphs = @()
     $index = 0

@@ -1,6 +1,6 @@
 ---
 title: Graph
-description: Grafieken als data gedeclareerd — staaf, lijn of taart — uit jouw cijfers of die van een endpoint.
+description: Echte Word-grafieken — staaf, lijn, vlak, taart, ring of spreiding — als data gedeclareerd in plaats van als plaatje getekend.
 group: Nodes
 subgroup: Node types
 order: 13
@@ -18,34 +18,54 @@ Een graph-node bevat getallen en een vorm, nooit een afbeelding:
 ```tsx
 export const VisitsByMonth: Graph = () => {
   const [state] = useState((data: MemberData) => ({
-    labels: data.visitsByMonth.map((entry) => entry.month),
+    months: data.visitsByMonth.map((entry) => entry.month),
     visits: data.visitsByMonth.map((entry) => entry.visits),
   }));
 
   return (
     <Graph
       id="visits-by-month"
+      title="Visits by month"
       graphType="bar"
-      data={{ labels: state.labels, series: [{ name: "Visits", values: state.visits }] }}
+      valueAxisTitle="Visits"
+      data={{
+        categories: state.months,
+        series: [{ label: "Visits", values: state.visits }],
+      }}
       caption="Your visits, last six months"
     />
   );
 };
 ```
 
-Cijfers meedragen in plaats van een plaatje betekent dat één declaratie elke
-renderer bedient, leesbaar diff't tussen builds, en in een test kan worden
-vastgelegd.
+Wat in de `.docx` belandt is een **echte Word-grafiek** — een
+DrawingML-chartdeel met alle waarden erin, plus de werkmap die „Gegevens
+bewerken" opent. De lezer kan hem selecteren, opnieuw vormgeven, van type
+veranderen en zijn cijfers openen, en Word tekent hem als vectoren op elk
+formaat. Niets hiervan wordt gerasterd.
 
-## De vorm van de payload is van jou
+## De vorm van de data
 
-`data` is een `JsonObject` en het framework kijkt er nooit in. De hier gebruikte
-vorm `{ labels, series }` is een conventie, geen schema — gebruik wat jouw
-renderer verwacht, en houd het consistent binnen een project.
+`data` is getypeerd: categorieën en series, elke serie met een label, zijn
+waarden en optioneel een kleur.
 
-Eén ding gebeurt er wel met de payload: stringwaarden gaan door de
-templaterenderer heen, net als proza. Een label met `{{derived.total}}` erin
-wordt opgelost.
+```ts
+interface GraphData {
+  categories?: string[];
+  series: Array<{ label?: string; values: (number | null)[]; color?: string }>;
+}
+```
+
+Een `null` is een gat, geen nul. Een maand die nog niet is afgelezen is geen
+maand waarin niets is gemeten — Word laat het punt weg in plaats van de lijn te
+laten inzakken.
+
+Kleuren komen uit het thema (`palette.series`, een vaste reeks die op
+kleurenblindheid is getoetst), zodat een document opnieuw kan worden vormgegeven
+zonder dat de grafieken uit de pas gaan lopen.
+
+Eén ding gebeurt er wel met de data: stringwaarden gaan door de templaterenderer
+heen, net als proza. Een label met `{{derived.total}}` erin wordt opgelost.
 
 ## Afleiden in de state
 
@@ -61,4 +81,5 @@ berekend, zodat ze het niet oneens kunnen zijn.
 
 - `graphType` staat op beide helpers standaard op `bar`.
 - Bij een dynamische graph ligt de vorm nog steeds lokaal vast. Het endpoint
-  levert de cijfers en mag `graphType` en `caption` in zijn antwoord overschrijven.
+levert de cijfers en mag `graphType` en `caption` in zijn antwoord
+overschrijven.

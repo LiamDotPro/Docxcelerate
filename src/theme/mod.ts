@@ -30,6 +30,16 @@ export * from "./theme.ts";
 export { boldBriefTheme, cleanMinimalTheme, legalSerifTheme, slateReportTheme, warmLetterTheme };
 
 /**
+ * The colours a chart draws its series in when a theme names none.
+ *
+ * Exported because a theme writing its own `palette.series` wants to see what
+ * it is replacing, and because extending the shipped set is more often right
+ * than starting from nothing: the order is what keeps neighbouring series
+ * telling apart for a colourblind reader, and it is not a preference.
+ */
+export { DEFAULT_SERIES_COLORS } from "../render/chart_part.ts";
+
+/**
  * Every theme the package ships, in the order a catalog lists them: the
  * default first, then by how far each one departs from it.
  */

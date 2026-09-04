@@ -1,4 +1,5 @@
 import type {
+  GraphData,
   GraphNode,
   ImageNode,
   JsonObject,
@@ -256,7 +257,12 @@ async function resolveGraph(
   if (node.mode === "static") {
     return {
       ...node,
-      data: node.data ? await renderJsonObjectTemplates(node.data, state) : node.data,
+      data: node.data
+        ? await renderJsonObjectTemplates(
+          node.data as unknown as JsonObject,
+          state,
+        ) as unknown as GraphData
+        : node.data,
       caption: node.caption ? await renderTemplate(node.caption, state) : node.caption,
     };
   }

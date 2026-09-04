@@ -267,6 +267,196 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+
+  {
+    kind: "component",
+    id: "balance-trend",
+    title: "Balance trend",
+    summary: "A line of how a balance has moved, and a sentence saying the same thing.",
+    detail:
+      "The chart and the prose are worked out from one array, which is the " +
+      "reason to install this rather than write a <Graph> yourself: a line " +
+      "that falls beside a sentence that says it rose is the failure this " +
+      "shape rules out. Three decisions come with it. A reading nobody took " +
+      "is null rather than zero, so a month that has not been billed draws as " +
+      "a gap instead of a cliff. Fewer than two readings is not a trend, so " +
+      "one reading prints as a balance and draws nothing — a line through a " +
+      "single point is a chart that looks like it says something. And the " +
+      "currency goes in the sentence rather than down the axis, where it " +
+      "would be six copies of a fact already given.",
+    category: "Body",
+    tags: ["chart", "line", "money", "branching", "section"],
+    exports: ["BalanceTrend"],
+    dataFields: [
+      {
+        path: "balance.history",
+        type: "Array<{ period: string; amount: number | null }>",
+        summary:
+          "One entry per period, oldest first — the order it is drawn in. " +
+          "`null` is a period nothing was read for, and draws as a gap.",
+      },
+      {
+        path: "balance.currency",
+        type: "string | undefined",
+        summary: "ISO 4217 code, for the sentence. Defaults to GBP.",
+      },
+      {
+        path: "balance.numberFormat",
+        type: "string | undefined",
+        summary:
+          "How the value axis prints its figures, as an OOXML number format. " +
+          'Defaults to "#,##0".',
+      },
+    ],
+    files: node("balance-trend"),
+    previewData: {
+      balance: {
+        currency: "GBP",
+        history: [
+          { period: "Apr", amount: 412.5 },
+          { period: "May", amount: 388.2 },
+          { period: "Jun", amount: null },
+          { period: "Jul", amount: 296.75 },
+          { period: "Aug", amount: 241.1 },
+          { period: "Sep", amount: 128.42 },
+        ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "usage-breakdown",
+    title: "Usage breakdown",
+    summary: "A pie of where a total went, with the tail folded into Other.",
+    detail:
+      "The decision this makes for you is what happens past the sixth slice. " +
+      "A breakdown out of real data has as many categories as the system had " +
+      "rows, and a chart drawn straight from one runs off the end of the " +
+      "palette — where the ninth slice is painted the same as the first and " +
+      "two unrelated things look like one. Everything past the largest few is " +
+      "added up and drawn as Other, which is as much as a reader holds in " +
+      "their head anyway. The slices are sorted largest first, because a pie " +
+      "read clockwise is read in order; each one prints its share, because " +
+      "three of the shipped palette's hues sit under 3:1 on white and colour " +
+      "alone is not an answer.",
+    category: "Body",
+    tags: ["chart", "pie", "share", "section"],
+    exports: ["UsageBreakdown"],
+    dataFields: [
+      {
+        path: "usage.items",
+        type: "Array<{ label: string; amount: number }>",
+        summary:
+          "One entry per category, in any order — this component sorts them. " +
+          "Zero and negative amounts are dropped rather than drawn.",
+      },
+      {
+        path: "usage.unit",
+        type: "string | undefined",
+        summary: 'What is being counted: "kWh", "visits", "hours". Printed in the prose.',
+      },
+      {
+        path: "usage.period",
+        type: "string | undefined",
+        summary: 'What the breakdown covers: "this quarter", "since April".',
+      },
+    ],
+    files: node("usage-breakdown"),
+    previewData: {
+      usage: {
+        unit: "visits",
+        period: "this year",
+        items: [
+          { label: "Swimming", amount: 96 },
+          { label: "Gym", amount: 64 },
+          { label: "Classes", amount: 41 },
+          { label: "Squash", amount: 18 },
+          { label: "Sauna", amount: 12 },
+          { label: "Badminton", amount: 9 },
+          { label: "Climbing", amount: 4 },
+          { label: "Table tennis", amount: 2 },
+        ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "period-comparison",
+    title: "Period comparison",
+    summary: "This period against the last, category by category, as clustered bars.",
+    detail:
+      "The chart every report reaches for, and the one that goes wrong the " +
+      "same two ways every time. It turns its bars on their side when the " +
+      "labels are long: category names out of a real system are 'Ground " +
+      "floor maintenance', not 'Q1', and under a vertical bar those overlap, " +
+      "shrink or tilt. Laid down, each label sits beside its bar at full size " +
+      "and the chart grows downwards, which is the direction a page has room " +
+      "in. And both series are the same measure at two different times — the " +
+      "one comparison a shared axis is honest about. Spend against headcount " +
+      "is two charts, because a second axis makes the crossing point look " +
+      "like a finding when it is an artefact of the scales.",
+    category: "Body",
+    tags: ["chart", "bar", "comparison", "section"],
+    exports: ["PeriodComparison"],
+    dataFields: [
+      {
+        path: "comparison.rows",
+        type: "Array<{ label: string; previous: number | null; current: number | null }>",
+        summary:
+          "One row per category, in the order they are drawn. `null` is a " +
+          "category not measured in that period, and draws as a gap.",
+      },
+      {
+        path: "comparison.previousLabel",
+        type: "string",
+        summary: 'What the earlier run is called: "2024", "Last year".',
+      },
+      {
+        path: "comparison.currentLabel",
+        type: "string",
+        summary: 'What the later run is called: "2025", "This year".',
+      },
+      {
+        path: "comparison.measure",
+        type: "string | undefined",
+        summary: "What the figures measure. Printed beside the value axis.",
+      },
+      {
+        path: "comparison.dimension",
+        type: "string | undefined",
+        summary: "What the categories are. Printed beside the category axis.",
+      },
+      {
+        path: "comparison.numberFormat",
+        type: "string | undefined",
+        summary:
+          "How the value axis prints its figures, as an OOXML number format. " +
+          'Defaults to "#,##0".',
+      },
+    ],
+    files: node("period-comparison"),
+    previewData: {
+      comparison: {
+        previousLabel: "2024",
+        currentLabel: "2025",
+        measure: "Visits",
+        dimension: "Activity",
+        rows: [
+          { label: "Swimming", previous: 84, current: 96 },
+          { label: "Gym", previous: 71, current: 64 },
+          { label: "Classes", previous: 33, current: 41 },
+          { label: "Squash", previous: 18, current: 18 },
+          { label: "Climbing", previous: null, current: 4 },
+        ],
+      },
+    },
+    requires: [],
+  },
+
   {
     kind: "component",
     id: "next-steps",

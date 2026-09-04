@@ -227,6 +227,26 @@ export function wordView(measure) {
       return listOf(measure.shapes)[index] ?? missingShape(`#${index}`);
     },
 
+    // --- charts ---------------------------------------------------------------
+    //
+    // The only tier that can say a chart is a chart rather than a frame with
+    // XML behind it: these are Word's own reading of the chart object it built,
+    // down to the numbers it took out of the series.
+
+    /** Every chart Word found, body and running strips both, in order. */
+    charts: listOf(measure.charts),
+
+    /** One chart, counting from zero. */
+    chart(index = 0) {
+      return listOf(measure.charts)[index] ?? missingChart(`#${index}`);
+    },
+
+    /** One series of one chart, by the same rule. */
+    chartSeries(chartIndex = 0, seriesIndex = 0) {
+      return listOf(this.chart(chartIndex).series)[seriesIndex] ??
+        { name: null, values: [], color: null };
+    },
+
 
     /** One table, counting from zero. */
     table(index = 0) {
@@ -365,6 +385,29 @@ function missingShape(anchor) {
     y: null,
   };
 }
+/** The stand-in for a chart Word did not find. */
+function missingChart(anchor) {
+  return {
+    missing: true,
+    anchor,
+    index: -1,
+    where: null,
+    chartType: null,
+    typeName: null,
+    width: null,
+    height: null,
+    title: null,
+    hasTitle: null,
+    hasLegend: null,
+    seriesCount: null,
+    series: [],
+    categories: [],
+    plotWidth: null,
+    plotHeight: null,
+    altText: null,
+  };
+}
+
 function missingTable(anchor) {
   return {
     missing: true,

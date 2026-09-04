@@ -45,6 +45,21 @@ export interface DocumentPalette {
   rule: string;
   /** The paper itself. */
   page: string;
+  /**
+   * The colours a chart draws its series in, in order.
+   *
+   * A list rather than a single colour because a chart's colours only mean
+   * anything as a set: what matters is that the second series is telling apart
+   * from the first, which is a property of the run and not of any one entry.
+   * The order is the safety — the hues are stepped so that neighbours stay
+   * distinct to a colourblind reader, and cycling or reordering them undoes
+   * that.
+   *
+   * A theme that says nothing gets the shipped default, so a chart is never
+   * unstyled. A series that names its own colour overrides whatever stands
+   * here, which is the one case a document outranks its theme.
+   */
+  series?: string[];
 }
 
 /** Page margins, in millimetres. */

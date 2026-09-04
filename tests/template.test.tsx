@@ -397,7 +397,7 @@ test("images and graphs infer their mode the same way paragraphs do", async () =
       <Document id="tenancy" title="Tenancy">
         <Image id="signature" src="assets/signature.png" alt="A signature" />
         <Image id="scene" generalPrompt="Draw the property." />
-        <Graph id="totals" graphType="bar" data={{ labels: ["a"], values: [1] }} />
+        <Graph id="totals" graphType="bar" data={{ categories: ["a"], series: [{ values: [1] }] }} />
         <Graph id="trend" generalPrompt="Plot the balance." />
       </Document>,
     ),

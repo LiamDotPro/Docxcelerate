@@ -497,6 +497,55 @@ function harnessHtml(bodyFont) {
       return out;
     });
 
+    // Every chart frame on the page, and whether anything was drawn in it.
+    //
+    // docx-preview has no reading of a chart part at all — grep the bundle and
+    // "chart" does not appear in it — so what it leaves for one is an empty
+    // inline-block span at exactly the size the file gave the frame. That is
+    // the shape matched here: an inline-block span with a width and a height
+    // and nothing inside it. A picture leaves the same span with an <img> in
+    // it and a VML shape leaves an <svg> with no inline-block, so neither is
+    // caught by this.
+    //
+    // The frame is worth measuring even while it is empty: it is what the page
+    // is laid out around, so a chart whose frame is the wrong size paginates
+    // the document differently from Word whether or not a plot is drawn in it.
+    // The "plotted" field is the other half — the assertion that says whether
+    // a reader sees a chart or a hole.
+    //
+    // No backticks anywhere in here: this whole harness lives inside a
+    // template literal, and one in a comment ends it.
+    var charts = [];
+
+    articles.forEach(function (article, pageIndex) {
+      var content = boxes[pageIndex].content;
+
+      [].slice.call(article.querySelectorAll("span")).forEach(function (span) {
+        if (span.style.display !== "inline-block") return;
+        if (span.style.width === "" || span.style.height === "") return;
+
+        var rect = span.getBoundingClientRect();
+
+        charts.push({
+          pageIndex: pageIndex,
+          index: charts.length,
+          x: r2(rect.x - content.x),
+          y: r2(rect.y - content.y),
+          w: r2(rect.width),
+          h: r2(rect.height),
+          // What the file asked the frame to be, off the inline style
+          // docx-preview wrote from the drawing.s wp:extent, rather than off the
+          // box — the two agree, and a disagreement is worth being able to see.
+          declared: { width: span.style.width, height: span.style.height },
+          // Whether the frame holds a picture, which is how a chart frame is
+          // told from an image's.
+          picture: span.querySelector("img") !== null,
+          // Whether anything at all was drawn inside it.
+          plotted: span.childElementCount > 0
+        });
+      });
+    });
+
     return {
       sections: boxes.map(function (b) {
         return {
@@ -508,6 +557,7 @@ function harnessHtml(bodyFont) {
       paragraphs: paragraphs,
       tables: tables,
       shapes: shapes,
+      charts: charts,
       fontProbe: fontProbe(BODY_FONT),
       // What the paginator did, straight from the page it ran on. Without
       // this a preview that failed to paginate is indistinguishable from one
@@ -620,6 +670,7 @@ export async function runPreviewProbe({ outDir, htmlPath, bodyFont, screenshots 
     paragraphs: [],
     tables: [],
     shapes: [],
+    charts: [],
     fontProbe: null,
     screenshots: [],
   };
@@ -657,6 +708,7 @@ export async function runPreviewProbe({ outDir, htmlPath, bodyFont, screenshots 
     output.paragraphs = measured.paragraphs;
     output.tables = measured.tables ?? [];
     output.shapes = measured.shapes ?? [];
+    output.charts = measured.charts ?? [];
     output.fontProbe = measured.fontProbe;
     output.paginated = measured.paginated ?? null;
     output.tabsPlaced = measured.tabsPlaced ?? null;
@@ -849,6 +901,16 @@ export function previewView(measure) {
       return (measure.shapes ?? [])[index] ?? missingShape(`#${index}`);
     },
 
+    // --- charts ---------------------------------------------------------------
+
+    /** Every chart frame the preview laid out, in document order. */
+    charts: measure.charts ?? [],
+
+    /** One chart frame, counting from zero. */
+    chart(index = 0) {
+      return (measure.charts ?? [])[index] ?? missingChart(`#${index}`);
+    },
+
     /**
      * How wide the words on a shape are actually drawn.
      *
@@ -972,6 +1034,23 @@ function missingShape(anchor) {
     textDrawn: false,
     lineCount: 0,
     lines: [],
+  };
+}
+
+/** The stand-in for a chart frame the preview did not lay out. */
+function missingChart(anchor) {
+  return {
+    missing: true,
+    anchor,
+    pageIndex: null,
+    index: -1,
+    x: null,
+    y: null,
+    w: null,
+    h: null,
+    declared: { width: null, height: null },
+    picture: false,
+    plotted: false,
   };
 }
 

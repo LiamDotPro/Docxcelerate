@@ -2,6 +2,7 @@ import type {
   Condition,
   DeriverInvocation,
   DocumentNode,
+  GraphData,
   GraphNode,
   ImageNode,
   InlineImage,
@@ -792,6 +793,20 @@ async function renderGraph(
 ): Promise<GraphNode> {
   const prompts = settled(props.data === undefined ? undefined : "data", props, frame, id);
   const graphType = props.graphType ?? "bar";
+  // How the chart is drawn is the same whether its numbers were written here
+  // or are still to be produced, so it is settled once and spread onto every
+  // node this returns.
+  const drawn = {
+    title: await text(props.title, context),
+    width: props.width,
+    height: props.height,
+    legend: props.legend,
+    stacked: props.stacked,
+    numberFormat: props.numberFormat,
+    categoryAxisTitle: props.categoryAxisTitle,
+    valueAxisTitle: props.valueAxisTitle,
+    dataLabels: props.dataLabels,
+  };
 
   if (!isDynamic(prompts)) {
     if (props.data === undefined) {
@@ -806,7 +821,8 @@ async function renderGraph(
       mode: "static",
       when,
       graphType,
-      data: await jsonText(props.data, context) as JsonObject,
+      ...drawn,
+      data: await jsonText(props.data as unknown as JsonObject, context) as unknown as GraphData,
       caption: await text(props.caption, context),
     });
   }
@@ -818,12 +834,21 @@ async function renderGraph(
       mode: "dynamic",
       when,
       graphType,
+      ...drawn,
       placeholder: await placeholderText(prompts, id, context),
     });
   }
 
   const specs = await promptSpecs(prompts, context);
-  const node: GraphNode = { id, kind: "graph", mode: "dynamic", when, graphType, prompts: specs };
+  const node: GraphNode = {
+    id,
+    kind: "graph",
+    mode: "dynamic",
+    when,
+    graphType,
+    ...drawn,
+    prompts: specs,
+  };
 
   if (!context.aiClient?.generateGraph) {
     throw new Error(`Dynamic graph "${id}" requires an aiClient.generateGraph method.`);

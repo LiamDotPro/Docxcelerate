@@ -62,6 +62,19 @@ The first three are what the generation engine reads. Renaming them here does
 not finish anything; it moves the mismatch onto the wire. The engine changes
 first, or they stay.
 
+**`graph` is the API's name for a chart, and it is not a leftover either.**
+`kind: "graph"`, `graphType`, `GraphNode` and `<Graph>` are all on the wire and
+in the published types, so renaming them to `chart` would break every document
+already written and every model already stored. What they *produce* is an
+OOXML chart part, and Word calls it a chart — so the prose says "chart", the
+same way the prose says "document" over `letter`. Both names are deliberate:
+
+- `graph`, `graphType`, `GraphNode`, `GraphData`, `<Graph>` — the model and the
+  authoring surface, unchanged
+- "chart" — what it is called in documentation, in a placeholder a reader sees,
+  and in every name under `src/render/` that touches the OOXML part
+  (`chart_part.ts`, `docx_charts.ts`, `readPackedCharts`)
+
 **Every module has a `@module` doc comment**, and every exported symbol has a
 doc comment. This is not decoration — `npm run jsr:doc` fails the build without
 them, and the JSR score depends on it.
@@ -107,6 +120,26 @@ build. `tests/package.test.ts` fails when they drift, and when the version in
 `src/version.ts` disagrees with either of them.
 
 ## Things worth knowing
+
+**Packing happens twice for a document with a chart in it.** `docx` owns the
+zip and offers no way to be handed a part, so `renderDocxBytes` packs, then
+`addChartsToPackage` opens the result and adds `word/charts/chartN.xml`, its
+relationships, the workbook behind it and the content-type overrides. The join
+is a token: the renderer writes `r:id="dxclChart_<node id>"` into the drawing,
+because the real relationship ids are not known until the file exists — an
+image or a running strip may have taken the number first. A document with no
+charts is returned byte for byte, untouched.
+
+Two failures found there the hard way, both of which produce a file Word
+refuses to open outright rather than one that draws wrongly:
+
+- `ImportedXmlComponent.fromXmlString` returns a component *wrapping* what it
+  parsed, not the element. Its `w:r` came out inside a tag named `undefined`.
+  Build drawings element by element, as `renderShape` does.
+- An empty relationships part is written `<Relationships …/>`, self-closing. An
+  append that only knew how to insert before `</Relationships>` silently did
+  nothing, and the chart part was written with nothing pointing at it.
+  `withChild` handles both forms and throws rather than no-op.
 
 `core.autocrlf` is irrelevant here — `.gitattributes` pins the repository to LF.
 

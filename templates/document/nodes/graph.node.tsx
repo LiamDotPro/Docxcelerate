@@ -9,9 +9,10 @@ export const __NODE_COMPONENT__: Graph = () => {
   return (
     <Graph
       id="__NODE_ID__"
+      title="__NODE_TITLE__"
       graphType="bar"
       data={{
-        labels: ["Current"],
+        categories: ["Current"],
         series: [{ label: state.name, values: [1] }],
       }}
       caption={`__NODE_TITLE__ for ${state.name}.`}

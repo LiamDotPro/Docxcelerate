@@ -11,7 +11,7 @@ export const CumulativeVisits: Graph = () => {
     let running = 0;
 
     return {
-      labels: data.visitsByMonth.map((entry) => entry.month),
+      months: data.visitsByMonth.map((entry) => entry.month),
       toDate: data.visitsByMonth.map((entry) => (running += entry.visits)),
     };
   });
@@ -19,10 +19,11 @@ export const CumulativeVisits: Graph = () => {
   return (
     <Graph
       id="cumulative-visits"
+      title="Visits to date"
       graphType="line"
       data={{
-        labels: state.labels,
-        series: [{ name: "Visits to date", values: state.toDate }],
+        categories: state.months,
+        series: [{ label: "Visits to date", values: state.toDate }],
       }}
       caption="Visits accumulated across the membership year"
     />

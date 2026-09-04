@@ -151,6 +151,25 @@ export function parityView(preview, word) {
     /** How deep Word makes it. */
     wordShapeHeight: (index = 0) => ptToMm(word.shape(index).height),
 
+    // --- charts ---------------------------------------------------------------
+    //
+    // The frame only, and deliberately. A chart's plot is drawn by Word from
+    // the chart part and by whatever the preview is given to draw it with;
+    // holding one against the other pixel for pixel would be comparing two
+    // renderers rather than measuring the document. The frame is the fact both
+    // sides take from the file, and it is the one the page is laid out around
+    // — so it is the one that has to agree.
+
+    /** How wide the preview lays out a chart's frame, in mm. */
+    previewChartWidth: (index = 0) => pxToMm(preview.chart(index).w),
+    /** How wide Word makes it. */
+    wordChartWidth: (index = 0) => ptToMm(word.chart(index).width),
+
+    /** How deep the preview lays it out, in mm. */
+    previewChartHeight: (index = 0) => pxToMm(preview.chart(index).h),
+    /** How deep Word makes it. */
+    wordChartHeight: (index = 0) => ptToMm(word.chart(index).height),
+
 
     // --- running furniture --------------------------------------------------
     //

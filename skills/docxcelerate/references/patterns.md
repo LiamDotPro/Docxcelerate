@@ -295,20 +295,27 @@ once, in the node.
 
 ## A graph
 
-A graph node holds numbers and a form, never a picture:
+A graph node holds numbers and a form, never a picture. It is packed as a real
+Word chart — the reader can select it, restyle it and open its data:
 
 ```tsx
 export const VisitsByMonth: Graph = () => {
   const [state] = useState((data: TenancyData) => ({
-    labels: data.visitsByMonth.map((entry) => entry.month),
+    months: data.visitsByMonth.map((entry) => entry.month),
     visits: data.visitsByMonth.map((entry) => entry.visits),
   }));
 
   return (
     <Graph
       id="visits-by-month"
+      title="Visits by month"
       graphType="bar"
-      data={{ labels: state.labels, series: [{ name: "Visits", values: state.visits }] }}
+      numberFormat="#,##0"
+      valueAxisTitle="Visits"
+      data={{
+        categories: state.months,
+        series: [{ label: "Visits", values: state.visits }],
+      }}
       caption="Your visits, last six months"
     />
   );
@@ -318,6 +325,29 @@ export const VisitsByMonth: Graph = () => {
 Do the running totals, percentages and rebasing in the state initializer. The
 chart and the prose beside it are then computed from one source, so they cannot
 disagree.
+
+**Leave the colours to the theme.** A series takes its place in the theme's
+`palette.series`, which is what lets a document be re-themed without its charts
+going out of step with it. Name a `color` only when the colour is what the
+series *means* — a red line for the limit it must stay under — and never to
+pick a nicer blue.
+
+**Say `null`, not `0`, for a reading nobody took.** They draw differently and
+they mean different things: a gap is a month not yet measured, a zero is a
+month that measured nothing.
+
+```tsx
+values: [12, 18, null, 22]   // March has not been counted yet
+```
+
+**Two series of different scales are two charts.** A chart with one axis is a
+chart a reader can trust; giving revenue and headcount the same axis makes one
+of them a flat line, and giving them two makes the crossing point meaningless.
+
+**Comparing categories is a `bar`; change over time is a `line`; a share of a
+whole is a `pie`, and only when there are few enough slices to tell apart.**
+More than about six and a bar chart is easier to read than a pie of the same
+data.
 
 ## Placeholder values for a preview
 

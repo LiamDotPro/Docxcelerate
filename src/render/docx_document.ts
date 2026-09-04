@@ -38,6 +38,7 @@ import type {
   DocumentNode,
   DocumentStyle,
   DocumentTextBlockStyle,
+  GraphNode,
   ImageNode,
   PageNumberNode,
   ParagraphNode,
@@ -50,6 +51,8 @@ import type {
   TextAlign,
 } from "../domain/types.ts";
 import { cleanMinimalDocumentStyle } from "../project/style.ts";
+import { hasChartData } from "./chart_part.ts";
+import { addChartsToPackage, chartRelationshipToken } from "./docx_charts.ts";
 import { imageSourceOf, isSvg, rasterTypeOf } from "./image_source.ts";
 
 /**
@@ -345,7 +348,9 @@ function breakStyles(): IParagraphStyleOptions[] {
  * ```
  */
 export async function createDocxBlob(doc: DocumentModel): Promise<Blob> {
-  return await Packer.toBlob(createDocxDocument(doc));
+  return new Blob([await renderDocxBytes(doc) as BlobPart], {
+    type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  });
 }
 
 /**
@@ -358,7 +363,13 @@ export async function createDocxBlob(doc: DocumentModel): Promise<Blob> {
  * @returns The file's bytes.
  */
 export async function renderDocxBytes(doc: DocumentModel): Promise<Uint8Array> {
-  return await Packer.toBuffer(createDocxDocument(doc));
+  // Charts go in after the fact because they are parts of the package rather
+  // than elements of the document, and the packer owns the zip. A document
+  // with none comes back from this untouched.
+  return await addChartsToPackage(
+    new Uint8Array(await Packer.toBuffer(createDocxDocument(doc))),
+    doc,
+  );
 }
 
 /**
@@ -463,15 +474,7 @@ function renderNode(
   }
 
   if (node.kind === "graph") {
-    return [
-      new Paragraph({
-        children: [
-          new TextRun(`[${node.graphType} graph: ${node.caption ?? node.placeholder ?? node.id}]`),
-        ],
-        ...breakStyle(broken),
-        ...inCell(cell),
-      }),
-    ];
+    return renderGraph(node, style, broken, cell);
   }
 
   if (node.kind === "table") {
@@ -1180,6 +1183,176 @@ const SHAPE_HEIGHT_PT = 48;
  * beside the rect. Both elements come from the file and Word draws both; only
  * their nesting is wrong.
  */
+/**
+ * How deep a chart is drawn against its width when nothing says otherwise.
+ *
+ * Seven twelfths, which is the 6in by 3.5in frame Word gives a chart it
+ * inserts itself. A chart is a picture of a proportion, and a frame the reader
+ * already knows the shape of is one fewer thing for them to take in.
+ */
+const CHART_ASPECT = 7 / 12;
+
+/** A point, in the English Metric Units a drawing states its size in. */
+const EMU_PER_PT = 12700;
+
+/**
+ * A chart, as the drawing that holds its place plus anything printed under it.
+ *
+ * The drawing is a frame and a relationship id, and the id is a token until the
+ * package is opened — see {@linkcode ../render/docx_charts.ts | docx_charts}
+ * for why it cannot be allocated here. A chart with no data yet draws its
+ * placeholder instead, which is the same thing a dynamic image does: the page
+ * has to be laid out before the engine has written anything, and a document
+ * that showed nothing where a chart will go is a document laid out for a
+ * different page than the one that will print.
+ */
+function renderGraph(
+  node: GraphNode,
+  style: DocumentStyle,
+  broken: true | undefined,
+  cell: CellContext | undefined,
+): Paragraph[] {
+  const widthPt = node.width ?? columnWidthPt(style);
+  const heightPt = node.height ?? widthPt * CHART_ASPECT;
+
+  const plot = hasChartData(node)
+    ? new Paragraph({
+      children: [chartDrawing(node, widthPt, heightPt) as unknown as TextRun],
+      ...breakStyle(broken),
+      ...inCell(cell),
+    })
+    : new Paragraph({
+      children: [
+        new TextRun(`[${node.graphType} chart: ${node.placeholder ?? node.title ?? node.id}]`),
+      ],
+      ...breakStyle(broken),
+      ...inCell(cell),
+    });
+
+  if (node.caption === undefined) {
+    return [plot];
+  }
+
+  // The caption is a paragraph of its own rather than part of the drawing:
+  // Word cannot put text inside a chart frame, and a caption drawn into the
+  // chart would be a caption that does not reflow, cannot be read out and does
+  // not come back when the document is read.
+  return [plot, chartCaption(node.caption, style, cell)];
+}
+
+/**
+ * The drawing that reserves a chart's frame and names the part to draw in it.
+ *
+ * Built element by element rather than parsed from a string: `fromXmlString`
+ * returns a component wrapping what it parsed rather than the element itself,
+ * so its `w:r` came out inside a tag named `undefined` — a document Word
+ * refuses to open at all rather than one that draws wrongly.
+ *
+ * `a` and `c` are declared here rather than on the document, which is where
+ * Word itself declares them: they are used by this drawing and nothing else in
+ * `document.xml`, and a package that only sometimes has charts in it should
+ * not sometimes have different namespaces on its root.
+ */
+function chartDrawing(node: GraphNode, widthPt: number, heightPt: number): ImportedXmlComponent {
+  const inline = new ImportedXmlComponent("wp:inline", {
+    distT: "0",
+    distB: "0",
+    distL: "0",
+    distR: "0",
+  });
+
+  inline.push(
+    new ImportedXmlComponent("wp:extent", {
+      cx: String(Math.round(widthPt * EMU_PER_PT)),
+      cy: String(Math.round(heightPt * EMU_PER_PT)),
+    }),
+  );
+  inline.push(new ImportedXmlComponent("wp:effectExtent", { l: "0", t: "0", r: "0", b: "0" }));
+  inline.push(
+    new ImportedXmlComponent("wp:docPr", {
+      id: String(drawingId(node.id)),
+      name: `Chart ${node.id}`,
+      // What a screen reader reads out where a sighted reader sees the plot.
+      descr: node.title ?? node.caption ?? node.id,
+    }),
+  );
+  inline.push(new ImportedXmlComponent("wp:cNvGraphicFramePr"));
+
+  const graphic = new ImportedXmlComponent("a:graphic", {
+    "xmlns:a": "http://schemas.openxmlformats.org/drawingml/2006/main",
+  });
+  const graphicData = new ImportedXmlComponent("a:graphicData", {
+    uri: "http://schemas.openxmlformats.org/drawingml/2006/chart",
+  });
+
+  graphicData.push(
+    new ImportedXmlComponent("c:chart", {
+      "xmlns:c": "http://schemas.openxmlformats.org/drawingml/2006/chart",
+      "xmlns:r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+      "r:id": chartRelationshipToken(node.id),
+    }),
+  );
+  graphic.push(graphicData);
+  inline.push(graphic);
+
+  const drawing = new ImportedXmlComponent("w:drawing");
+  drawing.push(inline);
+
+  // `w:drawing` belongs inside a run, the same way `w:pict` does — see
+  // `renderShape` for what a misplaced one costs.
+  const run = new ImportedXmlComponent("w:r");
+  run.push(drawing);
+
+  return run;
+}
+
+/**
+ * The number a drawing is known by inside the document.
+ *
+ * Derived from the node's id rather than counted, so that packing the same
+ * document twice produces the same file. Two charts collide only if their ids
+ * hash together, and a collision costs nothing a reader sees — Word takes the
+ * ids as a hint, and the library packing everything else here already gives
+ * every picture the number one.
+ */
+function drawingId(id: string): number {
+  let hash = 0x811c9dc5;
+
+  for (let index = 0; index < id.length; index += 1) {
+    hash = Math.imul(hash ^ id.charCodeAt(index), 0x01000193) >>> 0;
+  }
+
+  return 100000 + (hash % 1000000);
+}
+
+/** The line printed under a chart, set back from the body it explains. */
+function chartCaption(
+  caption: string,
+  style: DocumentStyle,
+  cell: CellContext | undefined,
+): Paragraph {
+  const block = blockOf(style, "chartCaption");
+
+  return new Paragraph({
+    children: [
+      new TextRun({
+        text: caption,
+        // A caption is not body prose and should not read as it: a point
+        // smaller and in the ink the theme sets its secondary text in. A theme
+        // that names a `chartCaption` block says it properly and wins.
+        size: Math.round((block?.fontSizePt ?? style.typography.bodySizePt - 1) * 2),
+        color: block?.color ?? style.palette?.muted,
+        font: block?.font ?? style.typography.bodyFont,
+      }),
+    ],
+    alignment: textAlignmentOf(block?.align ?? "center"),
+    spacing: {
+      after: ptToTwips(block?.spacingAfterPt ?? style.paragraph.spacingAfterPt),
+    },
+    ...inCell(cell),
+  });
+}
+
 function renderShape(
   node: ShapeNode,
   style: DocumentStyle,

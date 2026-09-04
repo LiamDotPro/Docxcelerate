@@ -136,7 +136,7 @@ Nothing leaves the machine, and the same build gives the same page every time.
 | `Section` | any nodes, including sections | the **only** container; `title` required and becomes a heading |
 | `Paragraph` | text children, or prompts | `text` prop says the same as children |
 | `Image` | `src`, `alt`, `width`, `height`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below |
-| `Graph` | `graphType`, `data`, `caption`, or prompts | figures, never a picture |
+| `Graph` | `graphType`, `data`, `title`, `caption`, or prompts | packed as a real Word chart, never a picture of one — the numbers travel with it |
 | `Table` | `Row`s, and any `.map()` producing them | `columns` declared once, in mm or `"auto"`, with `align` |
 | `Row` | `Cell`s | `header` marks a heading row; only *leading* ones repeat across pages |
 | `Cell` | text, or paragraphs when a line is not enough | `span`, and `align` when it departs from its column |

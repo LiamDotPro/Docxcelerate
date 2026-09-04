@@ -7,17 +7,19 @@ import type { SampleData } from "../sample-data.ts";
  */
 export const ClassMix: Graph = () => {
   const [state] = useState((data: SampleData) => ({
-    labels: data.classMix.map((entry) => entry.label),
+    activities: data.classMix.map((entry) => entry.label),
     shares: data.classMix.map((entry) => entry.share),
   }));
 
   return (
     <Graph
       id="class-mix"
+      title="Share of visits"
       graphType="pie"
+      dataLabels
       data={{
-        labels: state.labels,
-        series: [{ name: "Share of visits", values: state.shares }],
+        categories: state.activities,
+        series: [{ label: "Share of visits", values: state.shares }],
       }}
       caption="How you used the centre, by activity"
     />

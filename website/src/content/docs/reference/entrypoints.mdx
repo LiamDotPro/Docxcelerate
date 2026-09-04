@@ -130,6 +130,44 @@ Call it after `renderAsync` and before the container is measured or serialised.
 It works the same in a browser as in a `jsdom`, and the scaffolded preview app
 already does this for you.
 
+### Charts
+
+```ts
+import { readPackedCharts, settleDocxPreviewCharts } from "docxcelerate/preview";
+
+settleDocxPreviewCharts(body, await readPackedCharts(packed), draw);
+```
+
+A chart is packed as a real Word chart — a `c:chartSpace` part beside
+`document.xml`, with every value cached in it — and `docx-preview` has no
+reading of one at all: the string "chart" does not occur in its bundle. What it
+leaves is an empty inline-block span at exactly the size the file gave the
+frame, which is the half that matters most, because it is what the page is laid
+out around and it is what keeps the preview paginating like Word.
+
+`readPackedCharts` reads the rest back out of the same bytes — the type, the
+categories, every series with its numbers and its colour, the key's place, the
+format on the value axis. Read out of the file rather than out of the model
+that produced it, for the reason everything else here is: those are decisions
+the packer made from the theme, and a preview that made them again would be a
+second copy of the packer's arithmetic.
+
+`settleDocxPreviewCharts` puts what `draw` returns into each frame, in order.
+The drawer is yours — a chart renderer is a large, well-solved problem, and
+bundling one into a package whose only dependency is its packer would be the
+wrong trade for everyone who never previews a chart. A scaffolded workspace
+ships one over [ECharts](https://echarts.apache.org) in
+`preview/charts.ts`; copy it, or write one over whatever your app already has.
+A drawer that returns `undefined` leaves the frame empty, which is the right
+answer for a chart it cannot plot: an empty frame of the right size is a gap,
+and a wrong plot is a lie.
+
+What the preview then shows is honest about what it is. The frame, the numbers,
+the colours and the type are the file's; the plot inside is another renderer's
+drawing of them rather than Word's. Word is the only thing that draws what Word
+draws — `conformance/cases/charts/column-series` holds the frames of the two
+against each other and leaves their pixels alone, deliberately.
+
 ### Pages
 
 `docx-preview` breaks where the *file* says to — an explicit break, or a
