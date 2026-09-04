@@ -1,4 +1,22 @@
+import type { DocumentBlockStyle } from "../../domain/style.ts";
 import { defineTheme, type Theme } from "../theme.ts";
+
+/**
+ * Everything the three banners share.
+ *
+ * Larger and tracked, because this theme has one page to make one point and a
+ * banner is usually the point.
+ */
+const banner: DocumentBlockStyle = {
+  color: "FFFFFF",
+  heightPt: 48,
+  paddingPt: 16,
+  valign: "center",
+  fontSizePt: 14,
+  weight: "bold",
+  transform: "uppercase",
+  letterSpacingEm: 0.04,
+};
 
 /**
  * One page, read from across a desk.
@@ -53,6 +71,13 @@ export const boldBriefTheme: Theme = defineTheme({
       spacingBeforePt: 20,
       spacingAfterPt: 6,
       color: "141414",
+    },
+    // The attention tone is the theme's own accent, so the common case is the
+    // colour the document already shouts in.
+    blocks: {
+      bannerPositive: { ...banner, fill: "00695C" },
+      bannerAttention: { ...banner, fill: "C2185B" },
+      bannerCritical: { ...banner, fill: "B71C1C" },
     },
   },
 });

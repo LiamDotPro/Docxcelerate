@@ -1,4 +1,21 @@
+import type { DocumentBlockStyle } from "../../domain/style.ts";
 import { defineTheme, type Theme } from "../theme.ts";
+
+/**
+ * Everything the three banners share.
+ *
+ * The ink is the page's own warm white rather than a flat `FFFFFF`, which is
+ * the difference between a banner that belongs on this paper and one that was
+ * cut out and glued onto it.
+ */
+const banner: DocumentBlockStyle = {
+  color: "FFFDF9",
+  heightPt: 44,
+  paddingPt: 15,
+  valign: "center",
+  fontSizePt: 12,
+  weight: "bold",
+};
 
 /**
  * Correspondence that is meant to sound like a person wrote it.
@@ -53,6 +70,13 @@ export const warmLetterTheme: Theme = defineTheme({
       spacingBeforePt: 18,
       spacingAfterPt: 8,
       color: "42301F",
+    },
+    // Muted rather than signal-bright: a letter that shouts is a letter nobody
+    // believes. The attention tone is the theme's own accent.
+    blocks: {
+      bannerPositive: { ...banner, fill: "4F6F52" },
+      bannerAttention: { ...banner, fill: "A2571B" },
+      bannerCritical: { ...banner, fill: "8C2F1F" },
     },
   },
 });

@@ -141,12 +141,29 @@ test("a block that states a depth is a shape's height, because it is already say
   assertStringIncludes(await xmlOf(doc), "height:90pt");
 });
 
+test("the words centre on the box drawn, not on the depth the theme falls back to", async () => {
+  // The stamp that found this: a 56pt shape over a block style saying 44pt.
+  // Exact leading the height of the box is what sits one line in the middle of
+  // it, so leading struck from the variant centred the words in a box 12pt
+  // shorter than the one drawn and left them riding high.
+  const doc = await build(() => <Shape id="s" variant="deep" height={56}>On it</Shape>);
+  const xml = await xmlOf(doc);
+
+  assertStringIncludes(xml, "height:56pt");
+  assertStringIncludes(xml, 'w:line="1120" w:lineRule="exact"');
+});
+
 test("the theme's fill is the shape's, and its padding the room inside", async () => {
   const doc = await build(() => <Shape id="s" variant="callout">Paid in full</Shape>);
   const xml = await xmlOf(doc);
 
   assertStringIncludes(xml, 'fillcolor="#1F2933"');
-  assertStringIncludes(xml, 'inset="10pt,10pt,10pt,10pt"');
+  // Top and bottom only. The sides are an indent instead, because
+  // docx-preview turns a `v:textbox` into a bare `foreignObject` and never
+  // reads `inset` — room stated only there is room Word leaves and the screen
+  // does not, which is the preview lying about the document.
+  assertStringIncludes(xml, 'inset="0pt,10pt,0pt,10pt"');
+  assertStringIncludes(xml, '<w:ind w:left="200" w:right="200"/>');
 });
 
 test("a ruled shape states its stroke twice, because the two engines read different halves", async () => {

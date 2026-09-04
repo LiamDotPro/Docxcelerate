@@ -16,7 +16,7 @@ export const RenewalBanner: ShapeComponent = () => {
   }));
 
   return (
-    <Shape id="renewal-banner" variant="banner" height={44}>
+    <Shape id="renewal-banner" variant="bannerAttention" height={44}>
       <Paragraph id="renewal-banner-line">
         {state.plan} renews on {date(state.renewsOn)}
       </Paragraph>

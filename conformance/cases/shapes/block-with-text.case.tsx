@@ -32,6 +32,7 @@ import { COLUMN_MM, withBlocks } from "../_support/style.ts";
  */
 const WIDTH_PT = 300;
 const HEIGHT_PT = 60;
+const PADDING_PT = 10;
 
 export default defineCase({
   id: "shapes/block-with-text",
@@ -47,7 +48,7 @@ export default defineCase({
       color: "FFFFFF",
       weight: "bold",
       fontSizePt: 14,
-      paddingPt: 10,
+      paddingPt: PADDING_PT,
       align: "center",
     },
     /** The same box, ruled, to prove a stroke reaches both engines. */
@@ -56,7 +57,7 @@ export default defineCase({
       color: "1F2933",
       border: "2F5FBD",
       borderWidthPt: 1.5,
-      paddingPt: 10,
+      paddingPt: PADDING_PT,
     },
   }),
 
@@ -98,6 +99,13 @@ export default defineCase({
       is.includes(xml, 'strokecolor="#2F5FBD"', "the ruled one carries its stroke");
       is.includes(xml, 'stroked="f"', "and the unruled one says it has none");
       is.includes(xml, "Paid in full", "the words are in the file");
+
+      // The room inside, said in the one place both engines read it. VML
+      // states it as an inset on the text box and docx-preview never reads
+      // that attribute, so room stated only there is room Word leaves and the
+      // screen does not.
+      is.includes(xml, 'inset="0pt,10pt,0pt,10pt"', "the text box insets only the top and bottom");
+      is.includes(xml, '<w:ind w:left="200" w:right="200"/>', "and the sides are an indent instead");
     },
 
     preview: (b, is) => {
@@ -112,6 +120,17 @@ export default defineCase({
       // are 0 by 0, and a filled block with invisible words looks deliberate.
       is.greater(b.shapeTextWidth("Paid in full"), 0, "the words on the first shape are drawn");
       is.greater(b.shapeTextWidth("Ruled, and the width"), 0, "and on the second");
+
+      // And they are set in from the fill's edge rather than jammed against
+      // it. This is the assertion the indent exists for: with the room stated
+      // only as the text box's own inset, the words drew hard against the box
+      // on screen while Word set them in, and the preview was lying.
+      is.within(
+        b.shape(1).lines[0].x - b.shape(1).x,
+        b.pt(PADDING_PT),
+        "1mm",
+        "the words are set in from the edge of the fill",
+      );
     },
 
     word: (c, is) => {

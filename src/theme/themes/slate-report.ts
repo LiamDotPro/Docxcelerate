@@ -1,4 +1,22 @@
+import type { DocumentBlockStyle } from "../../domain/style.ts";
 import { defineTheme, type Theme } from "../theme.ts";
+
+/**
+ * Everything the three banners share.
+ *
+ * Set in the small tracked capitals this theme heads its sections with, so a
+ * banner reads as part of the report rather than something pasted onto it.
+ */
+const banner: DocumentBlockStyle = {
+  color: "FFFFFF",
+  heightPt: 44,
+  paddingPt: 12,
+  valign: "center",
+  fontSizePt: 10,
+  weight: "bold",
+  transform: "uppercase",
+  letterSpacingEm: 0.08,
+};
 
 /**
  * The quarterly-report theme: dense, sober, and built to be skimmed.
@@ -54,6 +72,13 @@ export const slateReportTheme: Theme = defineTheme({
       spacingAfterPt: 5,
       color: "0F766E",
       transform: "uppercase",
+    },
+    // Named for the state, not the colour. The teal is the theme's own accent,
+    // so the ordinary case of a banner is the report's own voice.
+    blocks: {
+      bannerPositive: { ...banner, fill: "0F766E" },
+      bannerAttention: { ...banner, fill: "92400E" },
+      bannerCritical: { ...banner, fill: "9F1239" },
     },
   },
 });

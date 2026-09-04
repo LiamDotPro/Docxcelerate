@@ -369,13 +369,25 @@ export async function renderDocxBytes(doc: DocumentModel): Promise<Uint8Array> {
 type CellContext = {
   alignment: (typeof AlignmentType)[keyof typeof AlignmentType] | undefined;
   line: number;
+  /**
+   * The room either side, in twips, for a container that cannot state its own.
+   *
+   * A cell leaves this alone — it says its padding in `w:tcMar`, which both
+   * engines read. A shape has nowhere to put it: VML states the room as an
+   * `inset` on the text box, and docx-preview turns a `v:textbox` into a bare
+   * `foreignObject` without ever reading that attribute, so the words sit
+   * against the box's edge on screen while Word indents them properly.
+   */
+  indent?: { left: number; right: number };
 };
 
 /** The paragraph options a cell context contributes, or none outside a cell. */
 function inCell(cell: CellContext | undefined) {
-  return cell === undefined
-    ? {}
-    : { alignment: cell.alignment, spacing: { after: 0, line: cell.line } };
+  return cell === undefined ? {} : {
+    alignment: cell.alignment,
+    spacing: { after: 0, line: cell.line },
+    ...(cell.indent ? { indent: cell.indent } : {}),
+  };
 }
 
 function renderNode(
@@ -1213,12 +1225,21 @@ function renderShape(
     // The room inside the box, in the order VML states it: left, top, right,
     // bottom. The same `paddingPt` a cell reads, so a variant means one thing
     // whichever kind of box the theme draws it in.
-    inset: `${round2(inset.left)}pt,${round2(inset.top)}pt,${round2(inset.right)}pt,${round2(inset.bottom)}pt`,
+    //
+    // Only the vertical half is stated here, and that is the repair rather
+    // than an omission. docx-preview renders a `v:textbox` as a bare
+    // `foreignObject` and never reads `inset`, so room stated only here is
+    // room Word leaves and the screen does not — the words sit hard against
+    // the fill in the preview and indented in the file, which is the preview
+    // lying about the document. The sides go on the paragraphs instead, as
+    // `w:ind`, which both engines read; stating them in both places would
+    // simply have Word leave the gap twice.
+    inset: `0pt,${round2(inset.top)}pt,0pt,${round2(inset.bottom)}pt`,
   });
 
   const content = new ImportedXmlComponent("w:txbxContent");
 
-  for (const child of shapeContent(node, block, style, furniture)) {
+  for (const child of shapeContent(node, block, style, furniture, inset, heightPt)) {
     content.push(child);
   }
 
@@ -1259,14 +1280,29 @@ function shapeContent(
   block: DocumentBlockStyle | undefined,
   style: DocumentStyle,
   furniture: boolean,
+  inset: { left: number; right: number },
+  heightPt: number,
 ): Paragraph[] {
+  // The room either side, carried on the paragraphs because the text box's own
+  // `inset` reaches Word and not the preview. See `renderShape`.
+  const indent = { left: ptToTwips(inset.left), right: ptToTwips(inset.right) };
+
+  // Leading struck from the box actually drawn, not from the theme's fallback
+  // depth. Exact leading the height of the box is what sits one line in the
+  // middle of it, so a node that states its own height has to be the number
+  // used — `blockLine` would reach for the variant's `heightPt` and centre the
+  // words in a box of the wrong size, which on a 56pt stamp over a 44pt block
+  // style left them 6pt high.
+  const boxLine = { line: Math.round(heightPt * 20), lineRule: LineRuleType.EXACT };
+
   const content = node.children.flatMap((child): Paragraph[] => {
     if (child.kind !== "paragraph") {
       // Everything else is still a child of this shape, so it takes the
       // block's alignment and leading like the paragraphs beside it.
       return renderNode(child, style, furniture, false, {
         alignment: alignments[shapeAlign(block)],
-        ...blockLine(block, style),
+        ...boxLine,
+        indent,
       }).filter((rendered): rendered is Paragraph => rendered instanceof Paragraph);
     }
 
@@ -1278,7 +1314,11 @@ function shapeContent(
     return [
       new Paragraph({
         alignment: alignments[shapeAlign(inner ?? block)],
-        spacing: { after: 0, ...blockLine(inner ?? block, style) },
+        // A paragraph that names its own variant is set by it — a muted note
+        // under a heading on the same box. One that names none is centred on
+        // the box, which is what a banner's single line wants.
+        spacing: { after: 0, ...(inner ? blockLine(inner, style) : boxLine) },
+        indent,
         children: withInlineImages(child, [
           new TextRun({
             text: child.text ?? "",
