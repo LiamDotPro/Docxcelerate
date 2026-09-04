@@ -336,3 +336,50 @@ async function assertRejectsWith(fn: () => Promise<unknown>, includes: string): 
 
   throw new Error(`Expected a rejection mentioning ${JSON.stringify(includes)}.`);
 }
+
+test("a shape's words resolve, because a banner is written against the data", async () => {
+  const doc = await resolveDocument(
+    published([
+      {
+        id: "banner",
+        kind: "shape",
+        height: 44,
+        children: [paragraph("banner-line", "{{data.amount}} due by {{data.dueBy}}")],
+      } as DocumentNode,
+    ]),
+    engineState({ amount: "£1,250.00", dueBy: "30 April" }),
+  );
+
+  const shape = doc.nodes[0];
+  assertEquals(shape.kind, "shape");
+  assertEquals(texts(shape.kind === "shape" ? shape.children : []), [
+    "£1,250.00 due by 30 April",
+  ]);
+});
+
+test("a shape produced by a loop gives each pass its own ids", async () => {
+  const doc = await resolveDocument(
+    published([
+      {
+        id: "banner",
+        kind: "repeat",
+        source: { scope: "data", path: "accounts" },
+        as: "account",
+        indexAs: "index",
+        children: [
+          {
+            id: "banner",
+            kind: "shape",
+            children: [paragraph("banner-line", "{{ctx.account.label}}")],
+          },
+        ],
+      } as DocumentNode,
+    ]),
+    engineState({ accounts: [{ label: "First" }, { label: "Second" }] }),
+  );
+
+  const lines = doc.nodes.flatMap((node) => node.kind === "shape" ? node.children : []);
+  assertEquals(doc.nodes.map((node) => node.id), ["banner-0", "banner-1"]);
+  assertEquals(lines.map((node) => node.id), ["banner-line-0", "banner-line-1"]);
+  assertEquals(texts(lines), ["First", "Second"]);
+});

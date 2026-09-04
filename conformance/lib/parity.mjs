@@ -135,6 +135,22 @@ export function parityView(preview, word) {
     previewTableWidth: (index = 0) => pxToMm(preview.table(index).w),
     /** Where the preview puts its left edge, in mm from the text column. */
     previewTableX: (index = 0) => pxToMm(preview.table(index).x),
+    // --- shapes --------------------------------------------------------------
+    //
+    // A shape is the one thing here whose size is stated in the file rather
+    // than laid out from its contents, so the pair worth comparing is the box
+    // itself: the preview's <svg> against Word's Shape.
+
+    /** How wide the preview draws a shape, in mm. */
+    previewShapeWidth: (index = 0) => pxToMm(preview.shape(index).w),
+    /** How wide Word makes it. */
+    wordShapeWidth: (index = 0) => ptToMm(word.shape(index).width),
+
+    /** How deep the preview draws it, in mm. */
+    previewShapeHeight: (index = 0) => pxToMm(preview.shape(index).h),
+    /** How deep Word makes it. */
+    wordShapeHeight: (index = 0) => ptToMm(word.shape(index).height),
+
 
     // --- running furniture --------------------------------------------------
     //

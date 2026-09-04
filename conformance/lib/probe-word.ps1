@@ -273,6 +273,107 @@ function Read-Table {
 
     return $record
 }
+
+# The shapes Word found, and what it makes of each.
+#
+# Shapes and InlineShapes are two collections holding the same kind of thing
+# with different anchoring: a shape written with no position is inline, one
+# given a position floats. A document's shapes are whatever is in both, so
+# both are walked and the record says which collection it came from.
+#
+# `AutoShapeType` is the fact a shape case is really about -- it is what
+# separates a drawn rectangle from a picture, and Word reports it only for a
+# shape it built from geometry rather than from pixels.
+function Read-Shapes {
+    param($doc)
+
+    $found = @()
+
+    foreach ($pair in @(@{ items = $doc.Shapes; anchored = 'floating' }, @{ items = $doc.InlineShapes; anchored = 'inline' })) {
+        $items = $pair.items
+        $count = 0
+        try { $count = [int]$items.Count } catch { continue }
+
+        for ($i = 1; $i -le $count; $i += 1) {
+            $s = $null
+            try { $s = $items.Item($i) } catch { continue }
+
+            $record = [ordered]@{
+                index    = $found.Count
+                anchored = $pair.anchored
+                at       = $null
+                name     = $null
+                type     = $null
+                width    = $null
+                height    = $null
+                fill     = $null
+                line     = $null
+                hasText  = $null
+                text     = ''
+                page     = $null
+                x        = $null
+                y        = $null
+            }
+
+            # Where the shape is anchored in the document, so the collection
+            # can be put back into the order the document declares. Word's
+            # Shapes collection is in z-order, which for two shapes written one
+            # after the other came back reversed -- and a case asking for "the
+            # first shape" means the first one written, as every other probe
+            # and the preview's own querySelectorAll do.
+            try { $record.at = [int]$s.Anchor.Start } catch {
+                try { $record.at = [int]$s.Range.Start } catch { }
+            }
+
+            try { $record.name = [string]$s.Name } catch { }
+            # msoAutoShape is 1 and msoPicture is 13. Naming them is what lets
+            # a case say "a real shape" rather than quote a number at a reader.
+            try {
+                $type = [int]$s.Type
+                $typeNames = @{ 1 = 'autoShape'; 13 = 'picture'; 17 = 'textBox'; 3 = 'chart' }
+                $record.type = $typeNames[$type]
+                if ($null -eq $record.type) { $record.type = "type$type" }
+            } catch { }
+            try { $record.width = [math]::Round([double]$s.Width, 2) } catch { }
+            try { $record.height = [math]::Round([double]$s.Height, 2) } catch { }
+            try { $record.fill = To-Hex $s.Fill.ForeColor.RGB } catch { }
+            # A shape Word draws no outline on reports Line.Visible false, and
+            # asking its colour then returns whatever was last set rather than
+            # nothing -- so the visibility is checked before the colour.
+            try {
+                if ([int]$s.Line.Visible -ne 0) { $record.line = To-Hex $s.Line.ForeColor.RGB }
+            } catch { }
+
+            try {
+                $frame = $s.TextFrame
+                $record.hasText = [bool]$frame.HasText
+                if ($record.hasText) {
+                    $record.text = ($frame.TextRange.Text -replace "[`a`v`f`n`r]", ' ').Trim()
+                }
+            } catch { }
+
+            # An inline shape sits in the text and can be asked where it is; a
+            # floating one is positioned against the page and reports Top and
+            # Left directly. Both are recorded page-relative, in points.
+            try {
+                $anchor = $s.Anchor.Duplicate
+                $null = $anchor.Collapse($wdCollapseStart)
+                $record.page = [int](Get-Info $anchor $wdInfoPage)
+            } catch { }
+            try { $record.x = [math]::Round([double]$s.Left, 2) } catch { }
+            try { $record.y = [math]::Round([double]$s.Top, 2) } catch { }
+
+            $found += $record
+        }
+    }
+
+    # Document order, and renumbered in it. A shape with no anchor Word would
+    # give up sorts to the front rather than throwing the whole list out.
+    $ordered = @($found | Sort-Object -Property @{ Expression = { if ($null -eq $_.at) { -1 } else { $_.at } } })
+    for ($i = 0; $i -lt $ordered.Count; $i += 1) { $ordered[$i].index = $i }
+
+    return @($ordered)
+}
 $docxFull = (Resolve-Path -LiteralPath $DocxPath).Path
 $pdfFull = [System.IO.Path]::GetFullPath($PdfPath)
 
@@ -286,6 +387,7 @@ $out = [ordered]@{
     pageSetup   = $null
     furniture   = $null
     tables      = @()
+    shapes      = @()
     paragraphs  = @()
     pdfExported = $false
     errors      = @()
@@ -388,6 +490,8 @@ try {
         }
         $out.tables = @($tables)
     } catch { $errors += "tables: $($_.Exception.Message)" }
+
+    try { $out.shapes = Read-Shapes $d } catch { $errors += "shapes: $($_.Exception.Message)" }
 
     $paragraphs = @()
     $index = 0

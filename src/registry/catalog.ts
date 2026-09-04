@@ -95,6 +95,57 @@ function node(id: string): RegistryFile[] {
 export const COMPONENTS: RegistryComponent[] = [
   {
     kind: "component",
+    id: "status-banner",
+    title: "Status banner",
+    summary: "A drawn block at the top of the page saying where things stand.",
+    detail:
+      "The component that shows what a shape is for. A banner has to be the " +
+      "same depth on every document it goes out on — the one saying 'Paid' " +
+      "and the one saying 'Overdue, 14 days' have to be the same block, or a " +
+      "reader flicking through a stack sees the shorter one as a different " +
+      "kind of notice. A paragraph with a background grows with its words; a " +
+      "shape is the size you gave it, so the three states below are three " +
+      "wordings of one block rather than three blocks. The colours are the " +
+      "theme's, named for what the banner is rather than what it looks like.",
+    category: "Opening",
+    tags: ["shape", "banner", "status", "branching"],
+    exports: ["StatusBanner"],
+    dataFields: [
+      {
+        path: "account.balanceDue",
+        type: "number",
+        summary: "What is owed. Zero or less prints the paid banner.",
+      },
+      {
+        path: "account.dueBy",
+        type: "string | number | Date | undefined",
+        summary: "When it is due. Printed on the due banner, ignored once paid.",
+      },
+      {
+        path: "account.currency",
+        type: "string | undefined",
+        summary: "ISO 4217 code for the amount. Defaults to GBP.",
+      },
+      {
+        path: "account.daysOverdue",
+        type: "number | undefined",
+        summary: "Days past the due date. Anything above zero prints the overdue banner.",
+      },
+    ],
+    files: node("status-banner"),
+    previewData: {
+      account: {
+        balanceDue: 1250,
+        dueBy: "2026-04-30",
+        currency: "GBP",
+        daysOverdue: 0,
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
     id: "letterhead",
     title: "Letterhead",
     summary: "Who sent this, from where, and when.",

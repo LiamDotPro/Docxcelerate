@@ -1,0 +1,90 @@
+---
+title: Shape
+description: "A drawn rectangle with the document's own words on top of it."
+group: Nodes
+subgroup: Node types
+order: 16
+---
+
+import NodeSummary from "../../../components/NodeSummary.astro";
+import NodeVariants from "../../../components/NodeVariants.astro";
+
+<NodeSummary type="shape" />
+
+## Writing one
+
+A shape needs two things from you: how big it is, and what goes on it.
+
+```tsx
+import { Paragraph, Shape, useFormat, useState } from "docxcelerate/template";
+
+export const RenewalBanner: Shape = () => {
+  const { date } = useFormat("en-GB");
+  const [state] = useState((data: MemberData) => ({
+    plan: data.plan,
+    renewsOn: data.renewsOn,
+  }));
+
+  return (
+    <Shape id="renewal-banner" variant="banner" height={44}>
+      <Paragraph id="renewal-banner-line">
+        {state.plan} renews on {date(state.renewsOn)}
+      </Paragraph>
+    </Shape>
+  );
+};
+```
+
+`width` and `height` are in points. A shape with no width fills the text
+column, which is what a banner wants; saying one makes a block that sits in the
+column rather than spanning it. For the one-line case the text can go straight
+in — `<Shape id="paid">Paid in full</Shape>` reads as one.
+
+## Why it is not a paragraph with a background
+
+Because a shape is a box you decided the size of, and that is usually the whole
+reason you wanted one.
+
+A banner that grew with its wording would be a different depth on every
+document it went out on. The one saying "Paid" and the one saying "Overdue —
+14 days past the due date" would be two different blocks, and a reader flicking
+through a stack reads the shorter one as a different kind of notice. A shape
+holds its dimensions whatever is written on it.
+
+The trade runs the other way too, and it is worth knowing which side you are
+on. When the box *should* grow with what is in it — a description, a quoted
+clause, anything whose length you do not control — a [`Table`](/docs/nodes/table/)
+with one cell in it is the thing to reach for. It draws the same fill, rule and
+padding, and it grows. Neither is a worse version of the other.
+
+## What it looks like is the theme's
+
+`variant` names what the banner **is** — `banner`, `stamp`, `bannerOverdue` —
+and never what colour it should be. The fill, the rule, the room inside and how
+the words sit on it all come from the style's `blocks`, so restyling a document
+restyles its shapes without a node changing. A variant the theme has not heard
+of draws in the palette's accent, which is a banner without an opinion rather
+than a broken one.
+
+The block properties a shape reads are the ones a table cell reads: `fill`,
+`border`, `borderWidthPt`, `paddingPt`, `align`, and `heightPt` — which a shape
+takes as its depth when the node has not given one, because a block declaring a
+height is already saying exactly that.
+
+## How it is packed, and why it matters
+
+A shape is written as VML — a `w:pict` holding a `v:rect` — rather than as the
+DrawingML shape Word writes itself.
+
+Word reads both identically: it opens either as a real `Rectangle` with the
+width, height, fill and text the file gives it. The difference is on the other
+side. `docx-preview` renders VML and has no reading of DrawingML shapes at all,
+so the modern form would draw correctly in Word and show **nothing** in your
+preview. Packing the form both engines read is what keeps the preview showing
+the document rather than an opinion about it.
+
+The same reasoning is why rounded corners are not here yet. `v:roundrect` is
+not something the preview can draw, and a radius that draws in Word and vanishes
+on screen is worse than no radius at all. It goes in when both engines can.
+
+<NodeVariants type="shape" />

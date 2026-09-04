@@ -58,6 +58,7 @@ export type HostKind =
   | "table"
   | "tableRow"
   | "tableCell"
+  | "shape"
   | "tableOfContents"
   | "pageBreak"
   | "pageNumber"

@@ -21,6 +21,7 @@ import {
   Paragraph,
   ShadingType,
   Tab,
+  ImportedXmlComponent,
   Table,
   TableCell,
   TableLayoutType,
@@ -40,6 +41,7 @@ import type {
   ImageNode,
   PageNumberNode,
   ParagraphNode,
+  ShapeNode,
   TableAlign,
   TableCellNode,
   TableColumn,
@@ -462,6 +464,10 @@ function renderNode(
 
   if (node.kind === "table") {
     return [renderTable(node, style, furniture)];
+  }
+
+  if (node.kind === "shape") {
+    return [renderShape(node, style, furniture)];
   }
 
   // A page break met head-on rather than between siblings — inside a cell, or
@@ -1129,6 +1135,186 @@ function renderTable(node: TableNode, style: DocumentStyle, furniture: boolean):
   });
 }
 
+
+/**
+ * The default depth of a shape nothing has said a height for, in points.
+ *
+ * A shape does not grow to fit its words, so something has to decide. Three
+ * lines of body text at the default leading is the size a callout wants and
+ * the size that makes it obvious the number is a decision rather than a fit.
+ */
+const SHAPE_HEIGHT_PT = 48;
+
+/**
+ * A shape: a drawn rectangle with the document's own paragraphs on top of it.
+ *
+ * Written as VML — `w:pict` holding a `v:rect` holding a `v:textbox` — rather
+ * than as the DrawingML `wps:wsp` Word writes today, and that is a decision
+ * worth the paragraph it takes to explain.
+ *
+ * Word draws both, identically: it reads the VML back as a real `Rectangle`
+ * shape, with the width, the height, the fill and the text this gives it. The
+ * difference is on the other side. docx-preview renders VML — a `v:rect`
+ * becomes an SVG `<rect>` and a `v:textbox` becomes a `<foreignObject>` — and
+ * has no reading of `wps:wsp` at all, so a DrawingML shape draws nothing on
+ * screen. Packing the form that both engines read is what keeps the preview
+ * showing the document rather than an opinion about it; the alternative was to
+ * pack DrawingML and then *build* the box in the preview, which is a second
+ * renderer and the thing this package exists not to have.
+ *
+ * One repair is still needed on the preview side, and it is a structural one
+ * rather than a coat of CSS: docx-preview nests the `<foreignObject>` inside
+ * the `<rect>`, where SVG will not paint it. `settleDocxPreview` moves it out
+ * beside the rect. Both elements come from the file and Word draws both; only
+ * their nesting is wrong.
+ */
+function renderShape(
+  node: ShapeNode,
+  style: DocumentStyle,
+  furniture: boolean,
+): Paragraph {
+  const block = blockOf(style, node.variant);
+  const inset = cellPadding(block, false);
+  const widthPt = node.width ?? columnWidthPt(style);
+  const heightPt = node.height ?? block?.heightPt ?? SHAPE_HEIGHT_PT;
+
+  const rect = new ImportedXmlComponent("v:rect", {
+    // VML takes its geometry from a CSS-shaped style string, in points. This
+    // is the same number the preview lays the `<svg>` out at, because it is
+    // the same attribute read by both.
+    style: `width:${round2(widthPt)}pt;height:${round2(heightPt)}pt`,
+    fillcolor: `#${block?.fill ?? style.palette?.accent ?? "1F2933"}`,
+    ...(block?.border === undefined
+      ? { stroked: "f" }
+      : {
+        strokecolor: `#${block.border}`,
+        strokeweight: `${round2(block.borderWidthPt ?? 1)}pt`,
+      }),
+  });
+
+  // The same rule, said again as a child element.
+  //
+  // VML states a stroke twice over: as attributes on the shape, and as a
+  // `v:stroke` child. Word reads either. docx-preview reads only the child —
+  // its `parseStroke` takes `color` and `weight` off a `<v:stroke>` and never
+  // looks at `strokecolor` — so a shape ruled only by the attributes is ruled
+  // in Word and bare on screen. Writing both is what Word itself writes, and
+  // they cannot disagree because they are built from the one block.
+  if (block?.border !== undefined) {
+    rect.push(
+      new ImportedXmlComponent("v:stroke", {
+        color: `#${block.border}`,
+        weight: `${round2(block.borderWidthPt ?? 1)}pt`,
+      }),
+    );
+  }
+
+  const textbox = new ImportedXmlComponent("v:textbox", {
+    // The room inside the box, in the order VML states it: left, top, right,
+    // bottom. The same `paddingPt` a cell reads, so a variant means one thing
+    // whichever kind of box the theme draws it in.
+    inset: `${round2(inset.left)}pt,${round2(inset.top)}pt,${round2(inset.right)}pt,${round2(inset.bottom)}pt`,
+  });
+
+  const content = new ImportedXmlComponent("w:txbxContent");
+
+  for (const child of shapeContent(node, block, style, furniture)) {
+    content.push(child);
+  }
+
+  textbox.push(content);
+  rect.push(textbox);
+
+  // `w:pict` belongs inside a run, not beside one. Word repairs a misplaced
+  // one silently and docx-preview does not — it looks for a picture among a
+  // run's children and finds nothing, so the shape draws in Word and vanishes
+  // on screen.
+  const run = new ImportedXmlComponent("w:r");
+  const pict = new ImportedXmlComponent("w:pict");
+
+  pict.push(rect);
+  run.push(pict);
+
+  return new Paragraph({
+    alignment: textAlignmentOf(block?.align),
+    spacing: {
+      ...blockSpacingBefore(block),
+      after: ptToTwips(block?.spacingAfterPt ?? style.paragraph.spacingAfterPt),
+    },
+    children: [run as unknown as TextRun],
+  });
+}
+
+/**
+ * What is drawn on the box.
+ *
+ * A cell's rules, not a body paragraph's: the spacing that belongs between
+ * blocks of prose does not belong inside a box, and the block's own leading
+ * decides the rest. Word will not accept an empty text box, so a shape with
+ * nothing on it still gets a paragraph — an empty band is a band, not a
+ * missing one.
+ */
+function shapeContent(
+  node: ShapeNode,
+  block: DocumentBlockStyle | undefined,
+  style: DocumentStyle,
+  furniture: boolean,
+): Paragraph[] {
+  const content = node.children.flatMap((child): Paragraph[] => {
+    if (child.kind !== "paragraph") {
+      // Everything else is still a child of this shape, so it takes the
+      // block's alignment and leading like the paragraphs beside it.
+      return renderNode(child, style, furniture, false, {
+        alignment: alignments[shapeAlign(block)],
+        ...blockLine(block, style),
+      }).filter((rendered): rendered is Paragraph => rendered instanceof Paragraph);
+    }
+
+    // The shape's block, then the paragraph's own — a muted note under a
+    // heading on the same box is set by its own variant, not the shape's.
+    const inner = blockOf(style, child.variant);
+    const run = { ...blockRun(block, style), ...blockRun(inner, style) };
+
+    return [
+      new Paragraph({
+        alignment: alignments[shapeAlign(inner ?? block)],
+        spacing: { after: 0, ...blockLine(inner ?? block, style) },
+        children: withInlineImages(child, [
+          new TextRun({
+            text: child.text ?? "",
+            bold: run.bold,
+            color: run.color,
+            size: run.size,
+            font: run.font,
+            allCaps: run.allCaps,
+            characterSpacing: run.characterSpacing,
+          }),
+        ]),
+      }),
+    ];
+  });
+
+  return content.length === 0 ? [new Paragraph({})] : content;
+}
+
+/** How the words sit across the box. Left unless the theme says otherwise. */
+function shapeAlign(block: DocumentBlockStyle | undefined): TableAlign {
+  const align = block?.align;
+  return align === "center" || align === "right" ? align : "left";
+}
+
+/** The text column's width, in points — what a shape fills unless it is sized. */
+function columnWidthPt(style: DocumentStyle): number {
+  const pageMm = style.page.size === "A4" ? 210 : 215.9;
+  const columnMm = pageMm - style.page.margins.leftMm - style.page.margins.rightMm;
+
+  return columnMm * (72 / 25.4);
+}
+
+/** Two decimal places, which is finer than Word or a screen can draw. */
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
 /** No lines at all, so the only ones drawn are the ones a cell asks for. */
 const gridlessBorders = {
   top: { style: BorderStyle.NONE, size: 0, color: "auto" },

@@ -394,6 +394,59 @@ function harnessHtml(bodyFont) {
       });
     });
 
+    // Every shape drawn on the page.
+    //
+    // docx-preview renders a VML shape as an <svg> holding the drawn element
+    // and, once settle has moved it out, a <foreignObject> beside it carrying
+    // the words. Both halves are measured: a filled block with no words on it
+    // and a block whose words did not draw look identical in a screenshot and
+    // are not the same document.
+    var shapes = [];
+
+    articles.forEach(function (article, pageIndex) {
+      var content = boxes[pageIndex].content;
+
+      [].slice.call(article.querySelectorAll("svg")).forEach(function (svg) {
+        var rect = svg.getBoundingClientRect();
+        var drawn = svg.querySelector("rect, ellipse");
+        var text = svg.querySelector("foreignObject");
+        var lines = text === null ? [] : lineRectsOf(text);
+
+        shapes.push({
+          pageIndex: pageIndex,
+          index: shapes.length,
+
+          x: r2(rect.x - content.x),
+          y: r2(rect.y - content.y),
+          w: r2(rect.width),
+          h: r2(rect.height),
+
+          // Straight off the element docx-preview drew from the file's own
+          // fillcolor and strokecolor, not off a computed style: an SVG
+          // presentation attribute is what the file said, and the computed
+          // value would fold in a stylesheet the document never asked for.
+          shape: drawn === null ? null : drawn.tagName,
+          fill: drawn === null ? null : drawn.getAttribute("fill"),
+          stroke: drawn === null ? null : drawn.getAttribute("stroke"),
+          strokeWidth: drawn === null ? null : drawn.getAttribute("stroke-width"),
+
+          // Where the words are, and whether they were drawn at all. A
+          // foreignObject left inside the rect reports zero for both.
+          text: text === null ? "" : text.textContent,
+          textDrawn: text !== null,
+          lineCount: lines.length,
+          lines: lines.map(function (line) {
+            return {
+              x: r2(line.left - content.x),
+              y: r2(line.top - content.y),
+              w: r2(line.right - line.left),
+              h: r2(line.bottom - line.top)
+            };
+          })
+        });
+      });
+    });
+
     // How tall a running strip actually draws.
     //
     // Not the container's height: docx-preview gives a header and a footer a
@@ -454,6 +507,7 @@ function harnessHtml(bodyFont) {
       furniture: furniture,
       paragraphs: paragraphs,
       tables: tables,
+      shapes: shapes,
       fontProbe: fontProbe(BODY_FONT),
       // What the paginator did, straight from the page it ran on. Without
       // this a preview that failed to paginate is indistinguishable from one
@@ -565,6 +619,7 @@ export async function runPreviewProbe({ outDir, htmlPath, bodyFont, screenshots 
     furniture: [],
     paragraphs: [],
     tables: [],
+    shapes: [],
     fontProbe: null,
     screenshots: [],
   };
@@ -601,6 +656,7 @@ export async function runPreviewProbe({ outDir, htmlPath, bodyFont, screenshots 
     output.furniture = measured.furniture ?? [];
     output.paragraphs = measured.paragraphs;
     output.tables = measured.tables ?? [];
+    output.shapes = measured.shapes ?? [];
     output.fontProbe = measured.fontProbe;
     output.paginated = measured.paginated ?? null;
     output.tabsPlaced = measured.tabsPlaced ?? null;
@@ -783,6 +839,33 @@ export function previewView(measure) {
     nestedTables() {
       return (measure.tables ?? []).filter((table) => table.nested);
     },
+    // --- shapes -------------------------------------------------------------
+
+    /** Every shape the preview drew, in document order. */
+    shapes: measure.shapes ?? [],
+
+    /** One shape, counting from zero. */
+    shape(index = 0) {
+      return (measure.shapes ?? [])[index] ?? missingShape(`#${index}`);
+    },
+
+    /**
+     * How wide the words on a shape are actually drawn.
+     *
+     * The assertion `liftShapeText` exists for. A `<foreignObject>` left where
+     * docx-preview puts it — inside the `<rect>` — paints nothing, and every
+     * line inside it measures zero. Nought here means a filled block with
+     * invisible words, which is the failure that looks deliberate.
+     */
+    shapeTextWidth(anchor) {
+      const wanted = anchor.toLowerCase();
+      const shape = (measure.shapes ?? [])
+        .find((entry) => (entry.text ?? "").toLowerCase().includes(wanted));
+
+      if (shape === undefined) return null;
+      return shape.lines.reduce((widest, line) => Math.max(widest, line.w), 0);
+    },
+
 
     /** The cell whose text contains this anchor. First match wins. */
     cell: findCell,
@@ -871,6 +954,27 @@ function byDepth(tables) {
  * assertion against a table that is not there should report the property it
  * wanted as `null`, not die reaching for it.
  */
+function missingShape(anchor) {
+  return {
+    missing: true,
+    anchor,
+    pageIndex: null,
+    index: -1,
+    x: null,
+    y: null,
+    w: null,
+    h: null,
+    shape: null,
+    fill: null,
+    stroke: null,
+    strokeWidth: null,
+    text: "",
+    textDrawn: false,
+    lineCount: 0,
+    lines: [],
+  };
+}
+
 function missingTable(anchor) {
   return {
     missing: true,
