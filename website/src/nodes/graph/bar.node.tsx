@@ -8,17 +8,19 @@ import type { SampleData } from "../sample-data.ts";
 export const VisitsByMonth: Graph = () => {
   const [state] = useState((data: SampleData) => ({
     centreName: data.centreName,
-    labels: data.visitsByMonth.map((entry) => entry.month),
+    months: data.visitsByMonth.map((entry) => entry.month),
     visits: data.visitsByMonth.map((entry) => entry.visits),
   }));
 
   return (
     <Graph
       id="visits-by-month"
+      title={`Visits to ${state.centreName}`}
       graphType="bar"
+      valueAxisTitle="Visits"
       data={{
-        labels: state.labels,
-        series: [{ name: "Visits", values: state.visits }],
+        categories: state.months,
+        series: [{ label: "Visits", values: state.visits }],
       }}
       caption={`Your visits to ${state.centreName}, last six months`}
     />

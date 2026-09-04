@@ -1,6 +1,6 @@
 ---
 title: Graph
-description: Diagramme als Daten deklariert — Balken, Linie oder Kreis — aus Ihren Zahlen oder denen eines Endpoints.
+description: Echte Word-Diagramme — Balken, Linie, Fläche, Kreis, Ring oder Punkt — als Daten deklariert statt als Bild gezeichnet.
 group: Nodes
 subgroup: Node types
 order: 13
@@ -18,32 +18,53 @@ Ein Graph-Node enthält Zahlen und eine Form, nie ein Bild:
 ```tsx
 export const VisitsByMonth: Graph = () => {
   const [state] = useState((data: MemberData) => ({
-    labels: data.visitsByMonth.map((entry) => entry.month),
+    months: data.visitsByMonth.map((entry) => entry.month),
     visits: data.visitsByMonth.map((entry) => entry.visits),
   }));
 
   return (
     <Graph
       id="visits-by-month"
+      title="Visits by month"
       graphType="bar"
-      data={{ labels: state.labels, series: [{ name: "Visits", values: state.visits }] }}
+      valueAxisTitle="Visits"
+      data={{
+        categories: state.months,
+        series: [{ label: "Visits", values: state.visits }],
+      }}
       caption="Your visits, last six months"
     />
   );
 };
 ```
 
-Zahlen statt eines Bildes mitzuführen heißt: eine Deklaration bedient jeden
-Renderer, sie diffed zwischen Builds lesbar, und man kann sie in einem Test
-prüfen.
+Was in der `.docx` landet, ist ein **echtes Word-Diagramm** — ein
+DrawingML-Chart-Part mit allen Werten darin, samt der Arbeitsmappe, die „Daten
+bearbeiten“ öffnet. Der Leser kann es auswählen, umgestalten, seinen Typ ändern
+und seine Zahlen öffnen, und Word zeichnet es als Vektoren in jeder Größe.
+Nichts davon wird gerastert.
 
-## Die Form der Payload gehört Ihnen
+## Die Form der Daten
 
-`data` ist ein `JsonObject`, und das Framework schaut nie hinein. Die hier
-verwendete Form `{ labels, series }` ist eine Konvention, kein Schema — nehmen
-Sie, was Ihr Renderer erwartet, und halten Sie es im Projekt einheitlich.
+`data` ist typisiert: Kategorien und Serien, jede Serie mit einem Label, ihren
+Werten und optional einer Farbe.
 
-Eines geschieht mit der Payload doch: String-Werte laufen durch den
+```ts
+interface GraphData {
+  categories?: string[];
+  series: Array<{ label?: string; values: (number | null)[]; color?: string }>;
+}
+```
+
+`null` ist eine Lücke, keine Null. Ein Monat, der noch nicht abgelesen wurde,
+ist kein Monat, in dem nichts gemessen wurde — Word lässt den Punkt aus, statt
+die Linie abstürzen zu lassen.
+
+Farben kommen aus dem Theme (`palette.series`, eine feste, auf
+Farbfehlsichtigkeit geprüfte Reihe), damit ein Dokument neu gestaltet werden
+kann, ohne dass seine Diagramme dazu nicht mehr passen.
+
+Eines geschieht mit den Daten doch: String-Werte laufen durch den
 Template-Renderer, genau wie Prosa. Ein Label mit `{{derived.total}}` wird
 aufgelöst.
 

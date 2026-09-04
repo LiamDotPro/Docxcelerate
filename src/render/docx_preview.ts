@@ -39,6 +39,14 @@ export {
 } from "./preview_styles.ts";
 
 export {
+  type ChartDrawer,
+  type PreviewChart,
+  type PreviewChartSeries,
+  readPackedCharts,
+  settleDocxPreviewCharts,
+} from "./docx_preview_charts.ts";
+
+export {
   type PackedBorderSpace,
   type PackedParagraph,
   type PackedRun,

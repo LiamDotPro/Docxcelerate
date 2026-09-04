@@ -21,11 +21,55 @@
  */
 import {
   previewPageStyles,
+  readPackedCharts,
   readPackedParagraphs,
   readPackedTables,
   settleDocxPreview,
+  settleDocxPreviewCharts,
 } from "docxcelerate/preview";
-import { JSDOM } from "jsdom";
+import { JSDOM, VirtualConsole } from "jsdom";
+import { mkdir } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * The workspace's own chart drawer, bundled once and kept.
+ *
+ * `templates/workspace/preview/charts.ts` is TypeScript, so esbuild turns it
+ * into something Node can import — with the packages left external so
+ * `echarts` resolves out of this site's own node_modules. Bundling the
+ * template rather than writing a drawer here is the point: the previews on the
+ * site are then drawn by the very file a scaffolded project gets, and the two
+ * cannot drift.
+ */
+let drawer;
+
+async function chartDrawer() {
+  if (drawer === undefined) {
+    const { build } = await import("esbuild");
+    const source = resolve(HERE, "..", "..", "..", "templates", "workspace", "preview", "charts.ts");
+    const bundle = resolve(HERE, "..", "..", ".demo-build", "chart-drawer.mjs");
+
+    await mkdir(dirname(bundle), { recursive: true });
+    await build({
+      entryPoints: [source],
+      outfile: bundle,
+      bundle: true,
+      format: "esm",
+      platform: "node",
+      target: "node20",
+      packages: "external",
+      logLevel: "warning",
+    });
+
+    const module = await import(pathToFileURL(bundle).href);
+    drawer = module.createChartDrawer();
+  }
+
+  return drawer;
+}
 
 /** The one window the whole build renders in. */
 let dom;
@@ -39,7 +83,20 @@ let dom;
  */
 function browser() {
   if (dom === undefined) {
-    dom = new JSDOM("<!doctype html><html><head></head><body></body></html>");
+    // jsdom shouts about the one thing asked of it that it cannot do:
+    // ECharts measures text through a canvas, jsdom has no getContext, and
+    // ECharts falls back to estimating the width. Fine for a preview, and
+    // one line per label would bury everything else the build prints.
+    const quiet = new VirtualConsole();
+    quiet.on("jsdomError", (error) => {
+      if (!String(error?.message ?? "").includes("getContext")) {
+        console.error(error);
+      }
+    });
+
+    dom = new JSDOM("<!doctype html><html><head></head><body></body></html>", {
+      virtualConsole: quiet,
+    });
 
     globalThis.window = dom.window;
     globalThis.document = dom.window.document;
@@ -116,6 +173,13 @@ export async function renderDocxPreview(document) {
     await readPackedParagraphs(packed),
     await readPackedTables(packed),
   );
+
+  // A chart is packed as a real Word chart, and docx-preview has no reading of
+  // one — it leaves an empty frame at the size the file gave it. Filling it is
+  // the drawer's job, and the drawer is the scaffolded workspace's own, so
+  // the site shows what a person previewing a document sees rather than a
+  // second opinion written for the site.
+  settleDocxPreviewCharts(bodyContainer, await readPackedCharts(packed), await chartDrawer());
 
   return {
     styles: withFontFallbacks(styleContainer.innerHTML),

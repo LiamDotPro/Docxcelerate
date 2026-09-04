@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "docx-preview": "^0.3.7",
+    "echarts": "^6.1.0",
     "esbuild": "^0.28.2",
     "jsdom": "^30.0.1",
     "pdfjs-dist": "^6.2.108",

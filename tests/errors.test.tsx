@@ -154,7 +154,7 @@ test("a node claiming both its content and a prompt is a contradiction", async (
     "supplies both its content and a prompt",
   );
   await assertBuildRejects(
-    <Graph id="both" data={{ values: [1] }} generalPrompt="Plot it." />,
+    <Graph id="both" data={{ series: [{ values: [1] }] }} generalPrompt="Plot it." />,
     "supplies both its content and a prompt",
   );
 });

@@ -107,6 +107,34 @@ p.wordCellX("1,250.00")        // and in Word
 cell's version of the paragraph lookups above, and read line rectangles for the
 same reason.
 
+**A chart is a part, not an element, and all three tiers say so.** What
+`document.xml` holds is a frame and a relationship id; the plot and every
+cached value are in `word/charts/chartN.xml`, and the numbers a reader would
+open are in a workbook beside it. Probe A follows the whole chain, so a case
+asserts on what the chart *is* rather than on the drawing that reserves its
+space:
+
+```tsx
+a.chart(0).plot            // "bar", "line", "pie" …, from the chart part
+a.chart(0).partPresent     // and that the part the drawing names is there
+a.chart(0).workbookPresent // and the workbook "Edit Data" opens
+a.chartSeries(0, 1).values // the second series, cached — what Word draws from
+b.chart(0).w               // the frame, as the preview laid it out
+b.chart(0).plotted         // and whether anything was drawn inside it
+c.chart(0).typeName        // the chart Word actually built
+c.chartSeries(0, 1).values // and the figures Word reads back out of it
+p.previewChartWidth(0)     // the frame on screen against the frame in Word
+```
+
+**The preview draws a chart's plot and Word draws its own, so parity compares
+frames.** docx-preview has no reading of a chart part at all, so it leaves an
+empty span at the frame's size; the suite fills it with the same ECharts drawer
+a scaffolded workspace uses, bundled straight out of
+`templates/workspace/preview/charts.ts` so the tier measures what a person
+sees. Holding those pixels against Word's would be measuring two chart
+libraries. The frame is what both sides take from the file and what the page is
+laid out around, and that is what tier X asserts.
+
 **A cell's text includes its nested table's, so the innermost cell wins.** A
 table is the only shape in a document that contains itself: the text of a cell
 holding a table is everything printed inside it, so an outer cell matches every
@@ -145,6 +173,35 @@ the first would pass while proving nothing.
   at its own size and captured with `--screenshot`, which writes straight to
   disk. One Chrome run per page, plus a cheap first run that asks only how many
   pages there are and how big they are.
+- **A chart needs Word to open the document writable *and* with a window.**
+  Both were wrong at once and each looked like the other. Opened read-only,
+  Word builds the chart object and reports the right type and title, and
+  `SeriesCollection` comes back with the right count and no names and no values
+  — the data load is deferred while the document cannot be edited. Opened with
+  the `Visible` argument false, Word never builds the chart at all:
+  `InlineShape.Type` still says 12 (`wdInlineShapeChart`), `HasChart` returns
+  nothing and `.Chart` throws. Measured on one file: read-only gives `2024=`,
+  writable gives `2024=12,18,9,22`; invisible gives `HasChart=[]`, visible gives
+  `HasChart=[-1] ChartType=51`. `probe-word.ps1` now opens writable and
+  visible, closes with `wdDoNotSaveChanges`, and leaves the *application*
+  invisible, so nothing appears on screen.
+- **Word driven over COM does not lay an inline shape out, so the Word column
+  is the wrong evidence for anything a chart's *height* does.** The exported
+  PDF shows a chart's plot missing and its line collapsed to about 25pt, and
+  `Selection.Information(6)` on the paragraphs either side agrees — before and
+  after `Repaginate()`, with a document window open. It is not the file and it
+  is not charts: a control document of twelve 200pt *images* reports the same
+  one page as twelve 200pt charts, and both are four pages in Word itself.
+  Meanwhile `InlineShape.Height` is 200, `PlotArea.Height` is a real 117, and
+  `Chart.Export` writes a correct PNG. So a chart case asserts through the
+  chart object — its type, its series, its figures, its frame — and never
+  through where the page put it. A pagination case involving an inline shape
+  cannot be measured here at all, which is why there is not one.
+- **`InlineShape.Type` and `Shape.Type` are different enumerations.** 12 is
+  `wdInlineShapeChart` and 3 is `wdInlineShapePicture`; in `msoShapeType` 3 is
+  a chart and 13 a picture. `Read-Shapes` walks both collections through one
+  name table, so an inline chart reports `type12`. Charts have their own reader
+  and do not depend on it.
 - **Word holds a document open a moment after it is closed.** A run that
   measures a case and then rebuilds it can land inside that moment and get
   `EBUSY` for a reason that has nothing to do with the document. `buildCase`

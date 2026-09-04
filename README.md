@@ -90,6 +90,42 @@ export const Balance: Paragraph = () => {
 };
 ```
 
+## Charts are charts, not pictures of charts
+
+A `<Graph>` is packed as a real Word chart — a DrawingML chart part with every
+value in it and the workbook "Edit Data" opens. The reader can select it,
+restyle it, change its type and open its numbers, and Word draws it as vectors
+at whatever size the page and the printer need.
+
+```tsx
+<Graph
+  id="revenue"
+  title="Revenue by quarter"
+  graphType="bar"
+  numberFormat="£#,##0"
+  valueAxisTitle="Revenue"
+  data={{
+    categories: ["Q1", "Q2", "Q3", "Q4"],
+    series: [
+      { label: "2024", values: [12400, 18100, 9300, 22800] },
+      { label: "2025", values: [16200, 14500, 21700, 27300] },
+    ],
+  }}
+/>
+```
+
+`bar`, `barHorizontal`, `line`, `area`, `pie`, `doughnut` and `scatter`, with
+`stacked`, `legend`, `dataLabels` and axis titles. A `null` in a series is a
+gap, not a zero. Series take their colours from the theme's palette in order —
+a validated, colourblind-safe set — so a chart re-themes with the document it
+is in.
+
+Nothing is rasterised anywhere in that, which is why charts add no dependency
+and no native module to the package. The local preview draws them with
+[ECharts](https://echarts.apache.org), from the same packed bytes: the frame
+comes from the file and is exact, and the plot inside it is another renderer's
+drawing of the same data.
+
 ## Nodes an engine writes
 
 Some nodes are written per document rather than at build time. `useAi` is what

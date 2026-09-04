@@ -8,6 +8,8 @@
  */
 
 import type {
+  GraphData,
+  GraphLegend,
   GraphType,
   JsonObject,
   PageNumberFormat,
@@ -149,14 +151,62 @@ export interface ImageProps extends CommonElementProps, PromptProps {
   height?: number;
 }
 
-/** Props for the `<Graph>` element. */
+/**
+ * Props for the `<Graph>` element.
+ *
+ * @example A chart of two series, drawn by Word rather than pasted in as a picture
+ * ```tsx
+ * <Graph
+ *   id="revenue"
+ *   title="Revenue by quarter"
+ *   graphType="bar"
+ *   numberFormat="£#,##0"
+ *   data={{
+ *     categories: ["Q1", "Q2", "Q3", "Q4"],
+ *     series: [
+ *       { label: "2024", values: [12400, 18100, 9300, 22800] },
+ *       { label: "2025", values: [16200, 14500, 21700, 27300] },
+ *     ],
+ *   }}
+ * />
+ * ```
+ */
 export interface GraphProps extends CommonElementProps, PromptProps {
-  /** Which chart to draw. */
+  /**
+   * The heading drawn on the chart itself.
+   *
+   * On the chart rather than above it, so it travels with the drawing: a
+   * reader who copies the chart into a deck takes the title with it, and a
+   * chart with no title at all is one Word will invent a heading for.
+   */
+  title?: string;
+  /** Which chart to draw. Defaults to `bar`. */
   graphType?: GraphType;
-  /** The series to plot, when they are known at build time. */
-  data?: JsonObject;
+  /** The numbers to plot, when they are known at build time. */
+  data?: GraphData;
   /** A caption printed beneath the chart. */
   caption?: string;
+  /** How wide the chart is drawn, in points. The text column unless it is said. */
+  width?: number;
+  /** How deep it is drawn, in points. Seven twelfths of its width unless it is said. */
+  height?: number;
+  /**
+   * Where the key sits.
+   *
+   * Left out, a chart with more than one series gets one under the plot and a
+   * chart with one gets none — except a pie, whose key names its slices.
+   */
+  legend?: GraphLegend;
+  /** Whether the series stack rather than stand beside one another. */
+  stacked?: boolean;
+  /** How the values are printed, as an OOXML number format: `"#,##0"`, `"0.0%"`. */
+  numberFormat?: string;
+  /** What the category axis counts along. */
+  categoryAxisTitle?: string;
+  /** What the value axis measures. */
+  valueAxisTitle?: string;
+  /** Whether each point prints its own figure. Worth it on a pie, rarely elsewhere. */
+  dataLabels?: boolean;
 }
 
 /** Props for the `<Table>` element. */

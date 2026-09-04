@@ -23,6 +23,7 @@ const surface: Record<string, string[]> = {
   ".": [
     "COMPONENTS",
     "COMPONENT_CATEGORIES",
+    "DEFAULT_SERIES_COLORS",
     "DeriverRegistry",
     "EchoAiClient",
     "InMemoryDataProvider",
@@ -152,10 +153,12 @@ const surface: Record<string, string[]> = {
     "liftShapeText",
     "paginateDocxPreview",
     "previewPageStyles",
+    "readPackedCharts",
     "readPackedParagraphs",
     "readPackedTables",
     "readPart",
     "settleDocxPreview",
+    "settleDocxPreviewCharts",
   ],
   "./registry": [
     "COMPONENTS",
@@ -233,6 +236,7 @@ const surface: Record<string, string[]> = {
     "useState",
   ],
   "./themes": [
+    "DEFAULT_SERIES_COLORS",
     "THEMES",
     "THEME_IDS",
     "boldBriefTheme",

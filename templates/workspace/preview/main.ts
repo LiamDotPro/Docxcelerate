@@ -5,9 +5,12 @@ import {
   paginateDocxPreview,
   previewPageStyles,
   readPackedParagraphs,
+  readPackedCharts,
   readPackedTables,
   settleDocxPreview,
+  settleDocxPreviewCharts,
 } from "docxcelerate/preview";
+import { createChartDrawer } from "./charts";
 import "./styles.css";
 
 interface DocumentProjectModule {
@@ -496,6 +499,14 @@ async function renderClientDocxPreview(model: DocumentModel, documentBlob: Blob)
   const packed = new Uint8Array(await documentBlob.arrayBuffer());
   const paragraphs = await readPackedParagraphs(packed);
   settleDocxPreview(body, model, paragraphs, await readPackedTables(packed));
+
+  // A chart is packed as a real Word chart, and docx-preview has no reading of
+  // one — it leaves an empty frame at the size the file gave it. The frame is
+  // what the page is laid out around, so this only has to fill it: the type,
+  // the numbers and the colours are read back out of the same bytes, and
+  // ECharts draws them. Before pagination, because a chart that arrives after
+  // the page is measured is a page measured around a hole.
+  settleDocxPreviewCharts(body, await readPackedCharts(packed), createChartDrawer());
 
   const style = document.createElement("style");
   style.textContent = previewFrameStyles();

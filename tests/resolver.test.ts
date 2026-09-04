@@ -24,7 +24,7 @@ function engineState(data: Record<string, unknown>): RuntimeState {
     aiClient: {
       generateParagraph: (request) => `[generated ${request.node.id}]`,
       generateImage: () => ({ path: "generated.png", alt: "generated" }),
-      generateGraph: () => ({ data: { values: [1] }, caption: "generated" }),
+      generateGraph: () => ({ data: { series: [{ values: [1] }] }, caption: "generated" }),
     },
   };
 }

@@ -608,6 +608,11 @@ export function measureOoxml(zip) {
   const tables = scanElements(body, "w:tbl").map(readTable);
 
 
+  // A chart is a part of its own rather than an element of the body, so it is
+  // the one thing here that cannot be read out of `document.xml`. The drawings
+  // are found in the body, in order, and each is followed to the part it names.
+  const charts = readCharts(zip, document, parts);
+
   const sectPr = element(body, "w:sectPr");
   const pgSz = sectPr === null ? null : element(sectPr, "w:pgSz");
   const pgMar = sectPr === null ? null : element(sectPr, "w:pgMar");
@@ -639,12 +644,197 @@ export function measureOoxml(zip) {
       headerTwips: pgMar === null ? null : numAttr(pgMar, "w:header"),
       footerTwips: pgMar === null ? null : numAttr(pgMar, "w:footer"),
     },
+    /** The body's charts, in order, each read out of its own part. */
+    chartCount: charts.length,
+    charts,
     /** The default paragraph properties every paragraph inherits. */
     docDefaults: readDocDefaults(styles),
     documentXml: document,
     stylesXml: styles,
     settingsXml: settings,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Charts
+//
+// The only feature in the suite that is not in `document.xml`. What the body
+// holds is a frame and a relationship id; the plot, the series and every
+// cached value are in a part beside it, and the numbers a reader would open
+// are in a workbook beside that. So probe A follows all three — a case that
+// asserted only on the drawing would pass on a document whose chart part was
+// never written.
+// ---------------------------------------------------------------------------
+
+/** The relationship type a drawing uses to reach a chart part. */
+const CHART_RELATIONSHIP =
+  "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart";
+
+/**
+ * Every chart the body draws, in document order.
+ *
+ * @param {Uint8Array} zip The package.
+ * @param {string} document `word/document.xml`.
+ * @param {string[]} parts Every part name, so a missing one is a measurement
+ * rather than a crash.
+ * @returns One record per chart: its frame, its part, and what the part says.
+ */
+function readCharts(zip, document, parts) {
+  const targets = readRelationships(zip, "word/_rels/document.xml.rels");
+  const found = [];
+
+  for (const drawing of elements(document, "w:drawing")) {
+    const id = attr(element(drawing, "c:chart") ?? "", "r:id");
+
+    if (id === null) {
+      continue;
+    }
+
+    const target = targets.get(id);
+    const part = target === undefined ? null : `word/${target.replace(/^\.\//, "")}`;
+    const extent = element(drawing, "wp:extent");
+    const docPr = element(drawing, "wp:docPr");
+    const xml = part !== null && parts.includes(part) ? partText(zip, part) : null;
+    const workbook = part === null
+      ? null
+      : `word/embeddings/${part.replace(/^word\/charts\//, "").replace(/\.xml$/, "")}.xlsx`;
+
+    found.push({
+      /** The relationship the drawing points at, and the part it resolves to. */
+      relationshipId: id,
+      part,
+      /** Whether the part the drawing names is actually in the package. */
+      partPresent: part !== null && parts.includes(part),
+      /** Whether the workbook "Edit Data" opens is there too. */
+      workbookPart: workbook,
+      workbookPresent: workbook !== null && parts.includes(workbook),
+      /** The frame the chart is drawn in, in points. */
+      widthPt: emuToPt(numAttr(extent ?? "", "cx")),
+      heightPt: emuToPt(numAttr(extent ?? "", "cy")),
+      /** What a reader who cannot see the chart is told it is. */
+      description: docPr === null ? null : attr(docPr, "descr") ?? null,
+      ...readChartPart(xml),
+      /** The part itself, for a case asserting on an element nothing else reads. */
+      xml,
+    });
+  }
+
+  return found;
+}
+
+/** English Metric Units in points, to two places, or null. */
+function emuToPt(emu) {
+  return emu === null ? null : Math.round((emu / 12700) * 100) / 100;
+}
+
+/** A relationships part as a map of id to target. */
+function readRelationships(zip, part) {
+  const found = new Map();
+
+  try {
+    for (const entry of elements(partText(zip, part), "Relationship")) {
+      const id = attr(entry, "Id");
+      const target = attr(entry, "Target");
+
+      if (id !== null && target !== null) {
+        found.set(id, target);
+      }
+    }
+  } catch {
+    // A part with no relationships has no part. Nothing found is a
+    // measurement — the case asserting on a chart will record the miss.
+  }
+
+  return found;
+}
+
+/**
+ * What one chart part says: its plot, its series, and every cached value.
+ *
+ * The cache is what matters here rather than the workbook, because the cache
+ * is what Word draws from without opening anything — a chart whose numbers
+ * live only in the workbook draws as an empty frame until Excel is asked.
+ */
+function readChartPart(xml) {
+  if (xml === null) {
+    return { plot: null, title: null, legend: null, grouping: null, series: [], categories: [] };
+  }
+
+  const plot = /<c:(bar|line|area|pie|doughnut|scatter)Chart>/.exec(xml)?.[1] ?? null;
+  const legend = element(xml, "c:legendPos");
+  // An axis carries a `c:title` of its own, so the chart's is the one standing
+  // before the plot area. Reading the first `c:title` in the part would report
+  // a chart with no heading and a labelled y axis as being titled "Revenue".
+  const head = xml.slice(0, xml.indexOf("<c:plotArea>"));
+  // The category axis is written first, so on a scatter — the one chart with
+  // two value axes — the value axis is the second. Everywhere else there is
+  // only one and this is it.
+  const valueAxis = elements(xml, "c:valAx").at(-1) ?? "";
+
+  return {
+    /** Which chart group Word will draw: `bar`, `line`, `pie` and so on. */
+    plot,
+    /** For a bar chart, whether the bars stand up (`col`) or lie down (`bar`). */
+    barDir: childAttr(xml, "c:barDir", "val"),
+    /** `clustered`, `stacked` or `standard`. */
+    grouping: childAttr(xml, "c:grouping", "val"),
+    /** The chart's own heading, or null where Word is told to draw none. */
+    title: /<c:title>[\s\S]*?<a:t>([^<]*)<\/a:t>/.exec(head)?.[1] ?? null,
+    autoTitleDeleted: childAttr(xml, "c:autoTitleDeleted", "val"),
+    /** Where the key sits, or null where the chart has none. */
+    legend: legend === null ? null : attr(legend, "val"),
+    /** How the value axis prints its numbers. */
+    numberFormat: childAttr(valueAxis, "c:numFmt", "formatCode"),
+    /** How many axes the chart declares — none for a pie, two for a bar. */
+    axisCount: elements(xml, "c:catAx").length + elements(xml, "c:valAx").length,
+    /** The categories the values are counted against, from the cache. */
+    categories: cachedText(element(xml, "c:cat") ?? ""),
+    /** Whether the chart names the workbook it opens from. */
+    externalData: element(xml, "c:externalData") !== null,
+    /** One record per series: what it is called, what it plots, and its colour. */
+    series: elements(xml, "c:ser").map((series) => ({
+      label: cachedText(element(series, "c:tx") ?? "")[0] ?? null,
+      values: cachedNumbers(element(series, "c:val") ?? element(series, "c:yVal") ?? ""),
+      // A pie paints its slices rather than its series, so the first colour
+      // found is the series' own for every other chart and the first slice's
+      // for a pie. Both are the first colour a reader sees.
+      color: /<a:srgbClr val="([0-9A-Fa-f]{6})"\/>/.exec(series)?.[1] ?? null,
+    })),
+  };
+}
+
+/**
+ * The strings a reference caches, in index order.
+ *
+ * The cache rather than the formula: the formula names a cell in a workbook,
+ * and what Word draws is what is cached beside it.
+ */
+function cachedText(reference) {
+  return elements(reference, "c:pt").map((point) => element(point, "c:v")?.replace(/<[^>]*>/g, "") ?? "");
+}
+
+/**
+ * The numbers a reference caches, with a missing point kept as a gap.
+ *
+ * The count says how many readings there are; a point that is absent is one
+ * nobody measured, and reading it as a zero would put a bar on the chart for a
+ * month that has not happened.
+ */
+function cachedNumbers(reference) {
+  const cache = element(reference, "c:numCache") ?? reference;
+  const count = childNum(cache, "c:ptCount", "val") ?? 0;
+  const values = new Array(count).fill(null);
+
+  for (const point of elements(cache, "c:pt")) {
+    const at = numAttr(point, "idx");
+    const raw = element(point, "c:v")?.replace(/<[^>]*>/g, "");
+
+    if (at !== null && raw !== undefined) {
+      values[at] = Number.parseFloat(raw);
+    }
+  }
+
+  return values;
 }
 
 /**
@@ -735,6 +925,23 @@ export function ooxmlView(measure) {
     /** The nth body paragraph, counting from zero. */
     paraAt(index) {
       return measure.paragraphs[index] ?? missingParagraph(`#${index}`);
+    },
+
+    /**
+     * The nth chart in the body, counting from zero.
+     *
+     * A chart that is not there comes back as a record saying so rather than
+     * as `undefined`, so a case asserting on one records a miss instead of
+     * dying on a property of nothing.
+     */
+    chart(index = 0) {
+      return measure.charts?.[index] ?? missingChart(index);
+    },
+
+    /** The nth series of the nth chart, by the same rule. */
+    chartSeries(chartIndex = 0, seriesIndex = 0) {
+      return this.chart(chartIndex).series?.[seriesIndex] ??
+        { label: null, values: [], color: null };
     },
 
     /** Every paragraph whose text contains this anchor. */
@@ -886,6 +1093,40 @@ function missingCell(anchor) {
  * on a missing paragraph reports the property it wanted as `null` instead of
  * dying on a property access. "Not found" is a measurement.
  */
+/**
+ * A chart that is not in the file, as a record saying exactly that.
+ *
+ * Every field is the "never written" value, so a case asserting on a chart the
+ * packer did not produce records the miss it exists to record rather than
+ * dying on a property of `undefined`.
+ */
+function missingChart(index) {
+  return {
+    missing: true,
+    index,
+    relationshipId: null,
+    part: null,
+    partPresent: false,
+    workbookPart: null,
+    workbookPresent: false,
+    widthPt: null,
+    heightPt: null,
+    description: null,
+    plot: null,
+    barDir: null,
+    grouping: null,
+    title: null,
+    autoTitleDeleted: null,
+    legend: null,
+    numberFormat: null,
+    axisCount: 0,
+    categories: [],
+    externalData: false,
+    series: [],
+    xml: null,
+  };
+}
+
 function missingParagraph(anchor) {
   return {
     index: -1,

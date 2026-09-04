@@ -1,6 +1,6 @@
 ---
 title: Graph
-description: Gráficos declarados como datos — barras, líneas o sectores — a partir de tus cifras o de las de un endpoint.
+description: Gráficos de Word de verdad — barras, líneas, áreas, sectores, anillo o dispersión — declarados como datos en lugar de dibujados como imagen.
 group: Nodes
 subgroup: Node types
 order: 13
@@ -18,32 +18,52 @@ Un nodo de gráfico contiene números y una forma, nunca una imagen:
 ```tsx
 export const VisitsByMonth: Graph = () => {
   const [state] = useState((data: MemberData) => ({
-    labels: data.visitsByMonth.map((entry) => entry.month),
+    months: data.visitsByMonth.map((entry) => entry.month),
     visits: data.visitsByMonth.map((entry) => entry.visits),
   }));
 
   return (
     <Graph
       id="visits-by-month"
+      title="Visits by month"
       graphType="bar"
-      data={{ labels: state.labels, series: [{ name: "Visits", values: state.visits }] }}
+      valueAxisTitle="Visits"
+      data={{
+        categories: state.months,
+        series: [{ label: "Visits", values: state.visits }],
+      }}
       caption="Your visits, last six months"
     />
   );
 };
 ```
 
-Llevar cifras en lugar de una imagen significa que una sola declaración sirve a
-todos los renderizadores, produce diffs legibles entre compilaciones y puede
-comprobarse en una prueba.
+Lo que llega al `.docx` es un **gráfico de Word de verdad**: una parte DrawingML
+con todos los valores dentro, más el libro que abre «Editar datos». Quien lo
+recibe puede seleccionarlo, cambiar su estilo, cambiar su tipo y abrir sus
+números, y Word lo dibuja como vectores a cualquier tamaño. Nada de esto se
+rasteriza.
 
-## La forma del payload es tuya
+## La forma de los datos
 
-`data` es un `JsonObject` y el framework nunca mira dentro. La forma
-`{ labels, series }` que se usa aquí es una convención, no un esquema — usa lo
-que espere tu renderizador y mantenlo coherente en todo el proyecto.
+`data` está tipado: categorías y series, cada serie con una etiqueta, sus
+valores y, opcionalmente, un color.
 
-Una cosa sí le ocurre al payload: los valores de tipo cadena pasan por el
+```ts
+interface GraphData {
+  categories?: string[];
+  series: Array<{ label?: string; values: (number | null)[]; color?: string }>;
+}
+```
+
+Un `null` es un hueco, no un cero. Un mes que aún no se ha leído no es un mes
+que midió nada, y Word omite el punto en lugar de hacer caer la línea.
+
+Los colores vienen del tema (`palette.series`, una serie fija y validada para
+daltonismo), de modo que un documento se puede volver a tematizar sin que sus
+gráficos dejen de encajar.
+
+Una cosa sí le ocurre a los datos: los valores de tipo cadena pasan por el
 renderizador de plantillas, igual que la prosa. Una etiqueta que contenga
 `{{derived.total}}` se resuelve.
 

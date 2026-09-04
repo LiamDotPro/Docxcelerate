@@ -1,6 +1,6 @@
 ---
 title: Graph
-description: Графики, объявленные как данные — столбцы, линия или круг — из ваших цифр или цифр эндпоинта.
+description: Настоящие диаграммы Word — столбцы, линия, область, круг, кольцо или точки — объявленные как данные, а не нарисованные картинкой.
 group: Nodes
 subgroup: Node types
 order: 13
@@ -18,34 +18,52 @@ import NodeVariants from "../../../../components/NodeVariants.astro";
 ```tsx
 export const VisitsByMonth: Graph = () => {
   const [state] = useState((data: MemberData) => ({
-    labels: data.visitsByMonth.map((entry) => entry.month),
+    months: data.visitsByMonth.map((entry) => entry.month),
     visits: data.visitsByMonth.map((entry) => entry.visits),
   }));
 
   return (
     <Graph
       id="visits-by-month"
+      title="Visits by month"
       graphType="bar"
-      data={{ labels: state.labels, series: [{ name: "Visits", values: state.visits }] }}
+      valueAxisTitle="Visits"
+      data={{
+        categories: state.months,
+        series: [{ label: "Visits", values: state.visits }],
+      }}
       caption="Your visits, last six months"
     />
   );
 };
 ```
 
-Нести цифры, а не картинку, означает, что одно объявление обслуживает любой
-рендерер, читаемо различается между сборками и может быть проверено в тесте.
+В `.docx` попадает **настоящая диаграмма Word** — часть DrawingML со всеми
+значениями внутри и книга, которую открывает «Изменить данные». Читатель может
+выделить её, изменить оформление и тип, открыть её числа, а Word рисует её
+векторами в любом размере. Ничто из этого не растрируется.
 
-## Форма полезной нагрузки — ваша
+## Форма данных
 
-`data` — это `JsonObject`, и фреймворк никогда в него не заглядывает.
-Использованная здесь форма `{ labels, series }` — соглашение, а не схема:
-берите то, чего ждёт ваш рендерер, и держите это единообразным в пределах
-проекта.
+`data` типизирована: категории и ряды, у каждого ряда — подпись, значения и, при
+желании, цвет.
 
-Одно с полезной нагрузкой всё же происходит: строковые значения пропускаются
-через рендерер шаблонов, как и проза. Подпись, содержащая `{{derived.total}}`,
-будет разрешена.
+```ts
+interface GraphData {
+  categories?: string[];
+  series: Array<{ label?: string; values: (number | null)[]; color?: string }>;
+}
+```
+
+`null` — это пропуск, а не ноль. Месяц, который ещё не считан, — не месяц, в
+котором ничего не намерили: Word пропускает точку, а не роняет линию.
+
+Цвета берутся из темы (`palette.series` — фиксированный набор, проверенный на
+цветовую слепоту), поэтому документ можно переоформить, и диаграммы не выпадут
+из его оформления.
+
+Одно с данными всё же происходит: строковые значения пропускаются через рендерер
+шаблонов, как и проза. Подпись, содержащая `{{derived.total}}`, будет разрешена.
 
 ## Вычисления в состоянии
 

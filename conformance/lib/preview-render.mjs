@@ -14,7 +14,12 @@
  * @module
  */
 
-import { JSDOM } from "jsdom";
+import { JSDOM, VirtualConsole } from "jsdom";
+import { mkdir } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** The one window every case renders in. Building a fresh jsdom per case costs
  * about 300ms and buys nothing — docx-preview writes into the container it is
@@ -23,7 +28,21 @@ let dom;
 
 function browser() {
   if (dom === undefined) {
-    dom = new JSDOM("<!doctype html><html><head></head><body></body></html>");
+    // jsdom shouts about the one thing it cannot do that is asked of it here:
+    // ECharts measures text through a canvas, jsdom has no `getContext`, and
+    // ECharts falls back to estimating the width. That is fine — the frame is
+    // what this tier measures and the frame comes from the file — but one
+    // "Not implemented" per label buries the board it is printed above.
+    const quiet = new VirtualConsole();
+    quiet.on("jsdomError", (error) => {
+      if (!String(error?.message ?? "").includes("getContext")) {
+        console.error(error);
+      }
+    });
+
+    dom = new JSDOM("<!doctype html><html><head></head><body></body></html>", {
+      virtualConsole: quiet,
+    });
 
     globalThis.window = dom.window;
     globalThis.document = dom.window.document;
@@ -55,18 +74,62 @@ function browser() {
 }
 
 /**
+ * The workspace's own chart drawer, bundled once and kept.
+ *
+ * It is a TypeScript file under `templates/`, so esbuild turns it into
+ * something Node can import — the same recipe `loadCase` uses for a case, with
+ * the packages left external so `echarts` resolves out of this package's own
+ * `node_modules`.
+ */
+let drawer;
+
+async function chartDrawer() {
+  if (drawer === undefined) {
+    const { build } = await import("esbuild");
+    const source = resolve(ROOT, "..", "templates", "workspace", "preview", "charts.ts");
+    const bundle = resolve(ROOT, ".out", "_bundles", "chart-drawer.mjs");
+
+    await mkdir(dirname(bundle), { recursive: true });
+    await build({
+      entryPoints: [source],
+      outfile: bundle,
+      bundle: true,
+      format: "esm",
+      platform: "node",
+      target: "node20",
+      packages: "external",
+      logLevel: "warning",
+    });
+
+    const module = await import(pathToFileURL(bundle).href);
+    drawer = module.createChartDrawer();
+  }
+
+  return drawer;
+}
+
+/**
  * A document laid out by docx-preview, as the markup and CSS it produced.
  *
  * @param {object} model A finished document model.
  */
 export async function renderPreview(model) {
   const window = browser();
-  const [{ createDocxBlob }, { readPackedParagraphs, readPackedTables, settleDocxPreview }, docxPreview] =
-    await Promise.all([
-      import("docxcelerate/docx"),
-      import("docxcelerate/preview"),
-      import("docx-preview"),
-    ]);
+  const [
+    { createDocxBlob },
+    {
+      readPackedCharts,
+      readPackedParagraphs,
+      readPackedTables,
+      settleDocxPreview,
+      settleDocxPreviewCharts,
+    },
+    docxPreview,
+  ] = await Promise.all([
+    import("docxcelerate/docx"),
+    import("docxcelerate/preview"),
+    import("docx-preview"),
+  ]);
 
   const blob = await createDocxBlob(model);
   const packed = new Uint8Array(await blob.arrayBuffer());
@@ -91,6 +154,17 @@ export async function renderPreview(model) {
     await readPackedParagraphs(packed),
     await readPackedTables(packed),
   );
+
+  // The charts, drawn by the same drawer a scaffolded workspace uses.
+  //
+  // docx-preview leaves a chart as an empty frame of the right size, so
+  // without this the preview tier would measure a hole and a case about charts
+  // could never be anything but red. The drawer is not the suite's own — it is
+  // `templates/workspace/preview/charts.ts`, bundled straight out of the
+  // template directory, so what is measured here is what a person previewing a
+  // document actually sees. Writing a second one for the harness would make
+  // the preview tier evidence about the harness.
+  settleDocxPreviewCharts(bodyContainer, await readPackedCharts(packed), await chartDrawer());
 
   return {
     styles: styleContainer.innerHTML,

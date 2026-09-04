@@ -22,6 +22,16 @@
  * @module
  */
 
+import {
+  attribute,
+  between,
+  decodeEntities,
+  element,
+  elements,
+  numberAttribute,
+} from "./ooxml_read.ts";
+import { inflateRaw } from "./ooxml_zip.ts";
+
 /** A twip is a twentieth of a point. */
 const TWIPS_PER_PT = 20;
 
@@ -183,7 +193,13 @@ export async function readPart(packed: Uint8Array, wanted: string): Promise<stri
     packed.byteLength,
   );
   const latin1 = new TextDecoder("latin1").decode(packed);
-  const end = latin1.lastIndexOf("PK");
+  // The whole four-byte signature, not the two bytes it opens with. The
+  // record's own eighteen bytes are sizes and offsets, and any of them can
+  // hold 0x50 0x4B — a "PK" that is a number rather than a header. Searching
+  // for the short form finds that one instead, reads the directory from the
+  // wrong place, and returns nothing for a part the file plainly holds — on
+  // some documents and not others, which is the worst way for it to fail.
+  const end = latin1.lastIndexOf("PK\x05\x06");
 
   if (end === -1) {
     return undefined;
@@ -215,35 +231,6 @@ export async function readPart(packed: Uint8Array, wanted: string): Promise<stri
   }
 
   return undefined;
-}
-
-/** Raw deflate, through the one API both a browser and Node 20 have. */
-async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
-  const stream = new DecompressionStream("deflate-raw");
-  const writer = stream.writable.getWriter();
-
-  void writer.write(data as BufferSource);
-  void writer.close();
-
-  const chunks: Uint8Array[] = [];
-  const reader = stream.readable.getReader();
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value as Uint8Array);
-  }
-
-  const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-  const out = new Uint8Array(total);
-  let at = 0;
-
-  for (const chunk of chunks) {
-    out.set(chunk, at);
-    at += chunk.length;
-  }
-
-  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -453,53 +440,15 @@ function borderSpace(borders: string | null | undefined, edge: string): number |
   return numberAttribute(found, "w:space") ?? 0;
 }
 
-function attribute(xml: string, name: string): string | undefined {
-  return new RegExp(`${name}="([^"]*)"`).exec(xml)?.[1];
-}
-
-function numberAttribute(xml: string, name: string): number | undefined {
-  const raw = attribute(xml, name);
-  if (raw === undefined) return undefined;
-
-  const value = Number.parseFloat(raw);
-  return Number.isFinite(value) ? value : undefined;
-}
-
-/** The first `<name …/>` or `<name …>…</name>`, whole. */
-function element(xml: string, name: string): string | null {
-  const empty = new RegExp(`<${name}(\\s[^>]*)?/>`).exec(xml);
-  const paired = new RegExp(`<${name}(\\s[^>]*)?>([\\s\\S]*?)</${name}>`).exec(xml);
-
-  if (paired !== null && (empty === null || paired.index < empty.index)) {
-    return paired[0];
-  }
-  return empty === null ? null : empty[0];
-}
-
-/** Every `<name …/>` or `<name …>…</name>`, in order. */
-function elements(xml: string, name: string): string[] {
-  const pattern = new RegExp(`<${name}(?:\\s[^>]*)?(?:/>|>[\\s\\S]*?</${name}>)`, "g");
-  return [...xml.matchAll(pattern)].map((match) => match[0]);
-}
-
-/** What is inside `<name>…</name>`. */
-function between(xml: string, name: string): string | null {
-  return new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*)</${name}>`).exec(xml)?.[1] ?? null;
-}
+// The generic readers — `attribute`, `element`, `elements`, `between` — live
+// in `ooxml_read.ts` and are imported at the top of this module. They were
+// written here first and moved out when the chart reader needed the same five
+// functions; two copies of a regex that has to agree about what an element is
+// would be two copies free to disagree.
 
 /** The words a run of XML prints, tabs included as the tabs they are. */
 function textOf(xml: string): string {
   return [...xml.matchAll(/<w:t(?: [^>]*)?>([^<]*)<\/w:t>|<w:tab\/>/g)]
     .map((match) => (match[1] === undefined ? "\t" : decodeEntities(match[1])))
     .join("");
-}
-
-function decodeEntities(value: string): string {
-  return value
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&#39;", "'")
-    .replaceAll("&apos;", "'")
-    .replaceAll("&amp;", "&");
 }

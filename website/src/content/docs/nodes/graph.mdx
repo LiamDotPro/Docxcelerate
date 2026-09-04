@@ -1,6 +1,6 @@
 ---
 title: Graph
-description: Charts declared as data — bar, line or pie — from your figures or an endpoint's.
+description: Real Word charts — bar, line, area, pie, doughnut or scatter — declared as data rather than drawn as a picture.
 group: Nodes
 subgroup: Node types
 order: 13
@@ -18,39 +18,102 @@ A graph node holds numbers and a form, never an image:
 ```tsx
 export const VisitsByMonth: Graph = () => {
   const [state] = useState((data: MemberData) => ({
-    labels: data.visitsByMonth.map((entry) => entry.month),
+    months: data.visitsByMonth.map((entry) => entry.month),
     visits: data.visitsByMonth.map((entry) => entry.visits),
   }));
 
   return (
     <Graph
       id="visits-by-month"
+      title="Visits by month"
       graphType="bar"
-      data={{ labels: state.labels, series: [{ name: "Visits", values: state.visits }] }}
+      valueAxisTitle="Visits"
+      data={{
+        categories: state.months,
+        series: [{ label: "Visits", values: state.visits }],
+      }}
       caption="Your visits, last six months"
     />
   );
 };
 ```
 
-Carrying figures rather than a picture means one declaration serves every
-renderer, diffs legibly between builds, and can be asserted on in a test.
+What lands in the `.docx` is a **real Word chart** — a DrawingML chart part with
+every value cached in it, plus the workbook that "Edit Data" opens. The reader
+can select it, restyle it, change its type and open its numbers, and Word draws
+it as vectors at whatever size the page and the printer need.
 
-## The payload shape is yours
+That is the whole reason the node carries figures instead of a picture. A chart
+flattened to pixels at build time is a chart nobody downstream can do anything
+with: it cannot be re-themed, it prints at whatever resolution the build
+guessed, and it is invisible to anything reading the document. Nothing here is
+rasterised, which is also why charts cost the package no extra dependency and no
+native module.
 
-`data` is a `JsonObject` and the framework never looks inside it. The
-`{ labels, series }` shape used here is a convention, not a schema — use
-whatever your renderer expects, and keep it consistent across a project.
+## The shape of the data
 
-One thing does happen to the payload: string values are run through the template
-renderer, the same as paragraph text. A label containing `{{derived.total}}`
-resolves.
+```ts
+interface GraphData {
+  categories?: string[];
+  series: Array<{
+    label?: string;
+    values: (number | null)[];
+    color?: string;
+  }>;
+}
+```
+
+A `null` is a **gap, not a zero**. A month nobody has read yet is not a month
+that read nothing, and drawing it as zero puts a cliff in the line that never
+happened. Word is told to leave the point out.
+
+A series shorter than the categories is padded with gaps; one given no
+categories is counted by position. Strings inside the payload are run through
+the template renderer the same as paragraph text, so a label containing
+`{{derived.total}}` resolves.
+
+## Colours belong to the theme
+
+Series take the theme's `palette.series` in order — a fixed, validated,
+colourblind-safe set — so a document re-themes without its charts going out of
+step with it. Gridlines take `palette.rule` and the axis and key text
+`palette.muted`, so a chart reads as part of the document rather than as
+something pasted into it.
+
+Name a `color` on a series only when the colour is what the series *means* — a
+red line for the limit it must stay under — and never to pick a nicer blue.
+
+## Forms
+
+`bar`, `barHorizontal`, `line`, `area`, `pie`, `doughnut` and `scatter`.
+Stacking is a property rather than a form of its own, so `stacked` applies to
+bars and areas alike and cannot be asked of a pie.
+
+Reach for `bar` to compare categories, `line` for change over time, and `pie`
+for a share of a whole — and only when there are few enough slices to tell
+apart. Past about six, a bar chart of the same numbers is easier to read.
+
+Two measures of different scales are two charts. A second axis makes the
+crossing point look like a finding when it is an artefact of the scales you
+chose.
 
 ## Deriving in state
 
 Running totals, percentages and rebasing belong in the state initializer rather
 than in the data you pass in. The chart and the text beside it are then worked
 out from one source, so they cannot disagree.
+
+## In the preview
+
+`docx-preview` has no reading of a chart part at all, so it leaves an empty
+frame at exactly the size the file gave the chart — which is what keeps the
+preview paginating like Word. A scaffolded workspace fills that frame with
+[ECharts](https://echarts.apache.org), drawing from the same packed bytes; see
+`preview/charts.ts` in your workspace.
+
+The frame is exact. The plot inside it is another renderer's drawing of the same
+data, not a screenshot of Word — open the `.docx` when the plot itself has to be
+right.
 
 ## Variants
 
@@ -59,5 +122,14 @@ out from one source, so they cannot disagree.
 ## Notes
 
 - `graphType` defaults to `bar` in both modes.
+- `title` is drawn *on* the chart and travels with it if the reader copies it
+  elsewhere; `caption` is a paragraph printed underneath.
+- `legend` defaults to a key under the plot for more than one series and none
+  for one — a key naming the only thing on a chart repeats its title. A pie
+  always keeps one, because its key names the slices.
+- `numberFormat` is an OOXML format code — `"#,##0"`, `"0.0%"`, `"£#,##0"` —
+  handed to the value axis and the data labels verbatim.
+- `barHorizontal` reads top-down in the order the categories were written,
+  rather than bottom-up the way Word's own bar charts do.
 - On a dynamic graph the form is still fixed locally. The endpoint supplies the
   figures, and may override `graphType` and `caption` in its response.

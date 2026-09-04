@@ -31,7 +31,7 @@ const everyKind: DocumentModel = {
           kind: "graph",
           mode: "static",
           graphType: "line",
-          data: { values: [1, 2] },
+          data: { categories: ["a", "b"], series: [{ label: "Balance", values: [1, 2] }] },
           caption: "A trend",
         },
       ],

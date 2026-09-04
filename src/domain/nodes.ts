@@ -38,8 +38,66 @@ export type NodeKind =
  */
 export type NodeMode = "static" | "dynamic";
 
-/** The chart a {@linkcode GraphNode} draws. */
-export type GraphType = "bar" | "line" | "pie";
+/**
+ * The chart a {@linkcode GraphNode} draws.
+ *
+ * `bar` stands columns up, which is what a reader means by a bar chart;
+ * `barHorizontal` lays them down, for categories whose names are too long to
+ * sit under a column. Stacking is not a type of its own — a stacked bar is
+ * still a bar, and saying it twice would let a document ask for a stacked pie.
+ */
+export type GraphType =
+  | "bar"
+  | "barHorizontal"
+  | "line"
+  | "area"
+  | "pie"
+  | "doughnut"
+  | "scatter";
+
+/** Where a chart's key sits, or that it has none. */
+export type GraphLegend = "none" | "top" | "bottom" | "left" | "right";
+
+/** One plotted run of numbers, and what to call it. */
+export interface GraphSeries {
+  /**
+   * The name printed in the key.
+   *
+   * A chart with one series often needs no key — its title already says what
+   * is plotted — which is why this is optional rather than the series' id.
+   */
+  label?: string;
+  /**
+   * The numbers, in the same order as the chart's categories.
+   *
+   * `null` is a gap rather than a zero: a month with no reading yet is not a
+   * month that read nothing, and a line drawn through it would state a figure
+   * nobody measured.
+   */
+  values: (number | null)[];
+  /**
+   * The colour this series is drawn in, as RGB hex without the `#`.
+   *
+   * Left out, the series takes its place in the theme's chart palette, which
+   * is what keeps a document re-themeable: a colour written here is one the
+   * next theme cannot change.
+   */
+  color?: string;
+}
+
+/** The numbers a {@linkcode GraphNode} plots, and what they are counted against. */
+export interface GraphData {
+  /**
+   * What the values are counted against — months, regions, quarters.
+   *
+   * A `scatter` reads these as its x values instead, so they are numbers
+   * written as text there; anything that will not parse counts as its
+   * position. Absent, the categories are the positions themselves.
+   */
+  categories?: string[];
+  /** The runs of numbers to plot, in the order they are drawn and keyed. */
+  series: GraphSeries[];
+}
 
 /**
  * The theme a style came from, by id.
@@ -165,7 +223,15 @@ export interface ImageNode extends BaseNode {
   placeholder?: string;
 }
 
-/** A chart, either given its data at build time or handed one by the engine. */
+/**
+ * A chart, either given its data at build time or handed one by the engine.
+ *
+ * Packed as a real Word chart rather than a picture of one: the numbers travel
+ * with the document, so a reader can select it, restyle it and open its data,
+ * and it stays sharp at any zoom and on any printer. That is the whole reason
+ * the node carries data instead of an image — a chart flattened to pixels at
+ * build time is a chart nobody downstream can do anything with.
+ */
 export interface GraphNode extends BaseNode {
   /** Discriminator. */
   kind: "graph";
@@ -174,11 +240,46 @@ export interface GraphNode extends BaseNode {
   /** Which chart to draw. */
   graphType: GraphType;
   /** The series to plot, when they are known at build time. */
-  data?: JsonObject;
+  data?: GraphData;
   /** A caption printed beneath the chart. */
   caption?: string;
   /** What to show while the chart has no data yet. */
   placeholder?: string;
+  /** How wide the chart is drawn, in points. The text column unless it is said. */
+  width?: number;
+  /** How deep it is drawn, in points. Seven twelfths of its width unless it is said. */
+  height?: number;
+  /**
+   * Where the key sits.
+   *
+   * Absent means the renderer decides, which is a key under the plot for
+   * anything with more than one series and none for a chart with one — a key
+   * naming the only thing on the chart is a line of text saying what the title
+   * already said. A pie is the exception: its key names the slices, so it
+   * keeps one however few there are.
+   */
+  legend?: GraphLegend;
+  /** Whether the series stack rather than stand beside one another. */
+  stacked?: boolean;
+  /**
+   * How the values are printed, as an OOXML number format — `"#,##0"`,
+   * `"0.0%"`, `"£#,##0"`.
+   *
+   * The same codes Word's own number formatting uses, because they are what
+   * the value axis and the data labels are given verbatim.
+   */
+  numberFormat?: string;
+  /** What the category axis counts along. */
+  categoryAxisTitle?: string;
+  /** What the value axis measures. */
+  valueAxisTitle?: string;
+  /**
+   * Whether each point prints its own figure.
+   *
+   * Off for most charts — a number on every point is a table drawn badly — and
+   * worth turning on for a pie, where the slices are the reading.
+   */
+  dataLabels?: boolean;
 }
 
 /**

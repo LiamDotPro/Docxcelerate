@@ -190,7 +190,7 @@ test("an image with no id is named after its kind", async () => {
 });
 
 test("a graph with no id is named after its kind", async () => {
-  assertEquals(await ids(<Graph data={{ a: 1 }} />), ["graph"]);
+  assertEquals(await ids(<Graph data={{ series: [{ values: [1] }] }} />), ["graph"]);
 });
 
 test("a table of contents with no id is named after its heading", async () => {
