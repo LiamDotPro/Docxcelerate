@@ -1,6 +1,6 @@
 ---
 title: Graph
-description: Real Word charts — bar, line, area, pie, doughnut or scatter — declared as data rather than drawn as a picture.
+description: Real Word charts — bar, line, area, pie, doughnut, scatter, radar or bubble — declared as data rather than drawn as a picture.
 group: Nodes
 subgroup: Node types
 order: 13
@@ -59,6 +59,8 @@ interface GraphData {
     label?: string;
     values: (number | null)[];
     color?: string;
+    /** A bubble's third figure, and read by no other form. */
+    sizes?: (number | null)[];
   }>;
 }
 ```
@@ -71,6 +73,9 @@ A series shorter than the categories is padded with gaps; one given no
 categories is counted by position. Strings inside the payload are run through
 the template renderer the same as paragraph text, so a label containing
 `{{derived.total}}` resolves.
+
+`scatter` and `bubble` read the categories as their **x values**, so those are
+numbers written as text; anything that will not parse counts as its position.
 
 ## Colours belong to the theme
 
@@ -85,17 +90,43 @@ red line for the limit it must stay under — and never to pick a nicer blue.
 
 ## Forms
 
-`bar`, `barHorizontal`, `line`, `area`, `pie`, `doughnut` and `scatter`.
-Stacking is a property rather than a form of its own, so `stacked` applies to
-bars and areas alike and cannot be asked of a pie.
+| `graphType` | What it is for |
+| --- | --- |
+| `bar` | Comparing categories. The default, and usually the right answer. |
+| `barHorizontal` | The same, for category names too long to sit under a column. |
+| `line` | Change over time. |
+| `area` | Change over time where the quantity under the line is the point. |
+| `pie` | A share of a whole, and only with few enough slices to tell apart. |
+| `doughnut` | The same, with the middle taken out. |
+| `scatter` | Two measures against each other, to show whether they move together. |
+| `bubble` | The same with a third figure as the point's size — `sizes` on the series. |
+| `radar` | Several measures at once, read as a shape: strong where, not how much. |
 
-Reach for `bar` to compare categories, `line` for change over time, and `pie`
-for a share of a whole — and only when there are few enough slices to tell
-apart. Past about six, a bar chart of the same numbers is easier to read.
+Reach for `bar` first. Past about six slices a pie is harder to read than the
+bar chart of the same numbers, and a radar answers a different question from
+all of them — it compares profiles, and a reader cannot compare the areas of
+two rings, so do not ask them to.
 
 Two measures of different scales are two charts. A second axis makes the
 crossing point look like a finding when it is an artefact of the scales you
 chose.
+
+### Stacking
+
+Stacking is a property rather than a form of its own, so it applies to bars,
+lines and areas alike and cannot be asked of a pie:
+
+```tsx
+<Graph graphType="bar" stacked data={…} />              // to a total
+<Graph graphType="bar" stacked="percent" data={…} />    // to a share
+```
+
+`stacked` makes the top of each stack the total. `stacked="percent"` draws
+every column to the same height, so what is read is each series' share of its
+column and the totals are deliberately thrown away — the chart Word calls 100%
+stacked. Pass the raw figures either way: Word works the shares out itself and
+labels the axis 0% to 100%, so a payload that pre-divided would hand it shares
+of shares.
 
 ## Deriving in state
 
@@ -114,6 +145,22 @@ preview paginating like Word. A scaffolded workspace fills that frame with
 The frame is exact. The plot inside it is another renderer's drawing of the same
 data, not a screenshot of Word — open the `.docx` when the plot itself has to be
 right.
+
+## What draws it
+
+Two renderers, and it is worth knowing which is which:
+
+- **In the file** — [OOXML DrawingML](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/),
+  the chart format Word's own Insert → Chart writes: a `c:chartSpace` part with
+  every value cached in it, plus a small embedded `.xlsx` for "Edit Data".
+  Docxcelerate writes that part directly, so **Word does the drawing** — no
+  charting library, no canvas, no native module.
+- **In the preview** — [ECharts](https://echarts.apache.org), reading the same
+  packed bytes back. It draws the plot on screen; the frame around it still
+  comes from the file.
+
+Which is why the two can differ by a pixel and the page cannot: what the layout
+depends on is the frame, and the frame is Word's.
 
 ## Variants
 

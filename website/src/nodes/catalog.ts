@@ -23,6 +23,8 @@ import { CentrePhoto } from "./image/dynamic.node.tsx";
 import { VisitsByMonth } from "./graph/bar.node.tsx";
 import { CumulativeVisits } from "./graph/line.node.tsx";
 import { ClassMix } from "./graph/pie.node.tsx";
+import { VisitMix } from "./graph/stacked.node.tsx";
+import { FacilityMix } from "./graph/radar.node.tsx";
 import { PeakTimes } from "./graph/dynamic.node.tsx";
 import { RenewalBanner } from "./shape/basic.node.tsx";
 import { PaidStamp } from "./shape/sized.node.tsx";
@@ -366,39 +368,54 @@ export const NODE_TYPES: NodeTypeEntry[] = [
     category: "Data",
     status: "stable",
     helpers: ["Graph"],
-    summary: "A bar, line or pie chart declared as data.",
+    summary: "A real Word chart, declared as data.",
     detail:
       "Charts are declared, never drawn: `graphType` fixes the form, `data` " +
-      "returns the payload. Holding numbers rather than an image means one " +
-      "declaration serves every renderer and stays diffable in the artifact.",
+      "carries the payload. What lands in the `.docx` is a DrawingML chart " +
+      "part with every value cached in it — the chart Word builds from Insert " +
+      "→ Chart — so a reader can select it, restyle it and open its numbers. " +
+      "Nothing is rasterised, which is why charts cost the package no drawing " +
+      "library and no native module.",
     children: "None.",
     resolves: "Both",
-    renderNote:
-      "Both shipped renderers print `[<type> graph: <caption>]` rather than " +
-      "plotting anything. `data` passes through untouched, so its shape is a " +
-      "contract between you and whichever renderer eventually draws it.",
     options: [
       ID,
       {
         name: "graphType",
-        type: '"bar" | "line" | "pie"',
-        summary: "The form of the chart. Defaults to `bar`.",
+        type:
+          '"bar" | "barHorizontal" | "line" | "area" | "pie" | "doughnut" | ' +
+          '"scatter" | "radar" | "bubble"',
+        summary:
+          "The form of the chart. Defaults to `bar`. `radar` closes the " +
+          "category axis into a ring, for comparing shapes rather than " +
+          "amounts; `bubble` is a scatter whose points carry a third figure " +
+          "as their size, from `sizes` on the series.",
       },
       {
         name: "data",
-        type: "JsonObject",
+        type: "GraphData",
         required: true,
         summary:
-          "Static only. The plot payload, as plain JSON. Any shape you like — " +
-          "string values in it are run through the template renderer, so " +
+          "Static only. `{ categories?, series: { label?, values, color?, " +
+          "sizes? }[] }`. A `null` value is a gap rather than a zero. String " +
+          "values in it are run through the template renderer, so " +
           "`{{derived.total}}` resolves inside the payload as it would in prose.",
+      },
+      {
+        name: "stacked",
+        type: 'boolean | "percent"',
+        summary:
+          "Whether the series stack. `true` stacks them to a total; " +
+          '`"percent"` stacks them to the same height, so what is read is ' +
+          "each series' share of its category — the 100% stacked chart. Bars, " +
+          "lines and areas take it; a pie is already a share of a whole.",
       },
       {
         name: "caption",
         type: "string",
         summary:
-          "Printed beneath the chart, and the words the placeholder frame " +
-          "shows today. Optional on both modes.",
+          "Printed beneath the chart, as a paragraph of its own rather than " +
+          "text drawn into the frame. Optional on both modes.",
       },
       ...PROMPT_OPTIONS.map((option) => ({
         ...option,
@@ -424,6 +441,18 @@ export const NODE_TYPES: NodeTypeEntry[] = [
         title: "Pie",
         summary: "Shares of a whole.",
         component: ClassMix,
+      },
+      {
+        id: "stacked",
+        title: "Stacked to a share",
+        summary: "`stacked=\"percent\"` — the mix within each column, not the size of it.",
+        component: VisitMix,
+      },
+      {
+        id: "radar",
+        title: "Radar",
+        summary: "Two shapes held against one another, on one shared scale.",
+        component: FacilityMix,
       },
       {
         id: "dynamic",

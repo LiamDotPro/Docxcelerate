@@ -450,12 +450,14 @@ function Read-Charts {
             try {
                 $t = [int]$c.ChartType
                 $names = @{
-                    51 = 'columnClustered'; 52 = 'columnStacked'
-                    57 = 'barClustered';    58 = 'barStacked'
-                    4  = 'line';            65 = 'lineMarkers'
-                    1  = 'area';            76 = 'areaStacked'
+                    51 = 'columnClustered'; 52 = 'columnStacked';  53 = 'columnStacked100'
+                    57 = 'barClustered';    58 = 'barStacked';     59 = 'barStacked100'
+                    4  = 'line';            65 = 'lineMarkers';    67 = 'lineMarkersStacked100'
+                    1  = 'area';            76 = 'areaStacked';    77 = 'areaStacked100'
                     5  = 'pie';             -4120 = 'doughnut'
                     -4169 = 'xyScatter';    74 = 'xyScatterLines'
+                    -4151 = 'radar';        81 = 'radarMarkers';   82 = 'radarFilled'
+                    15 = 'bubble';          87 = 'bubble3DEffect'
                 }
                 $record.chartType = $t
                 $record.typeName = $names[$t]

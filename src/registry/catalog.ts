@@ -459,6 +459,196 @@ export const COMPONENTS: RegistryComponent[] = [
 
   {
     kind: "component",
+    id: "mix-over-time",
+    title: "Mix over time",
+    summary: "How a make-up shifted across periods, as a hundred per cent stack.",
+    detail:
+      "A stacked chart answers one of two questions and cannot answer both. " +
+      "Stacked to a total, the height of a column is the size of the period. " +
+      "Stacked to a hundred per cent, every column is the same height and " +
+      "what is read is the mix — which is what anybody asking 'has this " +
+      "changed?' is really asking. This takes the second and gives the " +
+      "totals back in the sentence, because that is the fact the chart " +
+      "deliberately drops. The raw figures go into the file and Word works " +
+      "the shares out itself, so nothing here divides. Which categories are " +
+      "large is decided once across the whole span rather than per column: " +
+      "folding the tail into Other per period would put a category in Other " +
+      "in one column and beside it in the next, drawing a band that appears " +
+      "and disappears for no reason a reader can see. A period with nothing " +
+      "recorded is dropped rather than drawn, because stacked to a hundred " +
+      "per cent an empty column is whatever the rounding produced.",
+    category: "Body",
+    tags: ["chart", "bar", "stacked", "share", "section"],
+    exports: ["MixOverTime"],
+    dataFields: [
+      {
+        path: "mix.periods",
+        type: "Array<{ label: string; amounts: Record<string, number> }>",
+        summary:
+          "One entry per period, oldest first — the order it is drawn in. " +
+          "`amounts` is keyed by category, and the keys need not agree " +
+          "between periods: a category absent from one counts as nothing in it.",
+      },
+      {
+        path: "mix.unit",
+        type: "string | undefined",
+        summary: 'What is being counted: "visits", "tickets". Printed in the prose.',
+      },
+    ],
+    files: node("mix-over-time"),
+    previewData: {
+      mix: {
+        unit: "visits",
+        periods: [
+          { label: "Q1", amounts: { Swimming: 41, Gym: 38, Classes: 12, Squash: 9, Sauna: 4 } },
+          { label: "Q2", amounts: { Swimming: 52, Gym: 34, Classes: 19, Squash: 7, Sauna: 6 } },
+          {
+            label: "Q3",
+            amounts: { Swimming: 68, Gym: 29, Classes: 26, Squash: 5, Sauna: 7, Climbing: 3 },
+          },
+          {
+            label: "Q4",
+            amounts: { Swimming: 74, Gym: 24, Classes: 31, Squash: 4, Sauna: 5, Climbing: 6 },
+          },
+        ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "profile-compare",
+    title: "Profile compare",
+    summary: "One subject against a benchmark across several measures, as a radar.",
+    detail:
+      "A radar answers 'strong where', not 'how much' — and only if every " +
+      "spoke shares a scale. That is the decision this makes for you. Handed " +
+      "a hundred pounds, four incidents and nine per cent, a radar drawn " +
+      "straight from the numbers puts the hundred at the rim and the four at " +
+      "the centre, and draws a shape saying nothing except which measure uses " +
+      "the largest units. So each measure is scored against its own best and " +
+      "plotted out of 100, and the caption says so. The shape is the reading " +
+      "and the sentence carries the figures, because a reader cannot compare " +
+      "the areas of two rings and should not be asked to. Fewer than three " +
+      "measures is not a radar — two spokes draw a line through the middle — " +
+      "so below three it prints the comparison as prose and draws nothing.",
+    category: "Body",
+    tags: ["chart", "radar", "comparison", "benchmark", "section"],
+    exports: ["ProfileCompare"],
+    dataFields: [
+      {
+        path: "profile.subject",
+        type: "string",
+        summary: "What the first ring is called: a name, a site, a period.",
+      },
+      {
+        path: "profile.benchmark",
+        type: "string",
+        summary: 'What the second is called: "Sector average", "Last year", "Target".',
+      },
+      {
+        path: "profile.measures",
+        type:
+          "Array<{ label: string; value: number; against?: number | null; " +
+          "best?: number; unit?: string }>",
+        summary:
+          "One entry per spoke, in the order they are read round the ring. " +
+          "Three at least. `best` is full marks for that measure, and is what " +
+          "lets measures in different units share one scale; absent, the " +
+          "larger of the two readings is used. `against` absent draws a gap " +
+          "rather than a benchmark of zero.",
+      },
+    ],
+    files: node("profile-compare"),
+    previewData: {
+      profile: {
+        subject: "Riverside",
+        benchmark: "Sector average",
+        measures: [
+          { label: "Pool use", value: 82, against: 54, best: 100, unit: "%" },
+          { label: "Gym use", value: 61, against: 70, best: 100, unit: "%" },
+          { label: "Class fill", value: 45, against: 63, best: 100, unit: "%" },
+          { label: "Retention", value: 88, against: 74, best: 100, unit: "%" },
+          { label: "Peak capacity", value: 71, against: 66, best: 100, unit: "%" },
+        ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "weighted-scatter",
+    title: "Weighted scatter",
+    summary: "Two measures against each other, with a third drawn as the point's size.",
+    detail:
+      "What a scatter becomes when 'which of these matters' is the real " +
+      "question: plotting cost against usage says where things sit, and " +
+      "sizing the points by how many people they affect says which is worth " +
+      "the page. The size is an area and this keeps it one — a bubble drawn " +
+      "with its radius proportional to the figure shows twice the reading as " +
+      "four times the ink, which is the commonest way this chart lies, so " +
+      "the weight is passed to Word untouched. A point with no weight is not " +
+      "drawn, because a bubble of no size is a reading nobody took rather " +
+      "than a reading of nothing. Labels stay in the prose: a bubble chart " +
+      "labelled point by point is unreadable at a text column's width the " +
+      "moment two bubbles touch, so the chart shows the field and the " +
+      "sentence names the corner worth looking at.",
+    category: "Body",
+    tags: ["chart", "bubble", "scatter", "section"],
+    exports: ["WeightedScatter"],
+    dataFields: [
+      {
+        path: "scatter.xLabel",
+        type: "string",
+        summary: 'What the horizontal axis measures: "Cost per visit".',
+      },
+      {
+        path: "scatter.yLabel",
+        type: "string",
+        summary: 'What the vertical axis measures: "Visits per week".',
+      },
+      {
+        path: "scatter.weightLabel",
+        type: "string",
+        summary: 'What the size of a point means: "members affected". Used in the caption.',
+      },
+      {
+        path: "scatter.points",
+        type: "Array<{ label: string; x: number; y: number; weight: number }>",
+        summary:
+          "One entry per point, in any order. `label` is for the sentence and " +
+          "is never drawn on the plot. `weight` is the point's area — do not " +
+          "square it first.",
+      },
+      {
+        path: "scatter.numberFormat",
+        type: "string | undefined",
+        summary: "How the axes print their figures, as an OOXML number format.",
+      },
+    ],
+    files: node("weighted-scatter"),
+    previewData: {
+      scatter: {
+        xLabel: "Cost per visit",
+        yLabel: "Visits per week",
+        weightLabel: "members affected",
+        numberFormat: "#,##0",
+        points: [
+          { label: "Swimming", x: 3, y: 41, weight: 420 },
+          { label: "Gym", x: 2, y: 38, weight: 610 },
+          { label: "Classes", x: 6, y: 19, weight: 240 },
+          { label: "Squash", x: 9, y: 7, weight: 85 },
+          { label: "Climbing", x: 12, y: 5, weight: 40 },
+        ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
     id: "next-steps",
     title: "Next steps",
     summary: "A generated paragraph with all four prompts already fenced off.",

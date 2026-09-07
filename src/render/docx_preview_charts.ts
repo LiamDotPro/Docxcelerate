@@ -43,6 +43,13 @@ export interface PreviewChartSeries {
   readonly values: readonly (number | null)[];
   /** The colour the file draws it in, as RGB hex without the `#`. */
   readonly color?: string;
+  /**
+   * How big each point is drawn, on a bubble chart and nowhere else.
+   *
+   * Empty for every other kind, because no other chart part carries a
+   * `c:bubbleSize` for this to read.
+   */
+  readonly sizes: readonly (number | null)[];
 }
 
 /** One chart, as the packed file describes it. */
@@ -53,8 +60,14 @@ export interface PreviewChart {
   readonly title?: string;
   /** Where the key sits, or `"none"` where the file declares none. */
   readonly legend: GraphLegend;
-  /** Whether the series stack rather than stand beside one another. */
-  readonly stacked: boolean;
+  /**
+   * Whether the series stack rather than stand beside one another.
+   *
+   * `"percent"` where they stack to a share of each category rather than to a
+   * total — the chart part says `percentStacked`, and a drawer that read that
+   * as an ordinary stack would plot the raw totals under a percent axis.
+   */
+  readonly stacked: boolean | "percent";
   /**
    * The OOXML format the value axis prints its numbers in.
    *
@@ -291,9 +304,25 @@ function graphTypeOf(xml: string): GraphType {
   if (element(xml, "c:pieChart") !== null) return "pie";
   if (element(xml, "c:lineChart") !== null) return "line";
   if (element(xml, "c:areaChart") !== null) return "area";
+  // Before the scatter: a bubble part also caches `c:xVal` and `c:yVal`, but
+  // only one of the two declares a `c:bubbleChart`, and reading a bubble as a
+  // scatter throws away the sizes that are the reason it is one.
+  if (element(xml, "c:bubbleChart") !== null) return "bubble";
   if (element(xml, "c:scatterChart") !== null) return "scatter";
+  if (element(xml, "c:radarChart") !== null) return "radar";
 
   return attribute(element(xml, "c:barDir") ?? "", "val") === "bar" ? "barHorizontal" : "bar";
+}
+
+/** Whether a chart group stacks its series, and to a total or to a share. */
+function stackingOf(xml: string): boolean | "percent" {
+  const grouping = attribute(element(xml, "c:grouping") ?? "", "val");
+
+  if (grouping === "percentStacked") {
+    return "percent";
+  }
+
+  return grouping === "stacked";
 }
 
 function readChart(xml: string): Omit<PreviewChart, "widthPt" | "heightPt"> {
@@ -316,15 +345,15 @@ function readChart(xml: string): Omit<PreviewChart, "widthPt" | "heightPt"> {
     graphType,
     title: titleOf(head),
     legend: legendOf(attribute(element(xml, "c:legendPos") ?? "", "val")),
-    stacked: attribute(element(xml, "c:grouping") ?? "", "val") === "stacked",
+    stacked: stackingOf(xml),
     numberFormat: formatOf(attribute(element(valueAxis, "c:numFmt") ?? "", "formatCode")),
     dataLabels: labelsOf(element(xml, "c:dLbls") ?? ""),
     categoryAxisTitle: titleOf(categoryAxis),
     valueAxisTitle: titleOf(valueAxis),
-    // A scatter counts along numbers rather than names, so its categories are
-    // its x values written out — which is what a drawer wants to put under the
-    // points either way.
-    categories: graphType === "scatter"
+    // A scatter and a bubble count along numbers rather than names, so their
+    // categories are the x values written out — which is what a drawer wants
+    // to put under the points either way.
+    categories: graphType === "scatter" || graphType === "bubble"
       ? cachedNumbers(element(first, "c:xVal") ?? "").map((value) => String(value ?? ""))
       : cachedText(element(first, "c:cat") ?? ""),
     series: series.map((entry) => ({
@@ -333,6 +362,7 @@ function readChart(xml: string): Omit<PreviewChart, "widthPt" | "heightPt"> {
       // The series' own paint, not a data point's: on a pie the two differ,
       // and `c:spPr` is where the series states the one colour it has.
       color: colorOf(element(entry, "c:spPr") ?? ""),
+      sizes: cachedNumbers(element(entry, "c:bubbleSize") ?? ""),
     })),
     // The slice colours, which a pie keeps on its data points rather than on
     // its one series.

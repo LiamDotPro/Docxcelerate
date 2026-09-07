@@ -10,6 +10,7 @@
 import type {
   GraphData,
   GraphLegend,
+  GraphStacking,
   GraphType,
   JsonObject,
   PageNumberFormat,
@@ -197,8 +198,14 @@ export interface GraphProps extends CommonElementProps, PromptProps {
    * chart with one gets none — except a pie, whose key names its slices.
    */
   legend?: GraphLegend;
-  /** Whether the series stack rather than stand beside one another. */
-  stacked?: boolean;
+  /**
+   * Whether the series stack rather than stand beside one another.
+   *
+   * `true` stacks them to a total, `"percent"` to a share of each category —
+   * the 100% stacked chart. Bars, lines and areas take it; a pie is already a
+   * share of a whole and cannot.
+   */
+  stacked?: GraphStacking;
   /** How the values are printed, as an OOXML number format: `"#,##0"`, `"0.0%"`. */
   numberFormat?: string;
   /** What the category axis counts along. */

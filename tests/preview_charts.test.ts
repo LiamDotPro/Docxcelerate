@@ -85,6 +85,8 @@ test("every chart type is recognised on the way back", async () => {
     "pie",
     "doughnut",
     "scatter",
+    "radar",
+    "bubble",
   ];
 
   for (const graphType of types) {
@@ -148,6 +150,37 @@ test("the key's place and the stacking come back as the file states them", async
   assertEquals(right.stacked, true);
   assertEquals(none.legend, "none");
   assertEquals(none.stacked, false);
+});
+
+test("a percent stack comes back as one, not as an ordinary stack", async () => {
+  const [share] = await readBack([chart({ stacked: "percent" })]);
+  const [total] = await readBack([chart({ stacked: true })]);
+
+  // The distinction is the whole reading. A drawer told only "stacked" plots
+  // the raw totals, and the packer has already labelled the axis 0% to 100% —
+  // so the preview would show figures in the thousands against a percent axis.
+  assertEquals(share.stacked, "percent");
+  assertEquals(total.stacked, true);
+  assertEquals(share.numberFormat, "0%");
+});
+
+test("a bubble's sizes come back, and no other chart has any", async () => {
+  const [bubble] = await readBack([
+    chart({
+      graphType: "bubble",
+      data: {
+        categories: ["1", "2", "3"],
+        series: [{ label: "Sites", values: [4, 9, 6], sizes: [30, null, 55] }],
+      },
+    }),
+  ]);
+  const [bar] = await readBack([chart()]);
+
+  assertEquals([...bubble.series[0].sizes], [30, null, 55]);
+  // Its x is a figure, so the categories come back as the numbers they are
+  // rather than as the positions a category axis would have given them.
+  assertEquals([...bubble.categories], ["1", "2", "3"]);
+  assertEquals(bar.series[0].sizes.length, 0);
 });
 
 test("a chart with one series comes back with no key, as the packer decided", async () => {

@@ -63,6 +63,15 @@ function chartXml(doc: DocumentModel): Promise<string> {
   return partXml(doc, "word/charts/chart1.xml");
 }
 
+/** The sheet inside the workbook that chart's "Edit Data" opens. */
+async function embeddedSheet(doc: DocumentModel): Promise<string> {
+  const blob = await createDocxBlob(doc);
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const workbook = entryOf(bytes, "word/embeddings/chart1.xlsx");
+
+  return new TextDecoder().decode(entryOf(workbook, "xl/worksheets/sheet1.xml"));
+}
+
 // ---------------------------------------------------------------------------
 // The package
 // ---------------------------------------------------------------------------
@@ -232,6 +241,8 @@ test("each chart type packs as the plot Word draws for it", async () => {
     pie: `<c:pieChart>`,
     doughnut: `<c:doughnutChart>`,
     scatter: `<c:scatterChart>`,
+    radar: `<c:radarChart><c:radarStyle val="marker"/>`,
+    bubble: `<c:bubbleChart>`,
   };
 
   for (const [graphType, element] of Object.entries(expected)) {
@@ -252,6 +263,117 @@ test("stacking is a property of the bars, not a chart type of its own", async ()
   assertStringIncludes(stacked, `<c:overlap val="100"/>`);
   assertStringIncludes(clustered, `<c:grouping val="clustered"/>`);
   assertStringIncludes(clustered, `<c:overlap val="-27"/>`);
+});
+
+test("a percent stack stacks to a share, and labels its axis as one", async () => {
+  const xml = await chartXml(documentOf([chart({ stacked: "percent" })]));
+
+  assertStringIncludes(xml, `<c:grouping val="percentStacked"/>`);
+  // The segments still have to close up: a percent stack left at the clustered
+  // overlap is the same staircase an ordinary stack would be.
+  assertStringIncludes(xml, `<c:overlap val="100"/>`);
+  // Unformatted, Word labels the axis 0, 0.2, 0.4 — a scale nobody means by
+  // "100% stacked". `sourceLinked="0"` is what stops the numbers' own format
+  // taking it back.
+  assertStringIncludes(xml, `<c:numFmt formatCode="0%" sourceLinked="0"/>`);
+});
+
+test("a document that names its own format outranks the percent default", async () => {
+  const xml = await chartXml(
+    documentOf([chart({ stacked: "percent", numberFormat: "0.0%" })]),
+  );
+
+  assertStringIncludes(xml, `<c:numFmt formatCode="0.0%" sourceLinked="0"/>`);
+});
+
+test("a line and an area stack as standard rather than as clustered", async () => {
+  const line = await chartXml(documentOf([chart({ graphType: "line" })]));
+  const area = await chartXml(documentOf([chart({ graphType: "area", stacked: "percent" })]));
+
+  assertStringIncludes(line, `<c:grouping val="standard"/>`);
+  assertStringIncludes(area, `<c:grouping val="percentStacked"/>`);
+});
+
+test("a radar rules its spokes as well as its rings", async () => {
+  const radar = await chartXml(documentOf([chart({ graphType: "radar" })]));
+  const bar = await chartXml(documentOf([chart()]));
+
+  // The web is what makes a ring readable as a ring. A bar's category axis
+  // carries no grid of its own — the value axis already rules the plot — so
+  // the count is what separates the two.
+  assertEquals([...radar.matchAll(/<c:majorGridlines>/g)].length, 2);
+  assertEquals([...bar.matchAll(/<c:majorGridlines>/g)].length, 1);
+  assertStringIncludes(radar, "<c:catAx>");
+  assertStringIncludes(radar, "<c:valAx>");
+  // A radar cannot stack: the ring is the scale, and the schema gives its
+  // chart group nowhere to say otherwise.
+  assertEquals(radar.includes("<c:grouping"), false);
+});
+
+test("a bubble carries a third figure, in a column of its own", async () => {
+  const xml = await chartXml(
+    documentOf([
+      chart({
+        graphType: "bubble",
+        data: {
+          categories: ["1", "2", "3"],
+          series: [{ label: "Sites", values: [4, 9, 6], sizes: [30, 80, 55] }],
+        },
+      }),
+    ]),
+  );
+
+  assertEquals(xml.includes("<c:catAx>"), false);
+  assertStringIncludes(xml, "<c:xVal>");
+  assertStringIncludes(xml, "<c:yVal>");
+  assertStringIncludes(xml, "<c:bubbleSize>");
+  // The y in B and the size in C, which is what keeps the chart's formulas and
+  // the workbook the reader opens naming the same cells.
+  assertStringIncludes(xml, `<c:f>Sheet1!$B$2:$B$4</c:f>`);
+  assertStringIncludes(xml, `<c:f>Sheet1!$C$2:$C$4</c:f>`);
+  assertStringIncludes(xml, `<c:pt idx="1"><c:v>80</c:v></c:pt>`);
+});
+
+test("a bubble's sizes reach the workbook Edit Data opens", async () => {
+  const doc = documentOf([
+    chart({
+      graphType: "bubble",
+      data: {
+        categories: ["1", "2"],
+        series: [
+          { label: "North", values: [4, 9], sizes: [30, 80] },
+          { label: "South", values: [7, 3], sizes: [12, 44] },
+        ],
+      },
+    }),
+  ]);
+  const sheet = await embeddedSheet(doc);
+
+  // Two columns per series, so the second series starts at D rather than at C.
+  assertStringIncludes(sheet, `<c r="B2"><v>4</v></c><c r="C2"><v>30</v></c>`);
+  assertStringIncludes(sheet, `<c r="D2"><v>7</v></c><c r="E2"><v>12</v></c>`);
+  // And the size column is headed, so a reader who opens the data can tell
+  // which run of figures is which.
+  assertStringIncludes(sheet, "North (size)");
+});
+
+test("a size nobody gave is no bubble, not a bubble of nothing", async () => {
+  const xml = await chartXml(
+    documentOf([
+      chart({
+        graphType: "bubble",
+        data: {
+          categories: ["1", "2", "3"],
+          series: [{ label: "Sites", values: [4, 9, 6], sizes: [30, null, 55] }],
+        },
+      }),
+    ]),
+  );
+
+  const sizes = xml.slice(xml.indexOf("<c:bubbleSize>"));
+
+  assertStringIncludes(sizes, `<c:ptCount val="3"/>`);
+  assertEquals(sizes.slice(0, sizes.indexOf("</c:bubbleSize>")).includes(`idx="1"`), false);
 });
 
 test("a horizontal bar reads in the order its categories were written", async () => {

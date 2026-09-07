@@ -119,7 +119,7 @@ export function chartPartOf(node: GraphNode, style: DocumentStyle): ChartPart {
 
   return {
     chart: chartSpaceXml(node, data, colors, palette),
-    workbook: workbookOf(data),
+    workbook: workbookOf(node.graphType, data),
   };
 }
 
@@ -164,6 +164,13 @@ function normalised(data: GraphData | undefined): {
     series: series.map((entry) => ({
       ...entry,
       values: categories.map((_, index) => entry.values[index] ?? null),
+      // Squared up the same way, and only where the series has any: a series
+      // with no sizes is every chart but a bubble, and giving it a row of
+      // nulls would write an empty `c:bubbleSize` into charts that have no
+      // such element.
+      ...(entry.sizes === undefined
+        ? {}
+        : { sizes: categories.map((_, index) => entry.sizes?.[index] ?? null) }),
     })),
   };
 }
@@ -264,6 +271,32 @@ function textPropertiesXml(palette: ChartPalette, size: number): string {
   }"/></a:defRPr></a:pPr><a:endParaRPr lang="en-GB"/></a:p></c:txPr>`;
 }
 
+/**
+ * How a chart group says its series are arranged.
+ *
+ * The two words differ by chart: a bar that is not stacked is `clustered`,
+ * because its columns stand beside one another, while a line or an area that
+ * is not stacked is `standard`, because there is nothing to stand beside.
+ * Both stack under the same name, and both share a hundred per cent under the
+ * same one.
+ *
+ * @param node The chart node.
+ * @param apart What this chart calls series drawn separately.
+ * @returns The `c:grouping` value.
+ */
+function groupingOf(node: GraphNode, apart: "clustered" | "standard"): string {
+  if (node.stacked === "percent") {
+    return "percentStacked";
+  }
+
+  return node.stacked === true ? "stacked" : apart;
+}
+
+/** Whether the series are stacked at all, to a total or to a share. */
+function isStacked(node: GraphNode): boolean {
+  return node.stacked === true || node.stacked === "percent";
+}
+
 /** The plot itself — one chart group, holding every series. */
 function plotXml(
   node: GraphNode,
@@ -287,13 +320,13 @@ function plotXml(
 
   if (type === "line") {
     return `<c:lineChart><c:grouping val="${
-      node.stacked ? "stacked" : "standard"
+      groupingOf(node, "standard")
     }"/><c:varyColors val="0"/>${series}${labels}<c:marker val="1"/>${axes}</c:lineChart>`;
   }
 
   if (type === "area") {
     return `<c:areaChart><c:grouping val="${
-      node.stacked ? "stacked" : "standard"
+      groupingOf(node, "standard")
     }"/><c:varyColors val="0"/>${series}${labels}${axes}</c:areaChart>`;
   }
 
@@ -301,16 +334,42 @@ function plotXml(
     return `<c:scatterChart><c:scatterStyle val="lineMarker"/><c:varyColors val="0"/>${series}${labels}${axes}</c:scatterChart>`;
   }
 
+  if (type === "radar") {
+    // `marker` rather than `filled`: a filled radar hides every series drawn
+    // after the first, and the reason to reach for a radar at all is holding
+    // several of them against one another. It takes no grouping — a radar
+    // cannot stack, because the ring is the scale.
+    return `<c:radarChart><c:radarStyle val="marker"/><c:varyColors val="0"/>${series}${labels}${axes}</c:radarChart>`;
+  }
+
+  if (type === "bubble") {
+    // No `c:bubble3D` here, though the schema has a slot for one between the
+    // series and `c:bubbleScale`. Measured: Word will not open a file that
+    // uses it — not a chart drawn flat, the whole package refused — and Word's
+    // own bubble charts leave it out too, stating the flat drawing on each
+    // series instead, which is where this states it.
+    //
+    // `bubbleScale` is a percentage of Word's default area, and 100 is that
+    // default. `showNegBubbles` is off because a negative size is not a
+    // smaller bubble, it is a figure that does not belong on this chart, and
+    // drawing it hollow would present a mistake as a reading.
+    return `<c:bubbleChart><c:varyColors val="0"/>${series}${labels}` +
+      `<c:bubbleScale val="100"/><c:showNegBubbles val="0"/>` +
+      `${axes}</c:bubbleChart>`;
+  }
+
   // Bars, standing or lying. `overlap` is what closes the gap between the
   // segments of a stack; left at the clustered value a stacked bar draws as a
   // staircase.
+  const stacked = isStacked(node);
+
   return `<c:barChart><c:barDir val="${
     type === "barHorizontal" ? "bar" : "col"
   }"/><c:grouping val="${
-    node.stacked ? "stacked" : "clustered"
+    groupingOf(node, "clustered")
   }"/><c:varyColors val="0"/>${series}${labels}<c:gapWidth val="${
-    node.stacked ? 60 : 150
-  }"/><c:overlap val="${node.stacked ? 100 : -27}"/>${axes}</c:barChart>`;
+    stacked ? 60 : 150
+  }"/><c:overlap val="${stacked ? 100 : -27}"/>${axes}</c:barChart>`;
 }
 
 /** One series, with the values cached so Word draws without opening anything. */
@@ -323,7 +382,7 @@ function seriesXml(
 ): string {
   const type = node.graphType;
   const rows = data.categories.length;
-  const column = columnName(index + 1);
+  const { value: column, size: sizeColumn } = columnsOf(type, index);
   // Past the end of the palette the colours repeat, so a ninth series is drawn
   // the same as the first. That is a bad chart and it is meant to look like
   // one: the alternative is inventing a hue, which puts two colours nobody
@@ -334,9 +393,16 @@ function seriesXml(
     nameXml(series.label, column);
 
   // A line is drawn, not filled, so its colour belongs on the stroke. Filling
-  // a line series paints the area under it, which is a different chart.
-  const paint = type === "line" || type === "scatter"
+  // a line series paints the area under it, which is a different chart. A
+  // radar is a line closed into a ring, and drawn the same way for the same
+  // reason.
+  const paint = type === "line" || type === "scatter" || type === "radar"
     ? `<c:spPr><a:ln w="28575" cap="rnd"><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:round/></a:ln><a:effectLst/></c:spPr><c:marker><c:symbol val="circle"/><c:size val="5"/><c:spPr><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:marker>`
+    // A bubble is a disc a reader is meant to see the one behind, so its fill
+    // is let down to three quarters. Opaque, a big bubble simply deletes every
+    // small one it covers, which is the reading the chart exists to show.
+    : type === "bubble"
+    ? `<c:spPr><a:solidFill><a:srgbClr val="${fill}"><a:alpha val="75000"/></a:srgbClr></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill></a:ln></c:spPr>`
     : `<c:spPr><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln><a:noFill/></a:ln></c:spPr>`;
 
   // A pie has one series and many colours, so each slice is painted as its own
@@ -357,11 +423,26 @@ function seriesXml(
   if (type === "scatter") {
     return `<c:ser>${head}${paint}${points}${
       xValuesXml(data.categories, rows)
-    }${values.replace("<c:val>", "<c:yVal>").replace("</c:val>", "</c:yVal>")}<c:smooth val="0"/></c:ser>`;
+    }${asYValues(values)}<c:smooth val="0"/></c:ser>`;
   }
 
-  if (type === "line") {
-    return `<c:ser>${head}${paint}${points}${categories}${values}<c:smooth val="0"/></c:ser>`;
+  if (type === "bubble") {
+    // `invertIfNegative` before the values, and `bubble3D` after them: a
+    // bubble series is the one place the schema puts a flag on either side of
+    // the numbers, and Word will not open a file that has them the other way.
+    return `<c:ser>${head}${paint}<c:invertIfNegative val="0"/>${points}${
+      xValuesXml(data.categories, rows)
+    }${asYValues(values)}${
+      bubbleSizesXml(series.sizes ?? [], sizeColumn, rows)
+    }<c:bubble3D val="0"/></c:ser>`;
+  }
+
+  if (type === "line" || type === "radar") {
+    return `<c:ser>${head}${paint}${points}${categories}${values}` +
+      // A radar's ring is already closed, so it has no line to smooth and the
+      // schema gives it nowhere to say so.
+      (type === "line" ? `<c:smooth val="0"/>` : "") +
+      `</c:ser>`;
   }
 
   if (type === "pie" || type === "doughnut") {
@@ -369,6 +450,59 @@ function seriesXml(
   }
 
   return `<c:ser>${head}${paint}<c:invertIfNegative val="0"/>${points}${categories}${values}</c:ser>`;
+}
+
+/**
+ * Which spreadsheet columns a series' figures are written in.
+ *
+ * One column each, except a bubble chart: a bubble series carries two runs of
+ * numbers — where the point sits and how big it is drawn — so it takes two
+ * columns side by side. Everything that names a cell asks here, so the chart's
+ * formulas and the workbook's rows cannot disagree about where a figure lives.
+ */
+function columnsOf(type: GraphNode["graphType"], index: number): {
+  value: string;
+  size: string;
+} {
+  return type === "bubble"
+    ? { value: columnName(index * 2 + 1), size: columnName(index * 2 + 2) }
+    : { value: columnName(index + 1), size: columnName(index + 1) };
+}
+
+/**
+ * A series' numbers, renamed as the y of a chart that measures both ways.
+ *
+ * A scatter and a bubble hold the same cached numbers under `c:yVal` rather
+ * than `c:val`, and nothing else about them differs — so the reference is
+ * built once and relabelled rather than written twice.
+ */
+function asYValues(values: string): string {
+  return values.replace("<c:val>", "<c:yVal>").replace("</c:val>", "</c:yVal>");
+}
+
+/**
+ * How big each bubble is drawn, cached against its own column.
+ *
+ * A size nobody gave is left out rather than written as zero, the same way a
+ * missing value is: `dispBlanksAs` is `gap`, and a bubble of no size is a
+ * reading that was not taken rather than one that came back as nothing.
+ */
+function bubbleSizesXml(
+  sizes: readonly (number | null)[],
+  column: string,
+  rows: number,
+): string {
+  const points = sizes
+    .map((size, index) =>
+      size === null || size === undefined || !Number.isFinite(size)
+        ? ""
+        : `<c:pt idx="${index}"><c:v>${size}</c:v></c:pt>`
+    )
+    .join("");
+
+  return `<c:bubbleSize><c:numRef><c:f>${SHEET}!$${column}$2:$${column}$${
+    rows + 1
+  }</c:f><c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="${rows}"/>${points}</c:numCache></c:numRef></c:bubbleSize>`;
 }
 
 /** A series' name, cached and pointed at the cell the workbook holds it in. */
@@ -481,9 +615,19 @@ function axesXml(node: GraphNode, palette: ChartPalette): string {
   // works that out from `axPos`, which is the only thing that changes.
   const horizontal = node.graphType === "barHorizontal";
   const value = valueAxisXml(node, palette, horizontal ? "b" : "l", horizontal);
-  const category = node.graphType === "scatter"
+  // A bubble measures along both axes for the same reason a scatter does: its
+  // x is a figure, not a name, and a category axis would space the points
+  // evenly and throw that figure away.
+  const measured = node.graphType === "scatter" || node.graphType === "bubble";
+  const category = measured
     ? scatterCategoryAxisXml(node, palette, horizontal ? "l" : "b")
-    : categoryAxisXml(node, palette, horizontal ? "l" : "b", horizontal);
+    : categoryAxisXml(
+      node,
+      palette,
+      horizontal ? "l" : "b",
+      horizontal,
+      node.graphType === "radar",
+    );
 
   // The category axis is written first because that is the order Word writes
   // it in, and a chart is easier to diff against one Word produced.
@@ -499,16 +643,24 @@ function axesXml(node: GraphNode, palette: ChartPalette): string {
  * do: the categories were given as an array, and the first entry of an array
  * belongs at the top. So the scale is reversed, and the value axis is told to
  * cross at the far end so the labels stay on the left where they were.
+ *
+ * `webbed` is the radar's spokes. Every other chart rules its grid across the
+ * value axis alone — a line up from each category would be a second grid
+ * saying what the tick marks already say — but a radar has no plot area to
+ * rule, and the spokes out to each category are what makes the ring readable
+ * as a ring rather than as a shape floating in space.
  */
 function categoryAxisXml(
   node: GraphNode,
   palette: ChartPalette,
   position: string,
   reversed = false,
+  webbed = false,
 ): string {
   return `<c:catAx><c:axId val="${CATEGORY_AXIS_ID}"/><c:scaling><c:orientation val="${
     reversed ? "maxMin" : "minMax"
   }"/></c:scaling><c:delete val="0"/><c:axPos val="${position}"/>` +
+    (webbed ? gridlinesXml(palette) : "") +
     axisTitleXml(node.categoryAxisTitle, palette, position === "l") +
     `<c:numFmt formatCode="General" sourceLinked="1"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>` +
     axisLineXml(palette) +
@@ -545,11 +697,13 @@ function valueAxisXml(
   position: string,
   crossesAtEnd = false,
 ): string {
+  const format = valueAxisFormat(node);
+
   return `<c:valAx><c:axId val="${VALUE_AXIS_ID}"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="${position}"/>` +
-    `<c:majorGridlines><c:spPr><a:ln w="${GRIDLINE_WIDTH_EMU}" cap="flat"><a:solidFill><a:srgbClr val="${palette.rule}"/></a:solidFill></a:ln></c:spPr></c:majorGridlines>` +
+    gridlinesXml(palette) +
     axisTitleXml(node.valueAxisTitle, palette, position === "l") +
-    `<c:numFmt formatCode="${escapeXml(node.numberFormat ?? "General")}" sourceLinked="${
-      node.numberFormat === undefined ? 1 : 0
+    `<c:numFmt formatCode="${escapeXml(format ?? "General")}" sourceLinked="${
+      format === undefined ? 1 : 0
     }"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>` +
     // The value axis draws no line of its own: the gridlines already carry the
     // scale across the plot, and a rule under them is a second one saying the
@@ -559,6 +713,28 @@ function valueAxisXml(
     `<c:crossAx val="${CATEGORY_AXIS_ID}"/><c:crosses val="${
       crossesAtEnd ? "max" : "autoZero"
     }"/><c:crossBetween val="between"/></c:valAx>`;
+}
+
+/**
+ * What the value axis prints its numbers in.
+ *
+ * The document's format where it named one. Where it did not, a percent stack
+ * takes `0%`, because a percent stack's axis is a share and its ticks run to
+ * one rather than to a total — printed unformatted, a 100% stacked chart is
+ * labelled 0, 0.2, 0.4, which is a scale nobody means. Every other chart says
+ * nothing and takes the format the numbers already carry.
+ */
+function valueAxisFormat(node: GraphNode): string | undefined {
+  if (node.numberFormat !== undefined) {
+    return node.numberFormat;
+  }
+
+  return node.stacked === "percent" ? "0%" : undefined;
+}
+
+/** The grid a chart is ruled with, in the theme's own hairline. */
+function gridlinesXml(palette: ChartPalette): string {
+  return `<c:majorGridlines><c:spPr><a:ln w="${GRIDLINE_WIDTH_EMU}" cap="flat"><a:solidFill><a:srgbClr val="${palette.rule}"/></a:solidFill></a:ln></c:spPr></c:majorGridlines>`;
 }
 
 /** The hairline an axis is ruled in, in the theme's rule colour. */
@@ -596,14 +772,31 @@ function axisTitleXml(
 // to keep in step with the first for nothing.
 // ---------------------------------------------------------------------------
 
-/** The chart's numbers as a workbook, one part per file it needs. */
-function workbookOf(data: { categories: string[]; series: GraphSeries[] }): ZipEntry[] {
+/**
+ * The chart's numbers as a workbook, one part per file it needs.
+ *
+ * The columns are the ones {@linkcode columnsOf} named, so what "Edit Data"
+ * opens is laid out exactly where the chart's own formulas say it is. A bubble
+ * takes two columns per series; every other chart takes one.
+ */
+function workbookOf(
+  type: GraphNode["graphType"],
+  data: { categories: string[]; series: GraphSeries[] },
+): ZipEntry[] {
+  const bubble = type === "bubble";
   const header = data.series
-    .map((series, index) =>
-      series.label === undefined
-        ? ""
-        : cell(`${columnName(index + 1)}1`, series.label)
-    )
+    .map((series, index) => {
+      const columns = columnsOf(type, index);
+
+      if (series.label === undefined) {
+        return "";
+      }
+
+      // A bubble's second column is headed too. Unheaded, a reader opening the
+      // data finds a column of figures with nothing saying what they weigh.
+      return cell(`${columns.value}1`, series.label) +
+        (bubble ? cell(`${columns.size}1`, `${series.label} (size)`) : "");
+    })
     .join("");
 
   const rows = [
@@ -612,11 +805,10 @@ function workbookOf(data: { categories: string[]; series: GraphSeries[] }): ZipE
       `<row r="${row + 2}">${cell(`A${row + 2}`, category)}${
         data.series
           .map((series, index) => {
-            const value = series.values[row];
+            const columns = columnsOf(type, index);
 
-            return value === null || value === undefined || !Number.isFinite(value)
-              ? ""
-              : `<c r="${columnName(index + 1)}${row + 2}"><v>${value}</v></c>`;
+            return numberCell(columns.value, row, series.values[row]) +
+              (bubble ? numberCell(columns.size, row, series.sizes?.[row]) : "");
           })
           .join("")
       }</row>`
@@ -645,6 +837,18 @@ function workbookOf(data: { categories: string[]; series: GraphSeries[] }): ZipE
       `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rows}</sheetData></worksheet>`,
     ),
   ];
+}
+
+/**
+ * One numeric cell, or nothing at all where the reading is missing.
+ *
+ * An empty cell rather than a zero, which is the same answer the chart's cache
+ * gives: a row nobody filled in should look unfilled when the data is opened.
+ */
+function numberCell(column: string, row: number, value: number | null | undefined): string {
+  return value === null || value === undefined || !Number.isFinite(value)
+    ? ""
+    : `<c r="${column}${row + 2}"><v>${value}</v></c>`;
 }
 
 /** One text cell, written in place rather than through a string table. */

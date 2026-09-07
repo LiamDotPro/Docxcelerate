@@ -45,6 +45,13 @@ export type NodeMode = "static" | "dynamic";
  * `barHorizontal` lays them down, for categories whose names are too long to
  * sit under a column. Stacking is not a type of its own — a stacked bar is
  * still a bar, and saying it twice would let a document ask for a stacked pie.
+ *
+ * `radar` closes the category axis into a ring, so several series are read as
+ * shapes rather than as rows: it answers "which of these is strong where", and
+ * it is the wrong chart for "how much" because a reader cannot compare areas.
+ * `bubble` is a scatter whose points carry a third figure as their size —
+ * `sizes` on the series — for the case where two measures are not enough and a
+ * third axis would be a lie.
  */
 export type GraphType =
   | "bar"
@@ -53,7 +60,22 @@ export type GraphType =
   | "area"
   | "pie"
   | "doughnut"
-  | "scatter";
+  | "scatter"
+  | "radar"
+  | "bubble";
+
+/**
+ * Whether the series stand beside one another, stack, or fill the plot.
+ *
+ * `true` stacks them, so the top of a stack is the total. `"percent"` stacks
+ * them to the same height, so what is read is each series' share of its
+ * category and the totals are deliberately thrown away — a 100% stacked chart,
+ * as Word calls it. `false` and absent both stand them side by side.
+ *
+ * A third state on the same property rather than a chart type of its own, for
+ * the reason {@linkcode GraphType} gives: a percent stack is still a bar.
+ */
+export type GraphStacking = boolean | "percent";
 
 /** Where a chart's key sits, or that it has none. */
 export type GraphLegend = "none" | "top" | "bottom" | "left" | "right";
@@ -83,6 +105,16 @@ export interface GraphSeries {
    * next theme cannot change.
    */
   color?: string;
+  /**
+   * How big each point is drawn, for a `bubble` chart and nothing else.
+   *
+   * The third figure a bubble carries: the categories are the x, `values` the
+   * y, and these the area. A point with no size is not drawn, the same way a
+   * point with no value is not — a bubble of no size is not a bubble of size
+   * zero. Read by no other chart type, which is what keeps a scatter given
+   * sizes a scatter rather than a bubble chart nobody asked for.
+   */
+  sizes?: (number | null)[];
 }
 
 /** The numbers a {@linkcode GraphNode} plots, and what they are counted against. */
@@ -90,9 +122,9 @@ export interface GraphData {
   /**
    * What the values are counted against — months, regions, quarters.
    *
-   * A `scatter` reads these as its x values instead, so they are numbers
-   * written as text there; anything that will not parse counts as its
-   * position. Absent, the categories are the positions themselves.
+   * A `scatter` and a `bubble` read these as their x values instead, so they
+   * are numbers written as text there; anything that will not parse counts as
+   * its position. Absent, the categories are the positions themselves.
    */
   categories?: string[];
   /** The runs of numbers to plot, in the order they are drawn and keyed. */
@@ -259,8 +291,11 @@ export interface GraphNode extends BaseNode {
    * keeps one however few there are.
    */
   legend?: GraphLegend;
-  /** Whether the series stack rather than stand beside one another. */
-  stacked?: boolean;
+  /**
+   * Whether the series stack rather than stand beside one another, and whether
+   * they stack to a total or to a share. See {@linkcode GraphStacking}.
+   */
+  stacked?: GraphStacking;
   /**
    * How the values are printed, as an OOXML number format — `"#,##0"`,
    * `"0.0%"`, `"£#,##0"`.

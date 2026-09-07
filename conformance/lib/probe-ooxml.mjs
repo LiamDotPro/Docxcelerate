@@ -760,7 +760,7 @@ function readChartPart(xml) {
     return { plot: null, title: null, legend: null, grouping: null, series: [], categories: [] };
   }
 
-  const plot = /<c:(bar|line|area|pie|doughnut|scatter)Chart>/.exec(xml)?.[1] ?? null;
+  const plot = /<c:(bar|line|area|pie|doughnut|scatter|radar|bubble)Chart>/.exec(xml)?.[1] ?? null;
   const legend = element(xml, "c:legendPos");
   // An axis carries a `c:title` of its own, so the chart's is the one standing
   // before the plot area. Reading the first `c:title` in the part would report

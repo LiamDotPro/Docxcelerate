@@ -33,6 +33,11 @@ const PX_PER_PT = 96 / 72;
 /** How much room the axis labels are given, in pixels. */
 const GUTTER = { left: 56, right: 18, top: 16, bottom: 18 };
 
+/** How small the least of a bubble chart's readings is drawn, in pixels. */
+const BUBBLE_MIN_PX = 8;
+/** How large its biggest is. Word's own default frame is about this generous. */
+const BUBBLE_MAX_PX = 44;
+
 /**
  * A drawer for {@linkcode settleDocxPreviewCharts}.
  *
@@ -63,7 +68,12 @@ function optionFor(chart: PreviewChart): echarts.EChartsOption {
   const rule = hex(chart.ruleColor) ?? "#D9D9D9";
   const font = chart.font ?? "inherit";
   const pie = chart.graphType === "pie" || chart.graphType === "doughnut";
+  const radar = chart.graphType === "radar";
   const horizontal = chart.graphType === "barHorizontal";
+  // A radar and a pie are drawn round a centre rather than against a pair of
+  // axes, so neither takes a grid — and an option carrying a grid they cannot
+  // use draws an empty rectangle behind the plot.
+  const cartesian = !pie && !radar;
   // Whether there is anything for a key to name. A pie is keyed by its
   // slices, so it has one whenever it has categories; everything else is keyed
   // by its series, and a series with no name would put an empty row in it.
@@ -73,10 +83,11 @@ function optionFor(chart: PreviewChart): echarts.EChartsOption {
 
   const text = { color: ink, fontFamily: font, fontSize: 11 };
   const values = valueAxis(rule, text, chart.numberFormat);
-  // A scatter counts along numbers on both axes, so what stands where the
-  // categories would is a second measured axis rather than a named one.
-  const categories = chart.graphType === "scatter"
-    ? valueAxis(rule, text)
+  // A scatter and a bubble count along numbers on both axes, so what stands
+  // where the categories would is a second measured axis rather than a named
+  // one.
+  const categories = chart.graphType === "scatter" || chart.graphType === "bubble"
+    ? valueAxis(rule, text, undefined, false)
     : categoryAxis(chart, rule, text);
 
   return {
@@ -94,7 +105,8 @@ function optionFor(chart: PreviewChart): echarts.EChartsOption {
       },
     }),
     ...(chart.legend === "none" || !named ? {} : { legend: legendFor(chart, text) }),
-    ...(pie ? {} : {
+    ...(radar ? { radar: radarFor(chart, rule, text) } : {}),
+    ...(cartesian ? {
       grid: {
         left: (horizontal ? GUTTER.left + 20 : GUTTER.left) +
           (chart.valueAxisTitle === undefined && chart.categoryAxisTitle === undefined ? 0 : 16),
@@ -118,8 +130,103 @@ function optionFor(chart: PreviewChart): echarts.EChartsOption {
       yAxis: horizontal
         ? { ...categories, inverse: true, ...axisTitle(chart.categoryAxisTitle, text, true) }
         : { ...values, ...axisTitle(chart.valueAxisTitle, text, true) },
+    } : {}),
+    // A radar is one series holding every ring, not one series per ring: the
+    // rings share a scale, and ECharts keeps that scale on the radar component
+    // rather than on the plot.
+    series: pie
+      ? [pieSeries(chart)]
+      : radar
+      ? [radarSeries(chart)]
+      : chart.series.map((series) => plotSeries(chart, series)),
+  };
+}
+
+/**
+ * A series' numbers as the plot draws them.
+ *
+ * The file's own figures, except on a percent stack. Word works each column's
+ * shares out from the raw totals itself and labels the axis 0% to 100%;
+ * ECharts has no such grouping, and stacked with the raw figures it would draw
+ * the totals under a percent axis. So the same arithmetic is done here, and
+ * what is stacked is the share.
+ */
+function plotted(chart: PreviewChart, series: PreviewChartSeries): (number | null)[] {
+  if (chart.stacked !== "percent") {
+    return series.values.map((value) => value ?? null);
+  }
+
+  return series.values.map((value, index) => {
+    // The denominator is the column's magnitude, not its sum: a column holding
+    // 5 and -5 sums to nothing, and dividing by it would make both shares
+    // infinite rather than half the column each.
+    const total = chart.series.reduce(
+      (sum, other) => sum + Math.abs(other.values[index] ?? 0),
+      0,
+    );
+
+    return value === null || total === 0 ? null : value / total;
+  });
+}
+
+/**
+ * The largest size any bubble on the chart carries.
+ *
+ * Taken across every series rather than per series, because the sizes are one
+ * scale: two series sized separately would draw the same figure at two
+ * different areas, and the chart would be read as saying they differ.
+ */
+function biggest(chart: PreviewChart): number {
+  const sizes = chart.series
+    .flatMap((series) => series.sizes)
+    .filter((size): size is number => size !== null && Number.isFinite(size) && size > 0);
+
+  return sizes.length === 0 ? 1 : Math.max(...sizes);
+}
+
+/**
+ * The web a radar is drawn on.
+ *
+ * Every spoke is given the same maximum on purpose. Left to scale itself, each
+ * would run to its own series' best reading — which draws every category as
+ * though it were the strongest and makes the shape, the only thing a radar is
+ * read for, meaningless. Word scales the whole ring once, and so does this.
+ */
+function radarFor(chart: PreviewChart, rule: string, text: AxisText) {
+  const readings = chart.series
+    .flatMap((series) => series.values)
+    .filter((value): value is number => value !== null && Number.isFinite(value));
+  const most = readings.length === 0 ? 1 : Math.max(...readings, 0);
+
+  return {
+    indicator: chart.categories.map((name) => ({ name, max: most === 0 ? 1 : most })),
+    center: ["50%", chart.title === undefined ? "52%" : "56%"] as [string, string],
+    radius: "62%",
+    axisName: text,
+    axisLine: { lineStyle: { color: rule } },
+    splitLine: { lineStyle: { color: rule } },
+    // The alternating bands ECharts fills a web with by default are chart junk
+    // — they say nothing the rings do not — and the file asks for no such fill.
+    splitArea: { show: false },
+  };
+}
+
+/** Every ring on a radar, as the one series ECharts draws them from. */
+function radarSeries(chart: PreviewChart): echarts.SeriesOption {
+  return {
+    type: "radar",
+    symbol: "circle",
+    symbolSize: 5,
+    data: chart.series.map((series) => {
+      const color = hex(series.color);
+
+      return {
+        name: series.label,
+        value: series.values.map((value) => value ?? 0),
+        lineStyle: { color, width: 2 },
+        itemStyle: { color },
+      };
     }),
-    series: pie ? [pieSeries(chart)] : chart.series.map((series) => plotSeries(chart, series)),
   };
 }
 
@@ -132,7 +239,7 @@ type AxisText = { color: string; fontFamily: string; fontSize: number };
  * The grid runs across this axis and not the other, which is what the packed
  * chart says too: `c:majorGridlines` is written on the value axis alone.
  */
-function valueAxis(rule: string, text: AxisText, format?: string) {
+function valueAxis(rule: string, text: AxisText, format?: string, grid = true) {
   return {
     type: "value" as const,
     axisLine: { lineStyle: { color: rule } },
@@ -141,7 +248,10 @@ function valueAxis(rule: string, text: AxisText, format?: string) {
       ...text,
       ...(format === undefined ? {} : { formatter: (value: number) => print(value, format) }),
     },
-    splitLine: { lineStyle: { color: rule } },
+    // A scatter and a bubble measure along both axes, and only one of them
+    // carries the grid: the packer writes `c:majorGridlines` on the value axis
+    // alone, so a preview ruling both would draw a grid the file does not have.
+    splitLine: grid ? { lineStyle: { color: rule } } : { show: false },
   };
 }
 
@@ -206,8 +316,8 @@ function legendFor(
 /** One plotted series, whichever kind of plot it belongs to. */
 function plotSeries(chart: PreviewChart, series: PreviewChartSeries): echarts.SeriesOption {
   const color = hex(series.color);
-  const data = series.values.map((value) => value ?? null);
-  const stack = chart.stacked ? "total" : undefined;
+  const data = plotted(chart, series);
+  const stack = chart.stacked === false ? undefined : "total";
 
   if (chart.graphType === "scatter") {
     return {
@@ -216,6 +326,33 @@ function plotSeries(chart: PreviewChart, series: PreviewChartSeries): echarts.Se
       symbolSize: 8,
       itemStyle: { color },
       data: data.map((value, index) => [Number(chart.categories[index] ?? index + 1), value]),
+    };
+  }
+
+  if (chart.graphType === "bubble") {
+    const widest = biggest(chart);
+
+    return {
+      name: series.label,
+      type: "scatter",
+      // The size is the bubble's *area*, which is what the figure means and
+      // what Word draws: sizing the radius instead makes a bubble twice the
+      // reading look four times the reading.
+      symbolSize: (point: unknown) => {
+        const size = Array.isArray(point) ? Number(point[2]) : 0;
+
+        return Number.isFinite(size) && size > 0
+          ? BUBBLE_MIN_PX + (BUBBLE_MAX_PX - BUBBLE_MIN_PX) * Math.sqrt(size / widest)
+          : 0;
+      },
+      // Let down, so a big bubble does not simply delete the small one behind
+      // it — which is the comparison the chart exists to show.
+      itemStyle: { color, opacity: 0.75 },
+      data: series.values.map((value, index) => [
+        Number(chart.categories[index] ?? index + 1),
+        value,
+        series.sizes[index] ?? 0,
+      ]),
     };
   }
 

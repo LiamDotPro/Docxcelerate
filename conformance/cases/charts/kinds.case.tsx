@@ -18,11 +18,11 @@ import { caseStyle } from "../_support/style.ts";
  * second value axis — each is a plausible-looking file, and Word's answer to
  * all three is the same "Word experienced an error trying to open the file".
  * So the assertion that matters most here is the dullest one: that Word opened
- * it and found seven charts.
+ * it and found every one of them.
  *
  * The types are Word's own constants, named rather than quoted at a reader:
  * 51 clustered column, 57 clustered bar, 65 line with markers, 1 area, 5 pie,
- * -4120 doughnut, 74 scatter with lines.
+ * -4120 doughnut, 74 scatter with lines, 81 radar with markers, 15 bubble.
  */
 const MONTHS = ["Jan", "Feb", "Mar", "Apr"];
 const SERIES = [
@@ -30,6 +30,14 @@ const SERIES = [
   { label: "South", values: [16, 14, 21, 27] },
 ];
 const ONE_SERIES = [{ label: "Share", values: [42, 28, 18, 12] }];
+/**
+ * A bubble's third figure. Its categories are read as x, so they are numbers
+ * written as text — the same way a scatter reads them.
+ */
+const WEIGHTED = [
+  { label: "North", values: [12, 18, 9, 22], sizes: [30, 90, 45, 60] },
+  { label: "South", values: [16, 14, 21, 27], sizes: [70, 25, 55, 40] },
+];
 
 const HEIGHT_PT = 90;
 
@@ -42,12 +50,23 @@ const KINDS = [
   { graphType: "pie", plot: "pie", word: "pie" },
   { graphType: "doughnut", plot: "doughnut", word: "doughnut" },
   { graphType: "scatter", plot: "scatter", word: "xyScatterLines" },
+  { graphType: "radar", plot: "radar", word: "radarMarkers" },
+  { graphType: "bubble", plot: "bubble", word: "bubble" },
 ] as const;
+
+/** Which series a kind is given: a pie takes one, a bubble takes weighted ones. */
+function seriesFor(plot: string) {
+  if (plot === "pie" || plot === "doughnut") {
+    return ONE_SERIES;
+  }
+
+  return plot === "bubble" ? WEIGHTED : SERIES;
+}
 
 export default defineCase({
   id: "charts/kinds",
   feature: "chart.kinds",
-  title: "Bar, column, line, area, pie, doughnut and scatter, each as its own plot",
+  title: "Every chart kind — bar to bubble — each packed as its own plot",
   word: "Insert → Chart → every type (c:barChart, c:lineChart, c:pieChart …)",
   claim: "supported",
 
@@ -61,10 +80,7 @@ export default defineCase({
           graphType={kind.graphType}
           height={HEIGHT_PT}
           legend="none"
-          data={{
-            categories: MONTHS,
-            series: kind.plot === "pie" || kind.plot === "doughnut" ? ONE_SERIES : SERIES,
-          }}
+          data={{ categories: MONTHS, series: seriesFor(kind.plot) }}
         />
       ))}
     </Document>
@@ -107,6 +123,26 @@ export default defineCase({
       is.equal(a.chart(0).axisCount, 2, "a bar declares two");
       is.equal(a.chart(6).axisCount, 2, "and so does a scatter");
       is.includes(a.chart(6).xml ?? "", "<c:xVal>", "whose x values are numbers rather than names");
+
+      // A radar has a web rather than a plot area: the rings are the value
+      // axis's gridlines and the spokes the category axis's, so it is the one
+      // chart here that rules both.
+      is.equal(a.chart(7).axisCount, 2, "a radar declares two axes");
+      is.includes(
+        a.chart(7).xml ?? "",
+        `<c:radarStyle val="marker"/>`,
+        "and marks its readings rather than filling them",
+      );
+
+      // The third figure is the reason to reach for a bubble at all, and it
+      // lives in an element of its own that a chart drawn as a scatter would
+      // simply not have.
+      is.includes(a.chart(8).xml ?? "", "<c:bubbleSize>", "a bubble carries its sizes");
+      is.includes(
+        a.chart(8).xml ?? "",
+        `<c:f>Sheet1!$C$2:$C$5</c:f>`,
+        "in a column of the workbook beside the values",
+      );
 
       // Every kind carries its data, whichever element the plot turned out to
       // be. A chart type that packed its series into the wrong child would

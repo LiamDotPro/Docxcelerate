@@ -57,7 +57,7 @@ interface PromptProps {
 | `Section` | `title` (required), `children?` |
 | `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`) |
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` |
-| `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter"`, default `bar`), `data?`, `title?`, `caption?`, `width?`, `height?` (points), `legend?`, `stacked?`, `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `dataLabels?` |
+| `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `caption?`, `width?`, `height?` (points), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `dataLabels?` |
 | `Table` | `columns` (required), `children?` |
 | `Row` | `header?`, `children?` |
 | `Cell` | `span?`, `align?`, `children?` |
@@ -108,11 +108,14 @@ Notes worth knowing:
   a folio in the same place on every sheet sits in the gutter on half of them.
   Naming either makes `header` and `footer` the right-hand page's.
 - `Graph.data` is `{ categories?: string[], series: { label?, values: (number
-  | null)[], color? }[] }`. A `null` value is a gap in the plot, not a zero — a
-  month nobody measured is not a month that measured nothing. A series shorter
-  than the categories is padded with gaps; one with no categories is counted by
-  position. Strings inside the payload are run through the template renderer,
-  so a label containing `{{derived.total}}` resolves.
+  | null)[], color?, sizes? }[] }`. A `null` value is a gap in the plot, not a
+  zero — a month nobody measured is not a month that measured nothing. A series
+  shorter than the categories is padded with gaps; one with no categories is
+  counted by position. Strings inside the payload are run through the template
+  renderer, so a label containing `{{derived.total}}` resolves.
+- `scatter` and `bubble` read the categories as their x values, so those are
+  numbers written as text; anything that will not parse counts as its position.
+  `sizes` is the third figure a `bubble` carries and no other type reads.
 - **A chart is packed as a real Word chart**, not as a picture of one: a
   `c:chartSpace` part with every value cached in it, plus the workbook "Edit
   Data" opens. The reader can select it, restyle it, change its type and open
