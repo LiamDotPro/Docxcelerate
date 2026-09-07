@@ -96,6 +96,17 @@ export interface ResolvedNode {
   alt?: string;
   width?: number;
   height?: number;
+  /** Which plot, on a `graph` node. */
+  graphType?: string;
+  /** Whether a `graph` stacks its series, and to a total or to a share. */
+  stacked?: boolean | "percent";
+  /** What a `graph` plots, which is what a miniature of it is drawn from. */
+  data?: {
+    categories?: string[];
+    series?: Array<{ label?: string; values?: (number | null)[]; sizes?: (number | null)[] }>;
+  };
+  /** The block style a node asked its theme for, where it asked for one. */
+  variant?: string;
   children?: ResolvedNode[];
 }
 export interface ComponentPageEntry {
@@ -161,6 +172,78 @@ export function themeHref(id: string): string {
 
 export function componentHref(id: string): string {
   return `/components/${id}/`;
+}
+
+/**
+ * What a component is made of, as the browse page groups them.
+ *
+ * A second axis from `category`, and a different question. `category` says
+ * *where* a component sits — an opening, a closing, something legal — which is
+ * what you want when you are assembling a document top to bottom. This says
+ * *what it is*, which is what you want when you are looking for a chart.
+ */
+export type ComponentFamily = "Graphs" | "Tables" | "Blocks" | "Paragraphs" | "Mixed";
+
+/**
+ * The families, in the order the page lists them: the ones that draw
+ * something, then the ones that are words, then the ones that are both.
+ */
+export const COMPONENT_FAMILIES: readonly ComponentFamily[] = [
+  "Graphs",
+  "Tables",
+  "Blocks",
+  "Paragraphs",
+  "Mixed",
+];
+
+/**
+ * Which family a component belongs to, read out of what it resolved to.
+ *
+ * Derived rather than declared beside it in the catalog, for the reason the
+ * rest of this file is derived: a field a person maintains is a field that
+ * disagrees with the code the first time a component grows a chart. What a
+ * component resolves to is what a renderer is handed, so it cannot be wrong
+ * about itself.
+ *
+ * The order below is precedence, and the rule behind it is that a component is
+ * named after the thing you came for. Almost every chart component is a chart
+ * with a sentence beside it — that is the shape this registry recommends — and
+ * filing those under "Mixed" because they also hold a paragraph would empty
+ * the group somebody looking for a chart is actually browsing. A `section` is
+ * skipped throughout: it is a container, not a thing on the page.
+ */
+export function familyOf(component: ComponentPageEntry): ComponentFamily {
+  const kinds = new Set<string>();
+
+  const walk = (nodes: readonly ResolvedNode[]) => {
+    for (const node of nodes) {
+      if (node.kind !== "section") kinds.add(node.kind);
+      if (node.children) walk(node.children);
+    }
+  };
+
+  walk(component.resolved);
+
+  if (kinds.has("graph")) return "Graphs";
+  if (kinds.has("table")) return "Tables";
+  if (kinds.has("shape")) return "Blocks";
+
+  // Paragraphs and nothing else. A signature block is paragraphs *and* a
+  // picture, and neither of the two is the thing you came for, so it is mixed.
+  return kinds.size === 1 && kinds.has("paragraph") ? "Paragraphs" : "Mixed";
+}
+
+/** The catalog grouped by family for the browse page, empty groups dropped. */
+export function componentsByFamily(): {
+  family: ComponentFamily;
+  components: ComponentPageEntry[];
+}[] {
+  return COMPONENT_FAMILIES
+    .map((family) => ({
+      family,
+      components: COMPONENTS.filter((component) => familyOf(component) === family),
+    }))
+    .filter((group) => group.components.length > 0);
 }
 
 /** The catalog grouped for a browse page, empty groups dropped. */

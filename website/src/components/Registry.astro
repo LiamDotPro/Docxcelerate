@@ -20,7 +20,15 @@
 import Base from "../layouts/Base.astro";
 import CopyField from "./CopyField.astro";
 import Eyebrow from "./Eyebrow.astro";
-import { addCommand, COMPONENTS, componentHref, THEMES, themeHref } from "../registry";
+import {
+  addCommand,
+  COMPONENTS,
+  componentHref,
+  componentsByFamily,
+  THEMES,
+  themeHref,
+} from "../registry";
+import { DEFAULT_SERIES_COLORS } from "docxcelerate/themes";
 import { asLocale, localizePath, LOCALES, ui } from "../i18n";
 import type {
   ComponentPageEntry,
@@ -124,21 +132,344 @@ function specimen(theme: ThemePageEntry) {
   };
 }
 
-/** The first lines a component resolved to, for the row's paper preview. */
-function lines(component: ComponentPageEntry, take = 3): string[] {
-  const texts: string[] = [];
+/**
+ * A row's paper preview: what the component resolved to, in miniature.
+ *
+ * This used to be the first three strings the nodes carried, which worked for
+ * as long as every component was words. It stopped the moment charts arrived:
+ * a chart node holds no text, so a chart component previewed as one truncated
+ * sentence and eighty pixels of nothing — the row that most needed a picture
+ * was the row with no picture in it.
+ *
+ * So a node is now sketched as the *kind of thing* it is: a paragraph as its
+ * line, a chart as a miniature drawn from its own cached numbers, a shape as
+ * the band it prints, a picture as the space it takes. Everything comes out of
+ * the resolved model — the same model the `.docx` is packed from — so it is a
+ * small drawing of the document rather than a decoration beside it.
+ */
+type Sketch =
+  | { kind: "line"; text: string }
+  | {
+    kind: "chart";
+    graphType: string;
+    /** Whether the series stack, and to a total or to a share. */
+    stacked: boolean | "percent";
+    /** The plotted numbers, at most four series of at most eight. */
+    series: number[][];
+    /** How many spokes a radar has, which is how many categories it counts. */
+    slices: number;
+    /** A scatter's or a bubble's x values, which are figures rather than names. */
+    xs: number[];
+    /** A bubble's third figure, empty for every other kind. */
+    sizes: number[];
+  }
+  | { kind: "band"; text: string }
+  | { kind: "image" };
+
+/**
+ * The numbers a chart node cached, as a plain grid with the gaps dropped.
+ *
+ * A stack is given twice the series a cluster is. Four clustered runs across
+ * eight categories is thirty-two bars in a hundred and sixty pixels, which
+ * reads as a barcode; four stacked ones are still four columns.
+ */
+function plotted(node: ResolvedNode, runs: number): number[][] {
+  return (node.data?.series ?? [])
+    .slice(0, runs)
+    .map((series) =>
+      (series.values ?? [])
+        .slice(0, 8)
+        .map((value) => (typeof value === "number" && Number.isFinite(value) ? value : 0))
+    )
+    .filter((values) => values.length > 0);
+}
+
+/**
+ * What a component's first few nodes look like.
+ *
+ * Three entries at most, and a chart counts for two of them: a miniature needs
+ * the height, and a row is 112px tall.
+ */
+function sketch(component: ComponentPageEntry): Sketch[] {
+  const out: Sketch[] = [];
+  let room = 3;
 
   const walk = (nodes: readonly ResolvedNode[]) => {
     for (const node of nodes) {
-      if (texts.length >= take) return;
-      if (node.text && node.text.trim() !== "") texts.push(node.text);
+      if (room <= 0) return;
+
+      if (node.kind === "graph") {
+        const stacked = node.stacked ?? false;
+        const series = plotted(node, stacked === false ? 2 : 4);
+
+        if (series.length > 0) {
+          out.push({
+            kind: "chart",
+            graphType: node.graphType ?? "bar",
+            stacked,
+            series,
+            slices: node.data?.categories?.length ?? series[0].length,
+            xs: (node.data?.categories ?? []).slice(0, 8).map(Number),
+            sizes: (node.data?.series?.[0]?.sizes ?? [])
+              .slice(0, 8)
+              .map((size) => (typeof size === "number" && Number.isFinite(size) ? size : 0)),
+          });
+          room -= 2;
+          continue;
+        }
+      }
+
+      if (node.kind === "shape") {
+        const text = node.children?.find((child) => child.text)?.text ?? node.title ?? "";
+        out.push({ kind: "band", text });
+        room -= 1;
+        continue;
+      }
+
+      if (node.kind === "image") {
+        out.push({ kind: "image" });
+        room -= 1;
+        continue;
+      }
+
+      if (node.text && node.text.trim() !== "") {
+        out.push({ kind: "line", text: node.text });
+        room -= 1;
+        continue;
+      }
+
       if (node.children) walk(node.children);
     }
   };
 
   walk(component.resolved);
 
-  return texts;
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// The chart miniature
+//
+// Drawn here rather than framed from the rendered preview, for the reason the
+// theme specimens are: an iframe per row is eleven documents loaded to show
+// eleven thumbnails, and a screenshot is a picture that stops being true the
+// moment the renderer changes. This is a drawing of the numbers the node
+// actually cached, in the colours the packer would paint them, at the size a
+// row has room for — a sketch of the chart, and honest about being one.
+// ---------------------------------------------------------------------------
+
+/** The miniature's own box, in the units its paths are written in. */
+const MINI = { w: 160, h: 52 };
+
+/** The hairline a miniature is ruled in. The paper here is fixed white. */
+const MINI_RULE = "#D6DBE2";
+
+/** The colour a series is drawn in: the packer's own order. */
+const seriesColour = (index: number) =>
+  `#${DEFAULT_SERIES_COLORS[index % DEFAULT_SERIES_COLORS.length]}`;
+
+/** Every value across every series, so the drawing shares one scale. */
+function ceiling(series: number[][]): number {
+  const most = Math.max(...series.flat(), 0);
+
+  return most === 0 ? 1 : most;
+}
+
+/**
+ * Columns: clustered side by side, or stacked one on another.
+ *
+ * A percent stack draws every column to the full height, which is the whole
+ * difference between it and an ordinary stack — and a miniature that clustered
+ * it would show a reader the one chart the component exists to talk them out
+ * of.
+ */
+function miniBars(series: number[][], stacked: boolean | "percent"): string {
+  const count = series[0].length;
+  const slot = MINI.w / count;
+  const room = MINI.h - 4;
+
+  if (stacked === false) {
+    const top = ceiling(series);
+    const width = Math.max(2, (slot * 0.68) / series.length);
+
+    return series
+      .flatMap((values, row) =>
+        values.map((value, index) => {
+          const height = Math.max(1, (value / top) * room);
+          const x = index * slot + slot * 0.16 + row * width;
+
+          return `<rect x="${x.toFixed(1)}" y="${(MINI.h - height).toFixed(1)}" width="${
+            width.toFixed(1)
+          }" height="${height.toFixed(1)}" fill="${seriesColour(row)}" rx="0.5"/>`;
+        })
+      )
+      .join("");
+  }
+
+  const totals = series[0].map((_, index) =>
+    series.reduce((sum, values) => sum + (values[index] ?? 0), 0)
+  );
+  // A percent stack shares no scale between columns — each is its own whole.
+  // A stack to a total shares one, and the tallest column is the top.
+  const tallest = Math.max(...totals, 1);
+  const width = slot * 0.68;
+
+  return series[0]
+    .map((_, index) => {
+      const total = totals[index];
+      const full = stacked === "percent" ? room : (total / tallest) * room;
+      let y = MINI.h;
+
+      return series
+        .map((values, row) => {
+          const share = total === 0 ? 0 : (values[index] ?? 0) / total;
+          const height = share * full;
+          y -= height;
+
+          return height < 0.4 ? "" : `<rect x="${(index * slot + slot * 0.16).toFixed(1)}" y="${
+            y.toFixed(1)
+          }" width="${width.toFixed(1)}" height="${height.toFixed(1)}" fill="${
+            seriesColour(row)
+          }"/>`;
+        })
+        .join("");
+    })
+    .join("");
+}
+
+/** A line, and the ground under it where the chart is an area. */
+function miniLine(series: number[][], filled: boolean): string {
+  const top = ceiling(series);
+
+  return series
+    .map((values, row) => {
+      const step = values.length > 1 ? MINI.w / (values.length - 1) : 0;
+      const points = values
+        .map((value, index) =>
+          `${(index * step).toFixed(1)},${(MINI.h - 3 - (value / top) * (MINI.h - 8)).toFixed(1)}`
+        )
+        .join(" ");
+      const stroke =
+        `<polyline points="${points}" fill="none" stroke="${seriesColour(row)}" stroke-width="2" ` +
+        `stroke-linejoin="round" stroke-linecap="round"/>`;
+
+      return filled
+        ? `<polygon points="0,${MINI.h} ${points} ${MINI.w},${MINI.h}" fill="${
+          seriesColour(row)
+        }" opacity="0.22"/>${stroke}`
+        : stroke;
+    })
+    .join("");
+}
+
+/** Wedges, with the middle taken out where it is a doughnut. */
+function miniPie(values: number[], hollow: boolean): string {
+  const total = values.reduce((sum, value) => sum + Math.max(value, 0), 0);
+  const radius = MINI.h / 2 - 1;
+  const cx = MINI.w / 2;
+  const cy = MINI.h / 2;
+  let angle = -Math.PI / 2;
+
+  if (total === 0) {
+    return "";
+  }
+
+  const wedges = values.map((value, index) => {
+    const sweep = (Math.max(value, 0) / total) * Math.PI * 2;
+    const to = angle + sweep;
+    const large = sweep > Math.PI ? 1 : 0;
+    const path = `M ${cx} ${cy} L ${(cx + radius * Math.cos(angle)).toFixed(2)} ${
+      (cy + radius * Math.sin(angle)).toFixed(2)
+    } A ${radius} ${radius} 0 ${large} 1 ${(cx + radius * Math.cos(to)).toFixed(2)} ${
+      (cy + radius * Math.sin(to)).toFixed(2)
+    } Z`;
+
+    angle = to;
+
+    return `<path d="${path}" fill="${seriesColour(index)}"/>`;
+  });
+
+  // The hole is painted rather than cut, because the paper behind a row's
+  // preview is one fixed colour and a mask would be more machinery than that.
+  return wedges.join("") +
+    (hollow ? `<circle cx="${cx}" cy="${cy}" r="${radius * 0.5}" fill="var(--paper-fixed)"/>` : "");
+}
+
+/** A ring per series, on a web of the same spokes the chart has. */
+function miniRadar(series: number[][], spokes: number): string {
+  const top = ceiling(series);
+  const radius = MINI.h / 2 - 2;
+  const cx = MINI.w / 2;
+  const cy = MINI.h / 2;
+  const count = Math.max(spokes, 3);
+  const at = (index: number, distance: number) => {
+    const angle = -Math.PI / 2 + (index / count) * Math.PI * 2;
+
+    return `${(cx + distance * Math.cos(angle)).toFixed(2)},${
+      (cy + distance * Math.sin(angle)).toFixed(2)
+    }`;
+  };
+
+  const web = `<polygon points="${
+    Array.from({ length: count }, (_, index) => at(index, radius)).join(" ")
+  }" fill="none" stroke="${MINI_RULE}" stroke-width="1"/>`;
+
+  const rings = series.map((values, row) =>
+    `<polygon points="${
+      Array.from({ length: count }, (_, index) =>
+        at(index, ((values[index] ?? 0) / top) * radius)).join(" ")
+    }" fill="none" stroke="${seriesColour(row)}" stroke-width="1.6"/>`
+  );
+
+  return web + rings.join("");
+}
+
+/** Points, sized by their third figure where the chart carries one. */
+function miniPoints(entry: Extract<Sketch, { kind: "chart" }>): string {
+  const series = entry.series;
+  const values = series[0];
+  const xs = entry.xs;
+  const sizes = entry.sizes;
+  const widest = Math.max(...sizes, 0);
+  const spanX = Math.max(...xs.filter(Number.isFinite), 1);
+  const top = ceiling(series);
+
+  return values
+    .map((value, index) => {
+      const x = Number.isFinite(xs[index]) ? (xs[index] / spanX) * (MINI.w - 12) + 6 : 6;
+      const y = MINI.h - 4 - (value / top) * (MINI.h - 10);
+      // Area, not radius — the same rule the real chart is drawn by, and it
+      // matters more here where there is less room to be wrong in.
+      const r = widest > 0 ? 1.5 + 6.5 * Math.sqrt((sizes[index] ?? 0) / widest) : 3;
+
+      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="${
+        seriesColour(0)
+      }" opacity="0.75"/>`;
+    })
+    .join("");
+}
+
+/** One chart node, as the SVG a row shows in place of it. */
+function miniChart(entry: Extract<Sketch, { kind: "chart" }>): string {
+  const { graphType, series } = entry;
+  const body = graphType === "pie" || graphType === "doughnut"
+    ? miniPie(series[0], graphType === "doughnut")
+    : graphType === "radar"
+    ? miniRadar(series, entry.slices)
+    : graphType === "scatter" || graphType === "bubble"
+    ? miniPoints(entry)
+    : graphType === "line" || graphType === "area"
+    ? miniLine(series, graphType === "area")
+    : miniBars(series, entry.stacked);
+
+  // A baseline under everything measured against one, which is what makes a
+  // row of bars read as a chart rather than as a bar code.
+  const base = ["pie", "doughnut", "radar"].includes(graphType)
+    ? ""
+    : `<line x1="0" y1="${MINI.h}" x2="${MINI.w}" y2="${MINI.h}" stroke="${MINI_RULE}" stroke-width="1"/>`;
+
+  return `<svg viewBox="0 0 ${MINI.w} ${MINI.h}" width="100%" height="${MINI.h}" ` +
+    `preserveAspectRatio="xMidYMid meet" role="presentation" focusable="false">${base}${body}</svg>`;
 }
 
 /**
@@ -162,7 +493,18 @@ const tagIndex = (() => {
 })();
 
 const themes = THEMES.map((theme) => ({ theme, spec: specimen(theme), swatches: swatches(theme) }));
-const components = COMPONENTS.map((component) => ({ component, lines: lines(component) }));
+
+/**
+ * The components, grouped by what they are made of.
+ *
+ * Thirteen rows in one list is a list you scroll rather than read, and the
+ * question somebody arrives with is usually "is there a chart for this?" —
+ * which the family answers and `category` does not.
+ */
+const families = componentsByFamily().map((group) => ({
+  family: group.family,
+  rows: group.components.map((component) => ({ component, sketch: sketch(component) })),
+}));
 
 /** Every band shares one measure and one set of gutters — the nav's, so the
  *  eyebrow, the heading and the first card hang off the same left edge as the
@@ -289,9 +631,20 @@ const band = "mx-auto flex max-w-6xl flex-col px-5 sm:px-8";
         <span class="font-mono text-[0.68rem] text-muted">{t.registry.browse.componentsNote}</span>
       </div>
 
-      <div class="flex flex-col gap-4 lg:gap-0">
-        {
-          components.map(({ component, lines }) => (
+      {
+        families.map(({ family, rows }) => (
+          <div class="flex flex-col gap-4 lg:gap-0" data-group>
+            {/* The family, as a rule with a word on it. A heading here would
+                compete with the band's own; what this has to do is separate. */}
+            <div class="mt-5 flex items-baseline gap-3 lg:mt-7">
+              <Eyebrow class="text-[0.6rem] whitespace-nowrap">{family}</Eyebrow>
+              <span class="h-px grow bg-[var(--border-default)]" />
+              {/* Follows the filter. A family headed "6" over two rows is the
+                  heading disagreeing with what is under it. */}
+              <span class="font-mono text-[0.62rem] text-muted" data-group-count>{rows.length}</span>
+            </div>
+
+            {rows.map(({ component, sketch }) => (
             <article
               class="border-default bg-paper max-lg:overflow-hidden max-lg:rounded-md max-lg:border lg:grid lg:grid-cols-[190px_minmax(0,1fr)_320px] lg:items-center lg:gap-8 lg:border-t lg:bg-transparent lg:py-[22px]"
               data-entry
@@ -300,21 +653,45 @@ const band = "mx-auto flex max-w-6xl flex-col px-5 sm:px-8";
               {/* What its nodes resolved to, on paper that stays white at night. */}
               <a
                 href={localizePath(componentHref(component.id), locale)}
-                class="block min-h-[88px] overflow-hidden px-4 py-3.5 no-underline max-lg:border-b lg:h-28 lg:min-h-0 lg:rounded lg:border"
+                class="flex min-h-[88px] flex-col justify-center overflow-hidden px-4 py-3.5 no-underline max-lg:border-b lg:h-28 lg:min-h-0 lg:rounded lg:border"
                 style="background:var(--paper-fixed);border-color:var(--paper-fixed-border);font-family:Calibri,'Segoe UI',sans-serif;"
               >
                 {
-                  lines.length === 0
+                  sketch.length === 0
                     ? <span class="text-xs" style="color:#657287">{t.registry.browse.noPreview}</span>
-                    : lines.map((line, index) => (
-                      <div
-                        class="truncate leading-[1.45]"
-                        style={index === 0
-                          ? "font-size:12.5px;font-weight:700;color:#111827;"
-                          : "font-size:11px;color:#1f2937;margin-top:4px;"}
-                      >
-                        {line}
-                      </div>
+                    : sketch.map((entry, index) => (
+                      entry.kind === "chart"
+                        ? <div class="mt-1" set:html={miniChart(entry)} />
+                        : entry.kind === "band"
+                        ? (
+                          <div
+                            class="truncate rounded-[2px] px-1.5 py-1 leading-[1.4]"
+                            style={`font-size:10.5px;font-weight:700;color:#ffffff;background:${
+                              seriesColour(1)
+                            };margin-top:${index === 0 ? 0 : 4}px;`}
+                          >
+                            {entry.text}
+                          </div>
+                        )
+                        : entry.kind === "image"
+                        ? (
+                          <div
+                            class="rounded-[2px]"
+                            style={`height:16px;width:52px;background:#E3E7ED;margin-top:${
+                              index === 0 ? 0 : 5
+                            }px;`}
+                          />
+                        )
+                        : (
+                          <div
+                            class="truncate leading-[1.45]"
+                            style={index === 0
+                              ? "font-size:12.5px;font-weight:700;color:#111827;"
+                              : "font-size:11px;color:#1f2937;margin-top:4px;"}
+                          >
+                            {entry.text}
+                          </div>
+                        )
                     ))
                 }
               </a>
@@ -351,9 +728,10 @@ const band = "mx-auto flex max-w-6xl flex-col px-5 sm:px-8";
                 </span>
               </div>
             </article>
-          ))
-        }
-      </div>
+            ))}
+          </div>
+        ))
+      }
     </div>
   </section>
 
@@ -386,6 +764,7 @@ const band = "mx-auto flex max-w-6xl flex-col px-5 sm:px-8";
   const empty = document.querySelector<HTMLElement>("[data-empty]");
   const emptyLine = document.querySelector<HTMLElement>("[data-empty-line]");
   const sections = [...document.querySelectorAll<HTMLElement>("[data-section]")];
+  const groups = [...document.querySelectorAll<HTMLElement>("[data-group]")];
   const chosen = new Set<string>();
 
   function apply() {
@@ -400,6 +779,18 @@ const band = "mx-auto flex max-w-6xl flex-col px-5 sm:px-8";
       const match = [...chosen].every((tag) => tags.includes(tag));
       entry.hidden = !match;
       if (match) shown += 1;
+    }
+
+    // A family whose every row is filtered out is a rule with a word on it and
+    // nothing under it. Hidden before the sections, because a section is only
+    // empty once all of its groups are.
+    for (const group of groups) {
+      const visible = [...group.querySelectorAll<HTMLElement>("[data-entry]")]
+        .filter((entry) => !entry.hidden);
+      const count = group.querySelector<HTMLElement>("[data-group-count]");
+
+      group.hidden = visible.length === 0;
+      if (count) count.textContent = String(visible.length);
     }
 
     // A section whose every entry is filtered out is a heading over nothing, so
