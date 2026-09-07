@@ -45,23 +45,55 @@ const { src, title, label, flush = false } = Astro.props;
   // however many times the component is used.
   const frames = Array.from(document.querySelectorAll<HTMLIFrameElement>("[data-node-frame]"));
 
-  /** Same origin, so the rendered height is readable rather than guessed. */
+  /**
+   * Sits one sheet in its frame. Same origin, so both the sheet's own width
+   * and the height it drew at are readable rather than guessed.
+   *
+   * The page inside is the document's page — as wide as the file says, with
+   * the margins the file gives it — so it is nearly always wider than the
+   * column it is shown in. It is scaled to fit rather than reflowed: scaling
+   * is what Word's own zoom does, while a sheet narrowed to the card would
+   * wrap its lines somewhere else and clip a chart whose frame is a fixed
+   * width. The iframe keeps its full width and the transform does the fitting,
+   * so nothing inside the page is laid out for a width Word would not use.
+   */
   function fit(frame: HTMLIFrameElement) {
     const body = frame.contentDocument?.body;
-    if (!body) return;
+    const paper = frame.parentElement;
+    if (!body || !paper) return;
+
+    const sheet = body.querySelector("section.docx");
+    const natural = Math.ceil(sheet?.getBoundingClientRect().width ?? 0);
+    const available = paper.clientWidth;
+    if (natural <= 0 || available <= 0) return;
+
+    // Scaled down to fit, never up: a node whose page is narrower than the
+    // card is shown at its own size rather than blown up to fill the width.
+    const scale = Math.min(1, available / natural);
+
+    // Width first — the height is whatever the page drew at that width.
+    frame.style.width = `${natural}px`;
     const height = Math.ceil(body.scrollHeight);
-    if (height > 0) frame.style.height = `${height}px`;
+    if (height <= 0) return;
+
+    frame.style.height = `${height}px`;
+    frame.style.transform = scale === 1 ? "" : `scale(${scale})`;
+    // The transform is not layout, so the paper is still as tall as the
+    // unscaled frame unless it is told otherwise.
+    paper.style.height = `${Math.ceil(height * scale)}px`;
   }
 
-  // Width changes rewrap the text and so change the height. Tracking the last
-  // width means our own height write doesn't feed back into the observer.
+  // The paper is what changes width, not the frame — the frame is sized to the
+  // sheet. Tracking the last width means our own writes don't feed back in.
   const widths = new WeakMap<Element, number>();
   const observer = new ResizeObserver((entries) => {
     for (const entry of entries) {
       const width = entry.contentRect.width;
       if (widths.get(entry.target) === width) continue;
       widths.set(entry.target, width);
-      fit(entry.target as HTMLIFrameElement);
+
+      const frame = entry.target.querySelector<HTMLIFrameElement>("[data-node-frame]");
+      if (frame) fit(frame);
     }
   });
 
@@ -74,7 +106,7 @@ const { src, title, label, flush = false } = Astro.props;
     });
     // Lazy frames load later; eager ones may already be done by now.
     if (frame.contentDocument?.readyState === "complete") fit(frame);
-    observer.observe(frame);
+    if (frame.parentElement) observer.observe(frame.parentElement);
   }
 </script>
 
@@ -100,13 +132,16 @@ const { src, title, label, flush = false } = Astro.props;
 
   .frame {
     display: block;
+    /* Both replaced on load with the sheet's own width and the height it drew
+       at; these are only what an unloaded or blocked frame occupies. */
     width: 100%;
-    /* Replaced on load with the real rendered height; this is only what an
-       unloaded or blocked frame occupies. */
     height: 7rem;
     border: 0;
     background: #ffffff;
     color-scheme: light;
+    /* Scaled from the top left so the sheet's own top-left corner stays in the
+       paper's, whatever the scale works out to. */
+    transform-origin: top left;
   }
 
   figcaption {

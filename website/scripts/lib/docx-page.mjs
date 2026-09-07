@@ -452,18 +452,33 @@ export const PAGE_ONLY_STYLE = previewPageStyles({ inset: "0" })
   .join("\n");
 
 /**
- * Single-node embeds: the same paper and the same typography, cropped to the
- * node. A4 proportions would put one paragraph in the top corner of an
- * otherwise empty sheet, which reads as an accident rather than an example.
+ * Single-node embeds: the document's own page, cropped to the node.
+ *
+ * Only the height is cropped. A full A4 sheet would put one paragraph in the
+ * top corner of an otherwise empty page, which reads as an accident rather
+ * than an example — but the *width* is not ours to take. The page width and
+ * the side margins stay as the file wrote them, so the text column here is the
+ * text column in Word: a line wraps where Word wraps it, a centred caption
+ * centres over the same column, and a chart — whose frame the packer sizes to
+ * that column — fills it exactly.
+ *
+ * Reflowing the sheet to the width of whatever card it is shown in was a
+ * different document, and the chart is the node that made it obvious: its
+ * frame is a fixed 451pt, so a narrower sheet cut the last month off the axis.
+ * The embed is scaled to fit its frame instead, which is what Word's own zoom
+ * does — see NodePreview.astro.
  */
 export const NODE_ONLY_STYLE = `
       html, body { margin: 0; padding: 0; background: transparent; }
 
       section.docx {
-        width: auto !important;
         min-height: 0 !important;
-        margin: 0;
-        padding: 10mm 11mm !important;
+        /* Centred for the standalone page, where the window is wider than the
+           sheet. In the embed the frame is sized to the sheet, so the auto
+           margins come to nothing. */
+        margin: 0 auto;
+        padding-top: 10mm !important;
+        padding-bottom: 10mm !important;
         background: transparent;
       }
 
