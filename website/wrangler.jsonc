@@ -1,0 +1,27 @@
+// docxcelerate.com on Cloudflare Workers, as static assets and nothing else.
+// No Worker script: every page is prerendered, so dist/ is the whole site.
+//
+//   npm run build && npx wrangler@4 deploy                  (from website/)
+//   npx wrangler@4 versions upload --preview-alias <branch>  for a preview
+//
+// .github/workflows/deploy-website.yml does both: main deploys, every other
+// branch gets a preview URL.
+{
+  "name": "docxcelerate-website",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist",
+    // Serves 404.astro's page, with a 404 status, for anything not built.
+    "not_found_handling": "404-page"
+  },
+  // workers.dev is where a deploy is checked before the hostname points here;
+  // preview URLs are what each branch's upload is reachable at.
+  "workers_dev": true,
+  "preview_urls": true,
+  // A route rather than a custom domain: it catches the apex only once its DNS
+  // record is proxied, so it can be deployed while the record still points at
+  // Deno Deploy, and cutting over (or back) is the proxy toggle on that record.
+  "routes": [
+    { "pattern": "docxcelerate.com/*", "zone_name": "docxcelerate.com" }
+  ]
+}
