@@ -1,6 +1,5 @@
 // @ts-check
 import { defineConfig } from "astro/config";
-import deno from "@deno/astro-adapter";
 import mdx from "@astrojs/mdx";
 import tailwindcss from "@tailwindcss/vite";
 import { DEFAULT_LOCALE, LOCALES, PREFIXED_LOCALES } from "./src/i18n/config.ts";
@@ -22,12 +21,10 @@ const localised = (from, to) =>
 
 export default defineConfig({
   site: "https://docxcelerate.com",
-  // Deployed to Deno Deploy. Every page is prerendered — output stays "static"
-  // — so the adapter is here to name the target runtime, not to turn the site
-  // into a server. It splits the build into dist/client (what gets served) and
-  // dist/server (the Deno entry point), and any future route that opts out of
-  // prerendering has somewhere to run.
-  adapter: deno(),
+  // Served by Cloudflare Workers as static assets (see wrangler.jsonc). Every
+  // page is prerendered and there is no adapter, so dist/ is the whole site and
+  // nothing runs per request. A route that ever opts out of prerendering would
+  // need @astrojs/cloudflare here.
   integrations: [mdx()],
   // English keeps the bare paths it has always had; the other four languages
   // are served under a prefix. Nothing that was linkable before this became a
