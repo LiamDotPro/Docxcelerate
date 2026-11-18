@@ -11,6 +11,12 @@
  *   public/demo/themes/<id>.html       one sample document, set in that theme
  *   public/demo/components/<id>.html   the component, resolved against its own
  *                                      preview data
+ *   public/demo/components/<id>--<value>.html
+ *                                      the same, once per value of its first
+ *                                      string-union field (see variantAxis)
+ *   public/demo/components/<id>[--<value>].<arrangement>.html
+ *                                      each of those again in every arrangement
+ *                                      after the first, the default
  *   src/generated/registry.json        the catalog, plus the source of every
  *                                      file `dxcl add` would copy in
  */
@@ -40,7 +46,7 @@ const MANIFEST = resolve(ROOT, "src/generated/registry.json");
  * Getting it wrong serves a stale manifest, so move it whenever the output
  * shape changes.
  */
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 4;
 
 /** Where previews are addressed from in the browser. */
 const THEME_BASE = "/demo/themes";
@@ -137,24 +143,17 @@ async function main() {
       files: files.map((file) => file.code),
       previewData: component.previewData,
       exports: component.exports,
-      arrangements: component.arrangements ?? null,
       themeHint: component.themeHint ?? null,
+      axis: variantAxis(component),
+      arrangements: component.arrangements ?? null,
       framework,
     });
     const cached = await readCache(key);
-    // One preview per arrangement, the default at the component's own URL so a
-    // link to it shows what `<Component />` with no prop gives. A component
-    // without arrangements is the same loop run once with no prop.
-    const arrangements = component.arrangements ?? [];
-    const placements = arrangements.length > 0
-      ? arrangements.map((arrangement, index) => ({
-        arrangement,
-        props: { arrangement: arrangement.id },
-        file: index === 0 ? `${component.id}.html` : `${component.id}--${arrangement.id}.html`,
-      }))
-      : [{ arrangement: undefined, props: {}, file: `${component.id}.html` }];
-    let pages = cached?.pages;
+    let page = cached?.page;
     let nodes = cached?.nodes;
+    let variants = cached?.variants;
+    let arranged = cached?.arranged;
+    const arrangements = component.arrangements ?? [];
 
     if (!cached) {
       const module = await loadComponent(component, registryRoot());
@@ -172,37 +171,59 @@ async function main() {
       // Components drawn against a theme are previewed in it; the rest get the
       // default, which is what a project has before it chooses one.
       const style = themeById(component.themeHint ?? "clean-minimal").style;
-      pages = [];
 
-      for (const placement of placements) {
+      const render = async (data, props = {}) => {
         // Placeholder mode, so a generated node shows what an author sees rather
         // than requiring an endpoint to build the docs.
         const document = await buildDocument(
-          wrap(component.id, component.title, exported, placement.props),
-          component.previewData,
+          wrap(component.id, component.title, exported, props),
+          data,
           { dynamicMode: "placeholder" },
         );
 
-        // The resolved nodes listed on the page are the default's.
-        nodes ??= document.nodes;
-        pages.push(
-          await renderDocxPage({ ...document, style }, {
-            title: placement.arrangement
-              ? `${component.title} · ${placement.arrangement.title}`
-              : component.title,
+        return {
+          nodes: document.nodes,
+          page: await renderDocxPage({ ...document, style }, {
+            title: component.title,
             style: NODE_ONLY_STYLE,
           }),
-        );
+        };
+      };
+
+      ({ page, nodes } = await render(component.previewData));
+      variants = await renderVariants(component, render, { page, nodes });
+
+      // Every arrangement after the default, against the preview data and
+      // against each value, so switching the value switches every arrangement.
+      arranged = {};
+      for (const arrangement of arrangements.slice(1)) {
+        const props = { arrangement: arrangement.id };
+        arranged[previewFile(component.id, undefined, arrangement.id)] =
+          (await render(component.previewData, props)).page;
+        for (const variant of variants?.values ?? []) {
+          arranged[previewFile(component.id, variant.value, arrangement.id)] =
+            (await render(variant.previewData, props)).page;
+        }
       }
 
-      await writeCache(key, { pages, nodes });
+      await writeCache(key, { page, nodes, variants, arranged });
     } else {
       reused += 1;
     }
 
-    for (const [index, placement] of placements.entries()) {
-      await writeFile(resolve(COMPONENT_OUT, placement.file), pages[index], "utf8");
+    await writeFile(resolve(COMPONENT_OUT, `${component.id}.html`), page, "utf8");
+    for (const variant of variants?.values ?? []) {
+      await writeFile(resolve(COMPONENT_OUT, previewFile(component.id, variant.value)), variant.page, "utf8");
     }
+    for (const [file, arrangedPage] of Object.entries(arranged ?? {})) {
+      await writeFile(resolve(COMPONENT_OUT, file), arrangedPage, "utf8");
+    }
+    // The default is the page already written for the value, so it points there.
+    const arrangementsFor = (value) =>
+      arrangements.map((arrangement, index) => ({
+        ...arrangement,
+        previewUrl: posix.join(COMPONENT_BASE, previewFile(component.id, value, index === 0 ? undefined : arrangement.id)),
+      }));
 
     components.push({
       id: component.id,
@@ -221,14 +242,23 @@ async function main() {
       // engine or a renderer would be handed.
       resolved: nodes,
       previewUrl: posix.join(COMPONENT_BASE, `${component.id}.html`),
-      arrangements: arrangements.map((arrangement, index) => ({
-        ...arrangement,
-        previewUrl: posix.join(COMPONENT_BASE, placements[index].file),
-      })),
+      arrangements: arrangementsFor(undefined),
+      // Only where each page was written goes in the manifest, not the page.
+      variants: variants && {
+        path: variants.path,
+        selected: variants.selected,
+        values: variants.values.map(({ page: _page, ...variant }) => ({
+          ...variant,
+          previewUrl: posix.join(COMPONENT_BASE, previewFile(component.id, variant.value)),
+          arrangements: arrangementsFor(variant.value),
+        })),
+      },
     });
 
     console.log(
       `registry: component ${component.id.padEnd(16)} ${nodes.length} nodes` +
+        `${variants ? `, ${variants.values.length} ${variants.path} previews` : ""}` +
+        `${arrangements.length ? `, ${arrangements.length} arrangements` : ""}` +
         `${cached ? " (cached)" : ""}`,
     );
   }
@@ -282,6 +312,75 @@ async function documentTemplate() {
         children: components.map((component) => jsx(component, props)),
       }),
     );
+}
+
+/**
+ * The field a component's previews are worth flipping through, or null.
+ *
+ * The first data field typed as a union of two or more string literals — a
+ * treatment, a kind, a tone — whose value is set in the preview data. A
+ * component branches on a field like that, so one preview of one value hides
+ * most of what it can print. Read from the catalog's type rather than parsed
+ * out of the node's source: it is the same union the page already shows the
+ * reader, and it is a string here rather than a TypeScript AST.
+ */
+function variantAxis(component) {
+  for (const field of component.dataFields) {
+    const literals = field.type
+      .split(" | ")
+      .filter((member) => /^"[^"]*"$/.test(member))
+      .map((member) => member.slice(1, -1));
+    const current = readPath(component.previewData, field.path);
+
+    if (literals.length >= 2 && literals.includes(current)) {
+      return { path: field.path, values: literals, selected: current };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * The component once per value of its axis, the rest of the preview data
+ * unchanged. The value the preview data already holds reuses the render made
+ * for it rather than drawing it twice.
+ */
+async function renderVariants(component, render, base) {
+  const axis = variantAxis(component);
+  if (!axis) return null;
+
+  const values = [];
+
+  for (const value of axis.values) {
+    const previewData = structuredClone(component.previewData);
+    writePath(previewData, axis.path, value);
+
+    const { page, nodes } = value === axis.selected ? base : await render(previewData);
+    values.push({ value, previewData, resolved: nodes, page });
+  }
+
+  return { path: axis.path, selected: axis.selected, values };
+}
+
+/**
+ * Where one preview is written: the component, or one value of its axis, in
+ * the default arrangement or the one named. The values are slugs today, but a
+ * file name is no place to rely on it; the dot keeps an arrangement from ever
+ * reading as a value.
+ */
+function previewFile(id, value, arrangement) {
+  const base = value === undefined ? id : `${id}--${value.replace(/[^a-z0-9-]/gi, "_")}`;
+  return arrangement === undefined ? `${base}.html` : `${base}.${arrangement}.html`;
+}
+
+function readPath(data, path) {
+  return path.split(".").reduce((value, key) => value?.[key], data);
+}
+
+function writePath(data, path, value) {
+  const keys = path.split(".");
+  const parent = keys.slice(0, -1).reduce((object, key) => object[key], data);
+  parent[keys.at(-1)] = value;
 }
 
 /**

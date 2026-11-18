@@ -130,8 +130,25 @@ export interface ComponentPageEntry {
   resolved: ResolvedNode[];
   previewUrl: string;
   /**
+   * The component once per value of its first string-union field, or null
+   * when it has none. `selected` is the value `previewData` already holds.
+   */
+  variants: {
+    path: string;
+    selected: string;
+    values: {
+      value: string;
+      previewData: Record<string, unknown>;
+      resolved: ResolvedNode[];
+      previewUrl: string;
+      /** This value in each arrangement, as {@link ComponentPageEntry.arrangements}. */
+      arrangements: ComponentArrangementEntry[];
+    }[];
+  } | null;
+  /**
    * The placements its `arrangement` prop chooses between, the default first,
-   * each with its own preview. Empty for a component with only the one.
+   * each with its own preview of `previewData`. Empty for a component with
+   * only the one.
    */
   arrangements: ComponentArrangementEntry[];
 }
