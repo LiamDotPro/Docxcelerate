@@ -43,7 +43,8 @@ export interface RegistryDataField {
  * of a component's arrangements prints the same lines under the same
  * conditions. The component picks between them with `arrange()` from
  * `docxcelerate/template`, which treats the first as the default, the same
- * order these are listed in.
+ * order these are listed in. Each one is a file of its own, installed under
+ * `arrangements/<component id>/`.
  */
 export interface RegistryArrangement {
   /** The value the `arrangement` prop takes. */
@@ -109,11 +110,25 @@ export interface RegistryComponent {
  * sits in a `derivers/` folder in the registry too, so the node's
  * `../derivers/<id>.deriver.ts` import resolves the same before and after it is
  * copied.
+ *
+ * A component with arrangements keeps each one in its own file, laid out the
+ * same way and for the same reason: `arrangements/<id>/<name>.arrangement.tsx`,
+ * beside `arrangements/<id>/lines.ts`, the type of what the node hands every
+ * one of them. The node imports them from `../arrangements/<id>/`, so it reads
+ * as what it decides, and each file reads as where things sit.
  */
-function node(id: string, options: { deriver?: boolean } = {}): RegistryFile[] {
+function node(id: string, options: { deriver?: boolean; arrangements?: string[] } = {}): RegistryFile[] {
+  const arranged = (file: string) => ({
+    source: `components/arrangements/${id}/${file}`,
+    target: `arrangements/${id}/${file}`,
+  });
+
   return [
     { source: `components/${id}/${id}.node.tsx`, target: `nodes/${id}.node.tsx` },
     ...(options.deriver ? [{ source: `components/derivers/${id}.deriver.ts`, target: `derivers/${id}.deriver.ts` }] : []),
+    ...(options.arrangements
+      ? [arranged("lines.ts"), ...options.arrangements.map((name) => arranged(`${name}.arrangement.tsx`))]
+      : []),
   ];
 }
 
@@ -856,7 +871,7 @@ export const COMPONENTS: RegistryComponent[] = [
         summary: "Number, purchase order and VAT number on the left; the dates ranged right.",
       },
     ],
-    files: node("invoice-document-type", { deriver: true }),
+    files: node("invoice-document-type", { deriver: true, arrangements: ["stacked", "table", "split"] }),
     previewData: {
       invoice: {
         number: "SI-2026-11-004817/REV-2",

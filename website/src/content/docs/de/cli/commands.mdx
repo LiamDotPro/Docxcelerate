@@ -119,6 +119,12 @@ deshalb zum Nachtragen ausgegeben. Sie in `document.tsx` zu platzieren, bleibt
 ebenfalls Ihnen überlassen, aus demselben Grund, aus dem der Node-Generator das
 nicht anfasst.
 
+Eine Komponente mit [Anordnungen](/de/docs/essentials/arrangements/) bringt
+außerdem eine Datei pro Anordnung mit, unter `arrangements/<name>/`, neben der
+`lines.ts`, die typisiert, was ihr Node ihnen übergibt. `dxcl show` listet sie
+auf, und die Hinweise nach der Installation nennen die Werte, die `arrangement`
+annimmt.
+
 **Ein Theme** wird als `document-style.ts` des Projekts geschrieben, das
 `document.project.ts` ohnehin durchreicht — die nächste Vorschau ist also
 themed. Die Datei importiert das Theme und spreizt es, sodass das Überschreiben

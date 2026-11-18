@@ -1,0 +1,145 @@
+---
+title: Компоновки
+description: Расставить одни и те же строки по-разному — столбиком, таблицей, слева и справа — не трогая того, что их определяет.
+group: Essentials
+order: 5
+---
+
+Что компонент печатает и куда он это ставит — два разных решения. Первое
+зависит от данных и принимается заново для каждого документа. Второе ваше, и
+принимается один раз там, где вы используете компонент. **Компоновка** держит
+их порознь: компонент, у которого их несколько, принимает проп `arrangement`, и
+каждое значение расставляет те же строки по-своему.
+
+## Как выбрать
+
+```tsx
+<InvoiceDocumentType />                       // stacked, the default
+<InvoiceDocumentType arrangement="table" />   // labels in a column, values beside them
+<InvoiceDocumentType arrangement="split" />   // identifiers left, dates ranged right
+```
+
+Каждая компоновка печатает одни и те же строки при одних и тех же условиях.
+Проформа сообщает, что это не счёт-фактура по НДС, во всех трёх, а дата
+поставки, совпадающая с датой выставления, опускается во всех трёх. Меняется
+только то, где стоят строки.
+
+Без пропа берётся первая компоновка. Имя, которого у компонента нет, прерывает
+сборку и перечисляет имена, которые есть, — опечатка никогда молча не напечатает
+компоновку по умолчанию.
+
+`dxcl show` перечисляет, что предлагает компонент из реестра, а на его странице
+в [реестре](/ru/registry/) есть превью каждой компоновки:
+
+```sh
+dxcl show invoice-document-type
+```
+
+## Как устроен компонент
+
+Компонент с компоновками устанавливается как один узел и по файлу на каждую
+компоновку:
+
+```
+nodes/invoice-document-type.node.tsx
+derivers/invoice-document-type.deriver.ts
+arrangements/invoice-document-type/lines.ts
+arrangements/invoice-document-type/stacked.arrangement.tsx
+arrangements/invoice-document-type/table.arrangement.tsx
+arrangements/invoice-document-type/split.arrangement.tsx
+```
+
+Узел решает каждую строку. `lines.ts` — тип того, что он передаёт каждой
+компоновке, а каждый файл компоновки только расставляет эти строки. Узел
+импортирует их в начале файла, поэтому он читается как то, что он решает, а
+каждая компоновка — как то, где что стоит:
+
+```tsx
+import { arrange, Section, useDeriver, useState } from "docxcelerate/template";
+import type { InvoiceDocumentTypeLines } from "../arrangements/invoice-document-type/lines.ts";
+import { split } from "../arrangements/invoice-document-type/split.arrangement.tsx";
+import { stacked } from "../arrangements/invoice-document-type/stacked.arrangement.tsx";
+import { table } from "../arrangements/invoice-document-type/table.arrangement.tsx";
+
+export const InvoiceDocumentType: Section<{ arrangement?: "stacked" | "table" | "split" }> = async (
+  { arrangement },
+) => {
+  // ...useState and useDeriver, as before...
+  const lines: InvoiceDocumentTypeLines = { number: invoice.number, supplyLine: type.supplyLine /* ... */ };
+
+  return (
+    <Section id="invoice-type" title={type.heading}>
+      {arrange(arrangement, {
+        stacked: () => stacked(lines),
+        table: () => table(lines),
+        split: () => split(lines),
+      })}
+    </Section>
+  );
+};
+```
+
+Компоновка — это функция от строк к тому, что она выдаёт:
+
+```tsx
+import { Cell, Row, Table, type Yield } from "docxcelerate/template";
+import type { InvoiceDocumentTypeLines } from "./lines.ts";
+
+export const table = (lines: InvoiceDocumentTypeLines): Yield => (
+  <Table id="invoice-type-details" columns={[{ width: 45 }, { width: "auto" }]}>
+    <Row id="invoice-type-number">
+      <Cell>Invoice number</Cell>
+      <Cell>{lines.number}</Cell>
+    </Row>
+    {lines.purchaseOrder && (
+      <Row id="invoice-type-purchase-order">
+        <Cell>Purchase order</Cell>
+        <Cell>{lines.purchaseOrder}</Cell>
+      </Row>
+    )}
+  </Table>
+);
+```
+
+## Своя компоновка
+
+Установленный компонент — ваш файл, так что четвёртая компоновка — это две
+правки: написать `arrangements/invoice-document-type/strip.arrangement.tsx`,
+затем импортировать её в узле и добавить к именам, которые получает `arrange`,
+и к типу пропа. Больше никому знать об этом не нужно.
+
+Для собственного компонента всё так же: тип строк, по файлу на компоновку и
+выбор через `arrange`.
+
+## Правила
+
+**Выбирайте через `arrange`, а не сравнением.** Запись
+`arrangement === "table" ? … : …` выглядит равнозначной, но это не так. При
+публикации компилятор превращает каждое сравнение в решение, которое движок
+принимает для каждого документа, — даже сравнение двух фиксированных строк, —
+так что каждая компоновка ушла бы ветвью и засчитывалась бы в
+[лимит ветвей](/ru/docs/essentials/templates/#branches-multiply). `arrange`
+вместо этого ищет имя, и собирается только запрошенная компоновка.
+
+**Компоновка расставляет, узел решает.** Всё, что зависит от данных, —
+заголовок, отформатированная дата, печатается ли строка вообще — вычисляется в
+узле (или его деривере) и передаётся в строках. Компоновка, которая решала бы
+что-то сама, печатала бы разное в разных местах, а именно этого компоновки
+обещают не делать.
+
+**Проверяйте строку в JSX.** Пишите `{lines.supplyLine && <Paragraph … />}`
+внутри компоновки, а не в переменной над ней. Внутри JSX проверка компилируется
+в условие, которое движок решает для каждого документа. Вне JSX при публикации
+подставное значение всегда истинно, и строка напечаталась бы для каждого
+получателя.
+
+**Сохраняйте id.** Строка сохраняет свой id в каждой компоновке, как
+`invoice-type-number` выше. Собирается только одна компоновка, поэтому id не
+сталкиваются, и всё, что обращается к узлу по id, находит его, какая бы
+компоновка ни была выбрана.
+
+## Что дальше
+
+- [Шаблоны](/ru/docs/essentials/templates/) — условия, циклы и публикация
+- [Как писать узлы](/ru/docs/writing-nodes/) — модель компонентов, по файлу на узел
+- [Реестр](/ru/registry/) — компоненты для установки, с превью каждой компоновки
