@@ -907,6 +907,52 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "invoice-billing-periods",
+    title: "Invoice billing periods",
+    summary: "The periods a subscription invoice bills for, in advance and in arrears.",
+    detail:
+      "Works out the periods an invoice states from the billing anchor and " +
+      "interval. Month-end anchors are clamped without being forgotten, so an " +
+      "anchor of the 31st bills on 31 Jan, 28 Feb and 31 Mar, and 29 Feb on an " +
+      "annual plan falls on 28 Feb in a common year. End dates are inclusive, " +
+      "the EN 16931 convention. Licensed items are billed in advance for the " +
+      "coming period and metered items in arrears for the previous one, so " +
+      "one invoice can state two periods; the header period then runs from " +
+      "the earliest start to the latest end, so it contains every line " +
+      "period, as Peppol requires. A first period that starts off the anchor " +
+      "is labelled a part period. Dates are calendar dates in the seller's " +
+      "billing time zone, never UTC. All of it is one deriver.",
+    category: "Opening",
+    tags: ["invoice", "subscription", "billing", "dates", "deriver", "section"],
+    exports: ["InvoiceBillingPeriods"],
+    dataFields: [
+      { path: "billing.anchor", type: "string", summary: "The original anchor date, YYYY-MM-DD or an instant with an offset. Required; its day is kept for every period." },
+      { path: "billing.interval", type: '"week" | "month" | "year"', summary: "The unit the cycle repeats in. Anything else fails the document." },
+      { path: "billing.intervalCount", type: "number | undefined", summary: "Units per period; 3 months is quarterly. Missing means 1." },
+      { path: "billing.invoiceDate", type: "string", summary: "When the invoice is issued, read in the billing time zone. Required." },
+      { path: "billing.timeZone", type: "string", summary: "The seller's IANA billing time zone. Required." },
+      { path: "billing.signupDate", type: "string | undefined", summary: "When the subscription started. Inside a billed period, it starts a part period." },
+      { path: "billing.hasAdvanceItems", type: "boolean", summary: "Licensed items, billed in advance for the coming period. Missing means false." },
+      { path: "billing.hasArrearsItems", type: "boolean", summary: "Metered items, billed in arrears for the previous period. Missing means false." },
+    ],
+    files: node("invoice-billing-periods", { deriver: true }),
+    previewData: {
+      billing: {
+        anchor: "2025-12-31",
+        interval: "month",
+        intervalCount: 1,
+        invoiceDate: "2027-01-01T02:30:00Z",
+        timeZone: "America/Argentina/Buenos_Aires",
+        signupDate: "2025-12-14",
+        hasAdvanceItems: true,
+        hasArrearsItems: true,
+      },
+    },
+    requires: [],
+  },
+
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
