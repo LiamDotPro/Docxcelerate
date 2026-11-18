@@ -155,6 +155,18 @@ test("a write-down", () => {
   }
 });
 
+test("a write-down is limited by the fees after reductions", () => {
+  const rates = { rates: [{ from: "2026-01-01", rate: 500 }], approvedRate: 450 };
+  // Rows total 1,000.00 and the reduction takes 100.00, so 950 is under the rows but over the fees.
+  throwsOn({ timekeepers: [keeper(rates)], entries: [at(120)], billing: { writeDown: { amount: 950, reason: "x" } } }, "time.billing.writeDown");
+  assertEquals(mk([at(120)], { billing: { writeDown: { amount: 900, reason: "x" } } }, rates).subtotal, "0.00");
+});
+
+test("rows in a rate period go work, travel, no-charge whatever the entry order", () => {
+  const o = mk([at(60, { kind: "no-charge" }), at(60, { kind: "travel" }), at(60)]);
+  assertEquals(o.rows.map((r) => r.label.includes("no charge") ? 2 : r.label.includes("travel") ? 1 : 0), [0, 1, 2]);
+});
+
 test("no entries", () => {
   const o = mk([]);
   assertEquals([o.hasRows, o.rows, o.adjustments, o.basis, o.subtotal], [false, [], [], "", "0.00"]);
