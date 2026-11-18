@@ -12,11 +12,13 @@ import type { DocumentModel, DocumentStyle } from "docxcelerate";
 import {
   Cell,
   Document,
+  Graph,
   Image,
   PageBreak,
   PageNumber,
   Paragraph,
   Row,
+  Shape,
   Table,
   template,
   createPublishData,
@@ -367,6 +369,56 @@ test("a bleeding table reaches the paper's edge, not the margin", async () => {
   // the whole 210mm sheet rather than the 178mm text column.
   assertStringIncludes(xml, '<w:tblInd w:type="dxa" w:w="-907"/>');
   assertStringIncludes(xml, '<w:tblW w:type="dxa" w:w="11906"/>');
+});
+
+const landscape: DocumentStyle = { ...style, page: { ...style.page, orientation: "landscape" } };
+
+test("landscape tables fill the turned page, not the upright one", async () => {
+  const table = (variant?: string) =>
+    build(
+      <Document id="d" title="D">
+        <Table id="t" variant={variant} columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell id="c">Wide.</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ).then((doc) => documentXml({ ...doc, style: landscape }));
+
+  // 297mm less two 16mm margins.
+  assertStringIncludes(await table(), '<w:tblW w:type="dxa" w:w="15024"/>');
+
+  const bleed = await table("band");
+  assertStringIncludes(bleed, '<w:tblInd w:type="dxa" w:w="-907"/>');
+  assertStringIncludes(bleed, '<w:tblW w:type="dxa" w:w="16838"/>');
+});
+
+test("landscape measures, shapes and charts take the wider column", async () => {
+  const measured = await documentXml({
+    ...(await build(
+      <Document id="d" title="D">
+        <Paragraph id="a" variant="measured">Held to a measure.</Paragraph>
+      </Document>,
+    )),
+    style: landscape,
+  });
+
+  // 265mm column held to 100mm leaves 165mm on the right.
+  assertStringIncludes(measured, 'w:right="9354"');
+  assertEquals(/<w:ind[^>]*w:left/.test(measured), false);
+
+  const drawn = await documentXml({
+    ...(await build(
+      <Document id="d" title="D">
+        <Shape id="s" height={40}>On it</Shape>
+        <Graph id="g" data={{ categories: ["a"], series: [{ label: "n", values: [1] }] }} />
+      </Document>,
+    )),
+    style: landscape,
+  });
+
+  assertStringIncludes(drawn, "width:751.18pt");
+  assertStringIncludes(drawn, 'cx="9540000"');
 });
 
 test("a table that does not bleed still stands on the text column", async () => {

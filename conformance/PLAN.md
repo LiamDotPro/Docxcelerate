@@ -189,7 +189,7 @@ case is the first case to write for that row.
 
 | Feature | State | Evidence | Seed case |
 | --- | --- | --- | --- |
-| Page size A4 / Letter | yes | `DocumentPageStyle.size` | `page/size-a4`, `page/size-letter` |
+| Page size A4, A5, A3, Letter, Legal, custom | yes | `DocumentPageStyle.size` | `page/size-a4`, `page/size-letter` |
 | Orientation | yes | `DocumentPageStyle.orientation` | `page/orientation-landscape` |
 | Margins (mm, four sides) | yes | `DocumentPageMargins` | `page/margins` |
 | Multiple sections | no — one `sectPr` for the whole document | `createDocxDocument` builds one section | `page/second-section` |

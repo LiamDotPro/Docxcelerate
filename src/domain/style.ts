@@ -11,8 +11,25 @@
 
 export type DocumentStylePreset = string;
 
-/** The paper a document is laid out for. */
-export type DocumentPageSize = "A4" | "LETTER";
+/**
+ * The paper a document is laid out for: a named size, or the sheet's own
+ * width and height in millimetres, given upright.
+ *
+ * `orientation` turns either kind, so a landscape A5 is `"A5"` turned rather
+ * than a 210 × 148 custom sheet.
+ */
+export type DocumentPageSize =
+  | "A3"
+  | "A4"
+  | "A5"
+  | "LETTER"
+  | "LEGAL"
+  | {
+    /** The sheet's width, upright, in millimetres. */
+    widthMm: number;
+    /** The sheet's height, upright, in millimetres. */
+    heightMm: number;
+  };
 
 /** Which way round the page is turned. */
 export type DocumentPageOrientation = "portrait" | "landscape";
