@@ -966,6 +966,54 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+
+  {
+    kind: "component",
+    id: "india-gst-split",
+    title: "India GST split",
+    summary: "CGST and SGST, or IGST, decided from the place of supply against the GSTIN's state code, never the billing address.",
+    detail:
+      "Picks the tax head from the place of supply against the state code in the " +
+      "supplier's GSTIN, never from the billing address or a typed state name: the " +
+      "same state gets CGST plus SGST (UTGST in a Union Territory without a " +
+      "legislature) at half the rate each, a different state gets IGST at the full " +
+      "rate. Supplies to an SEZ and exports are always inter-state; under a letter " +
+      "of undertaking they carry IGST at nil and the Rule 46 mention. Each half is " +
+      "rounded to the paisa on its own, so an odd paisa can make CGST plus SGST " +
+      "differ from IGST on the same base, which is correct. Prints place of supply " +
+      "as 'State (code)', the mandatory 'Reverse charge: Yes/No', an HSN/SAC-wise " +
+      "summary, the round-off to the nearest rupee, and the total in words in lakh " +
+      "and crore. Under reverse charge the tax is shown but not added to the amount " +
+      "payable. All of it is worked out by a deriver that ships with it.",
+    category: "Body",
+    tags: ["tax", "gst", "india", "invoice", "table", "branching", "deriver"],
+    exports: ["IndiaGstSplit"],
+    dataFields: [
+      { path: "seller.gstin", type: "string", summary: "The supplier's GSTIN. Its first two digits are the supplier's state, the only one believed." },
+      { path: "seller.stateCode", type: "string | undefined", summary: "Optional cross-check. Differing from the GSTIN's prefix throws." },
+      { path: "placeOfSupply.stateCode", type: "string", summary: "Two-digit GST state code, or 96 for an export. Decides the tax head with the GSTIN prefix." },
+      { path: "placeOfSupply.stateName", type: "string", summary: "Printed as 'Name (code)'. Never used to decide anything." },
+      { path: "customer.isSez", type: "boolean | undefined", summary: "A supply to an SEZ unit or developer, always inter-state. Missing means no." },
+      { path: "supply.exportUnderLut", type: "boolean | undefined", summary: "An export or SEZ supply under a letter of undertaking: IGST at nil with the Rule 46 mention." },
+      { path: "supply.reverseCharge", type: "boolean", summary: "Printed as 'Reverse charge: Yes/No'. Required. Yes leaves the tax out of the amount payable." },
+      { path: "lines", type: "Array<{ hsnSac: string; taxableMinor: number; rate: number }>", summary: "Taxable value in paise and the full GST rate per line, summed per HSN/SAC and rate." },
+    ],
+    files: node("india-gst-split", { deriver: true }),
+    previewData: {
+      seller: { gstin: "26AAACR5055K1Z5", stateCode: "26" },
+      placeOfSupply: { stateCode: "26", stateName: "Dadra and Nagar Haveli and Daman and Diu" },
+      customer: { isSez: false },
+      supply: { exportUnderLut: false, reverseCharge: false },
+      lines: [
+        { hsnSac: "84714190", taxableMinor: 12345678950, rate: 18 },
+        { hsnSac: "998314", taxableMinor: 4567890125, rate: 18 },
+        { hsnSac: "84714190", taxableMinor: 9999999, rate: 18 },
+        { hsnSac: "30049099", taxableMinor: 234567891, rate: 5 },
+        { hsnSac: "71023910", taxableMinor: 9876543, rate: 0.25 },
+      ],
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
