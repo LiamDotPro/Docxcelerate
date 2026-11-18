@@ -8,16 +8,18 @@ import { transformDocumentSource } from "docxcelerate/transform";
 /**
  * Loading a registry component into a test, the way a project's build would.
  *
- * The registry sits outside this suite's `rootDir`, and `tsc` would not apply
- * the document transform a publish build needs anyway. So the whole of
- * `registry/` is compiled once, transform included, into `dist-tests/registry/`
- * with its layout kept, which leaves the node's `../derivers/` import pointing
- * where it should. It is written there rather than beside the sources because
+ * `tsc` does not apply the document transform a publish build needs, so the
+ * registry files it emits for the tests that import their types are not the
+ * ones a project would run. The whole of `registry/` is compiled again here,
+ * transform included, over the top of them in `dist-tests/registry/`, with its
+ * layout kept so the node's `../derivers/` import points where it should. It
+ * is written there rather than beside the sources because
  * `npm run clean` removes `dist-tests/`, and anything left in `registry/` would
  * ship in the npm tarball and stop `deno publish` on an unclean tree.
  *
- * The types come from importing the source with `import type`, which `npm run
- * typecheck` checks: what this hands back is the same module, compiled.
+ * Type the result with `typeof import("../registry/…")` on the same file: what
+ * this hands back is that module, compiled, and the suite is rooted at the
+ * repository so the import resolves.
  */
 
 const OUT = join(process.cwd(), "dist-tests", "registry");

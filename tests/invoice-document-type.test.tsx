@@ -11,17 +11,13 @@ import type { DocumentNode, ParagraphNode, RuntimeState } from "docxcelerate";
 import { createPublishData, Document, template } from "docxcelerate/template";
 import { assertEquals, assertRejects } from "./assert.ts";
 import { loadRegistryModule } from "./registry_support.ts";
-import type { DeriverFunction } from "docxcelerate/document";
 
-// Typed here rather than with `import type` from registry/: tsconfig.test.json
-// has `rootDir: tests`, and any import of a registry source file fails the
-// emit with TS6059.
-const { default: mod } = await loadRegistryModule<{ default: { run: DeriverFunction } }>(
-  "components/derivers/invoice-document-type.deriver.ts",
-);
-const { InvoiceDocumentType } = await loadRegistryModule<{ InvoiceDocumentType: () => never }>(
-  "components/invoice-document-type/invoice-document-type.node.tsx",
-);
+const { default: mod } = await loadRegistryModule<
+  typeof import("../registry/components/derivers/invoice-document-type.deriver.ts")
+>("components/derivers/invoice-document-type.deriver.ts");
+const { InvoiceDocumentType } = await loadRegistryModule<
+  typeof import("../registry/components/invoice-document-type/invoice-document-type.node.tsx")
+>("components/invoice-document-type/invoice-document-type.node.tsx");
 // Run through a bundle, so the test proves the function survives being shipped
 // as source text, which is how a deriver fails.
 const registry = await createDeriverRegistryFromBundle(

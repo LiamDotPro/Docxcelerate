@@ -8,7 +8,7 @@
     "jsxImportSource": "docxcelerate/template",
     "strict": true,
     "outDir": "dist-tests",
-    "rootDir": "tests",
+    "rootDir": ".",
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
     "verbatimModuleSyntax": true,

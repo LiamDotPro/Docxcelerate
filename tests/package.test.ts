@@ -18,7 +18,8 @@ import { version } from "docxcelerate";
  * published rather than the sources it came from.
  */
 
-const root = new URL("../", import.meta.url);
+// Compiled to dist-tests/tests/, two levels below the package root.
+const root = new URL("../../", import.meta.url);
 
 async function readJson(name: string): Promise<Record<string, unknown>> {
   return JSON.parse(await readFile(new URL(name, root), "utf8"));
