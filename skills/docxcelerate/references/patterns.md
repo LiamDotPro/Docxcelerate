@@ -187,6 +187,37 @@ a field it recounts and the preview counts its own pages. Reach for `<PageBreak>
 only when the break is part of what the document *is*; nudging a paragraph off
 the bottom of a page is the margins' job.
 
+## Stress a word, or link a phrase
+
+`<Text>` goes among a paragraph's words. It is not a node, so it takes no `id`:
+
+```tsx
+<Paragraph id="terms">
+  Payment is due within <Text bold>{state.termDays} days</Text>. You can{" "}
+  <Text href={state.payUrl}>pay online</Text>.
+</Paragraph>
+```
+
+`bold`, `italic`, `underline`, `strike` and `href`; one inside another takes
+both. An interpolated value inside it publishes as a token and is settled per
+document like any other. `href` must be `https:`, `http:`, `mailto:` or `tel:`
+— anything else prints as plain words. There is no colour or size: a link is
+drawn in the theme's accent, and a whole paragraph is restyled with `variant`.
+
+The same works in a cell: `<Cell>Total <Text bold>due</Text></Cell>`.
+
+## Several lines in one paragraph
+
+A line end in the text is a line break, not a new paragraph — one node, one id,
+and none of the space a paragraph leaves under itself:
+
+```tsx
+<Paragraph id="address">{`${state.line1}\n${state.line2}\n${state.postcode}`}</Paragraph>
+```
+
+It has to be a string expression: JSX collapses a line end written between
+tags into a space. Do not write three `<Paragraph>`s for one address.
+
 ## Interpolate an engine value into prose
 
 Braces are JSX expressions, so a literal token is written as a string:

@@ -213,6 +213,27 @@ function harnessHtml(bodyFont) {
       return lines;
     }
 
+    // Every run a paragraph draws, for the cases about a word rather than a
+    // paragraph. docx-preview gives each run a <span> and a link an <a> around
+    // its runs; a span with no text of its own is a tab or a picture's frame.
+    function runsOf(el) {
+      return [].slice.call(el.querySelectorAll("span")).filter(function (span) {
+        return [].some.call(span.childNodes, function (node) {
+          return node.nodeType === 3 && node.nodeValue !== "";
+        });
+      }).map(function (span) {
+        var cs = view.getComputedStyle(span);
+        var link = span.closest("a");
+        return {
+          text: span.textContent,
+          fontWeight: cs.fontWeight,
+          fontStyle: cs.fontStyle,
+          textDecoration: cs.textDecorationLine,
+          href: link === null ? null : link.getAttribute("href")
+        };
+      });
+    }
+
     var paragraphs = [];
     var articles = boxes.map(function (b) {
       return b.el.querySelector(":scope > article") || b.el;
@@ -272,6 +293,7 @@ function harnessHtml(bodyFont) {
           color: rcs.color,
           letterSpacing: rcs.letterSpacing === "normal" ? 0 : r2(parseFloat(rcs.letterSpacing)),
           textTransform: rcs.textTransform,
+          runs: runsOf(el),
           textIndent: r2(parseFloat(cs.textIndent) || 0),
           computedLineHeight: cs.lineHeight === "normal" ? null : r2(parseFloat(cs.lineHeight)),
           marginTop: r2(parseFloat(cs.marginTop) || 0),
@@ -794,6 +816,20 @@ export function previewView(measure) {
     para: find,
     paraAt: (index) => measure.paragraphs[index] ?? missingParagraph(`#${index}`),
 
+    /**
+     * The run that draws this anchor, in the body's own paragraphs.
+     *
+     * A link is read off the run rather than looked up on its own: `href` is
+     * the address of the `<a>` the run stands in, or null when it stands in
+     * none, so "these words are a link" is one lookup and not two.
+     */
+    run(anchor) {
+      const wanted = anchor.toLowerCase();
+      return measure.paragraphs.flatMap((p) => p.runs ?? [])
+        .find((run) => run.text.toLowerCase().includes(wanted)) ??
+        { missing: true, anchor, text: "", fontWeight: null, fontStyle: null, textDecoration: null, href: null };
+    },
+
     /** Whether the named face resolved rather than falling back silently. */
     fontResolved(name) {
       const probe = measure.fontProbe;
@@ -1111,6 +1147,7 @@ function missingParagraph(anchor) {
     height: null,
     lineCount: 0,
     lines: [],
+    runs: [],
     textAlign: null,
     fontFamily: null,
     fontSize: null,

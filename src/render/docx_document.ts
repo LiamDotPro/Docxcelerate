@@ -8,6 +8,7 @@ import {
   AlignmentType,
   BorderStyle,
   Document,
+  ExternalHyperlink,
   Footer,
   Header,
   HeadingLevel,
@@ -42,6 +43,7 @@ import type {
   ImageNode,
   PageNumberNode,
   ParagraphNode,
+  ParagraphRun,
   ShapeNode,
   TableAlign,
   TableCellNode,
@@ -607,47 +609,121 @@ function blockRun(
   };
 }
 
+/** What a paragraph hands Word to set in a line: words, pictures, and words that link. */
+type InlineRun = TextRun | ImageRun | ExternalHyperlink;
+
 /**
  * The runs one paragraph prints: its words, with any pictures set among them.
  *
- * The text is cut at each picture's offset so the two arrive in the order they
- * were written. A paragraph with no pictures is the single text run it always
- * was — including the empty one, which Word needs to keep the line.
+ * The words are cut at each picture's offset so the two arrive in the order
+ * they were written, whichever run the offset falls in. A paragraph with no
+ * pictures and one setting is the single text run it always was — including
+ * the empty one, which Word needs to keep the line.
  */
 function paragraphRuns(
   node: ParagraphNode,
   block: DocumentBlockStyle | undefined,
   style: DocumentStyle,
-): (TextRun | ImageRun)[] {
-  const text = node.text ?? "";
+): InlineRun[] {
+  const base = blockRun(block, style);
   const inline = [...(node.inlineImages ?? [])].sort((a, b) => a.at - b.at);
+  const runs: InlineRun[] = [];
+  // How far into the text the runs so far reach, and the next picture due.
+  let offset = 0;
+  let next = 0;
 
-  if (inline.length === 0) {
-    return [textRun(text, blockRun(block, style))];
-  }
+  for (const run of runsOf(node)) {
+    let rest = run.text;
 
-  const runs: (TextRun | ImageRun)[] = [];
-  let cut = 0;
-
-  for (const { at, image } of inline) {
-    const before = text.slice(cut, Math.max(cut, Math.min(at, text.length)));
-    if (before.length > 0) {
-      runs.push(textRun(before, blockRun(block, style)));
+    while (next < inline.length && inline[next].at <= offset + rest.length) {
+      const cut = Math.max(0, inline[next].at - offset);
+      if (cut > 0) {
+        runs.push(markedRun({ ...run, text: rest.slice(0, cut) }, base, style));
+      }
+      runs.push(imageRunOf(inline[next].image));
+      rest = rest.slice(cut);
+      offset += cut;
+      next += 1;
     }
-    runs.push(imageRunOf(image));
-    cut = Math.max(cut, Math.min(at, text.length));
+
+    if (rest.length > 0) {
+      runs.push(markedRun({ ...run, text: rest }, base, style));
+    }
+    offset += rest.length;
   }
 
-  const rest = text.slice(cut);
-  if (rest.length > 0 || runs.length === 0) {
-    runs.push(textRun(rest, blockRun(block, style)));
-  }
+  // A picture placed past the end of the words follows them.
+  runs.push(...inline.slice(next).map((entry) => imageRunOf(entry.image)));
 
-  return runs;
+  return runs.length === 0 ? [textRun("", base)] : runs;
 }
 
 /**
- * One run of text, with any tabs in it written as tabs.
+ * A paragraph's words as the runs they are set in.
+ *
+ * The node's runs are taken only while they still spell its text. Whatever
+ * rewrote `text` without them — an engine settling tokens with a resolver
+ * older than runs — has left them saying something the paragraph no longer
+ * does, and the right words set plain beat the stale ones set in bold.
+ */
+function runsOf(node: ParagraphNode): ParagraphRun[] {
+  const text = node.text ?? "";
+
+  return node.runs !== undefined && node.runs.map((run) => run.text).join("") === text
+    ? node.runs
+    : [{ text }];
+}
+
+/**
+ * One run of the node's, as Word is handed it.
+ *
+ * The run's own settings go over the block's, so a word can be lightened in a
+ * bold block as well as stressed in a plain one. A link is drawn in the
+ * theme's accent with a rule beneath: what a link looks like is the theme's
+ * to say, and a link nobody can tell from the words around it is not one.
+ */
+function markedRun(
+  run: ParagraphRun,
+  base: Record<string, unknown>,
+  style: DocumentStyle,
+): TextRun | ExternalHyperlink {
+  const props = {
+    ...base,
+    ...(run.bold === undefined ? {} : { bold: run.bold }),
+    ...(run.italic === undefined ? {} : { italics: run.italic }),
+    ...(run.underline ? { underline: {} } : {}),
+    ...(run.strike === undefined ? {} : { strike: run.strike }),
+  };
+  const link = linkOf(run.href);
+
+  return link === undefined ? textRun(run.text, props) : new ExternalHyperlink({
+    link,
+    children: [
+      textRun(run.text, {
+        ...props,
+        // A style with no palette leaves the link in the ink around it.
+        ...(style.palette === undefined ? {} : { color: style.palette.accent }),
+        underline: {},
+      }),
+    ],
+  });
+}
+
+/**
+ * The address a run links to, when it is one a reader can safely be sent to.
+ *
+ * A run's `href` may have come out of a request, and the preview draws the
+ * result as a live `<a>` — so a `javascript:` address is not written, and nor
+ * is a `{{token}}` nothing has settled yet. Both print as their words alone.
+ */
+function linkOf(href: string | undefined): string | undefined {
+  const address = href?.trim();
+
+  return address !== undefined && /^(https?:\/\/|mailto:|tel:)/i.test(address) ? address : undefined;
+}
+
+/**
+ * One run of text, with any tabs and line ends in it written as elements.
  *
  * A tab character left inside `<w:t>` is not a tab: it is whitespace, and what
  * a tab stop aligns to is the `<w:tab/>` element. Word is forgiving enough to
@@ -655,25 +731,30 @@ function paragraphRuns(
  * looks right in Word and collapses to a single space everywhere else,
  * including in the preview.
  *
- * So the text is cut at every tab and the element goes in between. A string
- * with no tab in it is the single run it always was.
+ * A line end is the same mistake seen from the other side. Left inside
+ * `<w:t>` it is whitespace too, and the preview — which sets every run
+ * `white-space: pre-wrap` — breaks the line there with nothing in the file
+ * saying to. `<w:br/>` is what says it, to both.
+ *
+ * So the text is cut at each and the element goes in between. A string with
+ * neither in it is the single run it always was.
  */
 function textRun(text: string, props: Record<string, unknown>): TextRun {
-  if (!text.includes("\t")) {
+  if (!/[\t\n]/.test(text)) {
     return new TextRun({ text, ...props });
   }
 
-  const pieces = text.split("\t");
-  const children: (string | Tab)[] = [];
+  const children: (string | Tab | ImportedXmlComponent)[] = [];
 
-  pieces.forEach((piece, index) => {
-    if (index > 0) {
+  for (const piece of text.split(/(\t|\r?\n)/)) {
+    if (piece === "\t") {
       children.push(new Tab());
-    }
-    if (piece.length > 0) {
+    } else if (piece.endsWith("\n")) {
+      children.push(new ImportedXmlComponent("w:br"));
+    } else if (piece.length > 0) {
       children.push(piece);
     }
-  });
+  }
 
   return new TextRun({ children, ...props });
 }
@@ -685,7 +766,7 @@ function textRun(text: string, props: Record<string, unknown>): TextRun {
  * the cell's own block to fold in first — so the pictures are placed around
  * that finished run rather than rebuilt from the node.
  */
-function withInlineImages(node: ParagraphNode, textRuns: TextRun[]): (TextRun | ImageRun)[] {
+function withInlineImages(node: ParagraphNode, textRuns: InlineRun[]): InlineRun[] {
   const inline = [...(node.inlineImages ?? [])].sort((a, b) => a.at - b.at);
   if (inline.length === 0) return textRuns;
 
@@ -1700,20 +1781,22 @@ function cellContent(
         // a muted note under a description is set tighter than the row it
         // sits in — and the cell's block decides it otherwise.
         spacing: { after: 0, ...blockLine(inner ?? block, style) },
-        children: withInlineImages(child, [
-          new TextRun({
-            text: child.text ?? "",
-            bold: run.bold ?? heading.bold,
-            color: run.color ?? heading.color,
-            size,
-            font: run.font,
-            allCaps: run.allCaps ?? heading.allCaps,
-            characterSpacing: run.characterSpacing ??
-              (heading.trackedEm === undefined
-                ? undefined
-                : trackingOf(heading.trackedEm, size, style)),
-          }),
-        ]),
+        children: withInlineImages(
+          child,
+          runsOf(child).map((words) =>
+            markedRun(words, {
+              bold: run.bold ?? heading.bold,
+              color: run.color ?? heading.color,
+              size,
+              font: run.font,
+              allCaps: run.allCaps ?? heading.allCaps,
+              characterSpacing: run.characterSpacing ??
+                (heading.trackedEm === undefined
+                  ? undefined
+                  : trackingOf(heading.trackedEm, size, style)),
+            }, style)
+          ),
+        ),
       }),
     ];
   });

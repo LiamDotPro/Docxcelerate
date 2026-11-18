@@ -269,6 +269,13 @@ function readParagraph(xml, index) {
       spacing: childNum(rPr, "w:spacing", "w:val"),
     },
 
+    /**
+     * Every run, in order. `run` above answers for a paragraph set in one
+     * style; a sentence with one bold word in it is three runs, and the fact a
+     * case wants is which words are in which.
+     */
+    runs: scanElements(xml, "w:r").map(readRun),
+
     /** Whether the paragraph holds a picture. */
     hasDrawing: xml.includes("<w:drawing"),
     /** Whether the paragraph holds a field — PAGE, NUMPAGES, TOC. */
@@ -279,6 +286,58 @@ function readParagraph(xml, index) {
     /** The paragraph's own XML, for the assertions no field anticipates. */
     xml,
   };
+}
+
+/** One run: the words it prints, and the marks it prints them in. */
+function readRun(xml) {
+  // Anchored to the run's first child, which is where OOXML puts its
+  // properties. A first match anywhere would let a text box drawn inside the
+  // run answer for the run that holds it.
+  const rPr = /^<w:r(?:\s[^>]*)?>\s*(<w:rPr>[\s\S]*?<\/w:rPr>)/.exec(xml)?.[1] ?? null;
+
+  return {
+    text: textOf(xml),
+    bold: toggle(rPr, "w:b"),
+    italics: toggle(rPr, "w:i"),
+    /** The rule's kind — `single`, `double` — or null for none. */
+    underline: childAttr(rPr, "w:u", "w:val"),
+    strike: toggle(rPr, "w:strike"),
+    hasBreak: xml.includes("<w:br"),
+  };
+}
+
+/**
+ * Every hyperlink in the body, followed through to where it points.
+ *
+ * The address is not in `document.xml`: the element names a relationship, and
+ * the relationship holds the target. `TargetMode="External"` is the half that
+ * matters most — without it Word reads the address as a part of the package,
+ * finds no such part, and refuses the file.
+ */
+function readLinks(zip, body) {
+  let relationships = "";
+  try {
+    relationships = partText(zip, "word/_rels/document.xml.rels");
+  } catch {
+    // No relationships part: every link below reads as pointing nowhere,
+    // which is the measurement.
+  }
+
+  const byId = new Map(
+    elements(relationships, "Relationship").map((entry) => [attr(entry, "Id"), entry]),
+  );
+
+  return elements(body, "w:hyperlink").map((link) => {
+    const relationship = byId.get(attr(link, "r:id")) ?? "";
+
+    return {
+      text: textOf(link),
+      target: attr(relationship, "Target"),
+      external: attr(relationship, "TargetMode") === "External",
+      /** A bookmark in this document, when the link points inside it. */
+      anchor: attr(link, "w:anchor"),
+    };
+  });
 }
 
 function numAttr(xml, name) {
@@ -627,6 +686,8 @@ export function measureOoxml(zip) {
     /** The body's tables, in order, each holding its own rows and cells. */
     tableCount: tables.length,
     tables,
+    /** Every hyperlink in the body, each with the address it resolves to. */
+    links: readLinks(zip, body),
     section: {
       widthTwips: pgSz === null ? null : numAttr(pgSz, "w:w"),
       heightTwips: pgSz === null ? null : numAttr(pgSz, "w:h"),
@@ -948,6 +1009,27 @@ export function ooxmlView(measure) {
     paras(anchor) {
       return measure.paragraphs.filter((p) => p.text.includes(anchor));
     },
+
+    /**
+     * The run that prints this anchor, in the body's own paragraphs.
+     *
+     * A sentence packed as one run answers for every anchor inside it, so a
+     * case asserts the run's `text` as well as its marks — "these two words
+     * are bold" is two facts, and the first is that they are a run at all.
+     */
+    run(anchor) {
+      const wanted = anchor.toLowerCase();
+      return measure.paragraphs.flatMap((p) => p.runs)
+        .find((run) => run.text.toLowerCase().includes(wanted)) ??
+        { missing: true, anchor, text: "", bold: null, italics: null, underline: null, strike: null, hasBreak: false };
+    },
+
+    /** The hyperlink whose words contain this anchor. */
+    link(anchor) {
+      const wanted = anchor.toLowerCase();
+      return measure.links.find((link) => link.text.toLowerCase().includes(wanted)) ??
+        { missing: true, text: "", target: null, external: null, anchor: null };
+    },
     /**
      * One of the body's tables, wrapped so a row and a cell are one step away.
      *
@@ -1153,6 +1235,7 @@ function missingParagraph(anchor) {
       caps: null,
       spacing: null,
     },
+    runs: [],
     hasDrawing: false,
     hasField: false,
     hasBreak: false,

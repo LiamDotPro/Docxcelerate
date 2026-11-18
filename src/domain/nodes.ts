@@ -214,6 +214,53 @@ export interface ParagraphNode extends BaseNode {
    * still reads all of them, in order.
    */
   inlineImages?: InlineImage[];
+  /**
+   * The same words as `text`, cut where the setting changes.
+   *
+   * Present only when some of the words are set differently from the rest — a
+   * term in bold, a phrase that links somewhere. `text` is still all of them,
+   * joined, so everything that reads a paragraph's words goes on reading one
+   * string.
+   *
+   * Each run carries its own words rather than a range over `text`, and that
+   * is the decision the field rests on. A published paragraph still has
+   * `{{tokens}}` in it, and whatever settles them changes its length: a range
+   * counted at build time would be pointing at different words by the time a
+   * document was written. A run's words are settled in place and joined again.
+   *
+   * A renderer honours the runs only while they still spell `text`. Something
+   * that rewrote the one without the other has made the runs stale, and stale
+   * words set in bold are worse than the right words set plain.
+   */
+  runs?: ParagraphRun[];
+}
+
+/**
+ * A stretch of a paragraph's words, and how it is set.
+ *
+ * What a run says is emphasis and destination, never appearance: there is no
+ * colour and no size here, for the reason there is none on a node. A linked
+ * phrase is drawn in the theme's accent because the theme says what a link
+ * looks like.
+ */
+export interface ParagraphRun {
+  /** The words. */
+  text: string;
+  /** Set heavier than the words around it — or, `false`, lighter than a bold block's. */
+  bold?: boolean;
+  /** Set in italics. */
+  italic?: boolean;
+  /** Set with a rule beneath. */
+  underline?: boolean;
+  /** Set struck through. */
+  strike?: boolean;
+  /**
+   * An address the words link to: `https:`, `http:`, `mailto:` or `tel:`.
+   *
+   * Anything else prints as the words alone. The address may come out of a
+   * request, and a preview draws a link as something a reader can click.
+   */
+  href?: string;
 }
 
 /** A picture set in a paragraph's line, and where along the text it sits. */

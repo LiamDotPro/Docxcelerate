@@ -56,6 +56,7 @@ interface PromptProps {
 | `Document` | `id` (required), `title` (required), `metadata?`, `header?`, `footer?`, `firstHeader?`, `firstFooter?`, `evenHeader?`, `evenFooter?`, `children?` |
 | `Section` | `title` (required), `children?` |
 | `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`) |
+| `Text` | `bold?`, `italic?`, `underline?`, `strike?`, `href?` (`https:`, `http:`, `mailto:` or `tel:`), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` |
 | `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `caption?`, `width?`, `height?` (points), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `dataLabels?` |
 | `Table` | `columns` (required), `children?` |
@@ -68,6 +69,11 @@ interface PromptProps {
 
 Notes worth knowing:
 
+- `<Text>` sets some of a paragraph's words differently:
+  `Due within <Text bold>thirty days</Text>.` One inside another takes both
+  settings. It carries no colour or size — a link is drawn in the theme's
+  accent. A line end (`\n`) in a paragraph's text is a line break, not a new
+  paragraph, so an address is one `<Paragraph>` with `{"Flat 2\n14 Example Road"}`.
 - `Section` is the only *titled* container. Depth of a document is depth of its
   sections — but both shipped renderers print every section title at one level,
   so a three-deep document does not yet *look* three-deep. `Table`, `Row` and
@@ -154,7 +160,8 @@ Each of these is an error naming the position, not a quiet reinterpretation:
 | Written | Why it fails |
 | --- | --- |
 | `<Section>Some text</Section>` | Text only lives inside a `<Paragraph>` |
-| `<Paragraph><Image /></Paragraph>` | A paragraph holds text; put elements beside it |
+| `<Paragraph><Section …/></Paragraph>` | A paragraph holds words; only a picture or a `<Text>` may sit among them |
+| `<Section><Text bold>…</Text></Section>` | `<Text>` sets words inside a `<Paragraph>`, `<Cell>` or `<Shape>`; on its own it is a `<Paragraph>` |
 | `<Section><Document …/></Section>` | `<Document>` is only ever the root of a template |
 | Two nodes with the same `id` | Ids address a node for the engine, so they must be unique |
 | Text **and** a prompt on one node | A node is written or it is generated — supply one |

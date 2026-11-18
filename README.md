@@ -90,6 +90,23 @@ export const Balance: Paragraph = () => {
 };
 ```
 
+## Words set differently
+
+`<Text>` sets some of a paragraph's words apart — a term in bold, a phrase that
+links somewhere — and a line end in the text is a line break rather than a new
+paragraph.
+
+```tsx
+<Paragraph id="terms">
+  Payment is due within <Text bold>thirty days</Text>. You can{" "}
+  <Text href="https://example.com/pay">pay online</Text>.
+</Paragraph>
+```
+
+It says what the words are, never what they look like: there is no colour and
+no size on it, and a link is drawn in the theme's accent, so it re-themes with
+the document around it.
+
 ## Charts are charts, not pictures of charts
 
 A `<Graph>` is packed as a real Word chart — a DrawingML chart part with every

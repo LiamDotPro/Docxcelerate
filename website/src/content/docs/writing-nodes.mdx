@@ -67,6 +67,11 @@ The initializer is ordinary TypeScript. There's no template language to learn, s
 conditionals, formatting and imports all just work — and an `if` that returns a
 different paragraph does exactly what it looks like.
 
+To set some of the words apart, wrap them in `<Text>`:
+`Hello <Text bold>{state.name}</Text>,`. It takes `bold`, `italic`,
+`underline`, `strike` and `href`, and the
+[paragraph page](/docs/nodes/paragraph/#words-set-differently) has the rest.
+
 One thing that might look odd: `Paragraph` is both the element and the component
 type. So `const Greeting: Paragraph` declares what this node returns, and
 returning a `<Section>` from it is a compile error.
