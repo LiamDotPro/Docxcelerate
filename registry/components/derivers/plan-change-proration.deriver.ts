@@ -12,7 +12,6 @@ import { deriver } from "docxcelerate/template";
 export default deriver({
   name: "planChangeProration",
   run: (subscription: unknown) => {
-   
     const sub = subscription as any;
     const empty = () => ({ description: "", period: "", amount: "", amountMinor: 0 });
 

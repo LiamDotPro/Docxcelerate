@@ -124,6 +124,10 @@ export interface PlanChangeProrationData {
   };
 }
 
+/**
+ * Prints the credit and charge lines for plan changes made mid-period, then what
+ * the net means for the invoice. Prints nothing when no change left a line.
+ */
 export const PlanChangeProration: Nodes = async () => {
   const [subscription] = useState((data: PlanChangeProrationData) => data.subscription);
   const p = await useDeriver(planChangeProration, [subscription]);
@@ -146,62 +150,62 @@ export const PlanChangeProration: Nodes = async () => {
                 <Cell>Period</Cell>
                 <Cell>Amount</Cell>
               </Row>
-          {p.lines[0].description && (
-            <Row id="plan-change-proration-line-1">
-            <Cell>{p.lines[0].description}</Cell>
-            <Cell>{p.lines[0].period}</Cell>
-            <Cell>{p.lines[0].amount}</Cell>
-          </Row>
-        )}
-          {p.lines[1].description && (
-            <Row id="plan-change-proration-line-2">
-            <Cell>{p.lines[1].description}</Cell>
-            <Cell>{p.lines[1].period}</Cell>
-            <Cell>{p.lines[1].amount}</Cell>
-          </Row>
-        )}
-          {p.lines[2].description && (
-            <Row id="plan-change-proration-line-3">
-            <Cell>{p.lines[2].description}</Cell>
-            <Cell>{p.lines[2].period}</Cell>
-            <Cell>{p.lines[2].amount}</Cell>
-          </Row>
-        )}
-          {p.lines[3].description && (
-            <Row id="plan-change-proration-line-4">
-            <Cell>{p.lines[3].description}</Cell>
-            <Cell>{p.lines[3].period}</Cell>
-            <Cell>{p.lines[3].amount}</Cell>
-          </Row>
-        )}
-          {p.lines[4].description && (
-            <Row id="plan-change-proration-line-5">
-            <Cell>{p.lines[4].description}</Cell>
-            <Cell>{p.lines[4].period}</Cell>
-            <Cell>{p.lines[4].amount}</Cell>
-          </Row>
-        )}
-          {p.lines[5].description && (
-            <Row id="plan-change-proration-line-6">
-            <Cell>{p.lines[5].description}</Cell>
-            <Cell>{p.lines[5].period}</Cell>
-            <Cell>{p.lines[5].amount}</Cell>
-          </Row>
-        )}
-          {p.lines[6].description && (
-            <Row id="plan-change-proration-line-7">
-            <Cell>{p.lines[6].description}</Cell>
-            <Cell>{p.lines[6].period}</Cell>
-            <Cell>{p.lines[6].amount}</Cell>
-          </Row>
-        )}
-          {p.lines[7].description && (
-            <Row id="plan-change-proration-line-8">
-            <Cell>{p.lines[7].description}</Cell>
-            <Cell>{p.lines[7].period}</Cell>
-            <Cell>{p.lines[7].amount}</Cell>
-          </Row>
-        )}
+              {p.lines[0].description && (
+                <Row id="plan-change-proration-line-1">
+                  <Cell>{p.lines[0].description}</Cell>
+                  <Cell>{p.lines[0].period}</Cell>
+                  <Cell>{p.lines[0].amount}</Cell>
+                </Row>
+              )}
+              {p.lines[1].description && (
+                <Row id="plan-change-proration-line-2">
+                  <Cell>{p.lines[1].description}</Cell>
+                  <Cell>{p.lines[1].period}</Cell>
+                  <Cell>{p.lines[1].amount}</Cell>
+                </Row>
+              )}
+              {p.lines[2].description && (
+                <Row id="plan-change-proration-line-3">
+                  <Cell>{p.lines[2].description}</Cell>
+                  <Cell>{p.lines[2].period}</Cell>
+                  <Cell>{p.lines[2].amount}</Cell>
+                </Row>
+              )}
+              {p.lines[3].description && (
+                <Row id="plan-change-proration-line-4">
+                  <Cell>{p.lines[3].description}</Cell>
+                  <Cell>{p.lines[3].period}</Cell>
+                  <Cell>{p.lines[3].amount}</Cell>
+                </Row>
+              )}
+              {p.lines[4].description && (
+                <Row id="plan-change-proration-line-5">
+                  <Cell>{p.lines[4].description}</Cell>
+                  <Cell>{p.lines[4].period}</Cell>
+                  <Cell>{p.lines[4].amount}</Cell>
+                </Row>
+              )}
+              {p.lines[5].description && (
+                <Row id="plan-change-proration-line-6">
+                  <Cell>{p.lines[5].description}</Cell>
+                  <Cell>{p.lines[5].period}</Cell>
+                  <Cell>{p.lines[5].amount}</Cell>
+                </Row>
+              )}
+              {p.lines[6].description && (
+                <Row id="plan-change-proration-line-7">
+                  <Cell>{p.lines[6].description}</Cell>
+                  <Cell>{p.lines[6].period}</Cell>
+                  <Cell>{p.lines[6].amount}</Cell>
+                </Row>
+              )}
+              {p.lines[7].description && (
+                <Row id="plan-change-proration-line-8">
+                  <Cell>{p.lines[7].description}</Cell>
+                  <Cell>{p.lines[7].period}</Cell>
+                  <Cell>{p.lines[7].amount}</Cell>
+                </Row>
+              )}
               <Row id="plan-change-proration-net">
                 <Cell>Net adjustment</Cell>
                 <Cell></Cell>

@@ -90,6 +90,11 @@ test("equal and opposite halves make a lateral change that prints nothing", asyn
   assertEquals(ids, ["plan-change-proration", "plan-change-proration-intro", "plan-change-proration-lateral"]);
 });
 
+test("a half unit rounds away from zero, in both directions", () => {
+  assertEquals(amounts(run({ ...nov, changes: [chg("2026-11-16", 0, 4901)] })), [2451]);
+  assertEquals(amounts(run({ ...nov, changes: [chg("2026-11-16", 4901, 0)] }))[0], -2451);
+});
+
 test("the credit is what was paid, and later changes chain", () => {
   assertEquals(amounts(run({ ...nov, changes: [chg("2026-11-11", 2400, 6000)] }))[0], -1600);
   const o = run({
@@ -330,7 +335,7 @@ test("a publish build carries 14 arms and one deriver call", async () => {
     // A resolved tree keeps the conditions it was published with and numbers its
     // cells differently, so compare what a reader sees: the ids and the text.
     const seen = (nodes: DocumentNode[]) =>
-      collect(nodes).filter((n) => !n.id.startsWith("table-cell")).map((n) => [n.id, (n as { text?: string }).text]);
+      collect(nodes).map((n) => [n.kind, (n as { text?: string }).text]);
     assertEquals(seen(resolved.nodes), seen(direct.nodes));
   }
 });
