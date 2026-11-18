@@ -294,6 +294,11 @@ function harnessHtml(bodyFont) {
           letterSpacing: rcs.letterSpacing === "normal" ? 0 : r2(parseFloat(rcs.letterSpacing)),
           textTransform: rcs.textTransform,
           runs: runsOf(el),
+          // What is drawn in front of a list item. docx-preview draws it as
+          // the paragraph's ::before, so it is in no text node and no range:
+          // this is the only place it can be read. A counter comes back as
+          // the rule that counts it, not the number it has reached.
+          marker: view.getComputedStyle(el, "::before").content,
           textIndent: r2(parseFloat(cs.textIndent) || 0),
           computedLineHeight: cs.lineHeight === "normal" ? null : r2(parseFloat(cs.lineHeight)),
           marginTop: r2(parseFloat(cs.marginTop) || 0),
@@ -1148,6 +1153,7 @@ function missingParagraph(anchor) {
     lineCount: 0,
     lines: [],
     runs: [],
+    marker: null,
     textAlign: null,
     fontFamily: null,
     fontSize: null,

@@ -100,6 +100,7 @@ export function settleDocxPreview(
   liftShapeText(container);
   fillPageFields(container);
   seatFooters(container);
+  hangListMarkers(container);
 
   if (model !== undefined) {
     applyTableIndents(container, model);
@@ -197,6 +198,35 @@ function seatFooters(container: Element): void {
     style.display = "flex";
     style.flexDirection = "column";
     style.justifyContent = "flex-end";
+  }
+}
+
+/**
+ * A list item's words, started where its hang says rather than wherever its
+ * marker happens to end.
+ *
+ * Word follows a marker with a tab to the hanging indent, so the words of an
+ * item's first line start exactly above the words of its second. docx-preview
+ * writes the same tab — the marker is the paragraph's `::before`, and its
+ * content ends in one — but into a paragraph where white space collapses, so
+ * the tab draws as a space and the first line starts wherever a bullet and a
+ * space come to: about 3mm left of the lines under it, for every item.
+ *
+ * Both halves of the repair are already in the DOM. The tab is there, and so
+ * is the hang: it is the paragraph's own `text-indent`, written inline from
+ * the indent the file states on it. Letting the tab be a tab and setting one
+ * tab stop per hang puts the words where Word does. Read as text off the
+ * attribute rather than through `style`, because a DOM without a layout
+ * engine behind it does not parse every property it is handed.
+ */
+function hangListMarkers(container: Element): void {
+  for (const item of container.querySelectorAll('p[class*="docx-num-"]')) {
+    const style = (item.getAttribute("style") ?? "").replace(/;\s*$/, "");
+    const hang = /text-indent:\s*-([\d.]+pt)/.exec(style)?.[1];
+
+    if (hang !== undefined) {
+      item.setAttribute("style", `${style}; white-space: pre-wrap; tab-size: ${hang};`);
+    }
   }
 }
 

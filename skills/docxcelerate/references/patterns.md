@@ -187,6 +187,32 @@ a field it recounts and the preview counts its own pages. Reach for `<PageBreak>
 only when the break is part of what the document *is*; nudging a paragraph off
 the bottom of a page is the margins' job.
 
+## A list
+
+Items are paragraphs that say so. Write them one after another and the renderer
+counts — never type a bullet or a number:
+
+```tsx
+export const Steps: Nodes = () => {
+  const [state] = useState((data: DocumentData) => ({ steps: data.steps }));
+
+  return (
+    <>
+      <Paragraph id="steps-intro">What to do next:</Paragraph>
+      {state.steps.map((step) => (
+        <Paragraph id="step" list="number">{step.text}</Paragraph>
+      ))}
+    </>
+  );
+};
+```
+
+`list="bullet"` for a marked list, `listLevel={1}` for a point under an item.
+Anything between two items ends the list, and a numbered list after it starts
+again at one. Published, the `.map()` is a loop the engine walks, and the steps
+it writes are one list however many there are. An item on a `<Shape>` is drawn
+as a plain paragraph.
+
 ## Stress a word, or link a phrase
 
 `<Text>` goes among a paragraph's words. It is not a node, so it takes no `id`:
