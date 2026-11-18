@@ -21,6 +21,11 @@ import advancePaymentInvoice from "../derivers/advance-payment-invoice.deriver.t
  * this one: largest remainder is not monotone, so a per-rate balance could go
  * a cent negative.
  *
+ * Previous deposits (at most 8) and rate bands (at most 4) are fixed slots
+ * rather than a `.map()`: the resolver reads a published loop's collection
+ * from request data and ignores the derived scope, so a loop over the
+ * deriver's lists would publish and then print no rows. More than that throws.
+ *
  * Requests are capped at the order total: more than 100% fails the document
  * rather than printing a balance that is negative.
  *
@@ -187,14 +192,14 @@ export const AdvancePaymentInvoice: SectionComponent<AdvancePaymentInvoiceProps>
     orderReference: figures.orderReference,
     orderDate: figures.orderDate,
     orderTotal: figures.orderTotal,
-    previous: figures.previous,
+    previous: figures.previousSlots,
     depositLabel: figures.depositLabel,
     deposit: figures.deposit,
     leftToInvoice: figures.leftToInvoice,
     paymentDateLabel: figures.paymentDateLabel,
     paymentDate: figures.paymentDate,
     vatApplies: figures.vatApplies,
-    bands: figures.bands,
+    bands: figures.bandSlots,
     netTotal: figures.netTotal,
     vatTotal: figures.vatTotal,
   };

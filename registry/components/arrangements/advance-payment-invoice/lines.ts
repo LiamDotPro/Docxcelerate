@@ -5,8 +5,10 @@
  *
  * A field that is `null` is a line this invoice does not carry. Test it in the
  * JSX, `{lines.orderDate && …}`, so the test is compiled into a condition the
- * engine settles per document. The two lists are mapped as they are: an empty
- * one prints nothing, so neither needs a guard.
+ * engine settles per document. The two lists are fixed slots, 8 previous
+ * deposits and 4 rate bands, each printed when its first field is not empty:
+ * the resolver reads a loop's collection from request data and ignores the
+ * derived scope, so a `.map()` over them would publish and then print no rows.
  *
  * Installed by `dxcl add advance-payment-invoice`, with the arrangements.
  */
@@ -17,8 +19,13 @@ export interface AdvancePaymentInvoiceLines {
   orderDate: string | null;
   /** The order gross, formatted. */
   orderTotal: string;
-  /** One per deposit already requested, in the order they were issued. */
-  previous: Array<{ number: string; amount: string }>;
+  /** Eight slots: a deposit already requested, in the order issued, then empty ones (`number` is ""). */
+  previous: Array<{
+    /** The earlier deposit's invoice number; "" in an unused slot. */
+    number: string;
+    /** The earlier deposit, formatted. */
+    amount: string;
+  }>;
   /** What the deposit line says: "Deposit requested (30% of the order total)", "Security deposit". */
   depositLabel: string;
   /** This request, formatted. */
@@ -31,8 +38,17 @@ export interface AdvancePaymentInvoiceLines {
   paymentDate: string | null;
   /** Whether the VAT analysis is printed. */
   vatApplies: boolean;
-  /** This deposit's VAT analysis, one per rate; empty when `vatApplies` is false. */
-  bands: Array<{ label: string; net: string; vat: string; gross: string }>;
+  /** Four slots: this deposit's VAT analysis, one per rate, then empty ones (`label` is ""). */
+  bands: Array<{
+    /** The band's rate, formatted; "" in an unused slot. */
+    label: string;
+    /** This deposit's net in the band, formatted. */
+    net: string;
+    /** This deposit's VAT in the band, formatted. */
+    vat: string;
+    /** This deposit's share of the band, formatted. */
+    gross: string;
+  }>;
   /** The analysis net total; "" when `vatApplies` is false. */
   netTotal: string;
   /** The analysis VAT total; "" when `vatApplies` is false. */

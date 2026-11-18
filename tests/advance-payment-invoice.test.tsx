@@ -100,6 +100,8 @@ test("exactly 100% is allowed and prints zero left", () => {
 test("over 100% names both figures", async () => {
   await fails({ previous: [{ number: "A", amount: 700.01 }] }, "deposits requested (£1,000.01) exceed the order total (£1,000.00)");
   await fails({ previous: [{ number: "A", amount: 1200 }] }, "exceed the order total");
+  // A security deposit is not added to the cap, so only the P > G check can refuse this.
+  await fails({ previous: [{ number: "A", amount: 1200 }], deposit: { kind: "security" } }, "exceed the order total");
 });
 
 test("a zero-exponent currency", () => {
@@ -143,10 +145,15 @@ test("the preview data prints the figures the catalog promises", () => {
 });
 
 test("many previous deposits keep their order", () => {
-  const previous = Array.from({ length: 12 }, (_, i) => ({ number: "P" + i, amount: 1 }));
+  const previous = Array.from({ length: 8 }, (_, i) => ({ number: "P" + i, amount: 1 }));
   const r = run({ previous, deposit: { percent: 10 } });
   assertEquals(r.previous.map((p) => p.number), previous.map((p) => p.number));
-  assertEquals([r.previous.length, r.leftMinor], [12, 88800]);
+  assertEquals([r.previous.length, r.leftMinor], [8, 89200]);
+})
+
+test("more than 8 previous deposits or 4 rates are refused, not dropped", async () => {
+  await fails({ previous: Array.from({ length: 9 }, (_, i) => ({ number: "P" + i, amount: 1 })) }, "at most 8");
+  await fails({ order: lines(...[0, 1, 2, 3, 4].map((r) => ({ gross: 100, vatRate: r }))) }, "at most 4");
 });
 
 test("Germany, with a payment date", () => {
@@ -308,7 +315,7 @@ test("both arrangements print the same line ids, in different nodes", async () =
 test("a missing order date and no previous deposits leave their nodes out", async () => {
   const built = await buildLocal(nodeData());
   assertEquals(ids(built.nodes).includes("advance-payment-order-date"), false);
-  assertEquals(ids(built.nodes).includes("advance-payment-previous"), false);
+  assertEquals(ids(built.nodes).includes("advance-payment-previous-1"), false);
 });
 
 const registry = await createDeriverRegistryFromBundle(createDeriverBundle({ advancePaymentInvoice: mod.run }));
@@ -333,16 +340,10 @@ for (const arrangement of ["table", "stacked"] as const) {
       previousDeposits: PREVIEW.previousDeposits,
       invoice: PREVIEW.invoice,
     } as unknown as Data;
-    // resolveRepeat reads its source through the data provider whatever the
-    // source's scope, so a loop over a derived list finds nothing in a plain
-    // InMemoryDataProvider. This one falls back to what the derivers wrote.
-    const plain = new InMemoryDataProvider(data as unknown as Record<string, unknown>);
     const state: RuntimeState = {
       ctx: { ...data },
       derived: {},
-      dataProvider: {
-        get: (path: string) => plain.get(path) ?? new InMemoryDataProvider(state.derived as never).get(path),
-      },
+      dataProvider: new InMemoryDataProvider(data as unknown as Record<string, unknown>),
       aiClient: { generateParagraph: () => "" },
     };
     const resolved = await resolveDocument(published, state, { derivers: registry });

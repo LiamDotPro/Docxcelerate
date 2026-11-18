@@ -11,7 +11,17 @@ export interface AdvancePaymentInvoiceFigures {
   /** The order gross, formatted. */
   orderTotal: string;
   /** One per previous deposit, in input order. */
-  previous: Array<{ number: string; amount: string }>;
+  previous: Array<{
+    /** The earlier deposit's invoice number, trimmed. */
+    number: string;
+    /** The earlier deposit, formatted. */
+    amount: string;
+  }>;
+  /**
+   * `previous` padded with empty entries (`number` is "") to 8 slots. The page
+   * prints fixed slots because the resolver cannot loop over a derived list.
+   */
+  previousSlots: Array<{ number: string; amount: string }>;
   /** What the deposit line says, naming the percentage when one was given. */
   depositLabel: string;
   /** This request, formatted. */
@@ -26,15 +36,26 @@ export interface AdvancePaymentInvoiceFigures {
   vatApplies: boolean;
   /** This deposit's VAT analysis, one per rate; empty when `vatApplies` is false. */
   bands: Array<{
+    /** The band's rate, formatted: "20%". */
     label: string;
+    /** This deposit's net in the band, formatted. */
     net: string;
+    /** This deposit's VAT in the band, formatted. */
     vat: string;
+    /** This deposit's share of the band, gross, formatted. */
     gross: string;
     /** This deposit's share of the band, gross, in minor units. */
     shareMinor: number;
+    /** This deposit's net in the band, in minor units. */
     netMinor: number;
+    /** This deposit's VAT in the band, in minor units. */
     vatMinor: number;
   }>;
+  /**
+   * `bands` padded with empty entries (`label` is "") to 4 slots, for the same
+   * reason as `previousSlots`.
+   */
+  bandSlots: Array<{ label: string; net: string; vat: string; gross: string }>;
   /** Net total of the analysis, formatted; "" when `vatApplies` is false. */
   netTotal: string;
   /** VAT total of the analysis, formatted; "" when `vatApplies` is false. */
@@ -235,7 +256,9 @@ export default deriver({
     const money = (n: bigint) => moneyFormat.format(Number(n) / Number(unit));
     if (D <= 0n) throw new Error("deposit rounds to zero: it must be at least one minor unit");
 
-    // 5. Cap.
+    // 5. Cap. The page prints 8 previous deposits and 4 rate bands in fixed slots.
+    if (previous.length > 8) throw new Error("previousDeposits has " + previous.length + " entries; at most 8 print");
+    if (bandGross.length > 4) throw new Error("order.lines has " + bandGross.length + " VAT rates; at most 4 print");
     let P = 0n;
     for (const p of previous) P += p.amount;
     if (P > G) {
@@ -286,12 +309,19 @@ export default deriver({
     const fmtDay = (d: string) => dateFormat.format(new Date(d + "T00:00:00Z"));
     const showPayment = vatApplies && receivedDay !== null && receivedDay !== issueDay;
 
+    const slots = <T extends { number?: string; label?: string }>(rows: T[], n: number, empty: T): T[] => {
+      const out = rows.slice();
+      while (out.length < n) out.push(empty);
+      return out;
+    };
+
     return {
       title: !prepayment ? "Security deposit" : de ? "Anzahlung" : "Advance payment",
       orderReference: ord.reference.trim(),
       orderDate: orderDay === null ? null : fmtDay(orderDay),
       orderTotal: money(G),
       previous: previous.map((p) => ({ number: p.number, amount: money(p.amount) })),
+      previousSlots: slots(previous.map((p) => ({ number: p.number, amount: money(p.amount) })), 8, { number: "", amount: "" }),
       depositLabel,
       deposit: money(D),
       leftToInvoice: money(L),
@@ -299,6 +329,12 @@ export default deriver({
       paymentDate: showPayment ? fmtDay(receivedDay as string) : null,
       vatApplies,
       bands,
+      bandSlots: slots(bands.map((b) => ({ label: b.label, net: b.net, vat: b.vat, gross: b.gross })), 4, {
+        label: "",
+        net: "",
+        vat: "",
+        gross: "",
+      }),
       netTotal: vatApplies ? money(netTotal) : "",
       vatTotal: vatApplies ? money(vatTotal) : "",
       orderTotalMinor: Number(G),
