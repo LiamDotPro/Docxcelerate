@@ -243,7 +243,7 @@ test("invalid input throws, naming the field", async () => {
   await fails({ currentAmount: -1 }, "renewal.currentAmount");
   await fails({ currentAmount: NaN }, "renewal.currentAmount");
   await fails({ renewalDate: "2027-02-30" }, "renewal.renewalDate");
-  await fails({ renewalDate: "2025-08-31" }, "renewal.renewalDate");
+  await fails({ renewalDate: "2025-08-31", sendDate: "2025-08-01" }, "renewal.contractStart");
   await fails({ sendDate: "2026-09-02" }, "renewal.sendDate");
   await fails({ cancelInstructions: "  " }, "renewal.cancelInstructions");
   await fails({ priceChange: { newAmount: -1, effectiveDate: "2026-09-01" } }, "renewal.priceChange.newAmount");

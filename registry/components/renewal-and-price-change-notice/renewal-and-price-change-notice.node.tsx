@@ -165,6 +165,7 @@ export interface RenewalAndPriceChangeNoticeProps {
   arrangement?: RenewalAndPriceChangeNoticeArrangement;
 }
 
+/** Prints the renewal notice: what renews, when, the price change if any, and how to cancel. */
 export const RenewalAndPriceChangeNotice: SectionComponent<RenewalAndPriceChangeNoticeProps> = async (
   { arrangement },
 ) => {
