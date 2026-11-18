@@ -9,6 +9,7 @@ import type {
   JsonObject,
   PageBreakNode,
   PageNumberNode,
+  ParagraphList,
   ParagraphNode,
   ParagraphRun,
   RepeatNode,
@@ -717,6 +718,7 @@ async function renderParagraph(
       mode: "static",
       when,
       align: props.align,
+      list: listOf(props),
       ...await words(body, pieces, context),
       inlineImages: inlineImages.length === 0 ? undefined : inlineImages,
     };
@@ -731,6 +733,7 @@ async function renderParagraph(
       mode: "dynamic",
       when,
       align: props.align,
+      list: listOf(props),
       text: await placeholderText(prompts, id, context),
     });
   }
@@ -742,6 +745,7 @@ async function renderParagraph(
     mode: "dynamic",
     when,
     align: props.align,
+    list: listOf(props),
     prompts: specs,
   };
 
@@ -758,6 +762,13 @@ async function renderParagraph(
       state: context.state,
     }),
   });
+}
+
+/** A paragraph's place in a list, as the model says it. A first-level item says no level. */
+function listOf(props: ParagraphProps): ParagraphList | undefined {
+  return props.list === undefined
+    ? undefined
+    : prune({ kind: props.list, level: props.listLevel || undefined });
 }
 
 async function renderImage(

@@ -107,6 +107,18 @@ It says what the words are, never what they look like: there is no colour and
 no size on it, and a link is drawn in the theme's accent, so it re-themes with
 the document around it.
 
+## Lists that count themselves
+
+A list is paragraphs that say they are items. Written one after another they
+are one list, and the renderer does the counting — so a step dropped for one
+recipient leaves no gap in the numbers.
+
+```tsx
+<Paragraph id="check" list="number">Check the plan and the price.</Paragraph>
+<Paragraph id="pay" list="number">Pay online, or at the desk.</Paragraph>
+<Paragraph id="pay-note" list="bullet" listLevel={1}>Card and direct debit are both accepted.</Paragraph>
+```
+
 ## Charts are charts, not pictures of charts
 
 A `<Graph>` is packed as a real Word chart — a DrawingML chart part with every

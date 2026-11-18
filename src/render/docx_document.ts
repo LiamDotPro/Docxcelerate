@@ -14,6 +14,7 @@ import {
   HeadingLevel,
   ImageRun,
   LeaderType,
+  LevelFormat,
   LineRuleType,
   Packer,
   PageBreak,
@@ -84,9 +85,15 @@ export function createDocxDocument(doc: DocumentModel): Document {
   // page. It is a document setting rather than a section one, which is why it
   // sits out here beside the styles rather than in the section below.
   const evenAndOdd = doc.evenHeader !== undefined || doc.evenFooter !== undefined;
+  // Before anything is rendered: an item cannot know which list it counts in,
+  // or whether another follows it, without looking at what stands beside it.
+  const lists = placeLists(doc);
 
   return new Document({
     styles: createDocxStyles(style),
+    // Only for a document with a list in it, so one without is packed with
+    // exactly the numbering part it always had.
+    numbering: lists.items === 0 ? undefined : listNumbering(lists.numbered),
     evenAndOddHeaderAndFooters: evenAndOdd || undefined,
     sections: [
       {
@@ -434,11 +441,13 @@ function renderNode(
 
   if (node.kind === "paragraph") {
     const block = blockOf(style, node.variant);
+    const item = listItem(node);
 
     return [
       new Paragraph({
         children: paragraphRuns(node, block, style),
         ...breakStyle(broken),
+        numbering: item?.numbering,
         // The node's alignment, then the theme's, then nothing at all — a
         // paragraph that never said should write no `w:jc`, so it goes on
         // inheriting whatever the style around it decides.
@@ -447,10 +456,15 @@ function renderNode(
           ? undefined
           : { type: ShadingType.CLEAR, fill: block.fill },
         border: blockBorders(block, "paragraph"),
-        indent: blockIndent(block, style),
+        indent: blockIndent(block, style) ?? item?.indent,
         spacing: {
           ...blockSpacingBefore(block),
-          after: ptToTwips(block?.spacingAfterPt ?? style.paragraph.spacingAfterPt),
+          // Items of one list stand together: the space a paragraph leaves
+          // under itself belongs after the list, not between its items. A
+          // block that names its own spacing still gets it.
+          after: ptToTwips(
+            block?.spacingAfterPt ?? (item?.tight ? 0 : style.paragraph.spacingAfterPt),
+          ),
           ...blockLine(block, style),
         },
         ...blockKeeps(block),
@@ -606,6 +620,163 @@ function blockRun(
       ? undefined
       : Math.round(block.letterSpacingEm * sizePt * 20),
     font: block.font,
+  };
+}
+
+/** The numbering every bulleted item counts in. Bullets do not count, so one serves them all. */
+const BULLET_LIST = "dxcl-bullet";
+
+/** The stem of a numbered list's numbering; each list gets one of its own. */
+const NUMBER_LIST = "dxcl-number";
+
+/**
+ * How far an item's words stand in from its marker, and each level from the
+ * one above, in points. A quarter of an inch, which is Word's own.
+ */
+const LIST_HANG_PT = 18;
+
+/** As deep as Word's numbering goes. */
+const LIST_LEVELS = 9;
+
+/** Plain glyphs in the paragraph's own face: no symbol font for a preview to be missing. */
+const BULLETS = ["\u2022", "\u25E6", "\u25AA"];
+
+/** Figures, then letters, then roman numerals, and round again. */
+const NUMBER_FORMATS = [LevelFormat.DECIMAL, LevelFormat.LOWER_LETTER, LevelFormat.LOWER_ROMAN];
+
+/** Where each item stands, worked out once before the document is rendered. */
+const listPlaces = new WeakMap<ParagraphNode, { reference: string; tight: boolean }>();
+
+/**
+ * Works out which list each item counts in, and whether another follows it.
+ *
+ * Items standing next to one another are one list, whatever mixture of
+ * bullets and numbers they are — a bulleted point under a numbered step does
+ * not stop the steps counting. Anything else ends the list, and the next
+ * numbered item starts a numbering of its own.
+ *
+ * @returns How many items there are, and how many numbered lists.
+ */
+function placeLists(doc: DocumentModel): { items: number; numbered: number } {
+  let items = 0;
+  let numbered = 0;
+
+  const walk = (nodes: readonly DocumentNode[]): void => {
+    // The numbering the list being walked counts in, once it has a numbered item.
+    let reference: string | undefined;
+
+    nodes.forEach((node, index) => {
+      if (node.kind !== "paragraph" || node.list === undefined) {
+        reference = undefined;
+        if ("children" in node) {
+          walk(node.children);
+        }
+        return;
+      }
+
+      if (node.list.kind === "number" && reference === undefined) {
+        numbered += 1;
+        reference = `${NUMBER_LIST}-${numbered}`;
+      }
+
+      const next = nodes[index + 1];
+      items += 1;
+      listPlaces.set(node, {
+        reference: node.list.kind === "number" && reference !== undefined ? reference : BULLET_LIST,
+        tight: next?.kind === "paragraph" && next.list !== undefined,
+      });
+    });
+  };
+
+  for (
+    const nodes of [
+      doc.nodes,
+      doc.header,
+      doc.footer,
+      doc.firstHeader,
+      doc.firstFooter,
+      doc.evenHeader,
+      doc.evenFooter,
+    ]
+  ) {
+    if (Array.isArray(nodes)) {
+      walk(nodes);
+    }
+  }
+
+  return { items, numbered };
+}
+
+/**
+ * The numberings a document's lists count in.
+ *
+ * One abstract numbering per numbered list, not one shared by all of them.
+ * Word would take the shared form — a `w:num` per list over one
+ * `w:abstractNum`, each restarting — and it is what Word writes itself. But
+ * docx-preview keys its counters by the abstract numbering and keeps only the
+ * last `w:num` naming it, so every list but the last is drawn with no numbers
+ * at all. This is the form both engines read, which is the same reason a
+ * shape is packed as VML.
+ */
+function listNumbering(numbered: number) {
+  const levels = (
+    marker: (level: number) => { format: (typeof LevelFormat)[keyof typeof LevelFormat]; text: string },
+  ) =>
+    Array.from({ length: LIST_LEVELS }, (_, level) => ({
+      level,
+      ...marker(level),
+      alignment: AlignmentType.LEFT,
+      style: { paragraph: { indent: listIndent(level) } },
+    }));
+
+  return {
+    config: [
+      {
+        reference: BULLET_LIST,
+        levels: levels((level) => ({
+          format: LevelFormat.BULLET,
+          text: BULLETS[level % BULLETS.length],
+        })),
+      },
+      ...Array.from({ length: numbered }, (_, index) => ({
+        reference: `${NUMBER_LIST}-${index + 1}`,
+        levels: levels((level) => ({
+          format: NUMBER_FORMATS[level % NUMBER_FORMATS.length],
+          text: `%${level + 1}.`,
+        })),
+      })),
+    ],
+  };
+}
+
+/** Where an item's words and its marker stand, by how deep it is. */
+function listIndent(level: number): { left: number; hanging: number } {
+  return { left: ptToTwips(LIST_HANG_PT * (level + 1)), hanging: ptToTwips(LIST_HANG_PT) };
+}
+
+/**
+ * What makes a paragraph an item, as Word is handed it.
+ *
+ * The indent is said on the paragraph as well as on the numbering's level.
+ * Word reads either; the preview's finishing step reads the paragraph's, since
+ * that is the one docx-preview writes where a later step can find it — it is
+ * how the marker comes to stand a hang clear of the words on screen.
+ */
+function listItem(node: ParagraphNode):
+  | { numbering: { reference: string; level: number }; indent: { left: number; hanging: number }; tight: boolean }
+  | undefined {
+  const place = listPlaces.get(node);
+
+  if (node.list === undefined || place === undefined) {
+    return undefined;
+  }
+
+  const level = Math.min(LIST_LEVELS - 1, Math.max(0, Math.trunc(node.list.level ?? 0)));
+
+  return {
+    numbering: { reference: place.reference, level },
+    indent: listIndent(level),
+    tight: place.tight,
   };
 }
 
@@ -1773,10 +1944,13 @@ function cellContent(
       ? headingRun(block, style)
       : {};
     const size = run.size ?? heading.size;
+    const item = listItem(child);
 
     return [
       new Paragraph({
         alignment: alignments[align],
+        numbering: item?.numbering,
+        indent: item?.indent,
         // The paragraph's own variant decides the leading where it has one —
         // a muted note under a description is set tighter than the row it
         // sits in — and the cell's block decides it otherwise.

@@ -125,6 +125,45 @@ the millimetre. Two limits fall out of Word's own format and are worth knowing �
 padding needs a border to hang on, and a left border pushes the *rule* outward
 rather than the text inward.
 
+## Lists
+
+A list is paragraphs that say they are items. `list="bullet"` marks one,
+`list="number"` counts it:
+
+```tsx
+<Paragraph id="intro">To renew:</Paragraph>
+<Paragraph id="check" list="number">Check the plan and the price.</Paragraph>
+<Paragraph id="pay" list="number">Pay online, or at the desk.</Paragraph>
+<Paragraph id="pay-note" list="bullet" listLevel={1}>Card and direct debit are both accepted.</Paragraph>
+<Paragraph id="collect" list="number">Collect your new card.</Paragraph>
+```
+
+Items written one after another are one list, and the renderer does the
+counting — the way it counts pages. That is the whole reason not to type the
+numbers: a step dropped for one recipient leaves no gap, and a list built
+from your data is a `.map()` like any other.
+
+```tsx
+{state.steps.map((step) => <Paragraph id="step" list="number">{step.text}</Paragraph>)}
+```
+
+Anything that is not an item ends the list, and a numbered list after it starts
+again at one. `listLevel` puts an item under the one above it: `1` for a point
+under an item, down to nine deep. Numbers go from figures to letters to roman
+numerals as they go down, bullets from a filled dot to an open one to a square.
+A bulleted point under a numbered step does not stop the steps counting.
+
+An item is still a paragraph. It has an id, a condition can drop it, it takes a
+`variant`, and one an engine writes can be an item like any other. Items stand
+together, with the space a paragraph leaves under itself going after the list
+rather than between its items — unless the item's own `variant` names a
+spacing, which wins.
+
+Two limits. The marker and the hang are the renderer's, not the theme's, so
+there is no choosing the glyph yet. And an item on a `<Shape>` is drawn as a
+plain paragraph: the box holds its words off its edge with the same indent a
+hang needs.
+
 ## Words set differently
 
 `<Text>` sets some of a paragraph's words apart from the rest — the term a

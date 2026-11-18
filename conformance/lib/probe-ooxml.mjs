@@ -202,10 +202,21 @@ function readParagraph(xml, index) {
   const ind = pPr === null ? null : element(pPr, "w:ind");
   const pBdr = pPr === null ? null : element(pPr, "w:pBdr");
   const tabs = pPr === null ? null : element(pPr, "w:tabs");
+  const numPr = pPr === null ? null : element(pPr, "w:numPr");
 
   return {
     index,
     text: textOf(xml),
+
+    /**
+     * The list this paragraph is an item of: how deep, and which numbering it
+     * counts in. The marker itself is not here — it is in the numbering part,
+     * which `list()` on the view follows this through to.
+     */
+    numPr: numPr === null ? null : {
+      ilvl: childNum(numPr, "w:ilvl", "w:val"),
+      numId: childNum(numPr, "w:numId", "w:val"),
+    },
 
     /** The named style, when the paragraph takes one. */
     style: childAttr(pPr, "w:pStyle", "w:val"),
@@ -304,6 +315,49 @@ function readRun(xml) {
     strike: toggle(rPr, "w:strike"),
     hasBreak: xml.includes("<w:br"),
   };
+}
+
+/**
+ * Every numbering the package defines, each with the levels it resolves to.
+ *
+ * A list is three hops in the file. The paragraph names a `w:num`; the num
+ * names a `w:abstractNum`; the abstract one holds the levels, and a level is
+ * where the marker, its format and the indent it hangs in actually are. Read
+ * flat here, one entry per `w:num`, so a case is one lookup from a paragraph
+ * to what Word will print in front of it.
+ */
+function readNumbering(zip, parts) {
+  if (!parts.includes("word/numbering.xml")) {
+    return [];
+  }
+
+  const xml = partText(zip, "word/numbering.xml");
+  const abstracts = new Map(
+    elements(xml, "w:abstractNum").map((entry) => [attr(entry, "w:abstractNumId"), entry]),
+  );
+
+  return elements(xml, "w:num").map((num) => {
+    const abstractNumId = childAttr(num, "w:abstractNumId", "w:val");
+
+    return {
+      numId: numAttr(num, "w:numId"),
+      abstractNumId: abstractNumId === null ? null : Number(abstractNumId),
+      levels: elements(abstracts.get(abstractNumId) ?? "", "w:lvl").map((level) => {
+        const ind = element(level, "w:ind");
+
+        return {
+          ilvl: numAttr(level, "w:ilvl"),
+          start: childNum(level, "w:start", "w:val"),
+          /** `bullet`, `decimal`, `lowerLetter`, `lowerRoman` … */
+          format: childAttr(level, "w:numFmt", "w:val"),
+          /** The marker: a glyph for a bullet, a pattern such as `%1.` for a number. */
+          text: childAttr(level, "w:lvlText", "w:val"),
+          leftTwips: ind === null ? null : numAttr(ind, "w:left"),
+          hangingTwips: ind === null ? null : numAttr(ind, "w:hanging"),
+        };
+      }),
+    };
+  });
 }
 
 /**
@@ -688,6 +742,8 @@ export function measureOoxml(zip) {
     tables,
     /** Every hyperlink in the body, each with the address it resolves to. */
     links: readLinks(zip, body),
+    /** Every numbering the package defines, for `list()` to follow a paragraph into. */
+    numbering: readNumbering(zip, parts),
     section: {
       widthTwips: pgSz === null ? null : numAttr(pgSz, "w:w"),
       heightTwips: pgSz === null ? null : numAttr(pgSz, "w:h"),
@@ -1024,6 +1080,31 @@ export function ooxmlView(measure) {
         { missing: true, anchor, text: "", bold: null, italics: null, underline: null, strike: null, hasBreak: false };
     },
 
+    /**
+     * The list the paragraph holding this anchor is an item of, followed
+     * through the numbering part to the level it stands at.
+     *
+     * A paragraph that is not an item comes back with every field null, so a
+     * case asserting on a list the packer did not write records the miss.
+     */
+    list(anchor) {
+      const numPr = this.para(anchor).numPr;
+      const num = measure.numbering.find((entry) => entry.numId === numPr?.numId);
+      const level = num?.levels.find((entry) => entry.ilvl === numPr?.ilvl);
+
+      return {
+        missing: level === undefined,
+        numId: num?.numId ?? null,
+        abstractNumId: num?.abstractNumId ?? null,
+        level: level?.ilvl ?? null,
+        start: level?.start ?? null,
+        format: level?.format ?? null,
+        text: level?.text ?? null,
+        leftTwips: level?.leftTwips ?? null,
+        hangingTwips: level?.hangingTwips ?? null,
+      };
+    },
+
     /** The hyperlink whose words contain this anchor. */
     link(anchor) {
       const wanted = anchor.toLowerCase();
@@ -1215,6 +1296,7 @@ function missingParagraph(anchor) {
     missing: true,
     anchor,
     text: "",
+    numPr: null,
     style: null,
     jc: null,
     ind: null,

@@ -17,6 +17,7 @@ import { PriceChange } from "./paragraph/conditional.node.tsx";
 import { NextSteps } from "./paragraph/dynamic.node.tsx";
 import { Apology } from "./paragraph/prompted.node.tsx";
 import { RenewalTerms } from "./paragraph/marked.node.tsx";
+import { RenewalSteps } from "./paragraph/list.node.tsx";
 import { Opening } from "./section/basic.node.tsx";
 import { YourYear } from "./section/nested.node.tsx";
 import { Signature } from "./image/static.node.tsx";
@@ -259,6 +260,24 @@ export const NODE_TYPES: NodeTypeEntry[] = [
           "like. A node that states both wins over its block, the same way a " +
           "cell wins over its column.",
       },
+      {
+        name: "list",
+        type: `"bullet" | "number"`,
+        summary:
+          "Makes the paragraph an item of a list. Items written one after " +
+          "another are one list and the renderer counts them, so a step " +
+          "dropped for one recipient leaves no gap in the numbers. Anything " +
+          "between two items ends the list, and a numbered list after it " +
+          "starts again at one.",
+      },
+      {
+        name: "listLevel",
+        type: "number",
+        summary:
+          "How far under another item this one stands: `1` for a point under " +
+          "an item. A numbered list goes from figures to letters to roman " +
+          "numerals as it goes down.",
+      },
       ...PROMPT_OPTIONS.map((option) => ({
         ...option,
         summary: `Dynamic only. ${option.summary}`,
@@ -283,6 +302,12 @@ export const NODE_TYPES: NodeTypeEntry[] = [
         title: "Static, with words set apart",
         summary: "A date in bold and a phrase that links, in one sentence.",
         component: RenewalTerms,
+      },
+      {
+        id: "list",
+        title: "Static, as a list",
+        summary: "Numbered steps with a point under one, and no number typed.",
+        component: RenewalSteps,
       },
       {
         id: "dynamic",

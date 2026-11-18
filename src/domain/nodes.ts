@@ -233,6 +233,33 @@ export interface ParagraphNode extends BaseNode {
    * words set in bold are worse than the right words set plain.
    */
   runs?: ParagraphRun[];
+  /**
+   * The paragraph's place in a list, when it is an item of one.
+   *
+   * On the paragraph rather than on a node around the items, so that an item
+   * is everything a paragraph already is: it has an id, a condition can drop
+   * it, a loop produces one per entry, an engine can write it. A list is its
+   * items standing next to one another — which is also what it is in Word —
+   * and a renderer counts them, the way it counts pages.
+   *
+   * Items that stand together are one list. Anything that is not an item
+   * ends it, and a numbered list after that starts again at one.
+   */
+  list?: ParagraphList;
+}
+
+/** Which kind of list a paragraph is an item of: marked with a bullet, or counted. */
+export type ListKind = "bullet" | "number";
+
+/** A paragraph's place in a list. */
+export interface ParagraphList {
+  /** Whether the item is marked or counted. */
+  kind: ListKind;
+  /**
+   * How far under another item this one stands. Absent means not at all;
+   * `1` is a point under an item, and a renderer goes as deep as nine.
+   */
+  level?: number;
 }
 
 /**

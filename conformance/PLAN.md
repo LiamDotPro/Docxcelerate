@@ -274,8 +274,8 @@ say what the screen showed. The packer writes the break now.
 | Heading 1 (from `Section`) | yes | `HeadingLevel.HEADING_1` | `headings/section-heading` |
 | Heading 2–6 / nesting | no — every section is H1 | `renderNode` section branch | `headings/nested-levels` |
 | Named Word styles | no | — | `headings/named-style` |
-| Bulleted list | no — no numbering part emitted | — | `lists/bulleted` |
-| Numbered list, nested | no | — | `lists/ordered-numbering` |
+| Bulleted list | **yes — added**; file and preview, Word not yet run | `ParagraphNode.list` | `lists/bulleted` |
+| Numbered list, nested | **yes — added**; file and preview, Word not yet run | one abstract numbering per list, see the case | `lists/ordered-numbering` |
 | **Table of contents** | **no — the node exists and packs as a plain line of text** | `renderNode` fallback, `src/render/docx_document.ts:437` | `fields/toc` |
 | Bookmarks, cross-references | no | — | `fields/bookmark-crossref` |
 | Footnotes / endnotes | no | — | `fields/footnote` |

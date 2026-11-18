@@ -13,6 +13,7 @@ import type {
   GraphStacking,
   GraphType,
   JsonObject,
+  ListKind,
   PageNumberFormat,
   TableAlign,
   TableColumn,
@@ -129,6 +130,21 @@ export interface ParagraphProps extends CommonElementProps, PromptProps {
    * of block looks like. Saying both is allowed, and this wins.
    */
   align?: TextAlign;
+  /**
+   * Makes the paragraph an item of a list: `"bullet"` marks it, `"number"`
+   * counts it.
+   *
+   * Items written one after another are one list, and the renderer does the
+   * counting — so a step dropped for one recipient leaves no gap in the
+   * numbers. Anything between two items ends the list, and a numbered list
+   * after it starts again at one.
+   *
+   * On a `<Shape>` an item is drawn as a plain paragraph: the box holds its
+   * words off its edge with the same indent a hang needs.
+   */
+  list?: ListKind;
+  /** How far under another item this one stands: `1` for a point under an item. */
+  listLevel?: number;
   /** The paragraph's text, as children. */
   children?: Yield<"paragraph">;
 }

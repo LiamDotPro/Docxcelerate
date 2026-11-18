@@ -55,7 +55,7 @@ interface PromptProps {
 | --- | --- |
 | `Document` | `id` (required), `title` (required), `metadata?`, `header?`, `footer?`, `firstHeader?`, `firstFooter?`, `evenHeader?`, `evenFooter?`, `children?` |
 | `Section` | `title` (required), `children?` |
-| `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`) |
+| `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0) |
 | `Text` | `bold?`, `italic?`, `underline?`, `strike?`, `href?` (`https:`, `http:`, `mailto:` or `tel:`), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` |
 | `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `caption?`, `width?`, `height?` (points), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `dataLabels?` |
@@ -69,6 +69,11 @@ interface PromptProps {
 
 Notes worth knowing:
 
+- A list is paragraphs with `list="bullet"` or `list="number"`. Items written
+  one after another are one list and the renderer counts them; anything that is
+  not an item ends it, and the next numbered list starts at one. Never type a
+  bullet or a number into the text. `listLevel={1}` nests an item under the one
+  above. Not drawn on a `<Shape>`.
 - `<Text>` sets some of a paragraph's words differently:
   `Due within <Text bold>thirty days</Text>.` One inside another takes both
   settings. It carries no colour or size — a link is drawn in the theme's
