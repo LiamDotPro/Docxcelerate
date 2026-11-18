@@ -201,6 +201,14 @@ async function installComponent(
         (field) => `Add ${field.path}: ${field.type} to your data type — ${field.summary}`,
       ),
       `Use it: <${entry.exports[0]} /> in document.tsx, imported from ./nodes/index.ts.`,
+      // A preview runs the deriver through the node's import, but a publish only
+      // ships what derivers/index.ts registers, so this is the step that is
+      // easy to miss until an engine build fails.
+      ...entry.files.filter((file) => file.target.startsWith("derivers/")).map((file) => {
+        const name = entry.id.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+        return `Register it for publishing: in derivers/index.ts, import ${name} from ` +
+          `"./${file.target.slice("derivers/".length)}" and add ${name}: ${name}.run.`;
+      }),
       ...(entry.themeHint ? [`Drawn against the ${entry.themeHint} theme: dxcl add ${entry.themeHint}`] : []),
     ],
   };
