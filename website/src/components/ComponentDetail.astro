@@ -258,6 +258,26 @@ const treeSelected =
             <div class="flex flex-wrap items-baseline gap-3">
               <h2 class={eyebrow}>{steps[1].title}</h2>
               <span class={stepNote}>{steps[1].note}</span>
+              {
+                // Hidden until the script below runs: without it every
+                // arrangement shows, and a picker that did nothing would lie.
+                component.arrangements.length > 0 && (
+                  <label class="ml-auto flex items-center gap-2" data-arrangement-picker hidden>
+                    <span class="font-mono text-[0.65rem] uppercase tracking-[0.12em] text-muted">
+                      {t.registry.arrangementLabel}
+                    </span>
+                    <select
+                      data-arrangement-select
+                      class="min-h-[44px] cursor-pointer rounded-[3px] border border-default bg-surface-2 px-2 font-mono text-[0.72rem] text-ink sm:min-h-0 sm:py-1"
+                    >
+                      {component.arrangements.map((arrangement) => (
+                        <option value={arrangement.id}>{arrangement.title}</option>
+                      ))}
+                      <option value="">{t.registry.arrangementAll}</option>
+                    </select>
+                  </label>
+                )
+              }
             </div>
             <!-- A component is a block, not a page. Held to the width the board
                  gives it so it does not stretch into a full-bleed sheet. -->
@@ -267,7 +287,7 @@ const treeSelected =
                 // other values cost nothing until somebody picks one.
                 <div data-variant-panel={index} hidden={index !== selected} class="flex flex-col gap-6">
                   {previewsOf(variant).map((preview) => (
-                    <div class="flex max-w-[460px] flex-col gap-2">
+                    <div class="flex max-w-[460px] flex-col gap-2" data-arrangement={preview.id || undefined}>
                       {preview.id && (
                         <div class="flex flex-col gap-0.5">
                           <div class="flex flex-wrap items-baseline gap-2">
@@ -553,6 +573,25 @@ const treeSelected =
         // Denied, or an insecure origin. The text is on screen either way.
       }
     });
+  }
+
+  // ---- The arrangement picker ----------------------------------------------
+  // One arrangement at a time, the default first, or all of them to compare.
+  // It applies inside every value's panel, so it holds across the value
+  // switcher. A hidden frame is lazy, so the others load only when shown.
+  const picker = document.querySelector<HTMLElement>("[data-arrangement-picker]");
+  const arrangementSelect = document.querySelector<HTMLSelectElement>("[data-arrangement-select]");
+  const arranged = Array.from(document.querySelectorAll<HTMLElement>("[data-arrangement]"));
+
+  if (picker && arrangementSelect) {
+    const show = () => {
+      const chosen = arrangementSelect.value;
+      for (const preview of arranged) preview.hidden = chosen !== "" && preview.dataset.arrangement !== chosen;
+    };
+
+    picker.hidden = false;
+    arrangementSelect.addEventListener("change", show);
+    show();
   }
 
   // ---- The value switcher ---------------------------------------------------

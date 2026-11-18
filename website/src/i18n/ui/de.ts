@@ -397,6 +397,10 @@ export const de: UiStrings = {
     stepPreviewArrangementsNote: "jede Anordnung für sich gerendert",
     /** Marks the arrangement a component uses when none is asked for. */
     arrangementDefault: "Standard",
+    /** Labels the picker that chooses which arrangement the preview shows. */
+    arrangementLabel: "Anordnung",
+    /** The picker's option for showing every arrangement at once. */
+    arrangementAll: "Alle Anordnungen",
     stepNodes: "Aufgelöste Nodes",
     /** {count} is a number of nodes. */
     stepNodesNote: "was ein Renderer erhält — {count} Nodes",

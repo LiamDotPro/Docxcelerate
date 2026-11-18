@@ -388,6 +388,10 @@ export const ru: UiStrings = {
     stepPreviewArrangementsNote: "каждая компоновка, отрисованная сама по себе",
     /** Marks the arrangement a component uses when none is asked for. */
     arrangementDefault: "по умолчанию",
+    /** Labels the picker that chooses which arrangement the preview shows. */
+    arrangementLabel: "Компоновка",
+    /** The picker's option for showing every arrangement at once. */
+    arrangementAll: "Все компоновки",
     stepNodes: "Разрешённые узлы",
     /** {count} is a number of nodes. */
     stepNodesNote: "что получает рендерер — узлов: {count}",

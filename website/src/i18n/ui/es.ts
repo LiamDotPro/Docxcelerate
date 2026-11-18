@@ -392,6 +392,10 @@ export const es: UiStrings = {
     stepPreviewArrangementsNote: "cada disposición renderizada por su cuenta",
     /** Marks the arrangement a component uses when none is asked for. */
     arrangementDefault: "predeterminada",
+    /** Labels the picker that chooses which arrangement the preview shows. */
+    arrangementLabel: "Disposición",
+    /** The picker's option for showing every arrangement at once. */
+    arrangementAll: "Todas las disposiciones",
     stepNodes: "Nodos resueltos",
     /** {count} is a number of nodes. */
     stepNodesNote: "lo que recibe un renderizador — {count} nodos",
