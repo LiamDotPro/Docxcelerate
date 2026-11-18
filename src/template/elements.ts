@@ -8,6 +8,7 @@
  */
 
 import type {
+  DocumentProperties,
   GraphData,
   GraphLegend,
   GraphStacking,
@@ -62,6 +63,17 @@ export interface DocumentProps extends CommonElementProps {
   title: string;
   /** Anything to carry alongside the document. */
   metadata?: JsonObject;
+  /**
+   * What the file says about itself — author, subject, keywords, description,
+   * and named custom values a DMS can index.
+   *
+   * Give a function of the data when a value differs per document: it is
+   * called once per build, like a `useState` initializer, so interpolating a
+   * value publishes it as a token the engine fills in.
+   */
+  // `never` so that any `(data: YourData) => …` is accepted, while an
+  // unannotated parameter cannot be read without saying what it is.
+  properties?: DocumentProperties | ((data: never) => DocumentProperties);
   /**
    * Nodes drawn at the top of every page.
    *

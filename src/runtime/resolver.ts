@@ -13,7 +13,7 @@ import type {
 import { generateGraph, generateImage, generateParagraph } from "./ai_request.ts";
 import { evaluateCondition } from "./conditions.ts";
 import { createDefaultDeriverRegistry, type DeriverRegistry, runDerivers } from "./derivers.ts";
-import { renderTemplate } from "./templates.ts";
+import { renderProperties, renderTemplate } from "./templates.ts";
 
 /**
  * Settling a published document against real data.
@@ -70,6 +70,9 @@ export async function resolveDocument(
 
   return {
     ...doc,
+    ...(doc.properties === undefined
+      ? {}
+      : { properties: await renderProperties(doc.properties, (value) => renderTemplate(value, state)) }),
     nodes,
     header,
     footer,

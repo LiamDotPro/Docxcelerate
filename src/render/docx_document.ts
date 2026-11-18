@@ -89,7 +89,20 @@ export function createDocxDocument(doc: DocumentModel): Document {
   // or whether another follows it, without looking at what stands beside it.
   const lists = placeLists(doc);
 
+  const properties = doc.properties ?? {};
+
   return new Document({
+    title: doc.title,
+    // Stated as "" rather than left out: docx writes "Un-named" for an author
+    // nobody gave, and that is a name no document chose.
+    creator: properties.author ?? "",
+    lastModifiedBy: properties.author ?? "",
+    subject: properties.subject,
+    keywords: properties.keywords,
+    description: properties.description,
+    customProperties: Object.entries(properties.custom ?? {})
+      .filter(([, value]) => value !== "")
+      .map(([name, value]) => ({ name, value })),
     styles: createDocxStyles(style, doc.locale),
     // Only for a document with a list in it, so one without is packed with
     // exactly the numbering part it always had.
