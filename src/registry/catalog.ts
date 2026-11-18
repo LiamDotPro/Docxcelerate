@@ -798,11 +798,8 @@ export const COMPONENTS: RegistryComponent[] = [
       "exemption. The UK construction reverse charge states the VAT that would " +
       "have been due without charging it. The French and German small-business " +
       "mentions are printed verbatim. A standard invoice gets nothing, so the " +
-      "node can sit under the totals on every invoice. The CIS amount is " +
-      "formatted by a deriver installed at derivers/tax-treatment-notice.deriver.ts: " +
-      "import it into derivers/index.ts and add " +
-      "`taxTreatmentNoticeVat: taxTreatmentNoticeVat.run`, or a document that " +
-      "reaches that arm fails its build.",
+      "node can sit under the totals on every invoice. The UK amount is " +
+      "formatted in sterling by a deriver that ships with it.",
     category: "Legal",
     tags: ["tax", "vat", "invoice", "legal", "branching", "deriver"],
     exports: ["TaxTreatmentNotice"],
@@ -845,11 +842,7 @@ export const COMPONENTS: RegistryComponent[] = [
       },
     ],
     files: [
-      ...node("tax-treatment-notice"),
-      {
-        source: "components/tax-treatment-notice/tax-treatment-notice.deriver.ts",
-        target: "derivers/tax-treatment-notice.deriver.ts",
-      },
+      ...node("tax-treatment-notice", { deriver: true }),
     ],
     previewData: {
       invoice: {

@@ -1,5 +1,5 @@
-import { derive } from "docxcelerate/document";
-import { type Nodes, Paragraph, useState } from "docxcelerate/template";
+import { type Nodes, Paragraph, useDeriver, useState } from "docxcelerate/template";
+import taxTreatmentNotice from "../derivers/tax-treatment-notice.deriver.ts";
 
 /**
  * The one mention an invoice's tax treatment requires, or a warning when it
@@ -27,13 +27,8 @@ import { type Nodes, Paragraph, useState } from "docxcelerate/template";
  * a plain boolean at build time and every recipient gets the same arm.
  *
  * Nothing is computed here except the CIS amount, which is formatted by a
- * deriver, installed at `derivers/tax-treatment-notice.deriver.ts`. The
- * installer registers only node exports, so add it to `derivers/index.ts` by
- * hand. Derivers run before a node's `when` is checked, so a document using
- * this node fails to build naming it whatever its treatment, not only on the
- * reverse-charge arm:
- * `import taxTreatmentNoticeVat from "./tax-treatment-notice.deriver.ts";`
- * and `taxTreatmentNoticeVat: taxTreatmentNoticeVat.run,` in the object.
+ * deriver. It runs for every invoice, whatever its treatment, and gives "" when
+ * there is no amount.
  *
  * A publish build of this node emits 15 branches against the default
  * `branchLimit` of 32, so a document that already carries many decisions may
@@ -124,12 +119,15 @@ export interface TaxTreatmentData {
  * `invoice.taxTreatment`, or an "incomplete" warning when the data that
  * treatment requires is missing.
  */
-export const TaxTreatmentNotice: Nodes = () => {
+export const TaxTreatmentNotice: Nodes = async () => {
   const [{ invoice, seller, customer }] = useState((data: TaxTreatmentData) => ({
     invoice: data.invoice,
     seller: data.seller,
     customer: data.customer,
   }));
+  // Before any branch: the engine runs it for every invoice, and it gives ""
+  // when there is no amount.
+  await useDeriver(taxTreatmentNotice, [invoice.notionalVat]);
   const t = invoice.taxTreatment;
   const cv = customer.vatNumber;
   const sv = seller.vatNumber;
@@ -169,16 +167,8 @@ export const TaxTreatmentNotice: Nodes = () => {
         </Paragraph>
       )}
       {t === "uk-domestic-reverse-charge" && invoice.notionalVat && (
-        <Paragraph
-          id="tax-notice-uk-reverse-charge"
-          derivers={[
-            derive("taxTreatmentNoticeVat", {
-              output: "taxTreatmentNoticeVatLabel",
-              inputs: [invoice.notionalVat],
-            }),
-          ]}
-        >
-          Reverse charge: customer to account to HMRC for the VAT (VATA 1994 s55A). VAT that would have been due: {"{{derived.taxTreatmentNoticeVatLabel}}"}. It is shown for information and is not included in the amount payable.
+        <Paragraph id="tax-notice-uk-reverse-charge">
+          Reverse charge: customer to account to HMRC for the VAT (VATA 1994 s55A). VAT that would have been due: {"{{derived.taxTreatmentNotice}}"}. It is shown for information and is not included in the amount payable.
         </Paragraph>
       )}
       {t === "uk-domestic-reverse-charge" && !invoice.notionalVat && (

@@ -1,49 +1,38 @@
 import { test } from "node:test";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
-import ts from "typescript";
 import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
-import { buildDocument, createDeriverRegistry, InMemoryDataProvider, resolveDocument } from "docxcelerate";
+import {
+  buildDocument,
+  createDeriverBundle,
+  createDeriverRegistry,
+  createDeriverRegistryFromBundle,
+  InMemoryDataProvider,
+  resolveDocument,
+} from "docxcelerate";
 import type { DocumentNode, ParagraphNode, RuntimeState } from "docxcelerate";
 import { createPublishData, Document, Section, template } from "docxcelerate/template";
 import { transformDocumentSource } from "docxcelerate/transform";
 import { registryRoot } from "docxcelerate/registry/install";
+import { loadRegistryModule } from "./registry_support.ts";
 
 /**
+ * Typed here rather than with `import type` from the registry: tsconfig.test.json's
+ * `rootDir` is `tests/`, and a type import would pull registry/ into that program.
+ *
  * The tax treatment notice, run the way a project runs it: compiled by the
  * document transform, then built against real data and against publish
- * stand-ins. The node lives outside `tests/`, so it is compiled into
- * `dist-tests/` here, where `docxcelerate` still resolves.
+ * stand-ins.
  */
-const dir = join(registryRoot(), "components", "tax-treatment-notice");
-const outDir = join(process.cwd(), "dist-tests", "tax-treatment-notice-build");
-
-async function compile(file: string, transform: boolean) {
-  const source = await readFile(join(dir, file), "utf8");
-  const input = transform ? transformDocumentSource(source, { fileName: file }) : { code: source, branches: 0 };
-  const js = ts.transpileModule(input.code, {
-    compilerOptions: {
-      target: ts.ScriptTarget.ES2022,
-      module: ts.ModuleKind.ESNext,
-      jsx: ts.JsxEmit.ReactJSX,
-      jsxImportSource: "docxcelerate/template",
-    },
-  }).outputText.replaceAll(".deriver.ts", ".deriver.js");
-  const out = join(outDir, file.replace(/\.tsx?$/, ".js"));
-
-  await mkdir(outDir, { recursive: true });
-  await writeFile(out, js);
-
-  return { url: pathToFileURL(out).href, branches: input.branches, source };
-}
-
-const nodeBuild = await compile("tax-treatment-notice.node.tsx", true);
-const derivBuild = await compile("tax-treatment-notice.deriver.ts", false);
-const { TaxTreatmentNotice } = await import(nodeBuild.url) as { TaxTreatmentNotice: () => never };
-const taxTreatmentNoticeVat = (await import(derivBuild.url)).default as {
-  run: (inputs: unknown[], state?: RuntimeState) => string;
-};
+const nodeSource = "components/tax-treatment-notice/tax-treatment-notice.node.tsx";
+const { TaxTreatmentNotice } = await loadRegistryModule<{ TaxTreatmentNotice: () => never }>(nodeSource);
+const taxTreatmentNotice = (await loadRegistryModule<{ default: { run: (inputs: unknown[]) => string } }>(
+  "components/derivers/tax-treatment-notice.deriver.ts",
+)).default;
+// Counted from the source rather than from a compiled copy: nothing is written.
+const branches = transformDocumentSource(await readFile(join(registryRoot(), nodeSource), "utf8"), {
+  fileName: nodeSource,
+}).branches;
 
 type Data = Record<string, unknown>;
 
@@ -84,7 +73,7 @@ async function run(
   const built = await buildDocument(templateOf(), data, {
     branchMode: "decide",
     dynamicMode: "placeholder",
-    derivers: createDeriverRegistry([taxTreatmentNoticeVat as never]),
+    derivers: await createDeriverRegistryFromBundle(createDeriverBundle({ taxTreatmentNotice: taxTreatmentNotice.run })),
   } as never);
   const body = built.nodes[0];
 
@@ -210,7 +199,7 @@ test("a treatment outside the union warns rather than printing nothing", async (
 // ---------------------------------------------------------------------------
 
 test("the deriver formats sterling, rounding half away from zero", () => {
-  const run = (x: unknown) => taxTreatmentNoticeVat.run([x]);
+  const run = (x: unknown) => taxTreatmentNotice.run([x]);
 
   assertEquals(run(184250.75), "£184,250.75");
   assertEquals(run(-2450.5), "-£2,450.50");
@@ -224,7 +213,7 @@ test("the deriver formats sterling, rounding half away from zero", () => {
     try {
       run(bad);
     } catch (error) {
-      assertStringIncludes((error as Error).message, "taxTreatmentNoticeVat");
+      assertStringIncludes((error as Error).message, "taxTreatmentNotice");
       continue;
     }
     throw new Error(`expected ${String(bad)} to throw`);
@@ -236,7 +225,7 @@ test("the deriver formats sterling, rounding half away from zero", () => {
 // ---------------------------------------------------------------------------
 
 test("a publish build carries all fifteen arms, each with a condition", async () => {
-  assertEquals(nodeBuild.branches, 15);
+  assertEquals(branches, 15);
 
   const published = await buildDocument(templateOf(), createPublishData() as Data, {
     branchMode: "publish",
@@ -269,7 +258,7 @@ test("a publish build carries all fifteen arms, each with a condition", async ()
     if (node.when === undefined) throw new Error(`${id} has no condition`);
   }
 
-  assertEquals(JSON.stringify(found.get("tax-notice-uk-reverse-charge")).includes("taxTreatmentNoticeVat"), true);
+  assertEquals(JSON.stringify(found.get("tax-notice-uk-reverse-charge")).includes("taxTreatmentNotice"), true);
 
   // Resolved against real data, an engine settles to the one arm that applies.
   const data = { ...full, invoice: { ...full.invoice, taxTreatment: "uk-domestic-reverse-charge" } };
@@ -280,7 +269,7 @@ test("a publish build carries all fifteen arms, each with a condition", async ()
     aiClient: { generateParagraph: () => "" },
   };
   const resolved = await resolveDocument(published, state, {
-    derivers: createDeriverRegistry([taxTreatmentNoticeVat as never]),
+    derivers: await createDeriverRegistryFromBundle(createDeriverBundle({ taxTreatmentNotice: taxTreatmentNotice.run })),
   });
   const body = resolved.nodes[0] as { children: ParagraphNode[] };
 
@@ -295,7 +284,7 @@ test("a publish build carries all fifteen arms, each with a condition", async ()
       derived: {},
       dataProvider: new InMemoryDataProvider(sparse as Record<string, unknown>),
       aiClient: { generateParagraph: () => "" },
-    }, { derivers: createDeriverRegistry([taxTreatmentNoticeVat as never]) });
+    }, { derivers: await createDeriverRegistryFromBundle(createDeriverBundle({ taxTreatmentNotice: taxTreatmentNotice.run })) });
 
     return (r.nodes[0] as { children: ParagraphNode[] }).children.map((n) => n.id);
   };
@@ -306,6 +295,6 @@ test("a publish build carries all fifteen arms, each with a condition", async ()
   await assertRejects(
     () => resolveDocument(published, state, { derivers: createDeriverRegistry() }),
     Error,
-    "taxTreatmentNoticeVat",
+    "taxTreatmentNotice",
   );
 });
