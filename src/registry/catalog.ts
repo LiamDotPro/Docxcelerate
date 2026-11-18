@@ -966,6 +966,48 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "vat-place-of-supply",
+    title: "VAT place of supply",
+    summary: "Decides whose VAT applies to a sale and at what rate, and prints the one line that says so.",
+    detail:
+      "Decides the VAT treatment before anything is printed: domestic, reverse " +
+      "charge, intra-Community supply, zero-rated export, outside the scope, or " +
+      "the customer's country's rate under the OSS. The EUR 10,000 distance-" +
+      "selling threshold is tested EU-wide on the current and the preceding " +
+      "year, and either one over means destination VAT. A VAT number only " +
+      "counts once it is marked validated, so an unproven business claim is " +
+      "charged VAT, with a note saying why, and a consumer never gets reverse " +
+      "charge. Northern Ireland counts as the EU for goods. Rates come from your " +
+      "data, never from a table that goes stale. The decision is made by a " +
+      "deriver that ships with it, and its treatment and rate are readable as " +
+      "derived values for the totals.",
+    category: "Legal",
+    tags: ["tax", "vat", "invoice", "legal", "oss", "deriver"],
+    exports: ["VatPlaceOfSupply"],
+    dataFields: [
+      { path: "seller.country", type: "string", summary: "Where the seller is established: an EU member state, GB or XI. Anything else throws." },
+      { path: "seller.ossRegistered", type: "boolean | undefined", summary: "True when the seller charges destination VAT under the Union OSS even under the threshold." },
+      { path: "seller.euDistanceSales", type: "{ currentYear: number; priorYear: number } | undefined", summary: "EU-wide cross-border B2C sales in EUR, this year and last. Required for a B2C EU distance sale unless OSS-registered." },
+      { path: "customer.country", type: "string", summary: "Where the customer is, as an ISO country code. Outside the EU and UK means export or outside the scope." },
+      { path: "customer.isBusiness", type: "boolean", summary: "Whether the customer buys as a business. Missing means a consumer." },
+      { path: "customer.vatNumber", type: "string | undefined", summary: "Needed with vatNumberValidated for reverse charge or an intra-Community supply." },
+      { path: "customer.vatNumberValidated", type: "boolean | undefined", summary: "True only once the number has been checked. Anything else means VAT is charged." },
+      { path: "supply.kind", type: '"goods" | "services" | "digital"', summary: "What is sold. Digital means telecoms, broadcasting and electronic services." },
+      { path: "supply.shipsFrom", type: "string | undefined", summary: "Goods only: where they leave from. Defaults to the seller's country." },
+      { path: "supply.shipsTo", type: "string | undefined", summary: "Goods only: where they arrive. Defaults to the customer's country." },
+      { path: "vatRates", type: "Record<string, number>", summary: "Current standard rate per country, as a percentage. Only the rate needed is read; a missing one throws." },
+    ],
+    files: [...node("vat-place-of-supply", { deriver: true })],
+    previewData: {
+      seller: { country: "DE", ossRegistered: false, euDistanceSales: { currentYear: 4850000, priorYear: 3920000 } },
+      customer: { country: "FI", isBusiness: true, vatNumber: "FI12345678", vatNumberValidated: false },
+      supply: { kind: "digital", shipsFrom: "DE", shipsTo: "FI" },
+      vatRates: { DE: 19, FI: 25.5, NL: 21 },
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
