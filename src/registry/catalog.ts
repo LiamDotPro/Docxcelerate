@@ -79,9 +79,18 @@ export interface RegistryComponent {
  * Flat rather than a directory each: a document project keeps every node in one
  * place, and an installed component is meant to stop being distinguishable from
  * one you wrote as soon as you have edited it.
+ *
+ * A component that computes on request data ships one deriver beside it, the
+ * default export of `derivers/<id>.deriver.ts`, named the id in camel case. It
+ * sits in a `derivers/` folder in the registry too, so the node's
+ * `../derivers/<id>.deriver.ts` import resolves the same before and after it is
+ * copied.
  */
-function node(id: string): RegistryFile[] {
-  return [{ source: `components/${id}/${id}.node.tsx`, target: `nodes/${id}.node.tsx` }];
+function node(id: string, options: { deriver?: boolean } = {}): RegistryFile[] {
+  return [
+    { source: `components/${id}/${id}.node.tsx`, target: `nodes/${id}.node.tsx` },
+    ...(options.deriver ? [{ source: `components/derivers/${id}.deriver.ts`, target: `derivers/${id}.deriver.ts` }] : []),
+  ];
 }
 
 /**
@@ -789,9 +798,7 @@ export const COMPONENTS: RegistryComponent[] = [
       "it, and a self-billed invoice carries its jurisdiction's statement. The " +
       "supply date prints only when it differs from the issue date, except in " +
       "Germany, which always wants a Leistungsdatum. All of it is one deriver, " +
-      "not a dozen published arms: add invoiceDocumentType from " +
-      "derivers/invoice-document-type.deriver.ts to derivers/index.ts, or the " +
-      "build fails naming it.",
+      "not a dozen published arms.",
     category: "Opening",
     tags: ["invoice", "vat", "tax", "deriver", "branching", "section"],
     exports: ["InvoiceDocumentType"],
@@ -808,13 +815,7 @@ export const COMPONENTS: RegistryComponent[] = [
       { path: "seller.vatNumber", type: "string | undefined", summary: "Required when registered; the document fails without it." },
       { path: "seller.simplifiedAllowed", type: "boolean | undefined", summary: "Whether simplified invoices are issued at all. Missing means no." },
     ],
-    files: [
-      ...node("invoice-document-type"),
-      {
-        source: "components/invoice-document-type/invoice-document-type.deriver.ts",
-        target: "derivers/invoice-document-type.deriver.ts",
-      },
-    ],
+    files: node("invoice-document-type", { deriver: true }),
     previewData: {
       invoice: {
         number: "SI-2026-11-004817/REV-2",

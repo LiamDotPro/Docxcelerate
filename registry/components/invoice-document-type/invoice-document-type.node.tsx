@@ -1,5 +1,5 @@
-import { Paragraph, Section, type Section as SectionComponent, useState, truthy, derivedPath } from "docxcelerate/template";
-import { derive, dataRef } from "docxcelerate/document";
+import { Paragraph, Section, type Section as SectionComponent, useDeriver, useState } from "docxcelerate/template";
+import invoiceDocumentType from "../derivers/invoice-document-type.deriver.ts";
 
 /**
  * The heading and opening lines of an invoice: what the document is allowed to
@@ -33,8 +33,7 @@ import { derive, dataRef } from "docxcelerate/document";
  * the rest of the invoice, and dates from request data cannot be formatted at
  * publish time without a deriver anyway.
  *
- * Installed by `dxcl add invoice-document-type`. It ships a deriver: add
- * `invoiceDocumentType` to derivers/index.ts, or the build fails naming it.
+ * Installed by `dxcl add invoice-document-type`, which also installs its deriver.
  */
 
 /** What this component reads. Add these fields to your document data type. */
@@ -115,40 +114,23 @@ export interface InvoiceDocumentTypeData {
   };
 }
 
-export const InvoiceDocumentType: SectionComponent = () => {
+export const InvoiceDocumentType: SectionComponent = async () => {
   const [invoice] = useState((data: InvoiceDocumentTypeData) => data.invoice);
+  const [seller] = useState((data: InvoiceDocumentTypeData) => data.seller);
+  const type = await useDeriver(invoiceDocumentType, [invoice, seller]);
 
-  // The derived values do not exist in the component, so there is no ordinary
-  // conditional to write: each guard is a `when` the resolver evaluates.
   return (
-    <Section
-      id="invoice-type"
-      derivers={[
-        derive("invoiceDocumentType", {
-          output: "invoiceType",
-          inputs: [dataRef("invoice"), dataRef("seller")],
-        }),
-      ]}
-      title="{{derived.invoiceType.heading}}"
-    >
-      <Paragraph id="invoice-type-statement" when={truthy(derivedPath("invoiceType.statement"))}>
-        {"{{derived.invoiceType.statement}}"}
-      </Paragraph>
+    <Section id="invoice-type" title={type.heading}>
+      {type.statement && <Paragraph id="invoice-type-statement">{type.statement}</Paragraph>}
       <Paragraph id="invoice-type-number">Invoice number: {invoice.number}</Paragraph>
-      <Paragraph id="invoice-type-issue-date">
-        Date of issue: {"{{derived.invoiceType.issueDate}}"}
-      </Paragraph>
-      <Paragraph id="invoice-type-supply" when={truthy(derivedPath("invoiceType.supplyLine"))}>
-        {"{{derived.invoiceType.supplyLine}}"}
-      </Paragraph>
+      <Paragraph id="invoice-type-issue-date">Date of issue: {type.issueDate}</Paragraph>
+      {type.supplyLine && <Paragraph id="invoice-type-supply">{type.supplyLine}</Paragraph>}
       {invoice.purchaseOrder && (
         <Paragraph id="invoice-type-purchase-order">
           Purchase order: {invoice.purchaseOrder}
         </Paragraph>
       )}
-      <Paragraph id="invoice-type-vat-number" when={truthy(derivedPath("invoiceType.vatNumber"))}>
-        VAT number: {"{{derived.invoiceType.vatNumber}}"}
-      </Paragraph>
+      {type.vatNumber && <Paragraph id="invoice-type-vat-number">VAT number: {type.vatNumber}</Paragraph>}
     </Section>
   );
 };
