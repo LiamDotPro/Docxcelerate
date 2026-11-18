@@ -39,13 +39,26 @@ const nodeCount = component.resolved.length;
 /** The steps, numbered, so the page reads as one sequence rather than four stacks. */
 const steps = [
   { n: "01", title: t.registry.stepData, note: t.registry.stepDataNote },
-  { n: "02", title: t.registry.stepPreview, note: t.registry.stepPreviewNote },
+  {
+    n: "02",
+    title: t.registry.stepPreview,
+    note: component.arrangements.length > 0 ? t.registry.stepPreviewArrangementsNote : t.registry.stepPreviewNote,
+  },
   { n: "03", title: t.registry.stepNodes, note: fill(t.registry.stepNodesNote, { count: nodeCount }) },
   { n: "04", title: t.registry.stepFiles, note: t.registry.stepFilesNote },
 ];
 
 /** Newlines inside a node's text are line breaks a reader should see as such. */
 const shown = (text: string | undefined) => (text ?? "").split("\n");
+
+/**
+ * What step 02 shows: each arrangement under its own caption, or the one
+ * preview. Every arrangement is on the page at once rather than behind tabs,
+ * because a preview measures its sheet to fit it, which a hidden frame cannot.
+ */
+const previews = component.arrangements.length > 0
+  ? component.arrangements.map((arrangement, index) => ({ ...arrangement, isDefault: index === 0 }))
+  : [{ id: "", title: component.title, summary: "", previewUrl: component.previewUrl, isDefault: true }];
 
 const fieldPaths = component.dataFields.map((field) => field.path).join("\n");
 
@@ -186,27 +199,46 @@ const treeSelected =
             </div>
             <!-- A component is a block, not a page. Held to the width the board
                  gives it so it does not stretch into a full-bleed sheet. -->
-            <div class="max-w-[460px]">
-              <NodePreview
-                src={component.previewUrl}
-                title={component.title}
-                label={t.registry.renderedBy}
-                flush
-              >
-                {
-                  drawnAgainst && (
-                    <>
-                      {" · "}
-                      <a
-                        href={localizePath(themeHref(drawnAgainst.id), locale)}
-                        class="text-muted no-underline hover:text-accent"
-                      >
-                        {fill(t.registry.drawnAgainst, { theme: drawnAgainst.title })}
-                      </a>
-                    </>
-                  )
-                }
-              </NodePreview>
+            <div class="flex flex-col gap-6">
+              {
+                previews.map((preview) => (
+                  <div class="flex max-w-[460px] flex-col gap-2">
+                    {preview.id && (
+                      <div class="flex flex-col gap-0.5">
+                        <div class="flex flex-wrap items-baseline gap-2">
+                          <code class="font-mono text-xs text-ink">arrangement="{preview.id}"</code>
+                          {preview.isDefault && (
+                            <span class="font-mono text-[0.6rem] uppercase tracking-[0.08em] text-muted">
+                              {t.registry.arrangementDefault}
+                            </span>
+                          )}
+                        </div>
+                        <span class="text-[0.78rem] leading-[1.5] text-muted">{preview.summary}</span>
+                      </div>
+                    )}
+                    <NodePreview
+                      src={preview.previewUrl}
+                      title={preview.id ? `${component.title} · ${preview.title}` : component.title}
+                      label={t.registry.renderedBy}
+                      flush
+                    >
+                      {
+                        drawnAgainst && (
+                          <>
+                            {" · "}
+                            <a
+                              href={localizePath(themeHref(drawnAgainst.id), locale)}
+                              class="text-muted no-underline hover:text-accent"
+                            >
+                              {fill(t.registry.drawnAgainst, { theme: drawnAgainst.title })}
+                            </a>
+                          </>
+                        )
+                      }
+                    </NodePreview>
+                  </div>
+                ))
+              }
             </div>
           </div>
         </section>

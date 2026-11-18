@@ -437,6 +437,9 @@ export const en = {
     stepDataNote: "the JSON this preview was built with",
     stepPreview: "Rendered preview",
     stepPreviewNote: "the component rendered on its own",
+    stepPreviewArrangementsNote: "each arrangement, rendered on its own",
+    /** Marks the arrangement a component uses when none is asked for. */
+    arrangementDefault: "default",
     stepNodes: "Resolved nodes",
     /** {count} is a number of nodes. */
     stepNodesNote: "what a renderer receives — {count} nodes",

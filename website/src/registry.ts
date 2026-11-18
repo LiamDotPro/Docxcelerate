@@ -129,6 +129,20 @@ export interface ComponentPageEntry {
   /** What it resolved to: the nodes a renderer or an engine is handed. */
   resolved: ResolvedNode[];
   previewUrl: string;
+  /**
+   * The placements its `arrangement` prop chooses between, the default first,
+   * each with its own preview. Empty for a component with only the one.
+   */
+  arrangements: ComponentArrangementEntry[];
+}
+
+/** One arrangement of a component, and where its preview was written. */
+export interface ComponentArrangementEntry {
+  /** The value the `arrangement` prop takes. */
+  id: string;
+  title: string;
+  summary: string;
+  previewUrl: string;
 }
 
 export const THEMES = generated.themes as ThemePageEntry[];

@@ -216,6 +216,11 @@ before any `return`.
 | `useAvailableTokens` | `() => number` | The token budget this build allotted — `2000` by default. |
 | `useDeriver` | `(name: string) => (output, ...inputs) => Promise<unknown>` | Runs a registered deriver **now**, during the build. |
 
+`arrange(arrangement, { name: () => … })` is not a hook, but it is how a
+component offers more than one placement of the same lines: it builds the named
+arrangement, the first when none is named, and throws on a name it does not
+have. See "The same lines, placed differently" in patterns.md.
+
 `useAi` is the one to reach for. It says in one call what a generated node is:
 
 ```ts

@@ -137,11 +137,23 @@ async function main() {
       files: files.map((file) => file.code),
       previewData: component.previewData,
       exports: component.exports,
+      arrangements: component.arrangements ?? null,
       themeHint: component.themeHint ?? null,
       framework,
     });
     const cached = await readCache(key);
-    let page = cached?.page;
+    // One preview per arrangement, the default at the component's own URL so a
+    // link to it shows what `<Component />` with no prop gives. A component
+    // without arrangements is the same loop run once with no prop.
+    const arrangements = component.arrangements ?? [];
+    const placements = arrangements.length > 0
+      ? arrangements.map((arrangement, index) => ({
+        arrangement,
+        props: { arrangement: arrangement.id },
+        file: index === 0 ? `${component.id}.html` : `${component.id}--${arrangement.id}.html`,
+      }))
+      : [{ arrangement: undefined, props: {}, file: `${component.id}.html` }];
+    let pages = cached?.pages;
     let nodes = cached?.nodes;
 
     if (!cached) {
@@ -157,30 +169,40 @@ async function main() {
         return module[name];
       });
 
-      // Placeholder mode, so a generated node shows what an author sees rather
-      // than requiring an endpoint to build the docs.
-      const document = await buildDocument(
-        wrap(component.id, component.title, exported),
-        component.previewData,
-        { dynamicMode: "placeholder" },
-      );
-
       // Components drawn against a theme are previewed in it; the rest get the
       // default, which is what a project has before it chooses one.
       const style = themeById(component.themeHint ?? "clean-minimal").style;
+      pages = [];
 
-      nodes = document.nodes;
-      page = await renderDocxPage({ ...document, style }, {
-        title: component.title,
-        style: NODE_ONLY_STYLE,
-      });
+      for (const placement of placements) {
+        // Placeholder mode, so a generated node shows what an author sees rather
+        // than requiring an endpoint to build the docs.
+        const document = await buildDocument(
+          wrap(component.id, component.title, exported, placement.props),
+          component.previewData,
+          { dynamicMode: "placeholder" },
+        );
 
-      await writeCache(key, { page, nodes });
+        // The resolved nodes listed on the page are the default's.
+        nodes ??= document.nodes;
+        pages.push(
+          await renderDocxPage({ ...document, style }, {
+            title: placement.arrangement
+              ? `${component.title} · ${placement.arrangement.title}`
+              : component.title,
+            style: NODE_ONLY_STYLE,
+          }),
+        );
+      }
+
+      await writeCache(key, { pages, nodes });
     } else {
       reused += 1;
     }
 
-    await writeFile(resolve(COMPONENT_OUT, `${component.id}.html`), page, "utf8");
+    for (const [index, placement] of placements.entries()) {
+      await writeFile(resolve(COMPONENT_OUT, placement.file), pages[index], "utf8");
+    }
 
     components.push({
       id: component.id,
@@ -199,6 +221,10 @@ async function main() {
       // engine or a renderer would be handed.
       resolved: nodes,
       previewUrl: posix.join(COMPONENT_BASE, `${component.id}.html`),
+      arrangements: arrangements.map((arrangement, index) => ({
+        ...arrangement,
+        previewUrl: posix.join(COMPONENT_BASE, placements[index].file),
+      })),
     });
 
     console.log(
@@ -248,12 +274,12 @@ async function documentTemplate() {
   // somebody wrote out, not a list an expression produced. Keying them would
   // suffix every id — the page would show `salutation-0` for a node a project
   // would call `salutation`.
-  return (id, title, components) =>
+  return (id, title, components, props = {}) =>
     template(
       jsxs(Document, {
         id,
         title,
-        children: components.map((component) => jsx(component, {})),
+        children: components.map((component) => jsx(component, props)),
       }),
     );
 }

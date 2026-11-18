@@ -394,6 +394,9 @@ export const de: UiStrings = {
     stepDataNote: "das JSON, mit dem diese Vorschau gebaut wurde",
     stepPreview: "Gerenderte Vorschau",
     stepPreviewNote: "die Komponente für sich gerendert",
+    stepPreviewArrangementsNote: "jede Anordnung für sich gerendert",
+    /** Marks the arrangement a component uses when none is asked for. */
+    arrangementDefault: "Standard",
     stepNodes: "Aufgelöste Nodes",
     /** {count} is a number of nodes. */
     stepNodesNote: "was ein Renderer erhält — {count} Nodes",

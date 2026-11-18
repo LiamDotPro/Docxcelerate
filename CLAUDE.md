@@ -107,6 +107,17 @@ one.
   around them. The node templates live in `templates/document/nodes/` so their
   `../types.ts` import resolves like it will where they land.
 
+**A registry component that can be placed more than one way says so with
+arrangements.** It takes an `arrangement` prop and picks with `arrange()` from
+`docxcelerate/template`; the catalog entry lists them under `arrangements`, the
+default first. Never compare the prop: the branch compiler publishes a
+comparison of two literals rather than settling it, so `arrangement === "table"`
+ships every arrangement as a branch. Every arrangement prints the same lines
+under the same conditions — only where they sit changes — and
+`tests/registry.test.ts` builds each one and fails when two come out the same.
+The site writes a preview per arrangement. `invoice-document-type` is the
+worked example.
+
 **A version bump ships something, or it does not happen.** Merging a version
 change to main publishes it to npm and JSR both, so a bump on a branch that
 only touched the website or the conformance suite would cut a release

@@ -385,6 +385,9 @@ export const ru: UiStrings = {
     stepDataNote: "JSON, на котором построен этот предпросмотр",
     stepPreview: "Отрисованный предпросмотр",
     stepPreviewNote: "компонент, отрисованный сам по себе",
+    stepPreviewArrangementsNote: "каждая компоновка, отрисованная сама по себе",
+    /** Marks the arrangement a component uses when none is asked for. */
+    arrangementDefault: "по умолчанию",
     stepNodes: "Разрешённые узлы",
     /** {count} is a number of nodes. */
     stepNodesNote: "что получает рендерер — узлов: {count}",
