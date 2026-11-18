@@ -1,0 +1,74 @@
+# Builds docxcelerate.com and puts it on Cloudflare Workers.
+#
+# A push to main deploys it. A push to any other branch uploads a version
+# without deploying it and gives it a preview URL named after the branch, so
+# every branch can be looked at before it lands. The URL is written to the
+# run's summary.
+#
+# The site imports the framework from the repository root (website/package.json
+# depends on `file:..`) and its build compiles that first, so a change under
+# src/ changes the site too and triggers this as well.
+#
+# Needs two repository secrets: CLOUDFLARE_API_TOKEN (the "Edit Cloudflare
+# Workers" template, scoped to the account and the docxcelerate.com zone) and
+# CLOUDFLARE_ACCOUNT_ID.
+name: Deploy website
+
+on:
+  push:
+    paths:
+      - "website/**"
+      - "src/**"
+      - "package.json"
+      - ".github/workflows/deploy-website.yml"
+  workflow_dispatch:
+
+# A newer push to the same branch makes the older build worthless.
+concurrency:
+  group: deploy-website-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }}
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - run: npm ci
+      - run: npm run build
+
+      # A preview alias is a DNS label: lowercase letters, digits and hyphens,
+      # and short enough to sit in front of the Worker's own name.
+      - name: Name the preview
+        if: github.ref != 'refs/heads/main'
+        id: alias
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          alias=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' | cut -c1-30 | sed -E 's/-+$//')
+          echo "value=$alias" >> "$GITHUB_OUTPUT"
+
+      - uses: cloudflare/wrangler-action@v3
+        id: wrangler
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: website
+          wranglerVersion: "4"
+          command: >-
+            ${{ github.ref == 'refs/heads/main'
+              && 'deploy'
+              || format('versions upload --preview-alias {0}', steps.alias.outputs.value) }}
+
+      - name: Say where it is
+        env:
+          URL: ${{ steps.wrangler.outputs.deployment-url }}
+        run: echo "Deployed to ${URL:-the URL in the log above}" >> "$GITHUB_STEP_SUMMARY"
