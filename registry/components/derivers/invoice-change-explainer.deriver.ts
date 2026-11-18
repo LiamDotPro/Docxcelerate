@@ -14,7 +14,6 @@ import { deriver } from "docxcelerate/template";
 export default deriver({
   name: "invoiceChangeExplainer",
   run: (change: unknown, locale: unknown) => {
-   
     const c = change as any;
     const loc = typeof locale === "string" && locale !== "" ? locale : "en-GB";
     const KINDS = ["recurring", "usage", "one-off", "discount", "tax"];

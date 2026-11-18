@@ -25,7 +25,7 @@ const registry = await createDeriverRegistryFromBundle(
   createDeriverBundle({ invoiceChangeExplainer: mod.run }),
 );
 
-type Obj = Record<string, any>; 
+type Obj = Record<string, any>;
 
 const plan = { key: "plan", description: "Plan", kind: "recurring", quantity: 1, unitPrice: 42, amount: 42 };
 const api = (q: number, amount: number, unitPrice = 0.00015) => ({
@@ -43,7 +43,6 @@ function input(current: Obj, previous: Obj | null | undefined, extra: Obj = {}):
 
 const prev0 = snap([plan, api(120000, 18)]);
 const withApi = (q: number, amount: number, extra: Obj = {}) => snap([plan, api(q, amount)], extra);
-
 
 const run = (data: Obj, locale?: string): any => mod.run([data, locale] as never, {} as RuntimeState);
 // Through a bundle, which is how a deriver fails: shipped as source text.
@@ -70,6 +69,10 @@ test("2-4 below the floor, at the floor, and no change", () => {
   assertEquals([small.speak, small.silentReason, small.sentence, small.causes], [false, "below-threshold", "", []]);
   assertEquals(run(input(withApi(128000, 19.2), prev0)).speak, true);
   assertEquals(run(input(prev0, prev0)).silentReason, "below-threshold");
+  // Default pct 0.02 and absolute 1: a 1.05 rise is under 2% and so silent, and from nothing 0.99 is silent while 1.00 speaks.
+  assertEquals(run(input(withApi(127000, 19.05), prev0)).speak, false);
+  const bare = (a: number) => snap([{ key: "plan", description: "Plan", kind: "recurring", amount: a }]);
+  assertEquals([0.99, 1].map((a) => run(input(bare(a), bare(0))).speak), [false, true]);
 });
 
 test("5-7 silence: first invoice, credit note, currency change", () => {
@@ -103,8 +106,6 @@ test("10 the split is exact when the amount was rounded", () => {
   const r = run(input(snap([l(7, 0.347, 2.43)]), snap([l(3, 0.333, 1)]), { threshold: { absolute: 0 } }));
   // 133 is already 93% of the 143 movement, so the price share is omitted, not lost.
   assertEquals([r.causes.map((c: Obj) => [c.kind, c.effect]), r.omitted], [[["quantity", 133]], 1]);
-  // The omitted one is the price: 143 moved in all (243 - 100), 133 of it volume.
-  assertEquals(r.causes[0].effect + 10, 243 - 100);
 });
 
 test("11-13 period length", () => {
@@ -151,7 +152,7 @@ test("16 tax splits into base and rate, and the causes sum to the difference", (
     r.sentence,
     "Your total is £26.50 higher than last month, because Seats rose from 10 to 12 (+£20.00), VAT rose with the charges it is worked out on (+£3.50) and VAT changed from 17.5% to 20% (+£3.00).",
   );
-  assertEquals(r.causes.reduce((t: number, c: Obj) => t + c.effect, 0) + 0, 2650);
+  assertEquals(r.causes.reduce((t: number, c: Obj) => t + c.effect, 0), 2650);
 });
 
 test("17 many items are capped at three", () => {
@@ -205,7 +206,7 @@ test("25 ties keep generation order", () => {
 test("26 an amount a penny off quantity x price is all quantity", () => {
   const l = (q: number, a: number) => ({ key: "k", description: "Item", kind: "recurring", quantity: q, unitPrice: 0.333, amount: a });
   const r = run(input(snap([l(300, 99.99)]), snap([l(100, 33.3)]), { threshold: { absolute: 0 } }));
-  assertEquals(r.causes.map((c: Obj) => c.kind), ["quantity"]);
+  assertEquals([r.causes.map((c: Obj) => [c.kind, c.effect]), r.omitted], [[["quantity", 6669]], 0]);
 });
 
 test("27 a currency with no minor units", () => {
@@ -272,7 +273,7 @@ test("publishing keeps one dynamic paragraph behind one branch", async () => {
     dynamicMode: "resolve",
     aiClient: { generateParagraph: () => "" },
   });
-    const text = JSON.stringify(published);
+  const text = JSON.stringify(published);
   assertStringIncludes(text, '"invoice-change-explainer"');
   assertStringIncludes(text, "invoiceChangeExplainer.speak");
   assertStringIncludes(text, "{{derived.invoiceChangeExplainer.facts}}");
