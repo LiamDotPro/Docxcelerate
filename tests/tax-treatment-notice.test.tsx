@@ -17,18 +17,17 @@ import { registryRoot } from "docxcelerate/registry/install";
 import { loadRegistryModule } from "./registry_support.ts";
 
 /**
- * Typed here rather than with `import type` from the registry: tsconfig.test.json's
- * `rootDir` is `tests/`, and a type import would pull registry/ into that program.
- *
  * The tax treatment notice, run the way a project runs it: compiled by the
  * document transform, then built against real data and against publish
  * stand-ins.
  */
 const nodeSource = "components/tax-treatment-notice/tax-treatment-notice.node.tsx";
-const { TaxTreatmentNotice } = await loadRegistryModule<{ TaxTreatmentNotice: () => never }>(nodeSource);
-const taxTreatmentNotice = (await loadRegistryModule<{ default: { run: (inputs: unknown[]) => string } }>(
-  "components/derivers/tax-treatment-notice.deriver.ts",
-)).default;
+const { TaxTreatmentNotice } = await loadRegistryModule<
+  typeof import("../registry/components/tax-treatment-notice/tax-treatment-notice.node.tsx")
+>(nodeSource);
+const taxTreatmentNotice = (await loadRegistryModule<
+  typeof import("../registry/components/derivers/tax-treatment-notice.deriver.ts")
+>("components/derivers/tax-treatment-notice.deriver.ts")).default;
 // Counted from the source rather than from a compiled copy: nothing is written.
 const branches = transformDocumentSource(await readFile(join(registryRoot(), nodeSource), "utf8"), {
   fileName: nodeSource,
@@ -199,7 +198,7 @@ test("a treatment outside the union warns rather than printing nothing", async (
 // ---------------------------------------------------------------------------
 
 test("the deriver formats sterling, rounding half away from zero", () => {
-  const run = (x: unknown) => taxTreatmentNotice.run([x]);
+  const run = (x: unknown) => taxTreatmentNotice.run([x], {} as RuntimeState);
 
   assertEquals(run(184250.75), "£184,250.75");
   assertEquals(run(-2450.5), "-£2,450.50");
