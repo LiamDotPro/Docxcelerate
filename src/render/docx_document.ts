@@ -90,7 +90,7 @@ export function createDocxDocument(doc: DocumentModel): Document {
   const lists = placeLists(doc);
 
   return new Document({
-    styles: createDocxStyles(style),
+    styles: createDocxStyles(style, doc.locale),
     // Only for a document with a list in it, so one without is packed with
     // exactly the numbering part it always had.
     numbering: lists.items === 0 ? undefined : listNumbering(lists.numbered),
@@ -2048,7 +2048,7 @@ function columnWidths(
   return fixed.map((width) => (width === 0 ? each : width));
 }
 
-function createDocxStyles(style: DocumentStyle) {
+function createDocxStyles(style: DocumentStyle, locale: string | undefined) {
   return {
     default: {
       document: {
@@ -2056,6 +2056,9 @@ function createDocxStyles(style: DocumentStyle) {
           font: style.typography.bodyFont,
           size: ptToHalfPoints(style.typography.bodySizePt),
           color: style.typography.color,
+          // What Word spell-checks and hyphenates against. Left off when the
+          // document never said, so Word keeps using the reader's own default.
+          language: locale === undefined ? undefined : { value: locale },
         },
         paragraph: {
           spacing: {

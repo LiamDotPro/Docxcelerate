@@ -53,12 +53,14 @@ interface DocumentProjectArtifactPayload {
     engineLetter?: string;
     derivers?: string;
     deriverNames?: string[];
+    localizedDocuments?: Record<string, { previewDocument: string; engineDocument: string }>;
     metadata?: Record<string, unknown>;
   };
   previewDocument?: unknown;
   engineDocument?: unknown;
   previewLetter?: unknown;
   engineLetter?: unknown;
+  localizedDocuments?: Record<string, { previewDocument: unknown; engineDocument: unknown }>;
   derivers?: DocumentDeriverBundlePayload;
 }
 
@@ -291,11 +293,21 @@ async function writeArtifact(
   if (deriversPath && artifact.derivers) {
     await writeFile(deriversPath, artifact.derivers.source, "utf8");
   }
+  const localizedPaths: string[] = [];
+  for (const [locale, files] of Object.entries(artifact.manifest.localizedDocuments ?? {})) {
+    const documents = artifact.localizedDocuments?.[locale];
+    if (!documents) {
+      continue;
+    }
+    localizedPaths.push(join(outDir, files.previewDocument), join(outDir, files.engineDocument));
+    await writeJson(join(outDir, files.previewDocument), documents.previewDocument);
+    await writeJson(join(outDir, files.engineDocument), documents.engineDocument);
+  }
 
   return {
     built: true,
     outDir,
-    files: [manifestPath, previewPath, enginePath, deriversPath].filter(
+    files: [manifestPath, previewPath, enginePath, deriversPath, ...localizedPaths].filter(
       (path): path is string => Boolean(path),
     ),
   };

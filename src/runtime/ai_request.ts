@@ -55,10 +55,12 @@ export async function generateParagraph(
     throw new Error(`Dynamic paragraph "${node.id}" requires an aiClient.`);
   }
 
+  const asked = inDocumentLanguage(prompts, state);
+
   return await client.generateParagraph({
     node,
-    prompt: formatPromptText(prompts),
-    prompts,
+    prompt: formatPromptText(asked),
+    prompts: asked,
     state,
   });
 }
@@ -111,10 +113,29 @@ export async function generateGraph(
     throw new Error(`Dynamic graph "${node.id}" requires an aiClient.generateGraph method.`);
   }
 
+  const asked = inDocumentLanguage(prompts, state);
+
   return await client.generateGraph({
     node,
-    prompt: formatPromptText(prompts),
-    prompts,
+    prompt: formatPromptText(asked),
+    prompts: asked,
     state,
   });
+}
+
+/**
+ * A document that declared its language gets prose in it without every node
+ * having to say so. An image has no words to write, so it is not told.
+ */
+function inDocumentLanguage(prompts: PromptSpec[], state: RuntimeState): PromptSpec[] {
+  if (state.locale === undefined) {
+    return prompts;
+  }
+
+  const name = new Intl.DisplayNames(["en"], { type: "language" }).of(state.locale);
+
+  return [
+    { kind: "system", text: `Write in ${name} (${state.locale}), the language of this document.` },
+    ...prompts,
+  ];
 }
