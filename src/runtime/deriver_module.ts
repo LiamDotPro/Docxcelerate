@@ -28,6 +28,7 @@
  */
 
 import type { DeriverFunction, DeriverDefinition } from "./derivers.ts";
+import { positionalRuns } from "../internal/positional_runs.ts";
 
 /**
  * A deriver, its name, and what a preview shows instead of running it.
@@ -104,11 +105,10 @@ export function deriver<TInputs extends readonly unknown[], TResult>(
     );
   }
 
-  return {
-    name: options.name,
-    run: (inputs) => options.run(...(inputs as unknown as TInputs)),
-    placeholder: options.placeholder,
-  };
+  const run: DeriverFunction = (inputs) => options.run(...(inputs as unknown as TInputs));
+  positionalRuns.set(run, options.run as (...inputs: never[]) => unknown);
+
+  return { name: options.name, run, placeholder: options.placeholder };
 }
 
 /**
