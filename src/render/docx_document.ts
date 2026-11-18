@@ -1886,7 +1886,13 @@ function renderRow(
     column += span;
   }
 
-  return new TableRow({ tableHeader: repeats, children: cells });
+  return new TableRow({
+    tableHeader: repeats,
+    height: row.height === undefined
+      ? undefined
+      : { value: ptToTwips(row.height), rule: row.heightRule ?? "atLeast" },
+    children: cells,
+  });
 }
 
 /**

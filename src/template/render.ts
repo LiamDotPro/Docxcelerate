@@ -507,6 +507,9 @@ async function renderRow(
     id,
     kind: "tableRow",
     header: props.header ? true : undefined,
+    height: props.height,
+    // Only `exact` is carried: absent is a floor, and a rule with no height says nothing.
+    heightRule: props.height !== undefined && props.heightRule === "exact" ? "exact" : undefined,
     when,
     children: await renderYield(props.children, context, {
       path: `${frame.path}/${id}`,

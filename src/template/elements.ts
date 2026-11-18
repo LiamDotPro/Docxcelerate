@@ -15,6 +15,7 @@ import type {
   JsonObject,
   ListKind,
   PageNumberFormat,
+  RowHeightRule,
   TableAlign,
   TableColumn,
   TextAlign,
@@ -275,6 +276,20 @@ export interface TableProps extends CommonElementProps {
 export interface RowProps extends CommonElementProps {
   /** Whether this row heads the table, and repeats onto each new page. */
   header?: boolean;
+  /**
+   * How tall the row is, in points. As tall as its contents unless it is said.
+   *
+   * For a row whose depth is the point — a box to sign in, a line of a form to
+   * write on, a label on a sheet — rather than one that wraps its text.
+   */
+  height?: number;
+  /**
+   * Whether `height` is a floor or a fixed depth. `"atLeast"` unless it is said.
+   *
+   * `"exact"` clips whatever does not fit, in Word; reach for it when the grid
+   * matters more than the words, as on a label sheet. Ignored without `height`.
+   */
+  heightRule?: RowHeightRule;
   /** The cells, left to right. */
   children?: Yield;
 }

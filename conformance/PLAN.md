@@ -297,7 +297,7 @@ the bug was one or two lines each.
 | Cell fill, per-side borders, padding | **yes — was spaced twice** | `tables/cell-borders` | A·B·C·X green since the `w:space` fix, see below |
 | Vertical alignment in a cell | **yes — added** | `tables/cell-valign` | A·B·C·X green |
 | Bleeding table (negative `tblInd`) | yes — the preview needed a fix | `tables/bleed` | A·B·C·X green; `applyTableIndents` holds |
-| Fixed row height | no | `tables/row-height` | no height on a row; `heightPt` sets leading, which is not the same thing |
+| Fixed row height | **yes — added** | `tables/row-height` | w:trHeight with w:hRule, floor or exact |
 | Nested table | **yes — measured** | `tables/nested` | was untested; A·B·C·X green |
 | Banded rows | **yes — added** | `tables/banded-rows` | per-cell `w:shd` counted by the renderer, never a `w:tblStyle` |
 | Table alignment and float | no | `tables/float` | no `w:jc` on a table, no `w:tblpPr` |
@@ -486,9 +486,8 @@ areas. What the tables pass turned up has been fixed, in the same pass:
   the last row that fits and carries the heading over. Held by
   `preview/table-pagination` and `tables/header-row-repeat`.
 
-What is left in this area is the two features nothing can express yet — a
-vertical merge (`tables/rowspan`) and a row with a height of its own
-(`tables/row-height`) — both of which need a field on the model rather than a
+What is left in this area is the one feature nothing can express yet — a
+vertical merge (`tables/rowspan`) — which needs a field on the model rather than a
 line in the renderer. Table alignment (`tables/float`) is small and behaves;
 floating a table is a question rather than a task, because `w:tblpPr` takes a
 table out of the flow and makes the paragraphs wrap around it, and a preview

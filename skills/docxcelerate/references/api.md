@@ -60,7 +60,7 @@ interface PromptProps {
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` |
 | `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `caption?`, `width?`, `height?` (points), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `dataLabels?` |
 | `Table` | `columns` (required), `children?` |
-| `Row` | `header?`, `children?` |
+| `Row` | `header?`, `height?`, `heightRule?`, `children?` |
 | `Cell` | `span?`, `align?`, `children?` |
 | `Shape` | `width?`, `height?` (points), `children?` |
 | `TableOfContents` | `title?` |
@@ -89,6 +89,12 @@ Notes worth knowing:
   none of it is a special case. `header` on a row draws it as a heading; only
   the rows a table *opens* with repeat across pages, so a totals row marked
   `header` stays where it is rather than being lifted above its own figures.
+- **A row can be given a height**, in points: `<Row height={56}>` is a floor the
+  row grows past if its cells need more, which is what a box to sign in wants.
+  `heightRule="exact"` makes it a fixed depth instead — a label sheet, a form
+  grid — and Word clips whatever does not fit, so keep an exact row's contents
+  inside it (the preview grows the row rather than hiding the overflow). This
+  is not a block's `heightPt`, which sets a paragraph's leading, not a row's depth.
 - **`Cell` takes text directly** — `<Cell>{line.qty}</Cell>` is the common case.
   Give it paragraphs when one line is not enough.
 - **`Shape` is a drawn box the words sit on top of**, and takes text directly
