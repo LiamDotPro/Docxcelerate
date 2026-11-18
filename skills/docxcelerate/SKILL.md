@@ -136,8 +136,8 @@ Nothing leaves the machine, and the same build gives the same page every time.
 | `Section` | any nodes, including sections | the **only** container; `title` required and becomes a heading |
 | `Paragraph` | text children, or prompts | `text` prop says the same as children; a `\n` in the text is a line break; `list="bullet"` or `"number"` makes it a list item, counted by the renderer |
 | `Text` | words, inside a `Paragraph`, `Cell` or `Shape` | **not a node** — no `id`. `bold`, `italic`, `underline`, `strike`, `href`. Never a colour or a size |
-| `Image` | `src`, `alt`, `width`, `height`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below |
-| `Graph` | `graphType`, `data`, `title`, `caption`, or prompts | packed as a real Word chart, never a picture of one — the numbers travel with it |
+| `Image` | `src`, `alt`, `width`, `height`, `align`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below; `align` (`left`/`center`/`right`) places it in the column |
+| `Graph` | `graphType`, `data`, `title`, `caption`, `align`, or prompts | packed as a real Word chart, never a picture of one — the numbers travel with it; `align` places a chart narrower than the column, and its caption follows |
 | `Table` | `Row`s, and any `.map()` producing them | `columns` declared once, in mm or `"auto"`, with `align` |
 | `Row` | `Cell`s | `header` marks a heading row; only *leading* ones repeat across pages |
 | `Cell` | text, or paragraphs when a line is not enough | `span`, and `align` when it departs from its column |

@@ -770,6 +770,12 @@ async function renderImage(
   when: Condition | undefined,
 ): Promise<ImageNode> {
   const prompts = settled(props.src, props, frame, id);
+  const drawn = {
+    alt: await text(props.alt, context),
+    width: props.width,
+    height: props.height,
+    align: props.align,
+  };
 
   if (!isDynamic(prompts)) {
     if (props.src === undefined) {
@@ -785,9 +791,7 @@ async function renderImage(
       when,
       path: await requiredText(props.src, context),
       fallbackPath: await text(props.fallbackSrc, context),
-      alt: await text(props.alt, context),
-      width: props.width,
-      height: props.height,
+      ...drawn,
     });
   }
 
@@ -800,9 +804,7 @@ async function renderImage(
       kind: "image",
       mode: "dynamic",
       when,
-      alt: await text(props.alt, context),
-      width: props.width,
-      height: props.height,
+      ...drawn,
       placeholder: await placeholderText(prompts, id, context),
     });
   }
@@ -813,9 +815,7 @@ async function renderImage(
     kind: "image",
     mode: "dynamic",
     when,
-    alt: await text(props.alt, context),
-    width: props.width,
-    height: props.height,
+    ...drawn,
     prompts: specs,
   };
 
@@ -846,6 +846,7 @@ async function renderGraph(
     categoryAxisTitle: props.categoryAxisTitle,
     valueAxisTitle: props.valueAxisTitle,
     dataLabels: props.dataLabels,
+    align: props.align,
   };
 
   if (!isDynamic(prompts)) {

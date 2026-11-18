@@ -366,7 +366,7 @@ export interface DocumentBlockStyle {
  * `system` sets the standing instructions.
  */
 
-/** How a column's cells sit in the width they are given. */
+/** How a column's cells, a shape's words or a picture sit in the width they are given. */
 export type TableAlign = "left" | "center" | "right";
 
 /**

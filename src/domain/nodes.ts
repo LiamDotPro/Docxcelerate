@@ -325,6 +325,13 @@ export interface ImageNode extends BaseNode {
   width?: number;
   /** Rendered height, in points. */
   height?: number;
+  /**
+   * Where the picture sits across the text column, when it is not flush left.
+   *
+   * On the node for the same reason a paragraph's is: a centred chart is centred
+   * in every theme. Absent writes no alignment at all.
+   */
+  align?: TableAlign;
   /** What to show while the image has not been produced yet. */
   placeholder?: string;
 }
@@ -355,6 +362,13 @@ export interface GraphNode extends BaseNode {
   width?: number;
   /** How deep it is drawn, in points. Seven twelfths of its width unless it is said. */
   height?: number;
+  /**
+   * Where the chart sits across the text column, when it is not flush left.
+   *
+   * On the node for the same reason a paragraph's is: a centred chart is centred
+   * in every theme. Absent writes no alignment at all.
+   */
+  align?: TableAlign;
   /**
    * Where the key sits.
    *

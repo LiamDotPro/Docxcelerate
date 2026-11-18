@@ -477,6 +477,7 @@ function renderNode(
     const block = blockOf(style, node.variant);
     const picture = new Paragraph({
       children: [imageRunOf(node)],
+      alignment: textAlignmentOf(node.align),
       ...breakStyle(broken),
       ...inCell(cell),
     });
@@ -980,6 +981,8 @@ function imageCard(
     // Sized to the picture, so it is not Word's to resize. Same reason as
     // `renderTable`: without this the card is autofit around whatever is in it.
     layout: TableLayoutType.FIXED,
+    // The card is the box around the picture, so it is the card that moves.
+    alignment: textAlignmentOf(node.align),
     borders: block.border === undefined ? gridlessBorders : undefined,
     rows: [
       new TableRow({
@@ -1467,18 +1470,17 @@ function renderGraph(
   const widthPt = node.width ?? columnWidthPt(style);
   const heightPt = node.height ?? widthPt * CHART_ASPECT;
 
+  const placed = { alignment: textAlignmentOf(node.align), ...breakStyle(broken), ...inCell(cell) };
   const plot = hasChartData(node)
     ? new Paragraph({
       children: [chartDrawing(node, widthPt, heightPt) as unknown as TextRun],
-      ...breakStyle(broken),
-      ...inCell(cell),
+      ...placed,
     })
     : new Paragraph({
       children: [
         new TextRun(`[${node.graphType} chart: ${node.placeholder ?? node.title ?? node.id}]`),
       ],
-      ...breakStyle(broken),
-      ...inCell(cell),
+      ...placed,
     });
 
   if (node.caption === undefined) {
@@ -1489,7 +1491,7 @@ function renderGraph(
   // Word cannot put text inside a chart frame, and a caption drawn into the
   // chart would be a caption that does not reflow, cannot be read out and does
   // not come back when the document is read.
-  return [plot, chartCaption(node.caption, style, cell)];
+  return [plot, chartCaption(node.caption, style, node.align, cell)];
 }
 
 /**
@@ -1581,6 +1583,7 @@ function drawingId(id: string): number {
 function chartCaption(
   caption: string,
   style: DocumentStyle,
+  align: TableAlign | undefined,
   cell: CellContext | undefined,
 ): Paragraph {
   const block = blockOf(style, "chartCaption");
@@ -1597,7 +1600,7 @@ function chartCaption(
         font: block?.font ?? style.typography.bodyFont,
       }),
     ],
-    alignment: textAlignmentOf(block?.align ?? "center"),
+    alignment: textAlignmentOf(align ?? block?.align ?? "center"),
     spacing: {
       after: ptToTwips(block?.spacingAfterPt ?? style.paragraph.spacingAfterPt),
     },
