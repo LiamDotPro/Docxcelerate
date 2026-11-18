@@ -1022,6 +1022,55 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+
+  {
+    kind: "component",
+    id: "advance-payment-invoice",
+    title: "Advance payment invoice",
+    summary: "A deposit or prepayment against an order: the share requested, what's already been asked for, and what's left.",
+    detail:
+      "A deposit or prepayment invoice against an order: the order total, what has already been requested, the share requested now and what is left to invoice. A percentage is taken of the order gross, never of the net plus VAT, because the customer expects the figure on the quote and the two routes differ by a cent. On a mixed-rate order the deposit is spread across the rates by largest remainder in minor units, so the shares add up to the deposit and deposits plus balance add up to the order, exactly. Requesting more than 100% of the order fails the document. UK and EU prepayments are charged VAT now, because the payment is a tax point, and the date of payment prints when it differs from the issue date. Germany says it is an Anzahlungsrechnung. A US deposit carries no sales tax until the final invoice, and a refundable security deposit carries no VAT and says so. Every figure comes from one deriver.",
+    category: "Body",
+    tags: ["invoice", "deposit", "vat", "tax", "deriver", "branching", "section"],
+    exports: ["AdvancePaymentInvoice"],
+    dataFields: [
+      { path: "order.reference", type: "string", summary: "The order the deposit is against. Required." },
+      { path: "order.date", type: "string | undefined", summary: "ISO 8601 order date. Printed when given." },
+      { path: "order.currency", type: "string", summary: "ISO 4217 code. Required; sets the decimal places." },
+      { path: "order.lines", type: "Array<{ gross?: number; net?: number; vatRate?: number }>", summary: "Enough of the order to total it per rate. One of gross or net per line. Required, non-empty." },
+      { path: "deposit.percent", type: "number | undefined", summary: "Share of the order gross, over 0 and up to 100. Give this or amount." },
+      { path: "deposit.amount", type: "number | undefined", summary: "A fixed gross amount. Give this or percent." },
+      { path: "deposit.kind", type: '"prepayment" | "security"', summary: "Part of the price, or a refundable security deposit with no VAT. Required." },
+      { path: "deposit.receivedDate", type: "string | undefined", summary: "ISO 8601. Printed on a prepayment when it differs from the issue date." },
+      { path: "previousDeposits", type: "Array<{ number: string; amount: number }> | undefined", summary: "Prepayments already requested. Over 100% of the order fails the document." },
+      { path: "invoice.jurisdiction", type: '"UK" | "EU" | "DE" | "FR" | "US"', summary: "Whose tax wording applies. US charges no tax on the deposit." },
+      { path: "invoice.issueDate", type: "string", summary: "ISO 8601 date of issue. Required; compared with the payment date." },
+    ],
+    arrangements: [
+      { id: "table", title: "Table", summary: "Labels in a column with the figures right-aligned beside them, so the sum can be checked." },
+      { id: "stacked", title: "Stacked", summary: "One labelled line under another, down the text column." },
+    ],
+    files: node("advance-payment-invoice", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      order: {
+        reference: "SO-2026-11-004817/FACILITIES-NORTH-REFIT/REV-3",
+        date: "2026-10-14",
+        currency: "GBP",
+        lines: [
+          { gross: 1284750.0, vatRate: 20 },
+          { net: 412333.33, vatRate: 5 },
+          { gross: 96410.07, vatRate: 0 },
+        ],
+      },
+      deposit: { percent: 30, kind: "prepayment", receivedDate: "2026-11-28" },
+      previousDeposits: [
+        { number: "ADV-2026-11-000417-A", amount: 250000.0 },
+        { number: "ADV-2026-11-000418-B", amount: 125000.0 },
+      ],
+      invoice: { jurisdiction: "UK", issueDate: "2026-11-30" },
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
