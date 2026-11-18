@@ -3,7 +3,6 @@ import {
   buildDocument,
   createDeriverBundle,
   createDeriverRegistryFromBundle,
-  dataRef,
   InMemoryDataProvider,
   resolveDocument,
 } from "docxcelerate";
@@ -193,28 +192,27 @@ for (const arrangement of ARRANGEMENTS) {
       assertEquals(printed.includes(`cis-deduction-${id}`), false);
     }
   });
-}
 
-test("publishing then resolving prints the payable and no warning", async () => {
-  const registry = await createDeriverRegistryFromBundle(createDeriverBundle({ cisInvoiceDeduction: mod.run }));
-  const data = { invoice: base, supplier: net, customer: both };
-  const published = await buildDocument(documentOf(), createPublishData() as never, {
-    branchMode: "publish",
-    deriverMode: "preserve",
-    dynamicMode: "resolve",
-    aiClient: { generateParagraph: () => "" },
+  test(`${arrangement}: publishing then resolving prints the payable and no warning`, async () => {
+    const registry = await createDeriverRegistryFromBundle(createDeriverBundle({ cisInvoiceDeduction: mod.run }));
+    const data = { invoice: base, supplier: net, customer: both };
+    const published = await buildDocument(documentOf(arrangement), createPublishData() as never, {
+      branchMode: "publish",
+      deriverMode: "preserve",
+      dynamicMode: "resolve",
+      aiClient: { generateParagraph: () => "" },
+    });
+    const state: RuntimeState = {
+      ctx: { ...data },
+      derived: {},
+      dataProvider: new InMemoryDataProvider(data),
+      aiClient: { generateParagraph: () => "" },
+    };
+    const { nodes } = await resolveDocument(published, state, { derivers: registry });
+    const found = walk(nodes);
+    const payable = found.find((n) => n.id === "cis-deduction-payable");
+
+    assertEquals(JSON.stringify(payable).includes("£8,600.00"), true);
+    assertEquals(found.some((n) => n.id === "cis-deduction-warning"), false);
   });
-  const state: RuntimeState = {
-    ctx: { ...data },
-    derived: {},
-    dataProvider: new InMemoryDataProvider(data),
-    aiClient: { generateParagraph: () => "" },
-  };
-  const { nodes } = await resolveDocument(published, state, { derivers: registry });
-  const found = walk(nodes);
-  const payable = found.find((n) => n.id === "cis-deduction-payable");
-
-  assertEquals(JSON.stringify(payable).includes("£8,600.00"), true);
-  assertEquals(found.some((n) => n.id === "cis-deduction-warning"), false);
-  assertEquals(dataRef("invoice") !== undefined, true);
-});
+}

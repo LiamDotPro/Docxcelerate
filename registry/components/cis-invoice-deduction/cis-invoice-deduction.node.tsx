@@ -128,6 +128,10 @@ export interface CisInvoiceDeductionProps {
   arrangement?: CisInvoiceDeductionArrangement;
 }
 
+/**
+ * Prints the CIS invoice breakdown: gross, materials, plant hire, labour, VAT,
+ * the CIS deduction and the amount payable, plus a warning when it applies.
+ */
 export const CisInvoiceDeduction: SectionComponent<CisInvoiceDeductionProps> = async ({ arrangement }) => {
   const [invoice] = useState((data: CisInvoiceDeductionData) => data.invoice);
   const [supplier] = useState((data: CisInvoiceDeductionData) => data.supplier);
