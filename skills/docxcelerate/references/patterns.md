@@ -298,6 +298,45 @@ export const Letterhead: Section<{ children?: Yield }> = ({ children }) => (
 );
 ```
 
+## The same lines, placed differently
+
+Where something sits is a separate choice from what it says. A component that
+can be placed more than one way takes an `arrangement` prop and picks with
+`arrange`, which builds only the arrangement asked for and treats the first one
+written as the default:
+
+```tsx
+import { arrange, Cell, Paragraph, Row, Section, Table, useState } from "docxcelerate/template";
+
+export const Reference: Section<{ arrangement?: "stacked" | "table" }> = ({ arrangement }) => {
+  const [invoice] = useState((data: Data) => data.invoice);
+
+  return (
+    <Section id="reference" title="Reference">
+      {arrange(arrangement, {
+        stacked: () => <Paragraph id="reference-number">Invoice number: {invoice.number}</Paragraph>,
+        table: () => (
+          <Table id="reference-table" columns={[{ width: 45 }, { width: "auto" }]}>
+            <Row id="reference-number">
+              <Cell>Invoice number</Cell>
+              <Cell>{invoice.number}</Cell>
+            </Row>
+          </Table>
+        ),
+      })}
+    </Section>
+  );
+};
+
+<Reference arrangement="table" />;
+```
+
+Do not write `arrangement === "table" ? … : …`. The compiler publishes a
+comparison even of two literals, so every arrangement would ship to the engine
+as a branch and count against the branch limit. An unknown name throws, so a
+typo fails the build instead of printing the default. Registry components that
+offer arrangements list them under "Arrangements" in `dxcl show`.
+
 ## Carry a value forward through the document
 
 `useShared` reads whatever the components rendered *before* this one left behind.

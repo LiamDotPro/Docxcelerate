@@ -35,6 +35,25 @@ export interface RegistryDataField {
   summary: string;
 }
 
+/**
+ * One way a component can place what it prints, chosen with its `arrangement`
+ * prop.
+ *
+ * Arrangements change where the lines sit, never which lines print: every one
+ * of a component's arrangements prints the same lines under the same
+ * conditions. The component picks between them with `arrange()` from
+ * `docxcelerate/template`, which treats the first as the default, the same
+ * order these are listed in.
+ */
+export interface RegistryArrangement {
+  /** The value the `arrangement` prop takes. */
+  id: string;
+  /** Its name, as it is printed. */
+  title: string;
+  /** One line: where things sit, and when you would want that. */
+  summary: string;
+}
+
 /** One file an install copies. */
 export interface RegistryFile {
   /** Path under `registry/`, inside the package. */
@@ -63,6 +82,11 @@ export interface RegistryComponent {
   exports: string[];
   /** What it reads, so a project knows what to add to its data type. */
   dataFields: RegistryDataField[];
+  /**
+   * The placements its `arrangement` prop chooses between, the default first.
+   * Missing for a component that has only the one.
+   */
+  arrangements?: RegistryArrangement[];
   /** The files copied in. */
   files: RegistryFile[];
   /** Data the previews on the site are built against, and a project can crib. */
@@ -814,6 +838,23 @@ export const COMPONENTS: RegistryComponent[] = [
       { path: "seller.vatRegistered", type: "boolean", summary: "Missing means not registered: no VAT number, no VAT wording." },
       { path: "seller.vatNumber", type: "string | undefined", summary: "Required when registered; the document fails without it." },
       { path: "seller.simplifiedAllowed", type: "boolean | undefined", summary: "Whether simplified invoices are issued at all. Missing means no." },
+    ],
+    arrangements: [
+      {
+        id: "stacked",
+        title: "Stacked",
+        summary: "One labelled line under another, down the text column.",
+      },
+      {
+        id: "table",
+        title: "Table",
+        summary: "Labels in a narrow column with the values beside them, so the values line up.",
+      },
+      {
+        id: "split",
+        title: "Split",
+        summary: "Number, purchase order and VAT number on the left; the dates ranged right.",
+      },
     ],
     files: node("invoice-document-type", { deriver: true }),
     previewData: {

@@ -39,7 +39,11 @@ const nodeCount = component.resolved.length;
 /** The steps, numbered, so the page reads as one sequence rather than four stacks. */
 const steps = [
   { n: "01", title: t.registry.stepData, note: t.registry.stepDataNote },
-  { n: "02", title: t.registry.stepPreview, note: t.registry.stepPreviewNote },
+  {
+    n: "02",
+    title: t.registry.stepPreview,
+    note: component.arrangements.length > 0 ? t.registry.stepPreviewArrangementsNote : t.registry.stepPreviewNote,
+  },
   { n: "03", title: t.registry.stepNodes, note: fill(t.registry.stepNodesNote, { count: nodeCount }) },
   { n: "04", title: t.registry.stepFiles, note: t.registry.stepFilesNote },
 ];
@@ -61,8 +65,24 @@ const typeMembers = (type: string) =>
  * on. A component without one is a list of one, so the markup is the same.
  */
 const variants = component.variants?.values ?? [
-  { value: "", previewData: component.previewData, resolved: component.resolved, previewUrl: component.previewUrl },
+  {
+    value: "",
+    previewData: component.previewData,
+    resolved: component.resolved,
+    previewUrl: component.previewUrl,
+    arrangements: component.arrangements,
+  },
 ];
+
+/**
+ * What one value's panel in step 02 shows: each arrangement under its own
+ * caption, all at once so they can be compared, or the one preview for a
+ * component that has a single placement.
+ */
+const previewsOf = (variant: (typeof variants)[number]) =>
+  variant.arrangements.length > 0
+    ? variant.arrangements.map((arrangement, index) => ({ ...arrangement, isDefault: index === 0 }))
+    : [{ id: "", title: "", summary: "", previewUrl: variant.previewUrl, isDefault: true }];
 const selected = Math.max(0, variants.findIndex((variant) => variant.value === component.variants?.selected));
 
 /**
@@ -238,6 +258,26 @@ const treeSelected =
             <div class="flex flex-wrap items-baseline gap-3">
               <h2 class={eyebrow}>{steps[1].title}</h2>
               <span class={stepNote}>{steps[1].note}</span>
+              {
+                // Hidden until the script below runs: without it every
+                // arrangement shows, and a picker that did nothing would lie.
+                component.arrangements.length > 0 && (
+                  <label class="ml-auto flex items-center gap-2" data-arrangement-picker hidden>
+                    <span class="font-mono text-[0.65rem] uppercase tracking-[0.12em] text-muted">
+                      {t.registry.arrangementLabel}
+                    </span>
+                    <select
+                      data-arrangement-select
+                      class="min-h-[44px] cursor-pointer rounded-[3px] border border-default bg-surface-2 px-2 font-mono text-[0.72rem] text-ink sm:min-h-0 sm:py-1"
+                    >
+                      {component.arrangements.map((arrangement) => (
+                        <option value={arrangement.id}>{arrangement.title}</option>
+                      ))}
+                      <option value="">{t.registry.arrangementAll}</option>
+                    </select>
+                  </label>
+                )
+              }
             </div>
             <!-- A component is a block, not a page. Held to the width the board
                  gives it so it does not stretch into a full-bleed sheet. -->
@@ -245,27 +285,44 @@ const treeSelected =
               variants.map((variant, index) => (
                 // A hidden frame is a lazy frame that never loads, so the
                 // other values cost nothing until somebody picks one.
-                <div data-variant-panel={index} hidden={index !== selected} class="max-w-[460px]">
-                  <NodePreview
-                    src={variant.previewUrl}
-                    title={variant.value ? `${component.title}: ${variant.value}` : component.title}
-                    label={t.registry.renderedBy}
-                    flush
-                  >
-                    {
-                      drawnAgainst && (
-                        <>
-                          {" · "}
-                          <a
-                            href={localizePath(themeHref(drawnAgainst.id), locale)}
-                            class="text-muted no-underline hover:text-accent"
-                          >
-                            {fill(t.registry.drawnAgainst, { theme: drawnAgainst.title })}
-                          </a>
-                        </>
-                      )
-                    }
-                  </NodePreview>
+                <div data-variant-panel={index} hidden={index !== selected} class="flex flex-col gap-6">
+                  {previewsOf(variant).map((preview) => (
+                    <div class="flex max-w-[460px] flex-col gap-2" data-arrangement={preview.id || undefined}>
+                      {preview.id && (
+                        <div class="flex flex-col gap-0.5">
+                          <div class="flex flex-wrap items-baseline gap-2">
+                            <code class="font-mono text-xs text-ink">arrangement="{preview.id}"</code>
+                            {preview.isDefault && (
+                              <span class="font-mono text-[0.6rem] uppercase tracking-[0.08em] text-muted">
+                                {t.registry.arrangementDefault}
+                              </span>
+                            )}
+                          </div>
+                          <span class="text-[0.78rem] leading-[1.5] text-muted">{preview.summary}</span>
+                        </div>
+                      )}
+                      <NodePreview
+                        src={preview.previewUrl}
+                        title={[component.title, variant.value, preview.title].filter(Boolean).join(" · ")}
+                        label={t.registry.renderedBy}
+                        flush
+                      >
+                        {
+                          drawnAgainst && (
+                            <>
+                              {" · "}
+                              <a
+                                href={localizePath(themeHref(drawnAgainst.id), locale)}
+                                class="text-muted no-underline hover:text-accent"
+                              >
+                                {fill(t.registry.drawnAgainst, { theme: drawnAgainst.title })}
+                              </a>
+                            </>
+                          )
+                        }
+                      </NodePreview>
+                    </div>
+                  ))}
                 </div>
               ))
             }
@@ -516,6 +573,25 @@ const treeSelected =
         // Denied, or an insecure origin. The text is on screen either way.
       }
     });
+  }
+
+  // ---- The arrangement picker ----------------------------------------------
+  // One arrangement at a time, the default first, or all of them to compare.
+  // It applies inside every value's panel, so it holds across the value
+  // switcher. A hidden frame is lazy, so the others load only when shown.
+  const picker = document.querySelector<HTMLElement>("[data-arrangement-picker]");
+  const arrangementSelect = document.querySelector<HTMLSelectElement>("[data-arrangement-select]");
+  const arranged = Array.from(document.querySelectorAll<HTMLElement>("[data-arrangement]"));
+
+  if (picker && arrangementSelect) {
+    const show = () => {
+      const chosen = arrangementSelect.value;
+      for (const preview of arranged) preview.hidden = chosen !== "" && preview.dataset.arrangement !== chosen;
+    };
+
+    picker.hidden = false;
+    arrangementSelect.addEventListener("change", show);
+    show();
   }
 
   // ---- The value switcher ---------------------------------------------------

@@ -1,4 +1,14 @@
-import { Paragraph, Section, type Section as SectionComponent, useDeriver, useState } from "docxcelerate/template";
+import {
+  arrange,
+  Cell,
+  Paragraph,
+  Row,
+  Section,
+  type Section as SectionComponent,
+  Table,
+  useDeriver,
+  useState,
+} from "docxcelerate/template";
 import invoiceDocumentType from "../derivers/invoice-document-type.deriver.ts";
 
 /**
@@ -32,6 +42,10 @@ import invoiceDocumentType from "../derivers/invoice-document-type.deriver.ts";
  * sixteen published arms, half the default `branchLimit` of 32 spent before
  * the rest of the invoice, and dates from request data cannot be formatted at
  * publish time without a deriver anyway.
+ *
+ * Arrangement: where the lines sit is a separate choice from what they say,
+ * made with the `arrangement` prop. Every arrangement prints the same lines
+ * under the same conditions; only the placement changes.
  *
  * Installed by `dxcl add invoice-document-type`, which also installs its deriver.
  */
@@ -114,23 +128,105 @@ export interface InvoiceDocumentTypeData {
   };
 }
 
-export const InvoiceDocumentType: SectionComponent = async () => {
+/**
+ * Where the lines sit.
+ *
+ * - `stacked`: one line under another, each with its label. The default.
+ * - `table`: labels in a narrow column, values beside them, so the values
+ *   line up down the page.
+ * - `split`: what identifies the invoice on the left (number, purchase order,
+ *   VAT number), its dates ranged right, the way an invoice head often faces
+ *   the letterhead.
+ */
+export type InvoiceDocumentTypeArrangement = "stacked" | "table" | "split";
+
+/** Props for {@linkcode InvoiceDocumentType}. */
+export interface InvoiceDocumentTypeProps {
+  /** Where the lines sit. Defaults to `"stacked"`. */
+  arrangement?: InvoiceDocumentTypeArrangement;
+}
+
+export const InvoiceDocumentType: SectionComponent<InvoiceDocumentTypeProps> = async ({ arrangement }) => {
   const [invoice] = useState((data: InvoiceDocumentTypeData) => data.invoice);
   const [seller] = useState((data: InvoiceDocumentTypeData) => data.seller);
   const type = await useDeriver(invoiceDocumentType, [invoice, seller]);
 
   return (
     <Section id="invoice-type" title={type.heading}>
-      {type.statement && <Paragraph id="invoice-type-statement">{type.statement}</Paragraph>}
-      <Paragraph id="invoice-type-number">Invoice number: {invoice.number}</Paragraph>
-      <Paragraph id="invoice-type-issue-date">Date of issue: {type.issueDate}</Paragraph>
-      {type.supplyLine && <Paragraph id="invoice-type-supply">{type.supplyLine}</Paragraph>}
-      {invoice.purchaseOrder && (
-        <Paragraph id="invoice-type-purchase-order">
-          Purchase order: {invoice.purchaseOrder}
-        </Paragraph>
-      )}
-      {type.vatNumber && <Paragraph id="invoice-type-vat-number">VAT number: {type.vatNumber}</Paragraph>}
+      {arrange(arrangement, {
+        stacked: () => (
+          <>
+            {type.statement && <Paragraph id="invoice-type-statement">{type.statement}</Paragraph>}
+            <Paragraph id="invoice-type-number">Invoice number: {invoice.number}</Paragraph>
+            <Paragraph id="invoice-type-issue-date">Date of issue: {type.issueDate}</Paragraph>
+            {type.supplyLine && <Paragraph id="invoice-type-supply">{type.supplyLine}</Paragraph>}
+            {invoice.purchaseOrder && (
+              <Paragraph id="invoice-type-purchase-order">
+                Purchase order: {invoice.purchaseOrder}
+              </Paragraph>
+            )}
+            {type.vatNumber && <Paragraph id="invoice-type-vat-number">VAT number: {type.vatNumber}</Paragraph>}
+          </>
+        ),
+        table: () => (
+          <>
+            {type.statement && <Paragraph id="invoice-type-statement">{type.statement}</Paragraph>}
+            {/* 45mm holds the longest label, "Leistungszeitraum", on one line. */}
+            <Table id="invoice-type-details" columns={[{ width: 45 }, { width: "auto" }]}>
+              <Row id="invoice-type-number">
+                <Cell>Invoice number</Cell>
+                <Cell>{invoice.number}</Cell>
+              </Row>
+              <Row id="invoice-type-issue-date">
+                <Cell>Date of issue</Cell>
+                <Cell>{type.issueDate}</Cell>
+              </Row>
+              {type.supplyLabel && (
+                <Row id="invoice-type-supply">
+                  <Cell>{type.supplyLabel}</Cell>
+                  <Cell>{type.supplyValue}</Cell>
+                </Row>
+              )}
+              {invoice.purchaseOrder && (
+                <Row id="invoice-type-purchase-order">
+                  <Cell>Purchase order</Cell>
+                  <Cell>{invoice.purchaseOrder}</Cell>
+                </Row>
+              )}
+              {type.vatNumber && (
+                <Row id="invoice-type-vat-number">
+                  <Cell>VAT number</Cell>
+                  <Cell>{type.vatNumber}</Cell>
+                </Row>
+              )}
+            </Table>
+          </>
+        ),
+        split: () => (
+          <>
+            {type.statement && <Paragraph id="invoice-type-statement">{type.statement}</Paragraph>}
+            {/* The dates get what their longest line needs; the identifiers, which
+                run long (a PO with a cost centre on it), get the rest. */}
+            <Table id="invoice-type-details" columns={[{ width: "auto" }, { width: 70, align: "right" }]}>
+              <Row id="invoice-type-details-row">
+                <Cell>
+                  <Paragraph id="invoice-type-number">Invoice number: {invoice.number}</Paragraph>
+                  {invoice.purchaseOrder && (
+                    <Paragraph id="invoice-type-purchase-order">
+                      Purchase order: {invoice.purchaseOrder}
+                    </Paragraph>
+                  )}
+                  {type.vatNumber && <Paragraph id="invoice-type-vat-number">VAT number: {type.vatNumber}</Paragraph>}
+                </Cell>
+                <Cell>
+                  <Paragraph id="invoice-type-issue-date">Date of issue: {type.issueDate}</Paragraph>
+                  {type.supplyLine && <Paragraph id="invoice-type-supply">{type.supplyLine}</Paragraph>}
+                </Cell>
+              </Row>
+            </Table>
+          </>
+        ),
+      })}
     </Section>
   );
 };

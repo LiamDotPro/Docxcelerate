@@ -14,6 +14,9 @@
  *   public/demo/components/<id>--<value>.html
  *                                      the same, once per value of its first
  *                                      string-union field (see variantAxis)
+ *   public/demo/components/<id>[--<value>].<arrangement>.html
+ *                                      each of those again in every arrangement
+ *                                      after the first, the default
  *   src/generated/registry.json        the catalog, plus the source of every
  *                                      file `dxcl add` would copy in
  */
@@ -43,7 +46,7 @@ const MANIFEST = resolve(ROOT, "src/generated/registry.json");
  * Getting it wrong serves a stale manifest, so move it whenever the output
  * shape changes.
  */
-const CACHE_VERSION = 3;
+const CACHE_VERSION = 4;
 
 /** Where previews are addressed from in the browser. */
 const THEME_BASE = "/demo/themes";
@@ -142,12 +145,15 @@ async function main() {
       exports: component.exports,
       themeHint: component.themeHint ?? null,
       axis: variantAxis(component),
+      arrangements: component.arrangements ?? null,
       framework,
     });
     const cached = await readCache(key);
     let page = cached?.page;
     let nodes = cached?.nodes;
     let variants = cached?.variants;
+    let arranged = cached?.arranged;
+    const arrangements = component.arrangements ?? [];
 
     if (!cached) {
       const module = await loadComponent(component, registryRoot());
@@ -166,11 +172,11 @@ async function main() {
       // default, which is what a project has before it chooses one.
       const style = themeById(component.themeHint ?? "clean-minimal").style;
 
-      const render = async (data) => {
+      const render = async (data, props = {}) => {
         // Placeholder mode, so a generated node shows what an author sees rather
         // than requiring an endpoint to build the docs.
         const document = await buildDocument(
-          wrap(component.id, component.title, exported),
+          wrap(component.id, component.title, exported, props),
           data,
           { dynamicMode: "placeholder" },
         );
@@ -187,15 +193,37 @@ async function main() {
       ({ page, nodes } = await render(component.previewData));
       variants = await renderVariants(component, render, { page, nodes });
 
-      await writeCache(key, { page, nodes, variants });
+      // Every arrangement after the default, against the preview data and
+      // against each value, so switching the value switches every arrangement.
+      arranged = {};
+      for (const arrangement of arrangements.slice(1)) {
+        const props = { arrangement: arrangement.id };
+        arranged[previewFile(component.id, undefined, arrangement.id)] =
+          (await render(component.previewData, props)).page;
+        for (const variant of variants?.values ?? []) {
+          arranged[previewFile(component.id, variant.value, arrangement.id)] =
+            (await render(variant.previewData, props)).page;
+        }
+      }
+
+      await writeCache(key, { page, nodes, variants, arranged });
     } else {
       reused += 1;
     }
 
     await writeFile(resolve(COMPONENT_OUT, `${component.id}.html`), page, "utf8");
     for (const variant of variants?.values ?? []) {
-      await writeFile(resolve(COMPONENT_OUT, variantFile(component.id, variant.value)), variant.page, "utf8");
+      await writeFile(resolve(COMPONENT_OUT, previewFile(component.id, variant.value)), variant.page, "utf8");
     }
+    for (const [file, arrangedPage] of Object.entries(arranged ?? {})) {
+      await writeFile(resolve(COMPONENT_OUT, file), arrangedPage, "utf8");
+    }
+    // The default is the page already written for the value, so it points there.
+    const arrangementsFor = (value) =>
+      arrangements.map((arrangement, index) => ({
+        ...arrangement,
+        previewUrl: posix.join(COMPONENT_BASE, previewFile(component.id, value, index === 0 ? undefined : arrangement.id)),
+      }));
 
     components.push({
       id: component.id,
@@ -214,13 +242,15 @@ async function main() {
       // engine or a renderer would be handed.
       resolved: nodes,
       previewUrl: posix.join(COMPONENT_BASE, `${component.id}.html`),
+      arrangements: arrangementsFor(undefined),
       // Only where each page was written goes in the manifest, not the page.
       variants: variants && {
         path: variants.path,
         selected: variants.selected,
         values: variants.values.map(({ page: _page, ...variant }) => ({
           ...variant,
-          previewUrl: posix.join(COMPONENT_BASE, variantFile(component.id, variant.value)),
+          previewUrl: posix.join(COMPONENT_BASE, previewFile(component.id, variant.value)),
+          arrangements: arrangementsFor(variant.value),
         })),
       },
     });
@@ -228,6 +258,7 @@ async function main() {
     console.log(
       `registry: component ${component.id.padEnd(16)} ${nodes.length} nodes` +
         `${variants ? `, ${variants.values.length} ${variants.path} previews` : ""}` +
+        `${arrangements.length ? `, ${arrangements.length} arrangements` : ""}` +
         `${cached ? " (cached)" : ""}`,
     );
   }
@@ -273,12 +304,12 @@ async function documentTemplate() {
   // somebody wrote out, not a list an expression produced. Keying them would
   // suffix every id — the page would show `salutation-0` for a node a project
   // would call `salutation`.
-  return (id, title, components) =>
+  return (id, title, components, props = {}) =>
     template(
       jsxs(Document, {
         id,
         title,
-        children: components.map((component) => jsx(component, {})),
+        children: components.map((component) => jsx(component, props)),
       }),
     );
 }
@@ -331,9 +362,15 @@ async function renderVariants(component, render, base) {
   return { path: axis.path, selected: axis.selected, values };
 }
 
-/** The values are slugs today, but a file name is no place to rely on it. */
-function variantFile(id, value) {
-  return `${id}--${value.replace(/[^a-z0-9-]/gi, "_")}.html`;
+/**
+ * Where one preview is written: the component, or one value of its axis, in
+ * the default arrangement or the one named. The values are slugs today, but a
+ * file name is no place to rely on it; the dot keeps an arrangement from ever
+ * reading as a value.
+ */
+function previewFile(id, value, arrangement) {
+  const base = value === undefined ? id : `${id}--${value.replace(/[^a-z0-9-]/gi, "_")}`;
+  return arrangement === undefined ? `${base}.html` : `${base}.${arrangement}.html`;
 }
 
 function readPath(data, path) {

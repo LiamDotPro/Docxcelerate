@@ -9,6 +9,9 @@ import {
   registryRoot,
   resolveInstallOrder,
 } from "docxcelerate/registry/install";
+import { buildDocument } from "docxcelerate";
+import { Document, template } from "docxcelerate/template";
+import { jsx } from "docxcelerate/template/jsx-runtime";
 import { loadRegistryModule } from "./registry_support.ts";
 
 /**
@@ -121,6 +124,46 @@ test("a component that draws a chart says so in its tags", async () => {
   }
 
   assertEquals(untagged, []);
+});
+
+// What a catalogued arrangement promises: the component takes it, and it places
+// things somewhere the others do not. A component that ignored the prop would
+// pass a build and show the same preview under every caption.
+test("every arrangement a component lists is one it builds, and each is its own", async () => {
+  for (const component of COMPONENTS) {
+    if (!component.arrangements) continue;
+
+    const ids = component.arrangements.map((arrangement) => arrangement.id);
+    assertEquals(`${component.id}: ${new Set(ids).size >= 2}`, `${component.id}: true`);
+    assertEquals(new Set(ids).size, ids.length);
+
+    const module = await loadRegistryModule<Record<string, unknown>>(component.files[0].source);
+    const build = (props: Record<string, unknown>) =>
+      buildDocument(
+        template(
+          jsx(Document, {
+            id: component.id,
+            title: component.title,
+            children: jsx(module[component.exports[0]] as never, props),
+          }),
+        ),
+        component.previewData,
+        { dynamicMode: "placeholder" },
+      );
+    const shapes = new Set<string>();
+
+    for (const id of ids) {
+      shapes.add(JSON.stringify((await build({ arrangement: id })).nodes));
+    }
+
+    assertEquals(`${component.id}: ${shapes.size} distinct`, `${component.id}: ${ids.length} distinct`);
+    // No prop is the first arrangement, as the catalog lists them.
+    assertEquals(
+      JSON.stringify((await build({})).nodes),
+      JSON.stringify((await build({ arrangement: ids[0] })).nodes),
+    );
+    await assertRejects(() => build({ arrangement: "no-such-arrangement" }), Error, "arrangement");
+  }
 });
 
 test("installing a component copies it in and re-exports it", async () => {

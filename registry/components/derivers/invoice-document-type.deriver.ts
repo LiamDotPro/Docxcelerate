@@ -92,6 +92,10 @@ export default deriver({
 
     const issueDay = day(inv.issueDate, "invoice.issueDate") as string;
     const de = jurisdiction === "DE";
+    // Label and value apart, for an arrangement that sets them in two columns;
+    // the line is the two joined, for one that runs them down the page.
+    let supplyLabel: string | null = null;
+    let supplyValue: string | null = null;
     let supplyLine: string | null = null;
 
     if (inv.supplyPeriod !== undefined && inv.supplyPeriod !== null) {
@@ -100,16 +104,21 @@ export default deriver({
       if (from === null) throw new Error("invoice.supplyPeriod.from is required");
       if (to === null) throw new Error("invoice.supplyPeriod.to is required");
       if (to < from) throw new Error("invoice.supplyPeriod.to is before invoice.supplyPeriod.from");
-      supplyLine = de
-        ? "Leistungszeitraum: " + fmt(from) + " bis " + fmt(to)
-        : "Supply period: " + fmt(from) + " to " + fmt(to);
+      supplyLabel = de ? "Leistungszeitraum" : "Supply period";
+      supplyValue = fmt(from) + (de ? " bis " : " to ") + fmt(to);
     } else {
       const supplyDay = day(inv.supplyDate, "invoice.supplyDate");
       if (supplyDay !== null && supplyDay !== issueDay) {
-        supplyLine = (de ? "Leistungsdatum: " : "Date of supply: ") + fmt(supplyDay);
+        supplyLabel = de ? "Leistungsdatum" : "Date of supply";
+        supplyValue = fmt(supplyDay);
       } else if (de) {
+        supplyLabel = "Leistungsdatum";
+        supplyValue = "entspricht Rechnungsdatum";
         supplyLine = "Leistungsdatum entspricht Rechnungsdatum.";
       }
+    }
+    if (supplyLine === null && supplyLabel !== null) {
+      supplyLine = supplyLabel + ": " + supplyValue;
     }
 
     return {
@@ -117,6 +126,8 @@ export default deriver({
       statement,
       issueDate: fmt(issueDay),
       supplyLine,
+      supplyLabel,
+      supplyValue,
       vatNumber: vatApplies ? vatNumber : null,
     };
   },
