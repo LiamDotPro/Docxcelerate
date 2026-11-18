@@ -31,7 +31,10 @@ test("every component names a source file that exists", async () => {
       const source = await readFile(join(registryRoot(), ...file.source.split("/")), "utf8");
 
       // The file has to export what the catalog says it does, or the export
-      // line the install appends points at nothing.
+      // line the install appends points at nothing. The installer registers
+      // exports for nodes only, so a deriver is not held to it.
+      if (!file.target.startsWith("nodes/")) continue;
+
       for (const name of component.exports) {
         assertStringIncludes(source, `export const ${name}`);
       }

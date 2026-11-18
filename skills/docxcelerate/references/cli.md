@@ -119,6 +119,7 @@ dxcl list components
 | `letterhead` | Who sent this, from where, and when. |
 | `recipient-block` | The address, and a greeting that survives a missing name. |
 | `payment-summary` | What is owed, by when — and what to say when nothing is. |
+| `invoice-totals` | Line items and VAT totals, rounded per rate — the penny the customer's system expects. |
 | `next-steps` | A generated paragraph with its prompts already fenced off. |
 | `signature-block` | A closing, a signature image, and who signed it. |
 | `terms-notice` | Numbered small print, one paragraph and one stable id per clause. |

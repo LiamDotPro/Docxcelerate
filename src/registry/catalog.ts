@@ -270,6 +270,69 @@ export const COMPONENTS: RegistryComponent[] = [
 
   {
     kind: "component",
+    id: "invoice-totals",
+    title: "Invoice totals",
+    summary: "Line items and VAT totals, worked in minor units and rounded once per rate.",
+    detail:
+      "The arithmetic every invoice gets subtly wrong, done once in a deriver. " +
+      "Money is worked in integer minor units at the currency's own exponent, " +
+      "so yen and dinars come out right and no float reaches a total. Each " +
+      "line is rounded once, lines are grouped by rate, and VAT is worked once " +
+      "per band on the band's sum. That is rate-level rounding, which HMRC and " +
+      "the EU accept, and it is the figure an accounting system recomputes; " +
+      "per-line VAT summed drifts a penny from it. Inclusive prices have their " +
+      "VAT backed out of the band's gross, so the total is exactly what was " +
+      "charged. Discounts reduce their own band. Exempt lines print under " +
+      "their own label rather than as 0%, and more than one band draws the " +
+      "per-rate VAT analysis an invoice is required to carry. It ships with a " +
+      "deriver, derivers/invoice-totals.deriver.ts, which must be added to " +
+      "derivers/index.ts.",
+    category: "Body",
+    tags: ["money", "table", "tax", "invoice", "branching", "section"],
+    exports: ["InvoiceTotals"],
+    dataFields: [
+      {
+        path: "invoice.currency",
+        type: "string",
+        summary: "ISO 4217 code. Required; sets the decimal places.",
+      },
+      {
+        path: "invoice.pricing",
+        type: '"exclusive" | "inclusive" | undefined',
+        summary: "Whether unit prices exclude or include VAT. Defaults to exclusive.",
+      },
+      {
+        path: "invoice.lines",
+        type:
+          "Array<{ description: string; quantity: number; unit?: string; unitPrice: number; taxRate: number | null; taxLabel?: string }>",
+        summary:
+          "One per line, in print order. `taxRate` is a percentage; `null` is exempt or outside scope, labelled by `taxLabel`. Empty prints \"no charges\".",
+      },
+    ],
+    files: [
+      { source: "components/invoice-totals/invoice-totals.node.tsx", target: "nodes/invoice-totals.node.tsx" },
+      { source: "components/derivers/invoice-totals.deriver.ts", target: "derivers/invoice-totals.deriver.ts" },
+    ],
+    previewData: {
+      invoice: {
+        currency: "GBP",
+        pricing: "exclusive",
+        lines: [
+          { description: "Quarterly planned preventive maintenance of rooftop air handling units AHU-1 to AHU-6, including filter replacement and belt tensioning", quantity: 4, unit: "visits", unitPrice: 12850, taxRate: 20 },
+          { description: "Out-of-hours emergency call-out, chilled water pump failure at Riverside House, 14–15 March", quantity: 7.25, unit: "h", unitPrice: 142.5, taxRate: 20 },
+          { description: "Replacement variable-speed drive and mounting kit for pump P-03", quantity: 1, unitPrice: 3487.6, taxRate: 20 },
+          { description: "Communal heating fuel and power, March (reduced rate)", quantity: 18432.5, unit: "kWh", unitPrice: 0.2847, taxRate: 5 },
+          { description: "Printed site logbooks and operating manuals", quantity: 6, unit: "copies", unitPrice: 48.5, taxRate: 0 },
+          { description: "Plant breakdown insurance premium recharge, 2026–27", quantity: 1, unitPrice: 2310, taxRate: null, taxLabel: "Exempt" },
+          { description: "Loyalty discount on planned maintenance", quantity: 1, unitPrice: -2570, taxRate: 20 },
+        ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
     id: "balance-trend",
     title: "Balance trend",
     summary: "A line of how a balance has moved, and a sentence saying the same thing.",
