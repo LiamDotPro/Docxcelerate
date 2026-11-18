@@ -7,7 +7,10 @@
 #
 # The site imports the framework from the repository root (website/package.json
 # depends on `file:..`) and its build compiles that first, so a change under
-# src/ changes the site too and triggers this as well.
+# src/ changes the site too and triggers this as well. The component gallery is
+# baked from registry/ at build time, so a fix to an existing component — which
+# touches nothing under src/ — has to trigger it too, or the site shows the old
+# source and preview.
 #
 # Needs two repository secrets: CLOUDFLARE_API_TOKEN (the "Edit Cloudflare
 # Workers" template, scoped to the account and the docxcelerate.com zone) and
@@ -19,6 +22,7 @@ on:
     paths:
       - "website/**"
       - "src/**"
+      - "registry/**"
       - "package.json"
       - ".github/workflows/deploy-website.yml"
   workflow_dispatch:
