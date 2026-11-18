@@ -163,6 +163,11 @@ export interface InvoiceChangeData {
   };
 }
 
+/**
+ * One dynamic paragraph telling the customer why the total moved since the
+ * previous invoice, written from the facts the deriver settles. Renders
+ * nothing when the deriver says the change is not worth explaining.
+ */
 export const InvoiceChangeExplainer: Nodes = async () => {
   const [change] = useState((data: InvoiceChangeData) => data.invoiceChange);
   // A deriver cannot see the build locale, so it is handed over as an input.

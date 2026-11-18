@@ -103,6 +103,8 @@ test("10 the split is exact when the amount was rounded", () => {
   const r = run(input(snap([l(7, 0.347, 2.43)]), snap([l(3, 0.333, 1)]), { threshold: { absolute: 0 } }));
   // 133 is already 93% of the 143 movement, so the price share is omitted, not lost.
   assertEquals([r.causes.map((c: Obj) => [c.kind, c.effect]), r.omitted], [[["quantity", 133]], 1]);
+  // The omitted one is the price: 143 moved in all (243 - 100), 133 of it volume.
+  assertEquals(r.causes[0].effect + 10, 243 - 100);
 });
 
 test("11-13 period length", () => {
@@ -116,6 +118,20 @@ test("11-13 period length", () => {
     const r = run(input(p(155000, 232.5, c), p(120000, 180, q)));
     assertEquals(r.causes.map((x: Obj) => [x.kind, x.effect]), [["quantity", 5250]]);
   }
+});
+
+test("11b an unchanged quantity is all price, whatever the period", () => {
+  const p = (price: number, q: number, days: number) => snap([{ ...plan, unitPrice: price, amount: price }, api(q, q * 0.00015)], { periodDays: days });
+  const r = run(input(p(60, 120000, 31), p(42, 120000, 30)));
+  assertEquals(r.causes.map((c: Obj) => [c.kind, c.effect]), [["price", 1800]]);
+  assertEquals(r.sentence, "Your total is £18.00 higher than last month, because the price of Plan went from £42.00 to £60.00 (+£18.00).");
+});
+
+test("11c a quantity that rose but whose effect fell says changed", () => {
+  const p = (q: number, days: number) => snap([api(q, q * 0.0015, 0.0015)], { periodDays: days });
+  const r = run(input(p(121000, 31), p(120000, 30), { threshold: { absolute: 0, pct: 0 } }));
+  assertEquals(r.causes.find((c: Obj) => c.kind === "quantity").effect, -450);
+  assertStringIncludes(r.sentence, "Metered API calls changed from 120,000 to 121,000 (-£4.50)");
 });
 
 test("14 a balance brought forward is not a change", () => {
@@ -214,15 +230,27 @@ test("28 bad data throws, naming the field", async () => {
   await thrown({ ...input(cur, prev0), current: undefined }, "current");
 });
 
-test("29 chosen effects plus the rest equal the difference", () => {
-  // Gross 36,720.00 against a difference of 21,720.00: the omitted five are
-  // recomputed from the difference.
-  const preview = COMPONENTS.find((c) => c.id === "invoice-change-explainer")!.previewData as { invoiceChange: Obj };
-  const r = run(preview.invoiceChange);
-  const chosen = r.causes.reduce((t: number, c: Obj) => t + c.effect, 0);
-  assertEquals(r.omitted, 5);
-  assertEquals(chosen, 12420_00 - 7500_00 + 5075_00);
-  assertEquals(chosen + (3620_00 + 3250_00 + 2283_67 + 2220_00 + 351_33), 21720_00);
+test("29 every cause is recomputed, and the chosen ones plus the rest equal the difference", () => {
+  const { invoiceChange: ic } = COMPONENTS.find((c) => c.id === "invoice-change-explainer")!.previewData as { invoiceChange: Obj };
+  const r = run(ic);
+  // Each line alone, so the cap of three causes cannot hide one.
+  const alone = (key: string) => {
+    const side = (x: Obj) => {
+      const lines = x.lines.filter((l: Obj) => l.key === key);
+      return { total: lines.reduce((t: number, l: Obj) => t + l.amount, 0), periodDays: x.periodDays, lines };
+    };
+    return run({ currency: "GBP", current: side(ic.current), previous: side(ic.previous), threshold: { absolute: 0, pct: 0 } }).causes
+      .map((c: Obj) => [c.kind, c.effect]);
+  };
+  const all = ["platform", "api-calls", "seats", "loyalty", "migration", "support", "vat"].flatMap(alone);
+  assertEquals(all, [
+    ["quantity", 2283_67], ["period-length", 351_33], ["quantity", 12420_00], ["price", 5075_00], ["discount-ended", 2220_00],
+    ["one-off-ended", -7500_00], ["new", 3250_00], ["tax-base", 3620_00],
+  ]);
+  const chosen = r.causes.map((c: Obj) => [c.kind, c.effect]);
+  const omitted = all.filter(([k, e]: [string, number]) => !chosen.some(([ck, ce]: [string, number]) => ck === k && ce === e));
+  assertEquals(r.omitted, omitted.length);
+  assertEquals(chosen.concat(omitted).reduce((t: number, [, e]: [string, number]) => t + e, 0), 21720_00);
 });
 
 // The node, published and resolved by an engine that only has the bundle.
@@ -244,11 +272,16 @@ test("publishing keeps one dynamic paragraph behind one branch", async () => {
     dynamicMode: "resolve",
     aiClient: { generateParagraph: () => "" },
   });
-  const text = JSON.stringify(published);
+    const text = JSON.stringify(published);
   assertStringIncludes(text, '"invoice-change-explainer"');
   assertStringIncludes(text, "invoiceChangeExplainer.speak");
   assertStringIncludes(text, "{{derived.invoiceChangeExplainer.facts}}");
   assertEquals(paragraphs(published.nodes).map((p) => [p.id, p.mode]), [["invoice-change-explainer", "dynamic"]]);
+  assertEquals((paragraphs(published.nodes)[0] as Obj).when, {
+    type: "truthy",
+    ref: { scope: "derived", path: "invoiceChangeExplainer.speak" },
+  });
+  assertEquals(((paragraphs(published.nodes)[0] as Obj).derivers as Obj[]).map((d) => d.name), ["invoiceChangeExplainer"]);
 });
 
 async function resolveWith(data: Obj, captured: Obj[]) {
@@ -271,7 +304,10 @@ test("resolving speaks with the facts, and is silent when it barely differs", as
   const captured: Obj[] = [];
   const spoken = await resolveWith({ invoiceChange: input(withApi(180000, 27), prev0) }, captured);
   assertEquals(paragraphs(spoken.nodes).map((p) => p.id), ["invoice-change-explainer"]);
-  assertStringIncludes(JSON.stringify(captured), "Metered API calls rose from 120,000 to 180,000 (+£9.00)");
+  assertStringIncludes(
+    captured[0].prompts.find((p: Obj) => p.kind === "info").text,
+    "Metered API calls rose from 120,000 to 180,000 (+£9.00)",
+  );
   const quiet = await resolveWith({ invoiceChange: input(withApi(122000, 18.3), prev0) }, []);
   assertEquals(paragraphs(quiet.nodes).length, 0);
 });

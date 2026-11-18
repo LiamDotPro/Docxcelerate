@@ -188,14 +188,17 @@ export default deriver({
         const price = delta2 - volume;
         add("price", l.key, d, price, (e) => "the price of " + d + " went from " + unit.format(p0) + " to " + unit.format(p1) + " (" + e + ")");
         let period = 0;
-        if (l.kind === "usage" && d0 !== undefined && d1 !== undefined && d0 !== d1 && q0 > 0) {
+        if (l.kind === "usage" && d0 !== undefined && d1 !== undefined && d0 !== d1 && q0 > 0 && volume !== 0) {
           const perDay0 = q0 / d0, perDay1 = q1 / d1;
           period = Math.abs(perDay1 - perDay0) <= 0.01 * perDay0
             ? volume
             : Math.round((d1 - d0) * perDay0 * p0 * scale);
         }
         periodEffect += period;
-        add("quantity", l.key, d, volume - period, (e) => d + " " + move(q1 > q0) + " from " + qty.format(q0) + " to " + qty.format(q1) + " (" + e + ")");
+        const qEffect = volume - period;
+        // After a period split the effect can run against the quantity; "rose ... (-£4.50)" would contradict itself.
+        const verb = (qEffect > 0) === (q1 > q0) ? move(q1 > q0) : "changed";
+        add("quantity", l.key, d, qEffect, (e) => d + " " + verb + " from " + qty.format(q0) + " to " + qty.format(q1) + " (" + e + ")");
       } else {
         changed();
       }
