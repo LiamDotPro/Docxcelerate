@@ -1,24 +1,31 @@
 import { test } from "node:test";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-import ts from "typescript";
-import { createDeriverBundle, dataRef, createDeriverRegistryFromBundle, InMemoryDataProvider } from "docxcelerate";
-import type { RuntimeState } from "docxcelerate";
-import { registryRoot } from "docxcelerate/registry/install";
+import {
+  buildDocument,
+  createDeriverBundle,
+  createDeriverRegistryFromBundle,
+  dataRef,
+  InMemoryDataProvider,
+  resolveDocument,
+} from "docxcelerate";
+import type { DocumentNode, ParagraphNode, RuntimeState } from "docxcelerate";
+import { createPublishData, Document, template } from "docxcelerate/template";
 import { assertEquals, assertRejects } from "./assert.ts";
+import { loadRegistryModule } from "./registry_support.ts";
+import type { DeriverFunction } from "docxcelerate/document";
 
-// The deriver is loaded from the registry source and run through a bundle, so
-// the test proves the function survives serialisation, which is how it fails.
-const source = await readFile(
-  join(registryRoot(), "components", "invoice-document-type", "invoice-document-type.deriver.ts"),
-  "utf8",
+// Typed here rather than with `import type` from registry/: tsconfig.test.json
+// has `rootDir: tests`, and any import of a registry source file fails the
+// emit with TS6059.
+const { default: mod } = await loadRegistryModule<{ default: { run: DeriverFunction } }>(
+  "components/derivers/invoice-document-type.deriver.ts",
 );
-const js = ts.transpileModule(source, {
-  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
-}).outputText;
-const { invoiceDocumentType } = await import("data:text/javascript," + encodeURIComponent(js));
+const { InvoiceDocumentType } = await loadRegistryModule<{ InvoiceDocumentType: () => never }>(
+  "components/invoice-document-type/invoice-document-type.node.tsx",
+);
+// Run through a bundle, so the test proves the function survives being shipped
+// as source text, which is how a deriver fails.
 const registry = await createDeriverRegistryFromBundle(
-  createDeriverBundle({ invoiceDocumentType }),
+  createDeriverBundle({ invoiceDocumentType: mod.run }),
 );
 
 type Obj = Record<string, unknown>;
@@ -183,3 +190,51 @@ test("required fields and enums", async () => {
   await assertRejects(() => run({ kind: "credit-note" }), Error, "invoice.kind");
   await assertRejects(() => run({ jurisdiction: "AU" }), Error, "invoice.jurisdiction");
 });
+
+// The node, published and resolved by an engine that only has the bundle.
+const nodeData = {
+  invoice: { ...baseInvoice, supplyDate: "2026-02-27", purchaseOrder: "PO-7" },
+  seller: baseSeller,
+};
+
+function documentOf() {
+  return template(
+    <Document title="Invoice">
+      <InvoiceDocumentType />
+    </Document>,
+  );
+}
+
+function texts(nodes: DocumentNode[]): string[] {
+  const section = nodes[0];
+
+  if (section?.kind !== "section") throw new Error("expected the section");
+
+  return [section.title ?? "", ...section.children.map((child) => (child as ParagraphNode).text ?? "")];
+}
+
+for (const purchaseOrder of ["PO-7", "", undefined]) {
+  test(`publishing the node then resolving matches building it directly (purchase order ${JSON.stringify(purchaseOrder)})`, async () => {
+    const data = { ...nodeData, invoice: { ...nodeData.invoice, purchaseOrder } };
+    const published = await buildDocument(documentOf(), createPublishData() as typeof data, {
+      branchMode: "publish",
+      deriverMode: "preserve",
+      dynamicMode: "resolve",
+      aiClient: { generateParagraph: () => "" },
+    });
+    const state: RuntimeState = {
+      ctx: { ...data },
+      derived: {},
+      dataProvider: new InMemoryDataProvider(data),
+      aiClient: { generateParagraph: () => "" },
+    };
+    const resolved = await resolveDocument(published, state, { derivers: registry });
+    const direct = await buildDocument(documentOf(), data, { dynamicMode: "placeholder" });
+
+    assertEquals(texts(resolved.nodes), texts(direct.nodes));
+    assertEquals(
+      texts(direct.nodes).some((line) => line.startsWith("Purchase order")),
+      Boolean(purchaseOrder),
+    );
+  });
+}
