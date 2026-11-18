@@ -2,20 +2,24 @@ import { test } from "node:test";
 import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
 import {
   buildDocument,
+  createDeriverRegistryFromBundle,
   createDocumentProjectArtifact,
   defineDocumentProject,
+  type DocumentModel,
   type DocumentNode,
   InMemoryDataProvider,
   resolveDocument,
 } from "docxcelerate";
 import {
   defineMessages,
+  deriver,
   Document,
   matchLocale,
   messagesFor,
   Paragraph,
   template,
   useAi,
+  useDeriver,
   useFormat,
   useLocale,
   useMessages,
@@ -188,4 +192,41 @@ test("the registry's payment summary is translated, figures and all", async () =
 
   const en = await buildDocument(doc, data, { locale: "en-GB" });
   assertEquals(texts(en.nodes)[1], "The balance on your account is €1,234.50, payable by 30 September 2026.");
+});
+
+// What the localisation guide tells a deriver to do: take the locale as an
+// input. A `deriver()` is called with its inputs alone and travels to the
+// engine as source, so neither `state.locale` nor an imported helper reaches it.
+const money = deriver({
+  name: "money",
+  run: (amount: number, locale: string) =>
+    new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(amount),
+});
+
+test("a deriver handed the locale formats for it, through the engine's own bundle", async () => {
+  const Total: Paragraph = async () => {
+    const [amount] = useState((data: { amount: number }) => data.amount);
+    const total = await useDeriver(money, [amount, useLocale()]);
+    return <Paragraph id="total">{total}</Paragraph>;
+  };
+  const project = defineDocumentProject({
+    id: "p",
+    name: "p",
+    template: template<{ amount: number }>(<Document id="d" title="D"><Total /></Document>),
+    previewData: { amount: 1234.5 },
+    derivers: [money],
+    locales: ["en-GB", "de-DE"],
+  });
+  const artifact = await createDocumentProjectArtifact(project, { builtAt: "x" });
+  const derivers = await createDeriverRegistryFromBundle(artifact.derivers!);
+  const data = { amount: 1234.5 };
+  const resolve = (doc: DocumentModel) =>
+    resolveDocument(doc, { ctx: {}, derived: {}, dataProvider: new InMemoryDataProvider(data), aiClient: { generateParagraph: () => "" } }, { derivers });
+  const plain = (text: string) => text.replace(/\s/g, " ");
+
+  assertEquals(texts((await resolve(artifact.engineDocument)).nodes), ["€1,234.50"]);
+  assertEquals(
+    texts((await resolve(artifact.localizedDocuments!["de-DE"].engineDocument)).nodes).map(plain),
+    ["1.234,50 €"],
+  );
 });

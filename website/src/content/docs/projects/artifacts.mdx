@@ -16,6 +16,9 @@ documents/offer-of-admission/build/
   derivers.js      (only when the document uses derivers)
 ```
 
+A project with [more than one language](/docs/essentials/localisation/) also
+gets a `preview.<locale>.json` and a `document.<locale>.json` for each extra one.
+
 ## manifest.json
 
 The index. It records what was built, when, and where the other files are:
@@ -36,6 +39,9 @@ The index. It records what was built, when, and where the other files are:
 ```
 
 `deriverNames` and `derivers` appear only when the document invokes derivers.
+A project with more than one language also gets `locales` and
+`localizedDocuments`, which lists the files for each extra language.
+`previewDocument` and `engineDocument` always point to the default language.
 
 ## preview.json
 

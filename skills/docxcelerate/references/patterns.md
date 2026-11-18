@@ -440,12 +440,13 @@ export const Due: Paragraph = () => {
 };
 ```
 
-The build's `locale` picks the messages (`fr-CA` → `fr-CA`, `fr`, any `fr-…`,
-then the source) and `useFormat` follows it. A project lists its languages as
-`locales: ["en-GB", "fr-FR"]`, default first; a build writes one preview and
-engine document per extra locale. A deriver reads `state.locale` and calls
-`messagesFor(messages, state.locale)`. Never hard-code `"en-GB"` in an
-`Intl` call inside a node: it is the one place the locale cannot reach.
+The build's `locale` picks the messages (`fr-CA`, then `fr`, then any `fr-…`,
+then the source language), and `useFormat` follows it. A project lists its
+languages as `locales: ["en-GB", "fr-FR"]`, default first.
+
+A deriver only sees its inputs, so pass it the locale as one:
+`useDeriver(money, [amount, useLocale()])`. Keep the text in the component.
+Don't hard-code `"en-GB"` in an `Intl` call.
 
 ## An async component
 
