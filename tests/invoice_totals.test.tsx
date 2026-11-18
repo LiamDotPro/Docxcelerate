@@ -2,10 +2,8 @@ import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { buildDocument } from "docxcelerate";
 import type { DocumentNode, RuntimeState } from "docxcelerate";
+import type { TemplateElement } from "docxcelerate/template";
 import { createPublishData, Document, Section, template } from "docxcelerate/template";
-import totalsDeriver from "../registry/components/derivers/invoice-totals.deriver.ts";
-import type { InvoiceTotals, InvoiceTotalsData } from "../registry/components/derivers/invoice-totals.deriver.ts";
-import { InvoiceTotals as InvoiceTotalsNode } from "../registry/components/invoice-totals/invoice-totals.node.tsx";
 import { COMPONENTS } from "docxcelerate/registry";
 import { transformDocumentSource } from "docxcelerate/transform";
 import { readFile, writeFile } from "node:fs/promises";
@@ -17,8 +15,46 @@ import ts from "typescript";
  * The deriver is the only computation, so most of this calls it directly and
  * asserts on the integer `*Minor` fields rather than on Intl output.
  */
-type Invoice = InvoiceTotalsData["invoice"];
-type Line = Invoice["lines"][number];
+// The registry sources sit outside this project's rootDir, so they are compiled
+// and imported at run time below, and these are the shapes the tests rely on.
+type Line = { description: string; quantity: number; unit?: string; unitPrice: number; taxRate: number | null; taxLabel?: string };
+type Invoice = { currency: string; pricing?: "exclusive" | "inclusive"; lines: Line[] };
+type InvoiceTotalsData = { invoice: Invoice };
+type InvoiceTotals = {
+  empty: boolean;
+  multipleBands: boolean;
+  amountHeading: string;
+  lines: Array<{ description: string; quantity: string; unitPrice: string; tax: string; amount: string }>;
+  bands: Array<{ label: string; net: string; vat: string; netMinor: number; vatMinor: number }>;
+  subtotalLabel: string;
+  subtotal: string;
+  vatLabel: string;
+  vat: string;
+  total: string;
+  subtotalMinor: number;
+  vatMinor: number;
+  totalMinor: number;
+};
+
+// A publish build needs the compiler's `&&` rewrite, which `tsc` does not apply, so
+// each source is compiled the way a project's build would and imported from beside it.
+async function compiled(file: string, outName: string): Promise<Record<string, unknown>> {
+  const source = await readFile(new URL(`../registry/components/${file}`, import.meta.url), "utf8");
+  const { code } = transformDocumentSource(source, { fileName: file });
+  const js = ts.transpileModule(code, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.ReactJSX, jsxImportSource: "docxcelerate/template", verbatimModuleSyntax: true },
+  }).outputText.replace(".deriver.ts", ".deriver.js");
+  const out = new URL(`../registry/components/${outName}`, import.meta.url);
+
+  await writeFile(out, js);
+
+  return await import(out.href);
+}
+
+// The node's import of the deriver is rewritten to `.deriver.js`, so that file is
+// written under that name.
+const totalsDeriver = (await compiled("derivers/invoice-totals.deriver.ts", "derivers/invoice-totals.deriver.js")).default as { run(inputs: unknown[], state: RuntimeState): unknown };
+const InvoiceTotalsNode = (await compiled("invoice-totals/invoice-totals.node.tsx", "invoice-totals/invoice-totals.compiled.js")).InvoiceTotals as () => TemplateElement;
 
 const line = (over: Partial<Line> = {}): Line => ({
   description: "Work",
@@ -245,24 +281,8 @@ test("one band renders lines and summary, several add the analysis", async () =>
   assertEquals(ids(many.nodes).includes("invoice-totals-analysis"), true);
 });
 
-// A publish build needs the compiler's `&&` rewrite, which `tsc` does not apply, so
-// the node's own source is compiled the way a project's build would and imported.
-async function compiledNode(): Promise<typeof InvoiceTotalsNode> {
-  const dir = new URL("../registry/components/invoice-totals/", import.meta.url);
-  const source = await readFile(new URL("../../registry/components/invoice-totals/invoice-totals.node.tsx", import.meta.url), "utf8");
-  const { code } = transformDocumentSource(source, { fileName: "invoice-totals.node.tsx" });
-  const js = ts.transpileModule(code, {
-    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.ReactJSX, jsxImportSource: "docxcelerate/template", verbatimModuleSyntax: true },
-  }).outputText.replace(".deriver.ts", ".deriver.js");
-  const out = new URL("invoice-totals.compiled.js", dir);
-
-  await writeFile(out, js);
-
-  return (await import(out.href)).InvoiceTotals;
-}
-
 test("a publish build carries the invocation, with conditions and loops on derived", async () => {
-  const Compiled = await compiledNode();
+  const Compiled = InvoiceTotalsNode;
   const published = template<InvoiceTotalsData>(
     <Document title="Invoice">
       <Section title="Body">

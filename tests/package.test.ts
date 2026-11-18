@@ -18,7 +18,7 @@ import { version } from "docxcelerate";
  * published rather than the sources it came from.
  */
 
-const root = new URL("../../", import.meta.url);
+const root = new URL("../", import.meta.url);
 
 async function readJson(name: string): Promise<Record<string, unknown>> {
   return JSON.parse(await readFile(new URL(name, root), "utf8"));
