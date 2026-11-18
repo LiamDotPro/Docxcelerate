@@ -237,15 +237,40 @@ function flat(nodes: DocumentNode[]): string[] {
   });
 }
 
-test("published node carries one invocation, two loops and three conditions", async () => {
+// Every node, depth first, so the nodes carrying a `when` can be counted.
+const all = (nodes: DocumentNode[]): DocumentNode[] =>
+  nodes.flatMap((n) => [n, ...all((n as { children?: DocumentNode[] }).children ?? [])]);
+
+test("published node carries one invocation and fifteen conditions, all on derived paths", async () => {
   const published = await buildDocument(documentOf(), createPublishData() as never, publishOptions);
   const json = JSON.stringify(published);
   assertEquals((json.match(/"name":"usSalesTaxBreakdown"/g) ?? []).length, 1);
   assertStringIncludes(json, JSON.stringify(dataRef("salesTax")));
-  for (const path of ["rows", "exemptions", "marketplace", "shippingWarning"]) {
-    assertStringIncludes(json, `"scope":"derived","path":"usSalesTaxBreakdown.${path}"`);
-  }
-  assertEquals((json.match(/"kind":"repeat"/g) ?? []).length, 2);
+  // No loop: a published loop over derived output resolves to nothing, so the node prints fixed slots.
+  assertEquals((json.match(/"kind":"repeat"/g) ?? []).length, 0);
+  const whens = all(published.nodes).filter((n) => (n as { when?: unknown }).when !== undefined);
+  assertEquals(whens.length, 15);
+  for (const n of whens) assertStringIncludes(JSON.stringify((n as { when?: unknown }).when), '"scope":"derived"');
+});
+
+test("the node built locally with the catalog's preview data prints its rows", async () => {
+  const entry = COMPONENTS.find((c) => c.id === "us-sales-tax-breakdown") as unknown as { previewData: Obj };
+  const built = await buildDocument(documentOf(), entry.previewData as never, { dynamicMode: "placeholder" });
+  const ids = flat(built.nodes);
+  assertEquals(ids.filter((s) => s.startsWith("us-sales-tax-row-")).length, 5);
+  assertEquals(ids.filter((s) => s.startsWith("us-sales-tax-exempt-")).length, 2);
+  assertEquals(ids.some((s) => s.startsWith("us-sales-tax-shipping-warning")), true);
+  assertEquals(ids.includes("cell:Regional Transportation District"), true);
+});
+
+test("more than eight jurisdictions throws and more than four exemption groups fold", async () => {
+  const many = Array.from({ length: 7 }, (_, i) => ({ level: "special", name: "D" + i, rate: "0.001" }));
+  assertEquals(run({ jurisdictions: [...TX, ...many.slice(0, 4)], lines: [line(100)] }).rowSlots.filter((r) => r.name).length, 8);
+  await assertRejects(() => Promise.resolve().then(() => run({ jurisdictions: [...TX, ...many.slice(0, 5)], lines: [line(100)] })), Error, "8 rows");
+  const nt = (d: string, exemptReason: string) => ({ description: d, amountMinor: 100, taxable: false, exemptReason });
+  const r = run({ jurisdictions: TX, lines: ["A", "B", "C", "D", "E"].map((x) => nt(x, x)) });
+  assertEquals(r.exemptionSlots.map((g) => g.reason), ["A", "B", "C", "Other exemptions"]);
+  assertEquals(r.exemptionSlots[3].items, "D: D ($1.00) | E: E ($1.00)");
 });
 
 for (const [label, salesTax] of [["combined shipping", combined], ["marketplace", market]] as const) {

@@ -28,6 +28,12 @@ import usSalesTaxBreakdown from "../derivers/us-sales-tax-breakdown.deriver.ts";
  * When a marketplace facilitator collected the tax, the rows are replaced by a
  * statement saying so.
  *
+ * The rows are eight fixed slots and the exemptions four, rather than a
+ * `.map()`: the resolver reads a published loop's entries from request data and
+ * ignores the derived scope, so a loop over the deriver's rows would publish and
+ * then resolve to nothing. More than eight jurisdictions throws; more than four
+ * exemption groups fold into the last slot.
+ *
  * All of it is decided in one deriver and the node only prints its output.
  * Per-request arithmetic cannot run at publish time, and branching per layer
  * would spend `branchLimit`. Tests on the deriver's output are written inline
@@ -170,14 +176,70 @@ export const UsSalesTaxBreakdown: SectionComponent = async () => {
             <Cell>Rate</Cell>
             <Cell>Tax</Cell>
           </Row>
-          {tax.rows.map((row) => (
-            <Row id="us-sales-tax-row">
-              <Cell>{row.name}</Cell>
-              <Cell>{row.taxable}</Cell>
-              <Cell>{row.rate}</Cell>
-              <Cell>{row.tax}</Cell>
+          {tax.rowSlots[0].name && (
+            <Row id="us-sales-tax-row-1">
+              <Cell>{tax.rowSlots[0].name}</Cell>
+              <Cell>{tax.rowSlots[0].taxable}</Cell>
+              <Cell>{tax.rowSlots[0].rate}</Cell>
+              <Cell>{tax.rowSlots[0].tax}</Cell>
             </Row>
-          ))}
+          )}
+          {tax.rowSlots[1].name && (
+            <Row id="us-sales-tax-row-2">
+              <Cell>{tax.rowSlots[1].name}</Cell>
+              <Cell>{tax.rowSlots[1].taxable}</Cell>
+              <Cell>{tax.rowSlots[1].rate}</Cell>
+              <Cell>{tax.rowSlots[1].tax}</Cell>
+            </Row>
+          )}
+          {tax.rowSlots[2].name && (
+            <Row id="us-sales-tax-row-3">
+              <Cell>{tax.rowSlots[2].name}</Cell>
+              <Cell>{tax.rowSlots[2].taxable}</Cell>
+              <Cell>{tax.rowSlots[2].rate}</Cell>
+              <Cell>{tax.rowSlots[2].tax}</Cell>
+            </Row>
+          )}
+          {tax.rowSlots[3].name && (
+            <Row id="us-sales-tax-row-4">
+              <Cell>{tax.rowSlots[3].name}</Cell>
+              <Cell>{tax.rowSlots[3].taxable}</Cell>
+              <Cell>{tax.rowSlots[3].rate}</Cell>
+              <Cell>{tax.rowSlots[3].tax}</Cell>
+            </Row>
+          )}
+          {tax.rowSlots[4].name && (
+            <Row id="us-sales-tax-row-5">
+              <Cell>{tax.rowSlots[4].name}</Cell>
+              <Cell>{tax.rowSlots[4].taxable}</Cell>
+              <Cell>{tax.rowSlots[4].rate}</Cell>
+              <Cell>{tax.rowSlots[4].tax}</Cell>
+            </Row>
+          )}
+          {tax.rowSlots[5].name && (
+            <Row id="us-sales-tax-row-6">
+              <Cell>{tax.rowSlots[5].name}</Cell>
+              <Cell>{tax.rowSlots[5].taxable}</Cell>
+              <Cell>{tax.rowSlots[5].rate}</Cell>
+              <Cell>{tax.rowSlots[5].tax}</Cell>
+            </Row>
+          )}
+          {tax.rowSlots[6].name && (
+            <Row id="us-sales-tax-row-7">
+              <Cell>{tax.rowSlots[6].name}</Cell>
+              <Cell>{tax.rowSlots[6].taxable}</Cell>
+              <Cell>{tax.rowSlots[6].rate}</Cell>
+              <Cell>{tax.rowSlots[6].tax}</Cell>
+            </Row>
+          )}
+          {tax.rowSlots[7].name && (
+            <Row id="us-sales-tax-row-8">
+              <Cell>{tax.rowSlots[7].name}</Cell>
+              <Cell>{tax.rowSlots[7].taxable}</Cell>
+              <Cell>{tax.rowSlots[7].rate}</Cell>
+              <Cell>{tax.rowSlots[7].tax}</Cell>
+            </Row>
+          )}
           <Row id="us-sales-tax-total">
             <Cell>Total sales tax</Cell>
             <Cell>{tax.total.taxable}</Cell>
@@ -186,7 +248,18 @@ export const UsSalesTaxBreakdown: SectionComponent = async () => {
           </Row>
         </Table>
       )}
-      {tax.exemptions.map((group) => <Paragraph id="us-sales-tax-exempt">{group.reason}: {group.items}.</Paragraph>)}
+      {tax.exemptionSlots[0].reason && (
+        <Paragraph id="us-sales-tax-exempt-1">{tax.exemptionSlots[0].reason}: {tax.exemptionSlots[0].items}.</Paragraph>
+      )}
+      {tax.exemptionSlots[1].reason && (
+        <Paragraph id="us-sales-tax-exempt-2">{tax.exemptionSlots[1].reason}: {tax.exemptionSlots[1].items}.</Paragraph>
+      )}
+      {tax.exemptionSlots[2].reason && (
+        <Paragraph id="us-sales-tax-exempt-3">{tax.exemptionSlots[2].reason}: {tax.exemptionSlots[2].items}.</Paragraph>
+      )}
+      {tax.exemptionSlots[3].reason && (
+        <Paragraph id="us-sales-tax-exempt-4">{tax.exemptionSlots[3].reason}: {tax.exemptionSlots[3].items}.</Paragraph>
+      )}
       {tax.shippingWarning && <Paragraph id="us-sales-tax-shipping-warning">{tax.shippingWarning}</Paragraph>}
     </Section>
   );

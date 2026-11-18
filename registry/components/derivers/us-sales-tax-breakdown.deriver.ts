@@ -21,7 +21,6 @@ import { deriver } from "docxcelerate/template";
 export default deriver({
   name: "usSalesTaxBreakdown",
   run: (salesTax: unknown) => {
-   
     const st = salesTax as any;
     if (st === null || typeof st !== "object") throw new Error("salesTax is required");
 
@@ -29,6 +28,15 @@ export default deriver({
     if (collectedBy !== "seller" && collectedBy !== "marketplace") {
       throw new Error('salesTax.collectedBy must be "seller" or "marketplace"');
     }
+
+    // The published loop cannot read this output, so the node prints fixed slots: 8 rows, 4 exemption groups.
+    const pad = <T,>(items: T[], size: number, empty: T): T[] => {
+      const out = items.slice(0, size);
+      while (out.length < size) out.push(empty);
+      return out;
+    };
+    const emptyRow = { name: "", taxable: "", rate: "", tax: "" };
+    const emptyGroup = { reason: "", items: "" };
 
     if (collectedBy === "marketplace") {
       const name = typeof st.marketplaceName === "string" && st.marketplaceName.trim() !== ""
@@ -40,6 +48,8 @@ export default deriver({
         rows: [] as Array<{ name: string; taxable: string; rate: string; tax: string; taxableMinor: number; taxMinor: number }>,
         total: { taxable: "", rate: "", tax: "", taxMinor: 0 },
         exemptions: [] as Array<{ reason: string; items: string }>,
+        rowSlots: pad([] as Array<typeof emptyRow>, 8, emptyRow),
+        exemptionSlots: pad([] as Array<typeof emptyGroup>, 4, emptyGroup),
         shippingWarning: "",
       };
     }
@@ -68,6 +78,7 @@ export default deriver({
     if (!Array.isArray(jur) || jur.length === 0) {
       throw new Error("salesTax.jurisdictions must be a non-empty array");
     }
+    if (jur.length > 8) throw new Error("salesTax.jurisdictions has more than the 8 rows the component prints");
     const levels = ["state", "county", "city", "special"];
     const parsed = jur.map((j: any, index: number) => {
       const at = "salesTax.jurisdictions[" + index + "]";
@@ -196,11 +207,20 @@ export default deriver({
         " does not tax delivery charges stated on their own, but a combined shipping and handling charge is taxable, so its taxable share has been taxed here. Invoice handling as a separate line to keep delivery out of the tax."
       : "";
 
+    const exemptions = groups.map((g) => ({ reason: g.reason, items: g.items.join("; ") }));
+    // Past the last slot the remaining groups are folded into it, so nothing is dropped.
+    if (exemptions.length > 4) {
+      const rest = exemptions.splice(3);
+      exemptions.push({ reason: "Other exemptions", items: rest.map((g) => g.reason + ": " + g.items).join(" | ") });
+    }
+
     return {
       marketplace: "",
       rows,
       total,
       exemptions: groups.map((g) => ({ reason: g.reason, items: g.items.join("; ") })),
+      rowSlots: pad(rows.map(({ name, taxable, rate, tax }) => ({ name, taxable, rate, tax })), 8, emptyRow),
+      exemptionSlots: pad(exemptions, 4, emptyGroup),
       shippingWarning,
     };
   },

@@ -13,7 +13,7 @@ import type {
 import { generateGraph, generateImage, generateParagraph } from "./ai_request.ts";
 import { evaluateCondition } from "./conditions.ts";
 import { createDefaultDeriverRegistry, type DeriverRegistry, runDerivers } from "./derivers.ts";
-import { renderTemplate, resolveReference } from "./templates.ts";
+import { renderTemplate } from "./templates.ts";
 
 /**
  * Settling a published document against real data.
@@ -154,8 +154,7 @@ async function resolveRepeat(
   state: RuntimeState,
   derivers: DeriverRegistry,
 ): Promise<DocumentNode[]> {
-  // By scope, not always from the data: a loop over a deriver's output has its entries in `derived`.
-  const entries = await resolveReference(node.source, state);
+  const entries = await state.dataProvider.get(node.source.path);
   const previousEntry = state.ctx[node.as];
   const previousIndex = state.ctx[node.indexAs];
   const children: DocumentNode[] = [];
