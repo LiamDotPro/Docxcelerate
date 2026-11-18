@@ -123,6 +123,7 @@ dxcl list components
 | `next-steps` | A generated paragraph with its prompts already fenced off. |
 | `signature-block` | A closing, a signature image, and who signed it. |
 | `terms-notice` | Numbered small print, one paragraph and one stable id per clause. |
+| `invoice-document-type` | What an invoice may call itself, and the dates it has to carry. |
 
 ## `dxcl show <id>`
 
