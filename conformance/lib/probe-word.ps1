@@ -747,6 +747,8 @@ try {
             $record.fontSize = Clean-Undefined $font.Size
             $record.bold = Clean-Bool $font.Bold
             $record.italic = Clean-Bool $font.Italic
+            $record.superscript = Clean-Bool $font.Superscript
+            $record.subscript = Clean-Bool $font.Subscript
             $record.allCaps = Clean-Bool $font.AllCaps
             $record.characterSpacing = Clean-Undefined $font.Spacing
             $record.fontColor = To-Hex $font.Color

@@ -167,6 +167,11 @@ export interface TextProps {
   /** Set struck through. */
   strike?: boolean;
   /**
+   * Raised above the line or dropped below it, smaller: the 2 in m², the 2 in
+   * CO₂, the "st" in 1st, a `[1]` marker. Left out, the words sit on the line.
+   */
+  script?: "superscript" | "subscript";
+  /**
    * An address the words link to: `https:`, `http:`, `mailto:` or `tel:`.
    * Anything else prints as the words alone.
    */

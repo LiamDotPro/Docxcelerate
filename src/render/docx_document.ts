@@ -864,6 +864,8 @@ function markedRun(
     ...(run.italic === undefined ? {} : { italics: run.italic }),
     ...(run.underline ? { underline: {} } : {}),
     ...(run.strike === undefined ? {} : { strike: run.strike }),
+    ...(run.script === "superscript" ? { superScript: true } : {}),
+    ...(run.script === "subscript" ? { subScript: true } : {}),
   };
   const link = linkOf(run.href);
 
