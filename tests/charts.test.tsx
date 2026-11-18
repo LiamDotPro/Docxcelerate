@@ -2,7 +2,7 @@ import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { buildDocument } from "docxcelerate";
 import { cleanMinimalDocumentStyle } from "docxcelerate";
-import { documentXml, entryOf, partNames, partXml } from "./docx.ts";
+import { documentXml, elementOf, entryOf, partNames, partXml } from "./docx.ts";
 import { createDocxBlob } from "docxcelerate/docx";
 import type { DocumentModel, DocumentStyle, GraphNode } from "docxcelerate";
 import { Cell, Document, Graph, Row, Section, Table, template } from "docxcelerate/template";
@@ -678,30 +678,18 @@ test("a chart written as JSX carries every drawing decision into the node", asyn
 // Where the chart sits
 // ---------------------------------------------------------------------------
 
-/** The `<w:p>` whose XML contains this anchor. */
-function paragraphOf(xml: string, anchor: string): string {
-  const found = [...xml.matchAll(/<w:p>[\s\S]*?<\/w:p>/g)].map((match) => match[0])
-    .find((paragraph) => paragraph.includes(anchor));
-
-  if (found === undefined) {
-    throw new Error(`no paragraph containing ${anchor}`);
-  }
-
-  return found;
-}
-
 test("a chart ranged right takes its caption with it", async () => {
   const xml = await documentXml(documentOf([chart({ width: 240, align: "right", caption: "Figure 1: revenue." })]));
 
-  assertStringIncludes(paragraphOf(xml, "<c:chart"), '<w:jc w:val="right"/>');
-  assertStringIncludes(paragraphOf(xml, ">Figure 1: revenue.</w:t>"), '<w:jc w:val="right"/>');
+  assertStringIncludes(elementOf(xml, "w:p", "<c:chart"), '<w:jc w:val="right"/>');
+  assertStringIncludes(elementOf(xml, "w:p", ">Figure 1: revenue.</w:t>"), '<w:jc w:val="right"/>');
 });
 
 test("a chart with no align writes none, and its caption stays centred", async () => {
   const xml = await documentXml(documentOf([chart({ caption: "Figure 1: revenue." })]));
 
-  assertEquals(paragraphOf(xml, "<c:chart").includes("<w:jc"), false);
-  assertStringIncludes(paragraphOf(xml, ">Figure 1: revenue.</w:t>"), '<w:jc w:val="center"/>');
+  assertEquals(elementOf(xml, "w:p", "<c:chart").includes("<w:jc"), false);
+  assertStringIncludes(elementOf(xml, "w:p", ">Figure 1: revenue.</w:t>"), '<w:jc w:val="center"/>');
 });
 
 test("a chart's placeholder sits where the chart will", async () => {
@@ -709,5 +697,5 @@ test("a chart's placeholder sits where the chart will", async () => {
     { id: "trend", kind: "graph", mode: "dynamic", graphType: "line", placeholder: "Balance over the term", align: "center" },
   ]));
 
-  assertStringIncludes(paragraphOf(xml, "[line chart: Balance over the term]"), '<w:jc w:val="center"/>');
+  assertStringIncludes(elementOf(xml, "w:p", "[line chart: Balance over the term]"), '<w:jc w:val="center"/>');
 });

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { buildDocument, cleanMinimalDocumentStyle, imageSourceOf, isSvg, rasterTypeOf } from "docxcelerate";
-import { documentXml } from "./docx.ts";
+import { documentXml, elementOf } from "./docx.ts";
 import { createDocxBlob, createDocxDocument } from "docxcelerate/docx";
 
 import { Cell, Document, Image, Row, Table, template } from "docxcelerate/template";
@@ -165,19 +165,6 @@ test("a path is not fetched while packing, so the same model packs anywhere", as
 // Where the picture sits
 // ---------------------------------------------------------------------------
 
-/** The `<w:p>` or `<w:tbl>` (as given) whose XML contains this anchor. */
-function around(xml: string, tag: "w:p" | "w:tbl", anchor: string): string {
-  const found = [...xml.matchAll(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`, "g"))]
-    .map((match) => match[0])
-    .find((part) => part.includes(anchor));
-
-  if (found === undefined) {
-    throw new Error(`nothing containing ${anchor}`);
-  }
-
-  return found;
-}
-
 test("align is on the node when it is said, and absent when it is not", async () => {
   const said = await build(<Document id="d" title="D"><Image id="m" src={pngPixel} align="center" /></Document>);
   const unsaid = await build(<Document id="d" title="D"><Image id="m" src={pngPixel} /></Document>);
@@ -190,20 +177,20 @@ test("a centred or right-ranged picture sits on a line that says so", async () =
   for (const align of ["center", "right"] as const) {
     const doc = await build(<Document id="d" title="D"><Image id="m" src={pngPixel} align={align} /></Document>);
 
-    assertStringIncludes(around(await documentXml(doc), "w:p", "<w:drawing>"), `<w:jc w:val="${align}"/>`);
+    assertStringIncludes(elementOf(await documentXml(doc), "w:p", "<w:drawing>"), `<w:jc w:val="${align}"/>`);
   }
 });
 
 test("a picture with no align writes no alignment at all", async () => {
   const doc = await build(<Document id="d" title="D"><Image id="m" src={pngPixel} /></Document>);
 
-  assertEquals(around(await documentXml(doc), "w:p", "<w:drawing>").includes("<w:jc"), false);
+  assertEquals(elementOf(await documentXml(doc), "w:p", "<w:drawing>").includes("<w:jc"), false);
 });
 
 test("a placeholder sits where the picture will", async () => {
   const doc = await build(<Document id="d" title="D"><Image id="m" src="./logo.png" alt="Logo" align="center" /></Document>);
 
-  assertStringIncludes(around(await documentXml(doc), "w:p", "[image: Logo]"), '<w:jc w:val="center"/>');
+  assertStringIncludes(elementOf(await documentXml(doc), "w:p", "[image: Logo]"), '<w:jc w:val="center"/>');
 });
 
 test("a card moves as a whole, because the paragraph inside it cannot be seen", async () => {
@@ -211,7 +198,7 @@ test("a card moves as a whole, because the paragraph inside it cannot be seen", 
     ...await build(<Document id="d" title="D"><Image id="m" variant="card" align="center" src={pngPixel} /></Document>),
     style: { ...cleanMinimalDocumentStyle, blocks: { card: { border: "D1D5DB", paddingPt: 4 } } },
   };
-  const table = around(await documentXml(doc), "w:tbl", "<w:drawing>");
+  const table = elementOf(await documentXml(doc), "w:tbl", "<w:drawing>");
 
   assertStringIncludes(table.match(/<w:tblPr>[\s\S]*?<\/w:tblPr>/)?.[0] ?? "", '<w:jc w:val="center"/>');
 });
@@ -224,7 +211,7 @@ test("inside a cell the column governs, not the picture", async () => {
       </Table>
     </Document>,
   );
-  const paragraph = around(await documentXml(doc), "w:p", "<w:drawing>");
+  const paragraph = elementOf(await documentXml(doc), "w:p", "<w:drawing>");
 
   assertStringIncludes(paragraph, '<w:jc w:val="center"/>');
   assertEquals(paragraph.includes('w:val="right"'), false);

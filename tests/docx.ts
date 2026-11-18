@@ -95,3 +95,16 @@ export async function partNames(doc: DocumentModel): Promise<string[]> {
 export function textOf(xml: string): string {
   return [...xml.matchAll(/<w:t(?: [^>]*)?>([^<]*)<\/w:t>/g)].map((match) => match[1]).join("");
 }
+
+/** The `<w:p>` or `<w:tbl>` whose XML contains this anchor. */
+export function elementOf(xml: string, tag: "w:p" | "w:tbl", anchor: string): string {
+  const found = [...xml.matchAll(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`, "g"))]
+    .map((match) => match[0])
+    .find((part) => part.includes(anchor));
+
+  if (found === undefined) {
+    throw new Error(`no ${tag} containing ${JSON.stringify(anchor)}`);
+  }
+
+  return found;
+}
