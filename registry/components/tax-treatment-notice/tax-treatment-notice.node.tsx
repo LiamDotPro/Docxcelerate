@@ -29,7 +29,9 @@ import { type Nodes, Paragraph, useState } from "docxcelerate/template";
  * Nothing is computed here except the CIS amount, which is formatted by a
  * deriver, installed at `derivers/tax-treatment-notice.deriver.ts`. The
  * installer registers only node exports, so add it to `derivers/index.ts` by
- * hand, or a document that reaches that arm fails its build naming it:
+ * hand. Derivers run before a node's `when` is checked, so a document using
+ * this node fails to build naming it whatever its treatment, not only on the
+ * reverse-charge arm:
  * `import taxTreatmentNoticeVat from "./tax-treatment-notice.deriver.ts";`
  * and `taxTreatmentNoticeVat: taxTreatmentNoticeVat.run,` in the object.
  *
@@ -117,6 +119,11 @@ export interface TaxTreatmentData {
   };
 }
 
+/**
+ * The legal tax-treatment notice for an invoice: one paragraph chosen by
+ * `invoice.taxTreatment`, or an "incomplete" warning when the data that
+ * treatment requires is missing.
+ */
 export const TaxTreatmentNotice: Nodes = () => {
   const [{ invoice, seller, customer }] = useState((data: TaxTreatmentData) => ({
     invoice: data.invoice,

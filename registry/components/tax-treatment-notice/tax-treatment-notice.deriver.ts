@@ -6,8 +6,11 @@ import { deriver } from "docxcelerate/template";
  * Sterling whatever the invoice currency, because HMRC requires the VAT on a
  * UK VAT invoice to be stated in pounds. It does not round: the caller passes
  * the figure already rounded under its own VAT rounding policy, and this only
- * formats it. A figure that is not a number throws rather than printing
- * "£NaN" on a legal notice. No placeholder, so previews run it.
+ * formats it. A missing figure (`null` or `undefined`) gives "": the engine
+ * runs a node's derivers before its `when`, so this runs for every invoice,
+ * and the arm's own guard keeps the empty output from printing. Any other
+ * value that is not a number throws rather than printing "£NaN" on a legal
+ * notice. No placeholder, so previews run it.
  *
  * Installed by `dxcl add tax-treatment-notice` as
  * `derivers/tax-treatment-notice.deriver.ts`. The installer registers only
@@ -18,6 +21,8 @@ import { deriver } from "docxcelerate/template";
 export default deriver({
   name: "taxTreatmentNoticeVat",
   run: (amount: unknown): string => {
+    if (amount == null) return "";
+
     const n = Number(amount);
 
     if (!Number.isFinite(n)) {

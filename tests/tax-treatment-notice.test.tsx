@@ -217,7 +217,10 @@ test("the deriver formats sterling, rounding half away from zero", () => {
   assertEquals(run(0.005), "£0.01");
   assertEquals(run("1200"), "£1,200.00");
 
-  for (const bad of [undefined, Number.NaN, "abc"]) {
+  assertEquals(run(undefined), "");
+  assertEquals(run(null), "");
+
+  for (const bad of [Number.NaN, "abc"]) {
     try {
       run(bad);
     } catch (error) {
@@ -283,6 +286,22 @@ test("a publish build carries all fifteen arms, each with a condition", async ()
 
   assertEquals(body.children.map((n) => n.id), ["tax-notice-uk-reverse-charge"]);
   assertStringIncludes(body.children[0].text ?? "", "£184,250.75.");
+
+  // No notionalVat: the deriver still runs, and must not throw.
+  const resolveWith = async (taxTreatment: string) => {
+    const sparse = { ...full, invoice: { taxTreatment } };
+    const r = await resolveDocument(published, {
+      ctx: { ...sparse },
+      derived: {},
+      dataProvider: new InMemoryDataProvider(sparse as Record<string, unknown>),
+      aiClient: { generateParagraph: () => "" },
+    }, { derivers: createDeriverRegistry([taxTreatmentNoticeVat as never]) });
+
+    return (r.nodes[0] as { children: ParagraphNode[] }).children.map((n) => n.id);
+  };
+
+  assertEquals(await resolveWith("standard"), []);
+  assertEquals(await resolveWith("uk-domestic-reverse-charge"), ["tax-notice-uk-reverse-charge-incomplete"]);
 
   await assertRejects(
     () => resolveDocument(published, state, { derivers: createDeriverRegistry() }),
