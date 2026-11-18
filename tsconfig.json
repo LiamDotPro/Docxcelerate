@@ -20,6 +20,7 @@
     "src/**/*.ts",
     "tests/**/*.ts",
     "tests/**/*.tsx",
+    "registry/**/*.ts",
     "registry/**/*.tsx"
   ]
 }

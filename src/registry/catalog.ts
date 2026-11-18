@@ -79,9 +79,18 @@ export interface RegistryComponent {
  * Flat rather than a directory each: a document project keeps every node in one
  * place, and an installed component is meant to stop being distinguishable from
  * one you wrote as soon as you have edited it.
+ *
+ * A component that computes on request data ships one deriver beside it, the
+ * default export of `derivers/<id>.deriver.ts`, named the id in camel case. It
+ * sits in a `derivers/` folder in the registry too, so the node's
+ * `../derivers/<id>.deriver.ts` import resolves the same before and after it is
+ * copied.
  */
-function node(id: string): RegistryFile[] {
-  return [{ source: `components/${id}/${id}.node.tsx`, target: `nodes/${id}.node.tsx` }];
+function node(id: string, options: { deriver?: boolean } = {}): RegistryFile[] {
+  return [
+    { source: `components/${id}/${id}.node.tsx`, target: `nodes/${id}.node.tsx` },
+    ...(options.deriver ? [{ source: `components/derivers/${id}.deriver.ts`, target: `derivers/${id}.deriver.ts` }] : []),
+  ];
 }
 
 /**
