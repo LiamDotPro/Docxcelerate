@@ -129,6 +129,20 @@ export interface ComponentPageEntry {
   /** What it resolved to: the nodes a renderer or an engine is handed. */
   resolved: ResolvedNode[];
   previewUrl: string;
+  /**
+   * The component once per value of its first string-union field, or null
+   * when it has none. `selected` is the value `previewData` already holds.
+   */
+  variants: {
+    path: string;
+    selected: string;
+    values: {
+      value: string;
+      previewData: Record<string, unknown>;
+      resolved: ResolvedNode[];
+      previewUrl: string;
+    }[];
+  } | null;
 }
 
 export const THEMES = generated.themes as ThemePageEntry[];

@@ -50,6 +50,22 @@ const shown = (text: string | undefined) => (text ?? "").split("\n");
 const fieldPaths = component.dataFields.map((field) => field.path).join("\n");
 
 /**
+ * A field's type, one member at a time, so the string literals of a union can
+ * be set as the values they are rather than run together as one grey line.
+ */
+const typeMembers = (type: string) =>
+  type.split(" | ").map((member) => ({ text: member, literal: /^"[^"]*"$/.test(member) }));
+
+/**
+ * What steps 01 to 03 show, once per value of the field the component branches
+ * on. A component without one is a list of one, so the markup is the same.
+ */
+const variants = component.variants?.values ?? [
+  { value: "", previewData: component.previewData, resolved: component.resolved, previewUrl: component.previewUrl },
+];
+const selected = Math.max(0, variants.findIndex((variant) => variant.value === component.variants?.selected));
+
+/**
  * The tree `dxcl add` writes, as rows.
  *
  * Derived from the targets themselves rather than from a second field in the
@@ -158,6 +174,37 @@ const treeSelected =
 
       <!-- 01 to 03, beside the fields. -->
       <div class="flex min-w-0 flex-col gap-11">
+        {
+          component.variants && (
+            // Sits on the spine's column so the discs below stay aligned; it
+            // drives all three steps, so it comes before the first.
+            <div class={stepRow}>
+              <span aria-hidden="true"></span>
+              <div
+                class="flex min-w-0 flex-wrap items-center gap-1.5"
+                role="group"
+                aria-label={component.variants.path}
+              >
+                <code class="mr-1.5 font-mono text-xs text-muted">{component.variants.path}</code>
+                {variants.map((variant, index) => (
+                  <button
+                    type="button"
+                    data-variant-tab={index}
+                    aria-pressed={index === selected ? "true" : "false"}
+                    class:list={[
+                      "cursor-pointer rounded-[3px] border border-default bg-surface-2 px-[7px] py-0.5 font-mono text-[0.68rem] text-muted transition-colors",
+                      "hover:text-ink",
+                      "aria-pressed:border-accent-solid aria-pressed:bg-accent-tint aria-pressed:text-accent",
+                    ]}
+                  >
+                    {variant.value}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )
+        }
+
         <!-- 01 — what it was built with -->
         <section class={stepRow}>
           <span class={marker} aria-hidden="true">{steps[0].n}</span>
@@ -166,13 +213,21 @@ const treeSelected =
               <h2 class={eyebrow}>{steps[0].title}</h2>
               <span class={stepNote}>{steps[0].note}</span>
             </div>
-            <div class="snippet overflow-hidden rounded-md border border-default">
-              <Code
-                code={JSON.stringify(component.previewData, null, 2)}
-                lang="json"
-                themes={{ light: "github-light", dark: "github-dark-dimmed" }}
-              />
-            </div>
+            {
+              variants.map((variant, index) => (
+                <div
+                  data-variant-panel={index}
+                  hidden={index !== selected}
+                  class="snippet overflow-hidden rounded-md border border-default"
+                >
+                  <Code
+                    code={JSON.stringify(variant.previewData, null, 2)}
+                    lang="json"
+                    themes={{ light: "github-light", dark: "github-dark-dimmed" }}
+                  />
+                </div>
+              ))
+            }
           </div>
         </section>
 
@@ -186,28 +241,34 @@ const treeSelected =
             </div>
             <!-- A component is a block, not a page. Held to the width the board
                  gives it so it does not stretch into a full-bleed sheet. -->
-            <div class="max-w-[460px]">
-              <NodePreview
-                src={component.previewUrl}
-                title={component.title}
-                label={t.registry.renderedBy}
-                flush
-              >
-                {
-                  drawnAgainst && (
-                    <>
-                      {" · "}
-                      <a
-                        href={localizePath(themeHref(drawnAgainst.id), locale)}
-                        class="text-muted no-underline hover:text-accent"
-                      >
-                        {fill(t.registry.drawnAgainst, { theme: drawnAgainst.title })}
-                      </a>
-                    </>
-                  )
-                }
-              </NodePreview>
-            </div>
+            {
+              variants.map((variant, index) => (
+                // A hidden frame is a lazy frame that never loads, so the
+                // other values cost nothing until somebody picks one.
+                <div data-variant-panel={index} hidden={index !== selected} class="max-w-[460px]">
+                  <NodePreview
+                    src={variant.previewUrl}
+                    title={variant.value ? `${component.title}: ${variant.value}` : component.title}
+                    label={t.registry.renderedBy}
+                    flush
+                  >
+                    {
+                      drawnAgainst && (
+                        <>
+                          {" · "}
+                          <a
+                            href={localizePath(themeHref(drawnAgainst.id), locale)}
+                            class="text-muted no-underline hover:text-accent"
+                          >
+                            {fill(t.registry.drawnAgainst, { theme: drawnAgainst.title })}
+                          </a>
+                        </>
+                      )
+                    }
+                  </NodePreview>
+                </div>
+              ))
+            }
           </div>
         </section>
 
@@ -221,9 +282,10 @@ const treeSelected =
             </div>
             <!-- Hairlines, not a box: one line per node is a list to run your
                  eye down, and a border round it would make it a fifth panel. -->
-            <div class="flex min-w-0 flex-col">
+            {variants.map((variant, index) => (
+            <div data-variant-panel={index} hidden={index !== selected} class="flex min-w-0 flex-col">
               {
-                component.resolved.map((node) => (
+                variant.resolved.map((node) => (
                   <div class="grid min-w-0 gap-1 border-t border-default py-[9px] last:border-b sm:grid-cols-[auto_auto_minmax(0,1fr)] sm:items-baseline sm:gap-3.5">
                     <code class="justify-self-start rounded-[3px] bg-surface-2 px-[7px] py-0.5 font-mono text-[0.68rem] text-ink">{node.id}</code>
                     <span class="font-mono text-[0.62rem] text-muted">{node.mode ? `${node.kind} · ${node.mode}` : node.kind}</span>
@@ -246,6 +308,7 @@ const treeSelected =
                 ))
               }
             </div>
+            ))}
           </div>
         </section>
       </div>
@@ -365,7 +428,18 @@ const treeSelected =
                 <div class="flex flex-col gap-[3px] border-t border-default py-2.5 last:border-b">
                   <div class="flex flex-wrap items-baseline justify-between gap-3">
                     <code class="font-mono text-xs text-ink">{field.path}</code>
-                    <span class="font-mono text-[0.66rem] text-muted">{field.type}</span>
+                    <span class="flex flex-wrap items-baseline gap-x-1 gap-y-1 font-mono text-[0.66rem] text-muted">
+                      {typeMembers(field.type).map((member, index) => (
+                        <>
+                          {index > 0 && <span aria-hidden="true">|</span>}
+                          {member.literal ? (
+                            <code class="rounded-[3px] bg-surface-2 px-[5px] py-px text-ink">{member.text}</code>
+                          ) : (
+                            <span>{member.text}</span>
+                          )}
+                        </>
+                      ))}
+                    </span>
                   </div>
                   <span class="text-[0.78rem] leading-[1.5] text-muted">{field.summary}</span>
                 </div>
@@ -441,6 +515,22 @@ const treeSelected =
       } catch {
         // Denied, or an insecure origin. The text is on screen either way.
       }
+    });
+  }
+
+  // ---- The value switcher ---------------------------------------------------
+  // Only rendered for a component with a string-union field. Steps 01 to 03
+  // each hold one panel per value; picking a value shows that index in all three.
+  const variantTabs = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-variant-tab]"));
+  const variantPanels = Array.from(document.querySelectorAll<HTMLElement>("[data-variant-panel]"));
+
+  for (const tab of variantTabs) {
+    tab.addEventListener("click", () => {
+      const index = tab.dataset.variantTab;
+      for (const other of variantTabs) {
+        other.setAttribute("aria-pressed", String(other.dataset.variantTab === index));
+      }
+      for (const panel of variantPanels) panel.hidden = panel.dataset.variantPanel !== index;
     });
   }
 
