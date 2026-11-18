@@ -774,6 +774,61 @@ export const COMPONENTS: RegistryComponent[] = [
     requires: [],
     themeHint: "legal-serif",
   },
+
+  {
+    kind: "component",
+    id: "invoice-document-type",
+    title: "Invoice document type",
+    summary: "What an invoice may call itself, and the dates it has to carry.",
+    detail:
+      "The heading is a legal decision, not a label. A seller who is not " +
+      "VAT-registered gets 'Invoice' and no VAT wording, because calling it a " +
+      "VAT invoice is an offence in the UK. A registered seller gets 'VAT " +
+      "invoice', or 'Simplified VAT invoice' under the local ceiling where they " +
+      "allow it. A pro forma says it is not a VAT invoice, so nobody reclaims on " +
+      "it, and a self-billed invoice carries its jurisdiction's statement. The " +
+      "supply date prints only when it differs from the issue date, except in " +
+      "Germany, which always wants a Leistungsdatum. All of it is one deriver, " +
+      "not a dozen published arms: add invoiceDocumentType from " +
+      "derivers/invoice-document-type.deriver.ts to derivers/index.ts, or the " +
+      "build fails naming it.",
+    category: "Opening",
+    tags: ["invoice", "vat", "tax", "deriver", "branching", "section"],
+    exports: ["InvoiceDocumentType"],
+    dataFields: [
+      { path: "invoice.number", type: "string", summary: "The invoice number. Required." },
+      { path: "invoice.issueDate", type: "string", summary: "ISO 8601 date of issue. Required." },
+      { path: "invoice.supplyDate", type: "string | undefined", summary: "ISO 8601 tax point. Missing means the issue date; printed only when it differs, always in Germany." },
+      { path: "invoice.supplyPeriod", type: "{ from: string; to: string } | undefined", summary: "A supply over a period. Printed in place of the supply date." },
+      { path: "invoice.kind", type: '"invoice" | "proforma" | "self-billed"', summary: "What the document is. Anything else fails the document." },
+      { path: "invoice.jurisdiction", type: '"UK" | "EU" | "DE" | "FR" | "US"', summary: "Whose rules apply. US skips every VAT rule." },
+      { path: "invoice.grossTotal", type: "number", summary: "VAT-inclusive total, local currency. Decides only whether it can be simplified." },
+      { path: "invoice.purchaseOrder", type: "string | undefined", summary: "The customer's PO. Printed when given." },
+      { path: "seller.vatRegistered", type: "boolean", summary: "Missing means not registered: no VAT number, no VAT wording." },
+      { path: "seller.vatNumber", type: "string | undefined", summary: "Required when registered; the document fails without it." },
+      { path: "seller.simplifiedAllowed", type: "boolean | undefined", summary: "Whether simplified invoices are issued at all. Missing means no." },
+    ],
+    files: [
+      ...node("invoice-document-type"),
+      {
+        source: "components/invoice-document-type/invoice-document-type.deriver.ts",
+        target: "derivers/invoice-document-type.deriver.ts",
+      },
+    ],
+    previewData: {
+      invoice: {
+        number: "SI-2026-11-004817/REV-2",
+        issueDate: "2026-11-30",
+        supplyDate: "2026-09-28",
+        kind: "invoice",
+        jurisdiction: "UK",
+        grossTotal: 1284750.0,
+        purchaseOrder: "PO-4500098817-FACILITIES-NORTH",
+      },
+      seller: { vatRegistered: true, vatNumber: "GB 987 6543 21", simplifiedAllowed: true },
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
