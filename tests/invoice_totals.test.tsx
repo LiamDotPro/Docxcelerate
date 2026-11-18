@@ -217,6 +217,26 @@ test("an empty invoice renders only the no-charges paragraph", async () => {
   assertEquals(ids(built.nodes), ["invoice-totals", "invoice-totals-none"]);
 });
 
+const find = (nodes: DocumentNode[], id: string): DocumentNode | undefined => {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    const hit = "children" in n ? find(n.children, id) : undefined;
+
+    if (hit) return hit;
+  }
+};
+
+test("the lines and analysis tables mark their first row to repeat across pages", async () => {
+  const lines = Array.from({ length: 30 }, (_, i) => line({ description: `L${i}`, taxRate: i % 2 ? 5 : 20 }));
+  const built = await buildDocument(doc, { invoice: { currency: "GBP", lines } }, { dynamicMode: "placeholder" });
+
+  for (const id of ["invoice-totals-lines", "invoice-totals-analysis"]) {
+    const first = (find(built.nodes, id) as DocumentNode & { children: Array<{ header?: boolean }> }).children[0];
+
+    assertEquals(first.header, true);
+  }
+});
+
 test("one band renders lines and summary, several add the analysis", async () => {
   const one = await buildDocument(doc, { invoice: { currency: "GBP", lines: [line()] } }, { dynamicMode: "placeholder" });
   const many = await buildDocument(doc, { invoice: { currency: "GBP", lines: [line(), line({ taxRate: 5 })] } }, { dynamicMode: "placeholder" });
@@ -268,4 +288,5 @@ test("a publish build carries the invocation, with conditions and loops on deriv
   assertStringIncludes(json, '"scope":"derived","path":"invoiceTotals.empty"');
   assertStringIncludes(json, '"scope":"derived","path":"invoiceTotals.multipleBands"');
   assertStringIncludes(json, '"kind":"repeat","source":{"scope":"derived","path":"invoiceTotals.lines"}');
+  assertStringIncludes(json, '"kind":"repeat","source":{"scope":"derived","path":"invoiceTotals.bands"}');
 });

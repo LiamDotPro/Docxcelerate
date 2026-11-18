@@ -70,18 +70,31 @@ export interface InvoiceTotalsData {
 
 /** What the deriver hands the node: every display value already formatted. */
 export interface InvoiceTotals {
+  /** True when the invoice has no lines; the node then prints a no-charges paragraph. */
   empty: boolean;
+  /** True when more than one VAT band is present, which is when the per-band analysis is shown. */
   multipleBands: boolean;
+  /** The amount column's heading, which says whether amounts are net or gross of VAT. */
   amountHeading: string;
+  /** One formatted row per input line, in input order. */
   lines: Array<{ description: string; quantity: string; unitPrice: string; tax: string; amount: string }>;
+  /** One formatted row per VAT band; the `*Minor` fields are the same figures as integers. */
   bands: Array<{ label: string; net: string; vat: string; netMinor: number; vatMinor: number }>;
+  /** Label for the subtotal row. */
   subtotalLabel: string;
+  /** The formatted subtotal, net of VAT. */
   subtotal: string;
+  /** Label for the VAT row; names the rate when there is a single band. */
   vatLabel: string;
+  /** The formatted VAT total, rounded once per band. */
   vat: string;
+  /** The formatted grand total. */
   total: string;
+  /** The subtotal in minor units (pence, cents), so tests assert on integers rather than Intl strings. */
   subtotalMinor: number;
+  /** The VAT total in minor units, for the same reason as `subtotalMinor`. */
   vatMinor: number;
+  /** The grand total in minor units, for the same reason as `subtotalMinor`. */
   totalMinor: number;
 }
 
@@ -257,4 +270,8 @@ function invoiceTotalsOf(invoice: InvoiceTotalsData["invoice"]): InvoiceTotals {
   };
 }
 
+/**
+ * The `invoiceTotals` deriver: register it in `derivers/index.ts`, then feed it
+ * `invoice` from request data. It returns an {@link InvoiceTotals}.
+ */
 export default deriver({ name: "invoiceTotals", run: invoiceTotalsOf });
