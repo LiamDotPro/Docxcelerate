@@ -164,11 +164,14 @@ export default deriver({
       rowsMinor += amount;
       if (allowed < printed) {
         const cut = amount - amountFor(g.minutes, allowed);
-        reductionsMinor += cut;
-        adjustments.push({
-          label: `Reduction per billing guidelines: ${label}, ${hours(g.minutes)} hours at ${money(allowed)}`,
-          amount: money(-cut),
-        });
+        // Two rates a hair apart can round to the same minor unit; "-0.00" would show a difference that is not there.
+        if (cut > 0) {
+          reductionsMinor += cut;
+          adjustments.push({
+            label: `Reduction per billing guidelines: ${label}, ${hours(g.minutes)} hours at ${money(allowed)}`,
+            amount: money(-cut),
+          });
+        }
       }
       return { label, role: k.role, hours: hours(g.minutes), rate: money(printed), amount: money(amount) };
     });

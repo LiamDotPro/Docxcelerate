@@ -278,3 +278,30 @@ test("a published document resolves through the shipped deriver", async () => {
   assertEquals(none.includes("timesheet-fee-table"), false);
   assertEquals(none.includes("timesheet-fee-basis"), false);
 });
+
+test("basis wording: nearest, hours of the increment, travel only when billed", () => {
+  assertEquals(
+    mk([at(8)], { billing: { rounding: "nearest" } }).basis,
+    "Each time entry is rounded to the nearest 6 minutes (0.10 hours), with a minimum of 6 minutes per entry.",
+  );
+  assertStringIncludes(mk([at(8)], { billing: { incrementMinutes: 15 } }).basis, "(0.25 hours)");
+  assertEquals(mk([at(60)], { billing: { travelFactor: 0.5 } }).basis.includes("Travel"), false);
+});
+
+test("a rate difference below one minor unit prints no reduction line", () => {
+  const o = mk([at(6)], {}, { rates: [{ from: "2026-01-01", rate: 10.01 }], approvedRate: 10 });
+  assertEquals(o.adjustments, []);
+});
+
+test("more bad billing and timekeeper input throws naming the field", () => {
+  const ks = (more: Obj) => [keeper(more)];
+  throwsOn({ timekeepers: ks({}), entries: [], billing: { rounding: "down" } }, "time.billing.rounding");
+  throwsOn({ timekeepers: ks({ rates: [] }), entries: [] }, "time.timekeepers[0].rates");
+  for (const rate of [-1, Infinity]) {
+    throwsOn({ timekeepers: ks({ rates: [{ from: "2026-01-01", rate }] }), entries: [] }, "time.timekeepers[0].rates[0].rate");
+  }
+  for (const approvedRate of [-1, 450.005]) throwsOn({ timekeepers: ks({ approvedRate }), entries: [] }, "approvedRate");
+  throwsOn({ timekeepers: ks({ id: "" }), entries: [] }, "time.timekeepers[0].id");
+  throwsOn({ timekeepers: ks({ name: "" }), entries: [] }, "time.timekeepers[0].name");
+  throwsOn({ timekeepers: "x", entries: [] }, "time.timekeepers");
+});
