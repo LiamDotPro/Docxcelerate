@@ -1007,6 +1007,59 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+
+  {
+    kind: "component",
+    id: "construction-payment-timetable",
+    title: "Construction Act payment timetable",
+    summary: "The Construction Act payment dates for one interim payment, counted the way section 116 counts them.",
+    detail:
+      "Works out when an interim payment falls due, the payment notice deadline five " +
+      "days later, the final date for payment, and the pay less deadline counted back " +
+      "from that final date, never forward from the due date. Days are counted under " +
+      "section 116: Christmas Day, Good Friday and the contract region's own bank " +
+      "holidays are skipped, weekends are not, so a Scottish job never uses " +
+      "England's list. With no valid payment notice, the payee's claim stands as the " +
+      "notified sum, or the payee's default notice does and moves the final date back " +
+      "by its delay. A contract with a residential occupier gets one sentence saying " +
+      "the Act does not apply. All of it is one deriver.",
+    category: "Body",
+    tags: ["construction", "payment", "legal", "dates", "uk", "deriver"],
+    exports: ["ConstructionPaymentTimetable"],
+    dataFields: [
+      { path: "contract.region", type: '"EW" | "SC" | "NI"', summary: "Whose Act and whose bank holidays. Required." },
+      { path: "contract.residentialOccupier", type: "boolean | undefined", summary: "True prints only that the Act does not apply." },
+      { path: "contract.dueDateDays", type: "number | undefined", summary: "Days after the valuation period that payment falls due. Missing means the Scheme." },
+      { path: "contract.finalDateDays", type: "number | undefined", summary: "Days after the due date of the final date for payment. Missing means 17." },
+      { path: "contract.payLessDays", type: "number | undefined", summary: "Days before the final date a pay less notice is due. Missing means 7." },
+      { path: "payment.valuationPeriodEnd", type: "string", summary: "ISO 8601 last day of the valuation period. Required." },
+      { path: "payment.claimReceived", type: "string | undefined", summary: "ISO 8601 date the payment claim arrived. Required under the Scheme." },
+      { path: "payment.paymentNoticeIssued", type: "string | undefined", summary: "ISO 8601 date of the payer's notice. Late counts as none." },
+      { path: "payment.defaultNoticeIssued", type: "string | undefined", summary: "ISO 8601 date of the payee's default notice. Moves the final date back." },
+      { path: "bankHolidays", type: "{ EW?: string[]; SC?: string[]; NI?: string[] }", summary: "Bank holidays by region, covering every year the timetable runs through." },
+    ],
+    arrangements: [
+      { id: "table", title: "Table", summary: "The four dates in a label and date table, for a timetable read at a glance." },
+      { id: "stacked", title: "Stacked", summary: "One line per date, for a letter that reads as prose." },
+    ],
+    files: node("construction-payment-timetable", { deriver: true }),
+    previewData: {
+      contract: { region: "SC", dueDateDays: 14, finalDateDays: 30, payLessDays: 7 },
+      payment: {
+        valuationPeriodEnd: "2026-12-04",
+        claimReceived: "2027-01-12",
+        paymentNoticeIssued: "2027-01-06",
+        defaultNoticeIssued: "2027-01-14",
+      },
+      bankHolidays: {
+        SC: [
+          "2026-01-01", "2026-01-02", "2026-04-03", "2026-05-04", "2026-05-25", "2026-08-03", "2026-11-30", "2026-12-25", "2026-12-28",
+          "2027-01-01", "2027-01-04", "2027-03-26", "2027-05-03", "2027-05-31", "2027-08-02", "2027-11-30", "2027-12-27", "2027-12-28",
+        ],
+      },
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
