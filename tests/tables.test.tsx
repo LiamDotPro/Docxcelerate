@@ -207,6 +207,66 @@ test("the heading a table opens with is the one that repeats across pages", asyn
 });
 
 // ---------------------------------------------------------------------------
+// Rows that stay whole
+// ---------------------------------------------------------------------------
+
+test("the model carries keepTogether only when asked", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }]}>
+      <Row keepTogether>
+        <Cell>Kept</Cell>
+      </Row>
+      <Row>
+        <Cell>Free</Cell>
+      </Row>
+    </Table>
+  ));
+
+  assertEquals(rowsOf(tableOf(doc))[0].keepTogether, true);
+  assertEquals("keepTogether" in rowsOf(tableOf(doc))[1], false);
+});
+
+test("w:cantSplit is written on the marked rows and on no other", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }]}>
+      <Row header keepTogether>
+        <Cell>Description</Cell>
+      </Row>
+      <Row keepTogether>
+        <Cell>API build</Cell>
+      </Row>
+      <Row>
+        <Cell>Support</Cell>
+      </Row>
+    </Table>
+  ));
+
+  const rows = (await documentXml(doc as DocumentModel)).split("<w:tr>");
+
+  assertStringIncludes(rows[1], "<w:cantSplit/>");
+  assertStringIncludes(rows[1], "<w:tblHeader/>");
+  assertStringIncludes(rows[2], "<w:cantSplit/>");
+  assertEquals(rows[3].includes("w:cantSplit"), false);
+});
+
+test("a row produced by a `.map()` carries keepTogether to every pass", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }, { width: 26 }]}>
+      {lines.map((line) => (
+        <Row keepTogether>
+          <Cell>{line.desc}</Cell>
+          <Cell>{line.amount}</Cell>
+        </Row>
+      ))}
+    </Table>
+  ));
+
+  assertEquals(rowsOf(tableOf(doc)).every((row) => row.keepTogether === true), true);
+  const xml = await documentXml(doc as DocumentModel);
+  assertEquals(xml.split("<w:cantSplit/>").length - 1, lines.length);
+});
+
+// ---------------------------------------------------------------------------
 // What comes out the other end
 // ---------------------------------------------------------------------------
 
