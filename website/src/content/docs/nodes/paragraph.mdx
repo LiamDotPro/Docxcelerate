@@ -125,6 +125,64 @@ the millimetre. Two limits fall out of Word's own format and are worth knowing �
 padding needs a border to hang on, and a left border pushes the *rule* outward
 rather than the text inward.
 
+## Words set differently
+
+`<Text>` sets some of a paragraph's words apart from the rest — the term a
+notice turns on, a phrase that leads somewhere:
+
+```tsx
+import { Paragraph, Text } from "docxcelerate/template";
+
+<Paragraph id="terms">
+  Payment is due within <Text bold>thirty days</Text>. You can{" "}
+  <Text href="https://example.com/pay">pay online</Text>.
+</Paragraph>
+```
+
+`bold`, `italic`, `underline` and `strike` say how the words are stressed, and
+`href` says where they lead: an `https:`, `http:`, `mailto:` or `tel:` address.
+One `<Text>` inside another takes both settings. It works the same among the
+words of a `<Cell>` or a `<Shape>`.
+
+It is not a node. It has no id, nothing addresses it, and it carries no colour
+or size — a link is drawn in the theme's accent, so it re-themes with the
+document around it. An address that is none of the four kinds prints as its
+words alone, because the address may come out of your data and a preview draws
+a link as something a reader can click.
+
+A line end in the text is a line break rather than a new paragraph, which is
+what an address wants — one node, three lines, and none of the space a
+paragraph leaves under itself:
+
+```tsx
+<Paragraph id="address">{"Flat 2\n14 Example Road\nLeeds LS1 4AB"}</Paragraph>
+```
+
+Only a static paragraph has runs. One an engine writes is written as plain
+words.
+
+### What it publishes
+
+The paragraph keeps its `text` whole, so everything that reads a paragraph's
+words still reads one string. The settings travel beside it as `runs`, each
+carrying its own words:
+
+```json
+{ "kind": "paragraph", "mode": "static", "id": "terms",
+  "text": "Payment is due within thirty days.",
+  "runs": [
+    { "text": "Payment is due within " },
+    { "text": "thirty days", "bold": true },
+    { "text": "." }
+  ] }
+```
+
+A paragraph with nothing set apart has no `runs` at all, and publishes exactly
+what it did before. Interpolated values work inside a `<Text>` the way they do
+anywhere else: a published run holds the token, and the engine settles it in
+place, so `<Text bold>{state.name}</Text>` is bold for every recipient
+whatever the length of their name.
+
 ## Dynamic paragraphs
 
 A dynamic paragraph has no text of its own; it carries prompts and a
@@ -145,5 +203,5 @@ below shows what the other three are for.
   it. Supplying both on one element is an error.
 - An empty string returns an empty paragraph, not no node. To drop the node,
   return nothing — `false`, `null` and `undefined` are all skipped.
-- Renderers escape the text. A paragraph cannot smuggle markup into the page,
-  and is not the place for formatting.
+- Renderers escape the text. A paragraph cannot smuggle markup into the page:
+  `<Text>` is the only formatting there is, and it is an element, not a string.

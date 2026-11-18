@@ -78,6 +78,13 @@ Most cells hold a value, so text goes straight in:
 <Cell>{line.qty}</Cell>
 ```
 
+A [`<Text>`](/docs/nodes/paragraph/#words-set-differently) among the words sets
+some of them apart, and the cell is still one line of text:
+
+```tsx
+<Cell>Total <Text bold>due</Text></Cell>
+```
+
 When one line isn't enough — a description with a quieter note under it — give
 the cell paragraphs instead, and they stay on separate lines:
 

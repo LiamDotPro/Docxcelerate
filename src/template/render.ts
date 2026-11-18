@@ -10,6 +10,7 @@ import type {
   PageBreakNode,
   PageNumberNode,
   ParagraphNode,
+  ParagraphRun,
   RepeatNode,
   SectionNode,
   ShapeNode,
@@ -52,6 +53,7 @@ import {
   joinText,
   type InlineImageElement,
   jsonText,
+  markedRuns,
   mergePrompts,
   placeholderText,
   promptSpecs,
@@ -303,6 +305,16 @@ async function renderHost(
   frame: Frame,
 ): Promise<DocumentNode | DocumentNode[]> {
   const kind = hostKindOf(element.type);
+
+  // Reaching here means it was written beside the nodes rather than among a
+  // paragraph's words, where there is no paragraph for it to be part of.
+  if (kind === "text") {
+    throw new Error(
+      `A <Text> at ${describe(frame)} is not inside any words. It sets some of the words of a ` +
+        "<Paragraph>, a <Cell> or a <Shape>; on its own it is a <Paragraph>.",
+    );
+  }
+
   const props = element.props as CommonElementProps;
   const id = claimId(context, props, frame, kind ?? "node");
   const when = allOf(frame.when, props.when);
@@ -566,7 +578,8 @@ async function cellText(
   frame: Frame,
   id: string,
 ): Promise<DocumentNode[]> {
-  const body = joinText(children, frame);
+  const pieces: ParagraphRun[] = [];
+  const body = joinText(children, frame, undefined, pieces);
 
   if (body === "") {
     return [];
@@ -576,11 +589,44 @@ async function cellText(
     id: `${id}-text`,
     kind: "paragraph",
     mode: "static",
-    text: await requiredText(body, context),
+    ...await words(body, pieces, context),
   })];
 }
 
-/** Whether a cell was given nodes rather than something to print. */
+/**
+ * A static paragraph's words, and its runs when some are set differently.
+ *
+ * Each run is settled on its own and `text` is joined from the results, rather
+ * than the two being settled separately: a template filled in changes length,
+ * and the runs have to go on spelling exactly what `text` says.
+ */
+async function words(
+  body: string,
+  pieces: readonly ParagraphRun[],
+  context: RenderContext,
+): Promise<Pick<ParagraphNode, "text" | "runs">> {
+  const marked = markedRuns(pieces);
+
+  if (marked === undefined) {
+    return { text: await requiredText(body, context) };
+  }
+
+  const runs = await Promise.all(marked.map(async (run) =>
+    prune({
+      ...run,
+      text: await requiredText(run.text, context),
+      href: await text(run.href, context),
+    })
+  ));
+
+  return { text: runs.map((run) => run.text).join(""), runs };
+}
+
+/**
+ * Whether a cell was given nodes rather than something to print.
+ *
+ * A `<Text>` is something to print: it is words with a setting, not a node.
+ */
 function holdsElements(children: Yield): boolean {
   let found = false;
 
@@ -594,7 +640,7 @@ function holdsElements(children: Yield): boolean {
       return;
     }
 
-    if (isTemplateElement(value)) {
+    if (isTemplateElement(value) && hostKindOf(value.type) !== "text") {
       found = true;
     }
   };
@@ -646,7 +692,8 @@ async function renderParagraph(
   when: Condition | undefined,
 ): Promise<ParagraphNode> {
   const inlineElements: InlineImageElement[] = [];
-  const body = props.text ?? joinText(props.children, frame, inlineElements);
+  const pieces: ParagraphRun[] = [];
+  const body = props.text ?? joinText(props.children, frame, inlineElements, pieces);
 
   // Pictures are rendered as the nodes they are, then carried on the
   // paragraph rather than emitted beside it.
@@ -670,7 +717,7 @@ async function renderParagraph(
       mode: "static",
       when,
       align: props.align,
-      text: await requiredText(body, context),
+      ...await words(body, pieces, context),
       inlineImages: inlineImages.length === 0 ? undefined : inlineImages,
     };
 

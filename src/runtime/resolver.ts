@@ -210,6 +210,18 @@ async function resolveParagraph(
   state: RuntimeState,
 ): Promise<ParagraphNode> {
   if (node.mode === "static") {
+    if (node.runs !== undefined) {
+      // Settled run by run and joined, so the runs go on spelling the text:
+      // a token filled in changes length, and the two must change together.
+      const runs = await Promise.all(node.runs.map(async (run) => ({
+        ...run,
+        text: await renderTemplate(run.text, state),
+        ...(run.href === undefined ? {} : { href: await renderTemplate(run.href, state) }),
+      })));
+
+      return { ...node, text: runs.map((run) => run.text).join(""), runs };
+    }
+
     return {
       ...node,
       text: node.text ? await renderTemplate(node.text, state) : "",

@@ -49,6 +49,7 @@ import {
   Section,
   TableOfContents,
   template,
+  Text,
   useAvailableTokens,
   useFormat,
   usePlaceholderData,
@@ -61,7 +62,8 @@ import {
 
 Each element name is also a component type, so `const Greeting: Paragraph =
 () => <Paragraph … />` names what a component returns and rejects returning the
-wrong kind.
+wrong kind. `Text` is the exception: it sets some of a paragraph's words apart
+and is not a node, so there is no component type by that name.
 
 Its JSX runtime is exposed at `docxcelerate/template/jsx-runtime` (and
 `.../jsx-dev-runtime`), which is what `jsxImportSource` resolves to.
