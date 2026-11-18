@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { buildDocument } from "docxcelerate";
-import { documentXml } from "./docx.ts";
+import { documentXml, elementOf } from "./docx.ts";
 import type { DocumentModel, DocumentStyle } from "docxcelerate";
 import { Document, Paragraph, template } from "docxcelerate/template";
 
@@ -74,18 +74,6 @@ function build(node: unknown): Promise<DocumentModel> {
   ).then((doc) => ({ ...doc, style }));
 }
 
-/** The `<w:p>` whose text contains this anchor. */
-function paragraphOf(xml: string, anchor: string): string {
-  const paragraphs = [...xml.matchAll(/<w:p>[\s\S]*?<\/w:p>/g)].map((match) => match[0]);
-  const found = paragraphs.find((paragraph) => paragraph.includes(anchor));
-
-  if (found === undefined) {
-    throw new Error(`no paragraph containing ${JSON.stringify(anchor)}`);
-  }
-
-  return found;
-}
-
 // ---------------------------------------------------------------------------
 // Alignment
 // ---------------------------------------------------------------------------
@@ -102,11 +90,11 @@ test("a paragraph says how its lines sit, and Word is told in its own word", asy
     ),
   );
 
-  assertStringIncludes(paragraphOf(xml, "Centred."), '<w:jc w:val="center"/>');
-  assertStringIncludes(paragraphOf(xml, "Ranged right."), '<w:jc w:val="right"/>');
+  assertStringIncludes(elementOf(xml, "w:p", "Centred."), '<w:jc w:val="center"/>');
+  assertStringIncludes(elementOf(xml, "w:p", "Ranged right."), '<w:jc w:val="right"/>');
   // Word calls justification "both", meaning both edges flush. The document
   // says the word people say and the translation stops at the packer.
-  assertStringIncludes(paragraphOf(xml, "Justified."), '<w:jc w:val="both"/>');
+  assertStringIncludes(elementOf(xml, "w:p", "Justified."), '<w:jc w:val="both"/>');
 });
 
 test("a paragraph that never said how to sit writes no alignment at all", async () => {
@@ -121,7 +109,7 @@ test("a paragraph that never said how to sit writes no alignment at all", async 
   // Not `w:jc w:val="left"`. Writing an explicit left would override whatever
   // style the paragraph sits inside, which is a different statement from
   // having no opinion.
-  assertEquals(paragraphOf(xml, "Left as written.").includes("<w:jc"), false);
+  assertEquals(elementOf(xml, "w:p", "Left as written.").includes("<w:jc"), false);
 });
 
 test("a theme can align a named block, without the node saying anything", async () => {
@@ -133,7 +121,7 @@ test("a theme can align a named block, without the node saying anything", async 
     ),
   );
 
-  assertStringIncludes(paragraphOf(xml, "Centred by the block."), '<w:jc w:val="center"/>');
+  assertStringIncludes(elementOf(xml, "w:p", "Centred by the block."), '<w:jc w:val="center"/>');
 });
 
 test("a node's alignment beats its block's, the way a cell beats its column", async () => {
@@ -145,8 +133,8 @@ test("a node's alignment beats its block's, the way a cell beats its column", as
     ),
   );
 
-  assertStringIncludes(paragraphOf(xml, "Ranged, not centred."), '<w:jc w:val="right"/>');
-  assertEquals(paragraphOf(xml, "Ranged, not centred.").includes('w:val="center"'), false);
+  assertStringIncludes(elementOf(xml, "w:p", "Ranged, not centred."), '<w:jc w:val="right"/>');
+  assertEquals(elementOf(xml, "w:p", "Ranged, not centred.").includes('w:val="center"'), false);
 });
 
 // ---------------------------------------------------------------------------
@@ -164,8 +152,8 @@ test("a block inset from the margins is inset in the file, in twips", async () =
 
   // 10mm is 567 twips. Positive, because this sits inside the text column —
   // reaching outside it is what `bleed` is for, and it is negative.
-  assertStringIncludes(paragraphOf(xml, "Inset from both margins."), 'w:left="567"');
-  assertStringIncludes(paragraphOf(xml, "Inset from both margins."), 'w:right="567"');
+  assertStringIncludes(elementOf(xml, "w:p", "Inset from both margins."), 'w:left="567"');
+  assertStringIncludes(elementOf(xml, "w:p", "Inset from both margins."), 'w:right="567"');
 });
 
 test("a first-line indent moves the first line and leaves the block where it was", async () => {
@@ -177,7 +165,7 @@ test("a first-line indent moves the first line and leaves the block where it was
     ),
   );
 
-  const paragraph = paragraphOf(xml, "Indented on the first line.");
+  const paragraph = elementOf(xml, "w:p", "Indented on the first line.");
 
   assertStringIncludes(paragraph, 'w:firstLine="454"');
   assertEquals(paragraph.includes("w:left="), false);
@@ -192,7 +180,7 @@ test("a hanging block pulls its first line back from the rest", async () => {
     ),
   );
 
-  const paragraph = paragraphOf(xml, "Hanging.");
+  const paragraph = elementOf(xml, "w:p", "Hanging.");
 
   assertStringIncludes(paragraph, 'w:left="680"');
   assertStringIncludes(paragraph, 'w:hanging="680"');
@@ -207,7 +195,7 @@ test("a hang and a first-line indent are one attribute, and the hang wins", asyn
     ),
   );
 
-  const paragraph = paragraphOf(xml, "Both at once.");
+  const paragraph = elementOf(xml, "w:p", "Both at once.");
 
   // Word writes one or the other, never both: they are the same attribute
   // pulling opposite ways. The hang is the structural one, so it wins — and
@@ -228,7 +216,7 @@ test("a bleed is still a bleed, whatever indent the block also names", async () 
   // Negative, by the width of the margin: reaching past the sheet's edge and
   // sitting inside the column are different intentions, and a block that
   // states both gets the one it named first.
-  assertStringIncludes(paragraphOf(xml, "Out past the margin."), 'w:left="-1134"');
+  assertStringIncludes(elementOf(xml, "w:p", "Out past the margin."), 'w:left="-1134"');
 });
 
 test("a paragraph with no indent of its own writes no indent element", async () => {
@@ -240,7 +228,7 @@ test("a paragraph with no indent of its own writes no indent element", async () 
     ),
   );
 
-  assertEquals(paragraphOf(xml, "Flush to both margins.").includes("<w:ind"), false);
+  assertEquals(elementOf(xml, "w:p", "Flush to both margins.").includes("<w:ind"), false);
 });
 
 // ---------------------------------------------------------------------------
@@ -257,7 +245,7 @@ test("a block can leave space above itself, not only below", async () => {
     ),
   );
 
-  const paragraph = paragraphOf(xml, "Set apart.");
+  const paragraph = elementOf(xml, "w:p", "Set apart.");
 
   assertStringIncludes(paragraph, 'w:before="360"');
   assertStringIncludes(paragraph, 'w:after="120"');
@@ -272,7 +260,7 @@ test("a paragraph that says nothing about space above writes nothing", async () 
     ),
   );
 
-  const paragraph = paragraphOf(xml, "Ordinary prose.");
+  const paragraph = elementOf(xml, "w:p", "Ordinary prose.");
 
   assertEquals(paragraph.includes("w:before="), false);
   // The document's own space-after still applies, because that is a default
@@ -294,8 +282,8 @@ test("a block can refuse to be the last thing on a page", async () => {
     ),
   );
 
-  assertStringIncludes(paragraphOf(xml, "A heading."), "<w:keepNext/>");
-  assertStringIncludes(paragraphOf(xml, "An address block."), "<w:keepLines/>");
+  assertStringIncludes(elementOf(xml, "w:p", "A heading."), "<w:keepNext/>");
+  assertStringIncludes(elementOf(xml, "w:p", "An address block."), "<w:keepLines/>");
 });
 
 test("a paragraph with no opinion about breaks writes neither keep", async () => {
@@ -307,7 +295,7 @@ test("a paragraph with no opinion about breaks writes neither keep", async () =>
     ),
   );
 
-  const paragraph = paragraphOf(xml, "Ordinary prose.");
+  const paragraph = elementOf(xml, "w:p", "Ordinary prose.");
 
   // Not `<w:keepNext w:val="0"/>`. Telling Word to allow a break is a
   // statement, and it would override a style that had asked for one.
@@ -328,7 +316,7 @@ test("a block's tab stops are written where a ruler would put them", async () =>
     ),
   );
 
-  const paragraph = paragraphOf(xml, "What the agreement covers");
+  const paragraph = elementOf(xml, "w:p", "What the agreement covers");
 
   // 170mm from the left margin, which on an A4 page with 20mm margins is the
   // right margin exactly.
@@ -344,7 +332,7 @@ test("a tab in the text is written as a tab, not as whitespace", async () => {
     ),
   );
 
-  const paragraph = paragraphOf(xml, "What the agreement covers");
+  const paragraph = elementOf(xml, "w:p", "What the agreement covers");
 
   // The run has to carry `<w:tab/>`. A literal tab character left inside
   // `<w:t>` is whitespace: Word is forgiving enough to draw it, which is worse
@@ -364,7 +352,7 @@ test("a stop with nothing said about it is a plain left stop", async () => {
   );
 
   assertStringIncludes(
-    paragraphOf(xml, "Signed for the supplier"),
+    elementOf(xml, "w:p", "Signed for the supplier"),
     '<w:tab w:val="left" w:pos="5102" w:leader="none"/>',
   );
 });
@@ -378,7 +366,7 @@ test("a paragraph with no stops writes no tabs element", async () => {
     ),
   );
 
-  assertEquals(paragraphOf(xml, "Ordinary prose.").includes("<w:tabs>"), false);
+  assertEquals(elementOf(xml, "w:p", "Ordinary prose.").includes("<w:tabs>"), false);
 });
 
 test("the text either side of a tab survives it", async () => {
@@ -390,7 +378,7 @@ test("the text either side of a tab survives it", async () => {
     ),
   );
 
-  const paragraph = paragraphOf(xml, "Signed for the supplier");
+  const paragraph = elementOf(xml, "w:p", "Signed for the supplier");
 
   assertStringIncludes(paragraph, "Signed for the supplier");
   assertStringIncludes(paragraph, "Date");

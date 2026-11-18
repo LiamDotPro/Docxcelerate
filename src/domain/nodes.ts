@@ -328,7 +328,7 @@ export interface ImageNode extends BaseNode {
   /**
    * Where the picture sits across the text column, when it is not flush left.
    *
-   * On the node for the same reason a paragraph's is: a centred chart is centred
+   * On the node for the same reason a paragraph's is: a centred picture is centred
    * in every theme. Absent writes no alignment at all.
    */
   align?: TableAlign;
@@ -365,7 +365,7 @@ export interface GraphNode extends BaseNode {
   /**
    * Where the chart sits across the text column, when it is not flush left.
    *
-   * On the node for the same reason a paragraph's is: a centred chart is centred
+   * On the node for the same reason a paragraph's is: a centred picture is centred
    * in every theme. Absent writes no alignment at all.
    */
   align?: TableAlign;
