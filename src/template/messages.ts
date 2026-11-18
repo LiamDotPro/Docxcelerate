@@ -83,10 +83,12 @@ export function useLocale(): string {
 }
 
 /**
- * The messages that fit a locale, outside a build.
+ * The messages that fit a locale, outside a build — a script, a test, a
+ * server that wants one locale's strings.
  *
- * What a deriver calls, since it runs in the engine where there are no hooks;
- * it is handed the locale as `state.locale`.
+ * Not for a deriver. A deriver travels to the engine as its own source text,
+ * so this function and a component's messages are not there when it runs;
+ * pass it the locale as an input and keep the words in the component.
  *
  * @typeParam M The shape of one locale's messages.
  * @param messages What {@linkcode defineMessages} returned.
