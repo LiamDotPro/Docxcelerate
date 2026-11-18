@@ -168,7 +168,7 @@ test("a dynamic node is asked to write in the document's language, at build and 
     { ctx: {}, derived: {}, dataProvider: new InMemoryDataProvider({}), aiClient },
   );
 
-  assertStringIncludes(asked[0], "SYSTEM: Write in French (France) (fr-FR), the language of this document.");
+  assertStringIncludes(asked[0], "SYSTEM: Write in French (France), the language of this document.");
   assertEquals(asked[1].includes("Write in"), false);
   assertStringIncludes(asked[2], "French (France)");
 });

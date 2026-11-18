@@ -135,7 +135,7 @@ function inDocumentLanguage(prompts: PromptSpec[], state: RuntimeState): PromptS
   const name = new Intl.DisplayNames(["en"], { type: "language" }).of(state.locale);
 
   return [
-    { kind: "system", text: `Write in ${name} (${state.locale}), the language of this document.` },
+    { kind: "system", text: `Write in ${name}, the language of this document.` },
     ...prompts,
   ];
 }

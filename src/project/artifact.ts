@@ -149,16 +149,20 @@ export async function createDocumentProjectArtifact<TData>(
   const previewDocument = await buildProjectPreviewDocument(project);
   const engineDocument = await buildProjectEngineDocument(project);
   const [, ...otherLocales] = project.locales ?? [];
-  const localizedDocuments = otherLocales.length === 0 ? undefined : Object.fromEntries(
-    await Promise.all(otherLocales.map(async (locale) => [locale, {
+  const localized: NonNullable<DocumentProjectArtifact["localizedDocuments"]> = {};
+  // One after another, like the two builds above: a build is one pass over
+  // shared hook state, not something to interleave.
+  for (const locale of otherLocales) {
+    localized[locale] = {
       previewDocument: await buildProjectPreviewDocument(project, { locale }),
       engineDocument: await buildProjectEngineDocument(project, { locale }),
-    }] as const)),
-  );
+    };
+  }
+  const localizedDocuments = otherLocales.length === 0 ? undefined : localized;
   // Every locale's: a component may branch on its locale into a deriver the
   // default one never reaches, and the bundle has to carry it either way.
   const deriverNames = [
-    ...new Set([engineDocument, ...Object.values(localizedDocuments ?? {}).map((d) => d.engineDocument)]
+    ...new Set([engineDocument, ...Object.values(localized).map((d) => d.engineDocument)]
       .flatMap(collectDocumentDeriverNames)),
   ].sort((left, right) => left.localeCompare(right));
   assertReferencedDeriversAreAvailable(project, deriverNames);
