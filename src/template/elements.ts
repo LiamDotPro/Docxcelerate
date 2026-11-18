@@ -188,9 +188,9 @@ export interface ImageProps extends CommonElementProps, PromptProps {
   fallbackSrc?: string;
   /** Alternative text describing the image. */
   alt?: string;
-  /** Rendered width, in points. */
+  /** Rendered width, in points. Left out, it follows the picture's own proportions from `height`, or is 120pt when neither is given. */
   width?: number;
-  /** Rendered height, in points. */
+  /** Rendered height, in points. Left out, it follows the picture's own proportions from the width. */
   height?: number;
 }
 

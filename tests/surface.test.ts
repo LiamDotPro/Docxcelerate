@@ -60,6 +60,7 @@ const surface: Record<string, string[]> = {
     "listDeriverDefinitionNames",
     "literalValue",
     "normalizeDeriverDefinitions",
+    "pixelSizeOf",
     "rasterTypeOf",
     "registryEntry",
     "resolveDocument",

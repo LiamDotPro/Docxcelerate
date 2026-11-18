@@ -57,7 +57,7 @@ interface PromptProps {
 | `Section` | `title` (required), `children?` |
 | `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0) |
 | `Text` | `bold?`, `italic?`, `underline?`, `strike?`, `href?` (`https:`, `http:`, `mailto:` or `tel:`), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
-| `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` |
+| `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` (points; give one and the other keeps the picture's proportions, neither is 120pt wide) |
 | `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `caption?`, `width?`, `height?` (points), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `dataLabels?` |
 | `Table` | `columns` (required), `children?` |
 | `Row` | `header?`, `children?` |
@@ -103,6 +103,10 @@ Notes worth knowing:
   browser can fetch it, but packs into Word as a note — nothing is ever fetched
   or read from disk while packing. Word will not embed an SVG alone, so give one
   a `fallbackSrc` raster: the screen draws the SVG, the `.docx` gets the raster.
+  A side left out follows the picture's own proportions, read from the PNG,
+  JPEG, GIF or BMP header (for an SVG, from its `fallbackSrc` raster); both
+  given is drawn as given. A picture with no bytes yet, such as a URL or an
+  unproduced prompt, reserves a square.
 - `PageBreak` is for a break that is part of what the document *is* — payment
   details on their own page. Nudging a paragraph off the bottom of a page is the
   margins' job.

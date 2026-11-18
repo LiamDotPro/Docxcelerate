@@ -658,6 +658,20 @@ test("a picture's variant draws a box around it, because a run cannot have one",
   assertStringIncludes(xml, 'w:w="2360"');
 });
 
+test("a boxed picture given only a height is as wide as its proportions", async () => {
+  // 4x2 PNG at 80pt high is 160pt wide; plus 5pt of padding either side.
+  const wide = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAIAAADwyuo0AAAAC0lEQVR42mNgwAUAABoAAS+Yl6YAAAAASUVORK5CYII=";
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Image id="code" variant="badge" src={wide} alt="Scan" height={80} />
+      </Document>,
+    ),
+  );
+
+  assertStringIncludes(xml, 'w:w="3400"');
+});
+
 test("a data URI carrying a parameter is still a picture", async () => {
   const svg = "data:image/svg+xml;utf8," +
     encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"></svg>');

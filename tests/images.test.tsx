@@ -1,9 +1,10 @@
 import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
-import { buildDocument, imageSourceOf, isSvg, rasterTypeOf } from "docxcelerate";
+import { buildDocument, imageSourceOf, isSvg, pixelSizeOf, rasterTypeOf } from "docxcelerate";
 import { createDocxBlob, createDocxDocument } from "docxcelerate/docx";
+import { documentXml } from "./docx.ts";
 
-import { Document, Image, template } from "docxcelerate/template";
+import { Document, Image, Paragraph, template } from "docxcelerate/template";
 
 /**
  * What a document can actually show.
@@ -158,4 +159,127 @@ test("a path is not fetched while packing, so the same model packs anywhere", as
   const text = new TextDecoder().decode(new Uint8Array(await blob.arrayBuffer()));
 
   assertEquals(text.includes("word/media/"), false);
+});
+
+// ---------------------------------------------------------------------------
+// A side left out follows the picture's own proportions
+// ---------------------------------------------------------------------------
+
+// 4x2 and 2x4 PNGs: one wide, one tall, so a swapped width/height read fails.
+const pngWide = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAIAAADwyuo0AAAAC0lEQVR42mNgwAUAABoAAS+Yl6YAAAAASUVORK5CYII=";
+const pngTall = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAAECAIAAAArjXluAAAAC0lEQVR42mNgwA0AABwAAcdGaXkAAAAASUVORK5CYII=";
+const gifWide = "data:image/gif;base64,R0lGODdhBAACAIAAAAAAAP///yH5BAQAAAAALAAAAAAEAAIAAAIDhG8FADs=";
+
+function bytesOf(uri: string): Uint8Array {
+  const source = imageSourceOf(uri);
+  if (source.kind !== "data") throw new Error("not a data URI");
+  return source.bytes;
+}
+
+const jpeg = (sof: number) =>
+  new Uint8Array([
+    0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x04, 0x00, 0x00, 0xFF, 0xC4, 0x00, 0x04, 0x00, 0x00,
+    0xFF, sof, 0x00, 0x11, 0x08, 0x00, 0x02, 0x00, 0x04, 0x03,
+  ]);
+
+test("PNG and GIF headers give their pixel size", () => {
+  assertEquals(pixelSizeOf(bytesOf(pngWide)), { width: 4, height: 2 });
+  assertEquals(pixelSizeOf(bytesOf(pngTall)), { width: 2, height: 4 });
+  assertEquals(pixelSizeOf(bytesOf(gifWide)), { width: 4, height: 2 });
+});
+
+test("a JPEG's size is found past segments that are not the frame header", () => {
+  // The DHT (C4) before the SOF must not be mistaken for it.
+  assertEquals(pixelSizeOf(jpeg(0xC0)), { width: 4, height: 2 });
+  assertEquals(pixelSizeOf(jpeg(0xC2)), { width: 4, height: 2 });
+});
+
+test("a JPEG with no frame header has no size", () => {
+  assertEquals(pixelSizeOf(jpeg(0xC0).slice(0, 8)), undefined);
+  assertEquals(pixelSizeOf(new Uint8Array([0xFF, 0xD8, 0xFF, 0xDA, 0x00, 0x02])), undefined);
+});
+
+test("a top-down BMP's negative height is still a height", () => {
+  const bmp = new Uint8Array(26);
+  bmp.set([0x42, 0x4D]);
+  new DataView(bmp.buffer).setInt32(18, 4, true);
+  new DataView(bmp.buffer).setInt32(22, -2, true);
+  assertEquals(pixelSizeOf(bmp), { width: 4, height: 2 });
+});
+
+test("bytes that are not a sized image have no size", () => {
+  assertEquals(pixelSizeOf(new Uint8Array([0, 0, 0])), undefined);
+  assertEquals(pixelSizeOf(new Uint8Array()), undefined);
+  const zero = bytesOf(pngWide).slice();
+  zero[19] = 0;
+  assertEquals(pixelSizeOf(zero), undefined);
+});
+
+async function extentOf(node: unknown): Promise<string> {
+  return await documentXml(await build(<Document id="d" title="D">{node as never}</Document>));
+}
+
+test("width alone keeps the proportions, and so does height alone", async () => {
+  const extent = '<wp:extent cx="2028825" cy="1019175"/>';
+  assertStringIncludes(await extentOf(<Image id="m" src={pngWide} alt="M" width={160} />), extent);
+  assertStringIncludes(await extentOf(<Image id="m" src={pngWide} alt="M" height={80} />), extent);
+});
+
+test("a tall picture follows its own shape", async () => {
+  assertStringIncludes(
+    await extentOf(<Image id="m" src={pngTall} alt="M" width={60} />),
+    '<wp:extent cx="762000" cy="1524000"/>',
+  );
+});
+
+test("neither side is 120pt wide at the picture's height", async () => {
+  assertStringIncludes(
+    await extentOf(<Image id="m" src={pngWide} alt="M" />),
+    '<wp:extent cx="1524000" cy="762000"/>',
+  );
+});
+
+test("both sides given are drawn as given", async () => {
+  assertStringIncludes(
+    await extentOf(<Image id="m" src={pngWide} alt="M" width={160} height={160} />),
+    '<wp:extent cx="2028825" cy="2028825"/>',
+  );
+});
+
+test("an SVG follows the proportions of its fallback raster", async () => {
+  assertStringIncludes(
+    await extentOf(<Image id="m" src={svgMark} fallbackSrc={pngWide} alt="M" width={160} />),
+    '<wp:extent cx="2028825" cy="1019175"/>',
+  );
+});
+
+test("a header that says nothing stays square", async () => {
+  assertStringIncludes(
+    await extentOf(<Image id="m" src="data:image/png;base64,AAAA" alt="M" width={100} />),
+    '<wp:extent cx="1266825" cy="1266825"/>',
+  );
+});
+
+test("a picture inside a paragraph is sized the same way", async () => {
+  assertStringIncludes(
+    await extentOf(
+      <Paragraph id="p">
+        <Image id="m" src={pngWide} alt="M" width={160} />
+        Logo
+      </Paragraph>,
+    ),
+    '<wp:extent cx="2028825" cy="1019175"/>',
+  );
+});
+
+test("the worked-out size is never written into the model", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Image id="m" src={pngWide} width={160} />
+    </Document>,
+  );
+  const node = doc.nodes[0];
+
+  assertEquals(node.kind === "image" && node.width, 160);
+  assertEquals(node.kind === "image" && node.height, undefined);
 });
