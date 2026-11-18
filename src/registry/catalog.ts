@@ -1022,6 +1022,54 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+
+  {
+    kind: "component",
+    id: "fee-cap-status",
+    title: "Fee cap status",
+    summary: "What a capped, ceiling or estimated engagement may charge on this invoice, and what the invoice has to say about it.",
+    detail:
+      "A cap is clipped, not printed: a hard cap or ceiling charges only what " +
+      "is left under it, and the excess is printed as fees above the cap, not " +
+      "charged, so the client sees the value written off. A cap already used up " +
+      "bills the period at nil. An estimate is not a cap: fees are charged in " +
+      "full, and once they pass it the invoice prints the revised estimate and " +
+      "when the client was told, or an 'incomplete' warning when nobody was, " +
+      "because an untold overrun can be challenged. A ceiling past its notice " +
+      "threshold (85% unless set) prints the percentage used and the notice. " +
+      "Optional withholding stops at its limit. Four states, four ids: under, " +
+      "approaching, reached, exceeded, all decided by one deriver.",
+    category: "Body",
+    tags: ["invoice", "fees", "cap", "estimate", "legal", "deriver", "branching", "section"],
+    exports: ["FeeCapStatus"],
+    dataFields: [
+      { path: "feeCap.kind", type: '"hard" | "estimate" | "ceiling"', summary: "What kind of limit. Anything else fails the document." },
+      { path: "feeCap.amount", type: "number", summary: "The cap, ceiling or original estimate. Required, above 0." },
+      { path: "feeCap.billedToDate", type: "number", summary: "Charged on earlier invoices under this limit, before withholding. Required." },
+      { path: "feeCap.noticeThreshold", type: "number | undefined", summary: "Percent of the limit that counts as approaching. Missing means 85 for a ceiling, none otherwise." },
+      { path: "feeCap.revisedEstimate", type: "{ amount: number; notifiedOn: string } | undefined", summary: "Estimate only: the revised figure and the ISO date the client was told. Missing on an overrun prints a warning." },
+      { path: "feeCap.withholding", type: "{ percent: number; limit: number; withheldToDate: number } | undefined", summary: "A retention that stops at its limit. Missing means nothing is withheld." },
+      { path: "feeCap.currency", type: "string | undefined", summary: "ISO 4217 code. Defaults to GBP." },
+      { path: "fees.thisPeriod", type: "number", summary: "Fees for this period, before the cap and withholding. Required, 0 or more." },
+    ],
+    arrangements: [
+      { id: "table", title: "Table", summary: "Labels in a column with the amounts right-aligned beside them, so the figures check against each other." },
+      { id: "stacked", title: "Stacked", summary: "One labelled figure under another, down the text column." },
+    ],
+    files: node("fee-cap-status", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      feeCap: {
+        kind: "ceiling",
+        amount: 2500000,
+        billedToDate: 2312480.55,
+        noticeThreshold: 85,
+        withholding: { percent: 10, limit: 250000, withheldToDate: 231248.06 },
+        currency: "GBP",
+      },
+      fees: { thisPeriod: 418960.4 },
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
