@@ -31,7 +31,7 @@ const run = (invoice: Obj = {}, supplier: Obj = {}, customer: Obj = both) =>
   mod.run([{ ...base, ...invoice }, { ...net, ...supplier }, customer], {} as RuntimeState) as Result;
 
 const rejects = (invoice: Obj = {}, supplier: Obj = {}, customer: Obj = both, text = "cisInvoiceDeduction:") =>
-  assertRejects(async () => run(invoice, supplier, customer), Error, text);
+  assertRejects(() => Promise.resolve().then(() => run(invoice, supplier, customer)), Error, text);
 
 test("1: a customer not in CIS is charged standard VAT", () => {
   const r = run({}, {}, notCis);
