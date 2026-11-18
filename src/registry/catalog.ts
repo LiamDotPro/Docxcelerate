@@ -907,6 +907,65 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "plan-change-proration",
+    title: "Plan change proration",
+    summary: "The credit and charge lines a mid-period plan change causes, and what the net means.",
+    detail:
+      "Every change made partway through a billing period becomes a credit for " +
+      "the unused time on the old plan and a charge for the remaining time on " +
+      "the new one, counted on the days the period actually has, never 30, with " +
+      "an inclusive end date. Each line is rounded once in minor units, not built " +
+      "from a rounded daily rate, so the pennies agree. The credit is what the " +
+      "customer actually paid after discounts, not the list price, and a second " +
+      "change in the same period credits the first change's plan rather than the " +
+      "original one again. A change on the renewal date, a metered item or a line " +
+      "worth nothing prints nothing. The net picks the sentence: a charge on this " +
+      "invoice, a credit carried to the balance and stated as not refunded unless " +
+      "the refund policy says otherwise, or a lateral change that only says so. " +
+      "All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "invoice", "subscription", "proration", "table", "deriver", "branching", "section"],
+    exports: ["PlanChangeProration"],
+    dataFields: [
+      { path: "subscription.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required." },
+      { path: "subscription.period", type: "{ start: string; end: string }", summary: "ISO 8601 billing period; end is inclusive. Required." },
+      {
+        path: "subscription.changes",
+        type:
+          "Array<{ at: string; item?: string; metered?: boolean; from: { label: string; quantity?: number; paidMinor: number }; to: { label: string; quantity?: number; periodAmountMinor: number } }>",
+        summary: "Every change in the period, amounts in integer minor units after discount. Missing or empty prints nothing.",
+      },
+      { path: "subscription.refundPolicy", type: '"balance" | "refund" | undefined', summary: "What a net credit becomes. Missing means balance: not refunded." },
+    ],
+    files: node("plan-change-proration", { deriver: true }),
+    previewData: {
+      subscription: {
+        currency: "EUR",
+        period: { start: "2026-12-01", end: "2026-12-31" },
+        refundPolicy: "balance",
+        changes: [
+          {
+            at: "2026-12-09", item: "platform",
+            from: { label: "Business Analytics Suite (Annual, billed monthly)", quantity: 1, paidMinor: 1249900 },
+            to: { label: "Enterprise Analytics Suite with Extended Data Retention", quantity: 1, periodAmountMinor: 2499900 },
+          },
+          {
+            at: "2026-12-17", item: "seats",
+            from: { label: "Named analyst seats", quantity: 1180, paidMinor: 5428000 },
+            to: { label: "Named analyst seats", quantity: 1450, periodAmountMinor: 6670000 },
+          },
+          {
+            at: "2026-12-23", item: "platform",
+            from: { label: "Enterprise Analytics Suite with Extended Data Retention", quantity: 1, paidMinor: 2499900 },
+            to: { label: "Enterprise Analytics Suite with Extended Data Retention and Dedicated Support", quantity: 1, periodAmountMinor: 3149900 },
+          },
+        ],
+      },
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
