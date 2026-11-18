@@ -4,9 +4,11 @@ import {
   createDeriverRegistry,
   type DeriverDefinition,
   type DeriverDefinitions,
+  type DeriverFunction,
   DeriverRegistry,
   normalizeDeriverDefinitions,
 } from "./derivers.ts";
+import { positionalRuns } from "../internal/positional_runs.ts";
 
 /**
  * Carrying derivers to the engine that runs them.
@@ -155,6 +157,16 @@ function deriverModuleSource(definitions: DeriverDefinition[]): string {
 }
 
 function serializableFunctionSource(definition: DeriverDefinition): string {
+  // A `deriver()` wrapper's own text names the options it closed over, which
+  // the engine never has. Ship what it unpacks into instead.
+  const positional = positionalRuns.get(definition.run);
+
+  if (positional) {
+    const inner = serializableFunctionSource({ name: definition.name, run: positional as DeriverFunction });
+
+    return `(inputs) => (${inner})(...inputs)`;
+  }
+
   const source = definition.run.toString();
 
   if (source.includes("[native code]")) {

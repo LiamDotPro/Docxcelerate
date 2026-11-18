@@ -2,7 +2,9 @@ import { test } from "node:test";
 import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
 import {
   buildDocument,
+  createDeriverBundle,
   createDeriverRegistry,
+  createDeriverRegistryFromBundle,
   InMemoryDataProvider,
   resolveDocument,
 } from "docxcelerate";
@@ -340,6 +342,24 @@ test("publishing then resolving matches building directly", async () => {
   };
   const resolved = await resolveDocument(published, state, {
     derivers: createDeriverRegistry([invoiceTotals]),
+  });
+  const direct = await build(Total);
+
+  assertEquals(textOf(resolved.nodes), textOf(direct.nodes));
+});
+
+test("a deriver module still runs once it has been shipped as a bundle", async () => {
+  // The engine never sees the module, only the bundle's source text. Anything
+  // the wrapper closed over is gone by then, so this is the path that matters.
+  const published = await publish(Total);
+  const state: RuntimeState = {
+    ctx: { ...invoice },
+    derived: {},
+    dataProvider: new InMemoryDataProvider(invoice as unknown as Record<string, unknown>),
+    aiClient: { generateParagraph: () => "" },
+  };
+  const resolved = await resolveDocument(published, state, {
+    derivers: await createDeriverRegistryFromBundle(createDeriverBundle({ invoiceTotals: invoiceTotals.run })),
   });
   const direct = await build(Total);
 
