@@ -159,6 +159,12 @@ test("Good Friday is excluded without being listed, in 2026 and 2027", async () 
   assertEquals(r27.dueDate, "Saturday, 27 March 2027");
 });
 
+test("Christmas Day is excluded without being listed", async () => {
+  // C with 25 and 28 December out of the list: 25 December still goes, 28 now counts, so 6 January not 7 (5 if Christmas Day counted).
+  const r = await go(C, { EW: ["2026-01-01", "2027-01-01"] });
+  assertEquals(r.finalDate, "Wednesday, 6 January 2027");
+});
+
 test("H: a due date on a weekend stays there, across a year boundary", async () => {
   assertEquals(dates(await go(scheme("SC", "2026-12-31", "2026-12-31"))), [
     "Saturday, 9 January 2027",
@@ -362,6 +368,28 @@ test("Stale: a list with no dates in a year the timetable runs through throws", 
     "bankHolidays.SC has no dates in 2027",
   );
   await assertRejects(() => go(A, { EW: [] }), Error, "bankHolidays.EW has no dates in 2026");
+});
+
+test("Stale: the year check starts at the valuation period end's year", async () => {
+  await assertRejects(
+    () => go(scheme("SC", "2026-12-31", "2026-12-31"), { SC: SC.filter((d) => d.startsWith("2027")) }),
+    Error,
+    "bankHolidays.SC has no dates in 2026",
+  );
+});
+
+test("Stale: a default notice in a later year than the final date is checked too", async () => {
+  // The final date lands on 31 December 2026; only the notice (4 January) is in 2027.
+  await assertRejects(
+    () =>
+      run(
+        { region: "EW", dueDateDays: 0, finalDateDays: 1, payLessDays: 0 },
+        { valuationPeriodEnd: "2026-12-20", defaultNoticeIssued: "2027-01-04" },
+        { EW: EW.filter((d) => d.startsWith("2026")) },
+      ),
+    Error,
+    "bankHolidays.EW has no dates in 2027",
+  );
 });
 
 test("Stale: a default notice pushes the span into the next year", async () => {
