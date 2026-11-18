@@ -888,6 +888,83 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+
+  {
+    kind: "component",
+    id: "tax-treatment-notice",
+    title: "Tax treatment notice",
+    summary: "The one mention an invoice's tax treatment requires by law, or a warning when it can't be given.",
+    detail:
+      "Prints the statutory mention for the invoice's tax treatment in that " +
+      "treatment's own words, never '0% VAT', which reads as zero-rating, a " +
+      "different legal treatment. Reverse charge, intra-Community supply and " +
+      "sale for resale print the VAT numbers or certificate the exemption " +
+      "depends on, and when one is missing the notice prints an 'incomplete' " +
+      "warning instead of the mention: an invoice without the ID loses the " +
+      "exemption. The UK construction reverse charge states the VAT that would " +
+      "have been due without charging it. The French and German small-business " +
+      "mentions are printed verbatim. A standard invoice gets nothing, so the " +
+      "node can sit under the totals on every invoice. The UK amount is " +
+      "formatted in sterling by a deriver that ships with it.",
+    category: "Legal",
+    tags: ["tax", "vat", "invoice", "legal", "branching", "deriver"],
+    exports: ["TaxTreatmentNotice"],
+    dataFields: [
+      {
+        path: "invoice.taxTreatment",
+        type:
+          '"standard" | "zero-rated-export" | "intra-community-supply" | "reverse-charge-services" | "uk-domestic-reverse-charge" | "small-business-exempt" | "us-resale-exempt" | "margin-scheme"',
+        summary: "Which treatment the invoice is issued under. Standard prints nothing; an unrecognised value prints a warning.",
+      },
+      {
+        path: "invoice.jurisdiction",
+        type: "string | undefined",
+        summary: "Upper-case country code, FR or DE, read for small-business-exempt only. Anything else prints a warning.",
+      },
+      {
+        path: "invoice.exportEvidence",
+        type: "string | undefined",
+        summary: "The export evidence reference, such as the MRN, printed after a zero-rated export mention when given.",
+      },
+      {
+        path: "invoice.notionalVat",
+        type: "number | undefined",
+        summary: "UK domestic reverse charge only: the VAT that would have been due, in sterling. Missing or zero prints a warning.",
+      },
+      {
+        path: "seller.vatNumber",
+        type: "string | undefined",
+        summary: "Printed on a reverse-charge supply. Missing there prints a warning.",
+      },
+      {
+        path: "customer.vatNumber",
+        type: "string | undefined",
+        summary: "Printed on an intra-Community or reverse-charge supply. Missing there prints a warning.",
+      },
+      {
+        path: "customer.resaleCertificate",
+        type: "{ number: string; state: string } | undefined",
+        summary: "The resale certificate and issuing state for a US sale for resale. Missing prints a warning.",
+      },
+    ],
+    files: [
+      ...node("tax-treatment-notice", { deriver: true }),
+    ],
+    previewData: {
+      invoice: {
+        taxTreatment: "reverse-charge-services",
+        jurisdiction: "DE",
+        exportEvidence: "26DE470123456789A3",
+        notionalVat: 184250.75,
+      },
+      seller: { vatNumber: "FR12345678901" },
+      customer: {
+        vatNumber: "NL123456789B01",
+        resaleCertificate: { number: "SR EAA 102-345678", state: "California" },
+      },
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */

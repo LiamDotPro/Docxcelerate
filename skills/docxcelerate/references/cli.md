@@ -124,6 +124,7 @@ dxcl list components
 | `signature-block` | A closing, a signature image, and who signed it. |
 | `terms-notice` | Numbered small print, one paragraph and one stable id per clause. |
 | `invoice-document-type` | What an invoice may call itself, and the dates it has to carry. |
+| `tax-treatment-notice` | The mention an invoice's tax treatment requires, or a warning when its ID is missing. |
 
 ## `dxcl show <id>`
 
