@@ -228,6 +228,12 @@ export async function runCli(): Promise<void> {
       for (const field of entry.dataFields) {
         console.log(`  ${field.path}: ${field.type} — ${field.summary}`);
       }
+      if (entry.arrangements) {
+        console.log("Arrangements (the arrangement prop; the first is the default):");
+        for (const arrangement of entry.arrangements) {
+          console.log(`  ${arrangement.id}: ${arrangement.summary}`);
+        }
+      }
       console.log("Files:");
       for (const file of entry.files) {
         console.log(`  ${file.target}`);

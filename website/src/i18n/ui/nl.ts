@@ -384,6 +384,13 @@ export const nl: UiStrings = {
     stepDataNote: "de JSON waarmee dit voorbeeld is gebouwd",
     stepPreview: "Gerenderd voorbeeld",
     stepPreviewNote: "de component op zichzelf gerenderd",
+    stepPreviewArrangementsNote: "elke opstelling op zichzelf gerenderd",
+    /** Marks the arrangement a component uses when none is asked for. */
+    arrangementDefault: "standaard",
+    /** Labels the picker that chooses which arrangement the preview shows. */
+    arrangementLabel: "Opstelling",
+    /** The picker's option for showing every arrangement at once. */
+    arrangementAll: "Alle opstellingen",
     stepNodes: "Opgeloste nodes",
     /** {count} is a number of nodes. */
     stepNodesNote: "wat een renderer krijgt — {count} nodes",
