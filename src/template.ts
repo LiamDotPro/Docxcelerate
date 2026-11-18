@@ -39,6 +39,7 @@ import type { DocumentProps } from "./template/elements.ts";
 export * from "./template/element.ts";
 export * from "./template/elements.ts";
 export * from "./template/hooks.ts";
+export * from "./template/messages.ts";
 export { deriver, type DeriverModule } from "./runtime/deriver_module.ts";
 export { type AiConfig, useAi } from "./template/ai.ts";
 export { arrange } from "./template/arrange.ts";

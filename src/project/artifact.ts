@@ -59,6 +59,14 @@ export interface DocumentProjectManifest {
    * @deprecated See {@link DocumentProjectManifest.previewLetter}.
    */
   engineLetter?: string;
+  /** The project's locales, default first, when it declared any. */
+  locales?: string[];
+  /**
+   * The files holding each non-default locale's documents. The default
+   * locale's are `previewDocument` and `engineDocument`, so an engine that
+   * knows nothing of locales goes on reading what it always read.
+   */
+  localizedDocuments?: Record<string, { previewDocument: string; engineDocument: string }>;
   /** The file holding the deriver bundle, when the document uses any. */
   derivers?: string;
   /** The derivers the engine document invokes. */
@@ -103,6 +111,8 @@ export interface DocumentProjectArtifact {
    * @deprecated See {@link DocumentProjectManifest.previewLetter}.
    */
   engineLetter?: DocumentModel;
+  /** Each non-default locale's documents, keyed by locale. */
+  localizedDocuments?: Record<string, { previewDocument: DocumentModel; engineDocument: DocumentModel }>;
   /** The project's derivers as loadable source, when the document uses any. */
   derivers?: DocumentDeriverBundle;
 }
@@ -138,7 +148,23 @@ export async function createDocumentProjectArtifact<TData>(
   const builtAt = options.builtAt ?? new Date().toISOString();
   const previewDocument = await buildProjectPreviewDocument(project);
   const engineDocument = await buildProjectEngineDocument(project);
-  const deriverNames = collectDocumentDeriverNames(engineDocument);
+  const [, ...otherLocales] = project.locales ?? [];
+  const localized: NonNullable<DocumentProjectArtifact["localizedDocuments"]> = {};
+  // One after another, like the two builds above: a build is one pass over
+  // shared hook state, not something to interleave.
+  for (const locale of otherLocales) {
+    localized[locale] = {
+      previewDocument: await buildProjectPreviewDocument(project, { locale }),
+      engineDocument: await buildProjectEngineDocument(project, { locale }),
+    };
+  }
+  const localizedDocuments = otherLocales.length === 0 ? undefined : localized;
+  // Every locale's: a component may branch on its locale into a deriver the
+  // default one never reaches, and the bundle has to carry it either way.
+  const deriverNames = [
+    ...new Set([engineDocument, ...Object.values(localized).map((d) => d.engineDocument)]
+      .flatMap(collectDocumentDeriverNames)),
+  ].sort((left, right) => left.localeCompare(right));
   assertReferencedDeriversAreAvailable(project, deriverNames);
   const derivers = createDeriverBundle(project.derivers, {
     names: deriverNames,
@@ -153,6 +179,7 @@ export async function createDocumentProjectArtifact<TData>(
     // finds what it is looking for.
     previewLetter: previewDocument,
     engineLetter: engineDocument,
+    localizedDocuments,
     derivers,
     manifest: {
       schemaVersion: "docxcelerate.project-manifest/v0",
@@ -166,12 +193,25 @@ export async function createDocumentProjectArtifact<TData>(
       engineDocument: engineFileName,
       previewLetter: previewFileName,
       engineLetter: engineFileName,
+      locales: project.locales,
+      localizedDocuments: localizedDocuments && Object.fromEntries(
+        Object.keys(localizedDocuments).map((locale) => [locale, {
+          previewDocument: withLocale(previewFileName, locale),
+          engineDocument: withLocale(engineFileName, locale),
+        }]),
+      ),
       derivers: derivers ? deriversFileName : undefined,
       deriverNames,
       style: project.style,
       metadata: project.metadata,
     },
   };
+}
+
+/** `preview.json` and `fr-FR` make `preview.fr-FR.json`. */
+function withLocale(fileName: string, locale: string): string {
+  const dot = fileName.lastIndexOf(".");
+  return dot <= 0 ? `${fileName}.${locale}` : `${fileName.slice(0, dot)}.${locale}${fileName.slice(dot)}`;
 }
 
 function assertReferencedDeriversAreAvailable<TData>(
@@ -216,6 +256,7 @@ export async function buildProjectPreviewDocument<TData>(
   options: ComponentRuntimeOptions = {},
 ): Promise<DocumentModel> {
   const doc = await buildDocument(project.template, project.previewData, {
+    locale: project.locales?.[0],
     ...project.previewOptions,
     ...options,
     derivers: project.derivers,
@@ -248,6 +289,7 @@ export async function buildProjectEngineDocument<TData>(
   options: ComponentRuntimeOptions = {},
 ): Promise<DocumentModel> {
   const doc = await buildDocument(project.template, createPublishData() as TData, {
+    locale: project.locales?.[0],
     ...project.buildOptions,
     ...options,
     availableTokens: "{{ctx.availableTokens}}" as unknown as number,
@@ -285,6 +327,7 @@ export async function buildProjectFinalDocument<TData>(
 ): Promise<DocumentModel> {
   const { data = project.previewData, ...runtimeOptions } = options;
   const doc = await buildDocument(project.template, data, {
+    locale: project.locales?.[0],
     ...project.buildOptions,
     ...runtimeOptions,
     derivers: project.derivers,

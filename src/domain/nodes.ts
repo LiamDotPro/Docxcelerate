@@ -611,6 +611,14 @@ export interface DocumentModel {
   title: string;
   /** How the document looks; a renderer default applies when absent. */
   style?: DocumentStyle;
+  /**
+   * The language the document is written in, as a BCP 47 tag such as `fr-FR`.
+   *
+   * Absent on a document that never said, which renders as it always has. When
+   * present, Word proofs the text in this language, derivers are told it, and
+   * dynamic nodes are asked to be written in it.
+   */
+  locale?: string;
   /** Anything the caller wants to carry alongside the document. */
   metadata?: JsonObject;
   /** The body of the document, in order. */

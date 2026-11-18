@@ -47,6 +47,12 @@ export async function resolveDocument(
   options: ResolveOptions = {},
 ): Promise<DocumentModel> {
   const derivers = options.derivers ?? createDefaultDeriverRegistry();
+  // The document knows its language; the engine that built `state` may not.
+  // A locale the engine set on purpose wins, and the caller's state is not
+  // written to.
+  if (doc.locale !== undefined && state.locale === undefined) {
+    state = { ...state, locale: doc.locale };
+  }
   const nodes = await resolveNodes(doc.nodes, state, derivers);
   // The furniture is resolved too: a footer naming the recipient's reference
   // is as much a published token as anything in the body, and it is the part

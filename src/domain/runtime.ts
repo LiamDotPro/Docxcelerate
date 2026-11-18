@@ -29,6 +29,13 @@ export interface RuntimeState {
   dataProvider: DataProvider;
   /** What writes the content of dynamic nodes. */
   aiClient: AiClient;
+  /**
+   * The document's locale, as a BCP 47 tag, when it declared one.
+   *
+   * Here so a deriver formats a figure the way the document's reader writes
+   * it, and so a dynamic node is written in the document's language.
+   */
+  locale?: string;
 }
 
 /**

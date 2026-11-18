@@ -280,7 +280,7 @@ export const COMPONENTS: RegistryComponent[] = [
       "oddly at zero is the point — somebody who owes nothing should not be " +
       "given a payment deadline.",
     category: "Body",
-    tags: ["money", "branching", "section"],
+    tags: ["money", "branching", "section", "localised"],
     exports: ["PaymentSummary"],
     dataFields: [
       {

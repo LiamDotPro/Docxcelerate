@@ -490,6 +490,31 @@ export const Example: Paragraph = () => {
 
 Seeded from where the component sits, so the values do not move between builds.
 
+## A component in more than one language
+
+```tsx
+const messages = defineMessages("en", {
+  due: (amount: string) => `The balance is ${amount}.`,
+}, {
+  fr: { due: (amount) => `Le solde s’élève à ${amount}.` },
+});
+
+export const Due: Paragraph = () => {
+  const t = useMessages(messages);
+  const format = useFormat();
+  const [amount] = useState((data: { amount: number }) => data.amount);
+
+  return <Paragraph id="due">{t.due(format.currency(amount))}</Paragraph>;
+};
+```
+
+The build's `locale` picks the messages (`fr-CA` → `fr-CA`, `fr`, any `fr-…`,
+then the source) and `useFormat` follows it. A project lists its languages as
+`locales: ["en-GB", "fr-FR"]`, default first; a build writes one preview and
+engine document per extra locale. A deriver reads `state.locale` and calls
+`messagesFor(messages, state.locale)`. Never hard-code `"en-GB"` in an
+`Intl` call inside a node: it is the one place the locale cannot reach.
+
 ## An async component
 
 A component may be `async`, but one that fetches is one that can fail mid-build —

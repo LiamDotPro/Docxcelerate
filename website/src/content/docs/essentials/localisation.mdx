@@ -1,0 +1,103 @@
+---
+title: Localisation
+description: Write a component's words once per language, and build a document in whichever one its reader reads.
+group: Essentials
+order: 5
+---
+
+A document has one language, and it is a build setting rather than something a
+template hard-codes. The same template builds an English invoice and a French
+one; what changes between them is the `locale` it was built with.
+
+Localisation is opt-in at both ends. A component that never asks for
+translations prints what it always printed. A project that never names a locale
+builds exactly the document it built before.
+
+## A component's words
+
+Put a component's strings in `defineMessages`: the language it was written in,
+then the same messages in others. A sentence with a value in it is a function,
+so each language puts the value where its grammar wants it.
+
+```tsx
+import { defineMessages, Paragraph, useFormat, useMessages, useState } from "docxcelerate/template";
+
+const messages = defineMessages("en", {
+  due: (amount: string, by: string) => `The balance is ${amount}, payable by ${by}.`,
+  clear: "There is nothing to pay.",
+}, {
+  fr: {
+    due: (amount, by) => `Le solde s’élève à ${amount}, à régler au plus tard le ${by}.`,
+    clear: "Vous n’avez rien à payer.",
+  },
+});
+
+export const Balance: Paragraph = () => {
+  const t = useMessages(messages);
+  const format = useFormat();
+  const [account] = useState((data: { amount: number; dueBy: string }) => data);
+
+  return <Paragraph id="balance">{t.due(format.currency(account.amount), format.date(account.dueBy))}</Paragraph>;
+};
+```
+
+The English entry decides the shape. A translation that misses a message, or
+whose function takes different arguments, does not type-check — so a French
+document never prints an English sentence because somebody forgot one.
+
+`useMessages` picks the closest match to the build's locale: `fr-CA` takes
+`fr-CA`, then `fr`, then any other French, and a language with no entry gets
+the one the component was written in.
+
+`useFormat` follows the same locale, so amounts, dates and lists come out the
+way the reader writes them. `plural` uses the locale's plural rules; for a
+language with more than two forms, pass them all:
+
+```ts
+format.plural(count, { one: "plik", few: "pliki", many: "plików", other: "pliku" });
+```
+
+When the words are not enough — an address laid out differently, a clause only
+one country needs — `useLocale()` hands back the locale itself to branch on.
+
+## A project's languages
+
+Name the languages a project ships in. The first is the default.
+
+```ts
+export default defineDocumentProject({
+  id: "statement",
+  name: "statement",
+  template: documentTemplate,
+  previewData,
+  locales: ["en-GB", "fr-FR", "de-DE"],
+});
+```
+
+The preview opens in the default and offers the others in its toolbar. A build
+writes the default's documents where they have always gone, and one more pair
+per language beside them — `preview.fr-FR.json`, `document.fr-FR.json` — listed
+under `localizedDocuments` in the manifest. An engine that knows nothing of
+locales goes on reading `document.json`.
+
+A single build takes its locale as an option:
+
+```ts
+await buildProjectFinalDocument(project, { data, locale: "fr-FR" });
+```
+
+## What the locale reaches
+
+The locale is recorded on the document model, and from there:
+
+- **Word** marks the text as that language, so it spell-checks and hyphenates
+  in French rather than flagging every word.
+- **Derivers** receive it as `state.locale`, since a deriver runs in the
+  engine where there are no hooks. Call `messagesFor(messages, state.locale)`
+  to use a component's messages from one.
+- **Generated nodes** are asked to write in it. Each dynamic paragraph and
+  chart gets a system prompt naming the language, so a French document does
+  not come back with an English summary.
+
+A document built without a locale records none, and none of this happens:
+formatting falls back to `en-GB`, as it always has.
