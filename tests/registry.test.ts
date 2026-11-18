@@ -9,6 +9,7 @@ import {
   registryRoot,
   resolveInstallOrder,
 } from "docxcelerate/registry/install";
+import { loadRegistryModule } from "./registry_support.ts";
 
 /**
  * The registry, and what `dxcl add` leaves behind.
@@ -30,13 +31,58 @@ test("every component names a source file that exists", async () => {
     for (const file of component.files) {
       const source = await readFile(join(registryRoot(), ...file.source.split("/")), "utf8");
 
-      // The file has to export what the catalog says it does, or the export
-      // line the install appends points at nothing.
+      // The node has to export what the catalog says it does, or the export
+      // line the install appends points at nothing. A deriver beside it exports
+      // a deriver, and is held to that below instead.
+      if (!file.target.startsWith("nodes/")) continue;
+
       for (const name of component.exports) {
         assertStringIncludes(source, `export const ${name}`);
       }
     }
   }
+});
+
+test("every component compiles and loads the way a project's build would load it", async () => {
+  // Through the transform, so a node whose control flow does not compile fails
+  // here rather than on somebody's first preview.
+  for (const component of COMPONENTS) {
+    const module = await loadRegistryModule<Record<string, unknown>>(component.files[0].source);
+
+    for (const name of component.exports) {
+      assertEquals(`${component.id}.${name}: ${typeof module[name]}`, `${component.id}.${name}: function`);
+    }
+  }
+});
+
+test("every component is laid out as a node, and at most one deriver beside it", async () => {
+  // One layout, so the node's `../derivers/` import resolves both in the
+  // registry and once installed, and so the installer's follow-up can name the
+  // deriver without reading it. Collected, so a failure names every entry.
+  const wrong: string[] = [];
+
+  for (const component of COMPONENTS) {
+    const { id } = component;
+    const nodeFile = { source: `components/${id}/${id}.node.tsx`, target: `nodes/${id}.node.tsx` };
+    const deriverFile = { source: `components/derivers/${id}.deriver.ts`, target: `derivers/${id}.deriver.ts` };
+    const [first, second, ...rest] = component.files;
+
+    if (JSON.stringify(first) !== JSON.stringify(nodeFile)) wrong.push(`${id}: first file is not ${nodeFile.source}`);
+    if (rest.length > 0) wrong.push(`${id}: more than a node and a deriver`);
+    if (!second) continue;
+    if (JSON.stringify(second) !== JSON.stringify(deriverFile)) {
+      wrong.push(`${id}: second file is not ${deriverFile.source}`);
+      continue;
+    }
+
+    const source = await readFile(join(registryRoot(), ...deriverFile.source.split("/")), "utf8");
+    const name = id.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+
+    if (!source.includes("export default deriver(")) wrong.push(`${id}: deriver is not a default deriver() export`);
+    if (!source.includes(`name: "${name}"`)) wrong.push(`${id}: deriver is not named ${name}`);
+  }
+
+  assertEquals(wrong, []);
 });
 
 test("every field a component documents is one its preview data actually has", () => {
