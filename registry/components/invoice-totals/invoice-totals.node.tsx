@@ -20,8 +20,7 @@ import type { InvoiceTotalsData } from "../derivers/invoice-totals.deriver.ts";
  * The node does no arithmetic: arithmetic on request data throws at publish, so
  * it only interpolates, loops and branches on what the deriver returned.
  *
- * Installed by `dxcl add invoice-totals`. It ships with a deriver,
- * derivers/invoice-totals.deriver.ts, which must be added to derivers/index.ts.
+ * Installed by `dxcl add invoice-totals`.
  */
 
 export type { InvoiceTotalsData } from "../derivers/invoice-totals.deriver.ts";

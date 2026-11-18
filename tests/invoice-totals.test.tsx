@@ -1,13 +1,12 @@
 import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
-import { buildDocument } from "docxcelerate";
+import { buildDocument, createDeriverBundle, createDeriverRegistryFromBundle, InMemoryDataProvider, resolveDocument } from "docxcelerate";
 import type { DocumentNode, RuntimeState } from "docxcelerate";
 import type { TemplateElement } from "docxcelerate/template";
 import { createPublishData, Document, Section, template } from "docxcelerate/template";
 import { COMPONENTS } from "docxcelerate/registry";
-import { transformDocumentSource } from "docxcelerate/transform";
-import { readFile, writeFile } from "node:fs/promises";
-import ts from "typescript";
+import { loadRegistryModule } from "./registry_support.ts";
+import type { InvoiceTotals, InvoiceTotalsData } from "../registry/components/derivers/invoice-totals.deriver.ts";
 
 /**
  * The invoice arithmetic, held to the penny.
@@ -15,46 +14,15 @@ import ts from "typescript";
  * The deriver is the only computation, so most of this calls it directly and
  * asserts on the integer `*Minor` fields rather than on Intl output.
  */
-// The registry sources sit outside this project's rootDir, so they are compiled
-// and imported at run time below, and these are the shapes the tests rely on.
-type Line = { description: string; quantity: number; unit?: string; unitPrice: number; taxRate: number | null; taxLabel?: string };
-type Invoice = { currency: string; pricing?: "exclusive" | "inclusive"; lines: Line[] };
-type InvoiceTotalsData = { invoice: Invoice };
-type InvoiceTotals = {
-  empty: boolean;
-  multipleBands: boolean;
-  amountHeading: string;
-  lines: Array<{ description: string; quantity: string; unitPrice: string; tax: string; amount: string }>;
-  bands: Array<{ label: string; net: string; vat: string; netMinor: number; vatMinor: number }>;
-  subtotalLabel: string;
-  subtotal: string;
-  vatLabel: string;
-  vat: string;
-  total: string;
-  subtotalMinor: number;
-  vatMinor: number;
-  totalMinor: number;
-};
+type Invoice = InvoiceTotalsData["invoice"];
+type Line = Invoice["lines"][number];
 
-// A publish build needs the compiler's `&&` rewrite, which `tsc` does not apply, so
-// each source is compiled the way a project's build would and imported from beside it.
-async function compiled(file: string, outName: string): Promise<Record<string, unknown>> {
-  const source = await readFile(new URL(`../registry/components/${file}`, import.meta.url), "utf8");
-  const { code } = transformDocumentSource(source, { fileName: file });
-  const js = ts.transpileModule(code, {
-    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.ReactJSX, jsxImportSource: "docxcelerate/template", verbatimModuleSyntax: true },
-  }).outputText.replace(".deriver.ts", ".deriver.js");
-  const out = new URL(`../registry/components/${outName}`, import.meta.url);
-
-  await writeFile(out, js);
-
-  return await import(out.href);
-}
-
-// The node's import of the deriver is rewritten to `.deriver.js`, so that file is
-// written under that name.
-const totalsDeriver = (await compiled("derivers/invoice-totals.deriver.ts", "derivers/invoice-totals.deriver.js")).default as { run(inputs: unknown[], state: RuntimeState): unknown };
-const InvoiceTotalsNode = (await compiled("invoice-totals/invoice-totals.node.tsx", "invoice-totals/invoice-totals.compiled.js")).InvoiceTotals as () => TemplateElement;
+const totalsDeriver = (await loadRegistryModule<typeof import("../registry/components/derivers/invoice-totals.deriver.ts")>(
+  "components/derivers/invoice-totals.deriver.ts",
+)).default as unknown as { run(inputs: unknown[], state: RuntimeState): unknown };
+const InvoiceTotalsNode = (await loadRegistryModule<typeof import("../registry/components/invoice-totals/invoice-totals.node.tsx")>(
+  "components/invoice-totals/invoice-totals.node.tsx",
+)).InvoiceTotals as unknown as () => TemplateElement;
 
 const line = (over: Partial<Line> = {}): Line => ({
   description: "Work",
@@ -309,4 +277,33 @@ test("a publish build carries the invocation, with conditions and loops on deriv
   assertStringIncludes(json, '"scope":"derived","path":"invoiceTotals.multipleBands"');
   assertStringIncludes(json, '"kind":"repeat","source":{"scope":"derived","path":"invoiceTotals.lines"}');
   assertStringIncludes(json, '"kind":"repeat","source":{"scope":"derived","path":"invoiceTotals.bands"}');
+});
+
+test("the deriver still runs once it has been shipped as a bundle", async () => {
+  const data = { invoice: { currency: "GBP", lines: [line(), line({ taxRate: 5 })] } };
+  const published = template<InvoiceTotalsData>(
+    <Document title="Invoice">
+      <Section title="Body">
+        <InvoiceTotalsNode />
+      </Section>
+    </Document>,
+  );
+  const built = await buildDocument(published, createPublishData() as InvoiceTotalsData, {
+    branchMode: "publish",
+    deriverMode: "preserve",
+    dynamicMode: "resolve",
+    aiClient: { generateParagraph: () => "" },
+  });
+  const state: RuntimeState = {
+    ctx: { ...data },
+    derived: {},
+    dataProvider: new InMemoryDataProvider(data as unknown as Record<string, unknown>),
+    aiClient: { generateParagraph: () => "" },
+  };
+  const resolved = await resolveDocument(built, state, {
+    derivers: await createDeriverRegistryFromBundle(createDeriverBundle({ invoiceTotals: totalsDeriver.run })),
+  });
+  const direct = await buildDocument(doc, data, { dynamicMode: "placeholder" });
+
+  assertEquals(ids(resolved.nodes), ids(direct.nodes));
 });

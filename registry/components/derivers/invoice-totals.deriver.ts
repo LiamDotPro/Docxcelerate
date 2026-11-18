@@ -104,42 +104,6 @@ interface Decimal {
   scale: number;
 }
 
-const DECIMAL = /^(-?)(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/;
-
-// String(n) is the shortest round-trip form, which is what the caller wrote.
-function decimal(n: number): Decimal {
-  const match = DECIMAL.exec(String(n));
-
-  if (!match) throw new Error(`cannot read ${n} as a decimal`);
-
-  const [, sign, whole, frac = "", exp = "0"] = match;
-  let int = BigInt(whole + frac);
-  let scale = frac.length - Number(exp);
-
-  if (scale < 0) {
-    int *= 10n ** BigInt(-scale);
-    scale = 0;
-  }
-
-  return { int: sign ? -int : int, scale };
-}
-
-/** round(n / d) half away from zero, for d > 0. */
-function round(n: bigint, d: bigint): bigint {
-  const abs = n < 0n ? -n : n;
-  const out = (2n * abs + d) / (2n * d);
-
-  return n < 0n ? -out : out;
-}
-
-function finite(value: unknown, path: string): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(`${path} is not a finite number`);
-  }
-
-  return value;
-}
-
 interface Band {
   label: string;
   rate: Decimal | null;
@@ -147,6 +111,43 @@ interface Band {
 }
 
 function invoiceTotalsOf(invoice: InvoiceTotalsData["invoice"]): InvoiceTotals {
+  // Everything run uses lives in this body: the deriver ships as source text.
+  const DECIMAL = /^(-?)(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/;
+
+  // String(n) is the shortest round-trip form, which is what the caller wrote.
+  function decimal(n: number): Decimal {
+    const match = DECIMAL.exec(String(n));
+
+    if (!match) throw new Error(`cannot read ${n} as a decimal`);
+
+    const [, sign, whole, frac = "", exp = "0"] = match;
+    let int = BigInt(whole + frac);
+    let scale = frac.length - Number(exp);
+
+    if (scale < 0) {
+      int *= 10n ** BigInt(-scale);
+      scale = 0;
+    }
+
+    return { int: sign ? -int : int, scale };
+  }
+
+  /** round(n / d) half away from zero, for d > 0. */
+  function round(n: bigint, d: bigint): bigint {
+    const abs = n < 0n ? -n : n;
+    const out = (2n * abs + d) / (2n * d);
+
+    return n < 0n ? -out : out;
+  }
+
+  function finite(value: unknown, path: string): number {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      throw new Error(`${path} is not a finite number`);
+    }
+
+    return value;
+  }
+
   let exponent: number;
 
   try {
@@ -270,8 +271,5 @@ function invoiceTotalsOf(invoice: InvoiceTotalsData["invoice"]): InvoiceTotals {
   };
 }
 
-/**
- * The `invoiceTotals` deriver: register it in `derivers/index.ts`, then feed it
- * `invoice` from request data. It returns an {@link InvoiceTotals}.
- */
+/** The `invoiceTotals` deriver: feed it `invoice` from request data. It returns an {@link InvoiceTotals}. */
 export default deriver({ name: "invoiceTotals", run: invoiceTotalsOf });

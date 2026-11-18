@@ -293,9 +293,7 @@ export const COMPONENTS: RegistryComponent[] = [
       "VAT backed out of the band's gross, so the total is exactly what was " +
       "charged. Discounts reduce their own band. Exempt lines print under " +
       "their own label rather than as 0%, and more than one band draws the " +
-      "per-rate VAT analysis an invoice is required to carry. It ships with a " +
-      "deriver, derivers/invoice-totals.deriver.ts, which must be added to " +
-      "derivers/index.ts.",
+      "per-rate VAT analysis an invoice is required to carry.",
     category: "Body",
     tags: ["money", "table", "tax", "invoice", "branching", "section"],
     exports: ["InvoiceTotals"],
@@ -318,10 +316,7 @@ export const COMPONENTS: RegistryComponent[] = [
           "One per line, in print order. `taxRate` is a percentage; `null` is exempt or outside scope, labelled by `taxLabel`. Empty prints \"no charges\".",
       },
     ],
-    files: [
-      { source: "components/invoice-totals/invoice-totals.node.tsx", target: "nodes/invoice-totals.node.tsx" },
-      { source: "components/derivers/invoice-totals.deriver.ts", target: "derivers/invoice-totals.deriver.ts" },
-    ],
+    files: node("invoice-totals", { deriver: true }),
     previewData: {
       invoice: {
         currency: "GBP",
