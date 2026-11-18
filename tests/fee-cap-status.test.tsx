@@ -233,8 +233,8 @@ const previewData = {
   fees: { thisPeriod: 418960.4 },
 };
 
-async function viaPublish(data: typeof previewData) {
-  const published = await buildDocument(documentOf(), createPublishData() as typeof data, {
+async function viaPublish(data: typeof previewData, arrangement?: "table" | "stacked") {
+  const published = await buildDocument(documentOf(arrangement), createPublishData() as typeof data, {
     branchMode: "publish",
     deriverMode: "preserve",
     dynamicMode: "resolve",
@@ -273,3 +273,13 @@ test("published then resolved: the preview exceeds, and an under-cap document sa
   const under = await viaPublish({ feeCap: { kind: "hard", amount: 10000, billedToDate: 4000 }, fees: { thisPeriod: 2000 } } as never);
   assertEquals(under.resolved.ids.filter((i) => /^fee-cap-(under|approaching|reached|exceeded|incomplete|revised|notice|retention)$/.test(i)), ["fee-cap-under"]);
 });
+
+for (const arrangement of ["table", "stacked"] as const) {
+  test(`${arrangement}: publishing then resolving matches building directly`, async () => {
+    const underCap = { feeCap: { kind: "hard", amount: 10000, billedToDate: 4000 }, fees: { thisPeriod: 2000 } };
+    for (const data of [previewData, underCap] as (typeof previewData)[]) {
+      const { resolved } = await viaPublish(data, arrangement);
+      assertEquals(resolved, await build(data.feeCap, data.fees.thisPeriod, arrangement));
+    }
+  });
+}
