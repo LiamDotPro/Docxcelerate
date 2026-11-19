@@ -167,6 +167,14 @@ A `<Section variant="schedule">` sets its **heading** from that block — size, 
 
 `<Text variant="amountDue">` sets a phrase from a theme block, for an amount due inside a sentence or a defined term. Only the block's `color`, `fill`, `fontSizePt`, `weight`, `font`, `transform` and `letterSpacingEm` reach the words. `bold` and the other marks said beside it win.
 
+A variant can be read off the data, so one published document styles each
+recipient and each row differently: `<Cell variant={line.status}>`,
+``<Paragraph variant={`tier-${state.tier}`}>``. Name the theme's blocks after the
+values the data carries. A value with no block draws plain. Never pick a variant
+with a ternary (`variant={line.overdue ? "overdue" : undefined}`): when the
+document is published, every recipient gets the true arm. Interpolate the field
+itself, or use a deriver to produce the name.
+
 A block style says `fill`, `color`, `border` (with `borderWidthPt`,
 `borderSides`, `borderStyle`), `paddingPt`, `fontSizePt`, `weight`, `transform`,
 `letterSpacingEm` and `bleed`. **All of them mean the same thing on screen and

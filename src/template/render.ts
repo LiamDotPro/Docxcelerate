@@ -342,7 +342,10 @@ async function renderHost(
   await runNodeDerivers(props, context);
 
   return withDerivers(
-    withVariant(await renderHostKind(kind, element, context, frame, id, when), props.variant),
+    withVariant(
+      await renderHostKind(kind, element, context, frame, id, when),
+      await text(props.variant, context),
+    ),
     [...(frame.derivers ?? []), ...(props.derivers ?? [])],
   );
 }

@@ -31,6 +31,11 @@ Interpolating a value works — it becomes the token the engine substitutes:
 // published as: "Hello {{data.name}},"
 ```
 
+The same holds for a `variant`. `<Cell variant={line.status}>` publishes the
+token, and each recipient's rows take the block their own status names. A
+ternary choosing between names is computing, not interpolating: it publishes its
+true arm for everyone. Carry the name in the data, or derive it.
+
 Computing on one does not, because the value does not exist yet. Formatting a
 currency, totalling a list, comparing a date — those need a **deriver**:
 

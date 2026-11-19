@@ -110,6 +110,12 @@ async function resolveNode(
     return undefined;
   }
 
+  // A variant can be read off the data — a row's status, a customer's tier —
+  // so it is a published token like the words, settled per entry.
+  if (node.variant !== undefined) {
+    node = { ...node, variant: await renderTemplate(node.variant, state) };
+  }
+
   if (node.kind === "section") {
     return {
       ...node,

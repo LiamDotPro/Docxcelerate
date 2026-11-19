@@ -1903,8 +1903,8 @@ function renderRow(
 ): TableRow {
   // F8: striping is the renderer's to do, counted as the rows are drawn. A
   // variant chosen by a `.map` index works in preview and dies on publish —
-  // the map becomes one loop the engine walks, and a variant is a static
-  // string, so every row would get whatever the build happened to decide.
+  // the map becomes one loop the engine walks, and publishing refuses the
+  // `index % 2` arithmetic, so every row would get whatever the build decided.
   //
   // `bodyIndex` is -1 for every row of a table with no header, which is how
   // a layout table opts out without having to say so.

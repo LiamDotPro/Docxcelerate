@@ -37,6 +37,13 @@ it looks like. The appearance lives in the style's `blocks`, so a document
 restyles without a node changing, and a name the theme has not heard of draws as
 an ordinary block rather than failing. See **Block styles** below.
 
+`variant` is a published token like any text. `variant={line.status}` inside a
+`.map()` publishes as `"{{ctx.lines.status}}"`, and the engine settles it per
+entry. A template literal (`` `status-${line.status}` ``) keeps the token inside
+a fixed prefix. The resolved name is looked up in `blocks` like a written one.
+If the theme has no block of that name, or the field is missing, the node draws
+as an ordinary block.
+
 `Paragraph`, `Image` and `Graph` also accept the prompt slots, which are what
 make a node dynamic:
 
