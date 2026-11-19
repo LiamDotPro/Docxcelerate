@@ -389,6 +389,13 @@ export const es: UiStrings = {
     stepDataNote: "el JSON con el que se construyó esta vista previa",
     stepPreview: "Vista previa renderizada",
     stepPreviewNote: "el componente renderizado por su cuenta",
+    stepPreviewArrangementsNote: "cada disposición renderizada por su cuenta",
+    /** Marks the arrangement a component uses when none is asked for. */
+    arrangementDefault: "predeterminada",
+    /** Labels the picker that chooses which arrangement the preview shows. */
+    arrangementLabel: "Disposición",
+    /** The picker's option for showing every arrangement at once. */
+    arrangementAll: "Todas las disposiciones",
     stepNodes: "Nodos resueltos",
     /** {count} is a number of nodes. */
     stepNodesNote: "lo que recibe un renderizador — {count} nodos",

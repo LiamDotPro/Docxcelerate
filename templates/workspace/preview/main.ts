@@ -63,6 +63,7 @@ const previewRendererOptions: PreviewRendererOption[] = [
 let route = readRoute();
 let config: { config: DocxcelerateConfig; activePreset: DocxceleratePreset } | undefined;
 let previewRenderer = readPreviewRenderer();
+const previewLocaleStorageKey = "docxcelerate.previewLocale";
 
 if (!appElement) {
   throw new Error("Expected #app element");
@@ -137,6 +138,7 @@ async function loadProject(path: string): Promise<DocumentProject<unknown>> {
 async function buildPreviewDocument(project: DocumentProject<unknown>): Promise<DocumentModel> {
   const document = await buildDocument(project.template, project.previewData, {
     ...project.previewOptions,
+    locale: previewLocale(project),
     dynamicMode: "placeholder",
   });
 
@@ -355,6 +357,10 @@ function createShell(options: {
 
   if (options.project && options.currentPath) {
     header.append(createPreviewRendererSelect());
+  }
+
+  if (options.project && (options.project.locales?.length ?? 0) > 1) {
+    header.append(createPreviewLocaleSelect(options.project));
   }
 
   header.append(status);
@@ -757,6 +763,35 @@ function previewFrameStyles(): string {
     previewPageStyles({ inset: "32px 0 72px" }),
     "body { overflow: auto; min-height: 100%; }",
   ].join("\n");
+}
+
+function createPreviewLocaleSelect(project: DocumentProject<unknown>): HTMLSelectElement {
+  const select = document.createElement("select");
+  select.className = "preview-mode-select";
+  select.setAttribute("aria-label", "Document locale");
+  const current = previewLocale(project);
+  const names = new Intl.DisplayNames(undefined, { type: "language" });
+
+  for (const locale of project.locales ?? []) {
+    const option = document.createElement("option");
+    option.value = locale;
+    option.textContent = names.of(locale) ?? locale;
+    option.selected = locale === current;
+    select.append(option);
+  }
+
+  select.addEventListener("change", () => {
+    localStorage.setItem(previewLocaleStorageKey, select.value);
+    void renderApp();
+  });
+
+  return select;
+}
+
+/** The locale last picked, while the project still offers it; otherwise its default. */
+function previewLocale(project: DocumentProject<unknown>): string | undefined {
+  const picked = localStorage.getItem(previewLocaleStorageKey);
+  return picked && project.locales?.includes(picked) ? picked : project.previewOptions?.locale ?? project.locales?.[0];
 }
 
 function readPreviewRenderer(): PreviewRenderer {

@@ -1,0 +1,183 @@
+---
+title: Localisation
+description: Write one template and build it in several languages.
+group: Essentials
+order: 5
+---
+
+You can build the same document in more than one language. Each component
+keeps its text in every language it supports, the project lists the languages
+it ships in, and each build uses one of them.
+
+Nothing changes until you opt in. Components without translations and projects
+without a language list keep working as they always have.
+
+## Translate a component
+
+Put the component's text in `defineMessages`, then read it with `useMessages`:
+
+```tsx
+import { defineMessages, Paragraph, useFormat, useMessages, useState } from "docxcelerate/template";
+
+const messages = defineMessages("en", {
+  due: (amount: string) => `The balance is ${amount}.`,
+  clear: "There is nothing to pay.",
+}, {
+  fr: {
+    due: (amount) => `Le solde s’élève à ${amount}.`,
+    clear: "Vous n’avez rien à payer.",
+  },
+});
+
+export const Balance: Paragraph = () => {
+  const t = useMessages(messages);
+  const format = useFormat();
+  const [due] = useState((data: { due: number }) => data.due);
+
+  return due > 0
+    ? <Paragraph id="balance">{t.due(format.currency(due))}</Paragraph>
+    : <Paragraph id="balance-clear">{t.clear}</Paragraph>;
+};
+```
+
+The first argument is the language you wrote the component in. Next come your
+messages, and then the translations.
+
+If a message contains a value, make it a function. That way each language can
+put the value wherever it reads naturally.
+
+Translations are type-checked against your original messages. If one is missing
+a message, you'll get a type error instead of an English sentence in the middle
+of a French document.
+
+## How a language is chosen
+
+For a document in `fr-CA`, `useMessages` tries `fr-CA`, then `fr`, then any
+other French. If none of those exist, it uses the language the component was
+written in. Most of the time you only need `fr`. Add `fr-CA` only for the
+messages that actually differ.
+
+## Numbers, dates and plurals
+
+`useFormat` follows the document's language, so
+`format.currency(1234.5, "EUR")` gives `€1,234.50` in English and
+`1 234,50 €` in French. Dates and lists follow it too.
+
+The currency doesn't follow the language, though. It defaults to `GBP`, so pass
+the currency code from your data.
+
+`plural` uses each language's own rules. Two forms are enough for most
+languages:
+
+```ts
+format.plural(count, "file", "files");
+```
+
+Languages with more forms, such as Polish, take each form by name:
+
+```ts
+format.plural(count, { one: "plik", few: "pliki", many: "plików", other: "pliku" });
+```
+
+If you call `Intl` yourself, don't hard-code `"en-GB"`. Use `useLocale()`
+instead.
+
+## When layout differs
+
+`useLocale()` returns the document's locale, for the occasional case where more
+than the text changes, like an address written in a different order:
+
+```tsx
+const locale = useLocale();
+
+return locale.startsWith("de")
+  ? <Paragraph id="address">{street} {number}, {postcode} {city}</Paragraph>
+  : <Paragraph id="address">{number} {street}, {city} {postcode}</Paragraph>;
+```
+
+## Derivers
+
+A deriver runs in the engine and only sees the inputs you give it. If it formats
+something for the reader, pass the locale in as one of those inputs:
+
+```ts
+// derivers/money.ts
+export default deriver({
+  name: "money",
+  run: (amount: number, currency: string, locale: string) =>
+    new Intl.NumberFormat(locale, { style: "currency", currency }).format(amount),
+});
+```
+
+```tsx
+const total = await useDeriver(money, [account.due, account.currency, useLocale()]);
+```
+
+Keep the text itself in the component. The deriver works out the value, and
+the component's message supplies the sentence around it.
+
+## List the project's languages
+
+Add `locales` to the project. The first one is the default:
+
+```ts
+export default defineDocumentProject({
+  id: "statement",
+  name: "statement",
+  template: documentTemplate,
+  previewData,
+  locales: ["en-GB", "fr-FR", "de-DE"],
+});
+```
+
+The preview then has a language menu in its toolbar. Check every language
+before you finish: German in particular tends to run long.
+
+A build writes the default language's files in the usual place, and two more
+for every other language:
+
+```text
+build/
+  manifest.json
+  preview.json
+  document.json
+  preview.fr-FR.json
+  document.fr-FR.json
+  preview.de-DE.json
+  document.de-DE.json
+```
+
+The manifest lists them under `localizedDocuments`.
+
+To build one language in code, pass `locale`:
+
+```ts
+const doc = await buildProjectFinalDocument(project, { data, locale: "fr-FR" });
+```
+
+## Publishing
+
+By default, the workspace uploads only the default language's `document.json`.
+To send every language, set `upload.body` to `"artifact"` in
+`docxcelerate.config.json`. The engine needs to support languages to make use
+of them. An engine that doesn't serves the default.
+
+## What the language also changes
+
+- Word checks spelling and hyphenation in the document's language.
+- Text written by AI comes back in that language. You don't need to ask for
+  it in your prompts.
+- Derivers written as plain `run(inputs, state)` functions can read the
+  language as `state.locale`.
+
+A document built without a language gets none of this, and comes out exactly
+as before.
+
+## Not supported yet
+
+- Right-to-left text, such as Arabic or Hebrew.
+- More than one language in a single document. For side-by-side text, call
+  `messagesFor(messages, "cy")` in the component to get the second language.
+
+The registry's [payment summary](/components/payment-summary/) already comes in
+English, French and German, if you'd like a full example.

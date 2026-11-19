@@ -104,17 +104,13 @@ export async function placeholderText(
     : `[Dynamic placeholder: ${id}]`;
 }
 
-export function formatPromptText(prompts: PromptSpec[]): string {
-  return prompts.map((entry) => `${entry.kind.toUpperCase()}: ${entry.text}`).join("\n");
-}
-
 /** A picture found among a paragraph's children, and where it was found. */
 export type InlineImageElement = { at: number; element: TemplateElement };
 
 /** How a run is set: everything a {@linkcode ParagraphRun} says except its words. */
 type RunMarks = Omit<ParagraphRun, "text">;
 
-const MARKS = ["bold", "italic", "underline", "strike", "href"] as const;
+const MARKS = ["bold", "italic", "underline", "strike", "script", "href", "variant"] as const;
 
 /**
  * The words a paragraph's children spell, any pictures set among them, and

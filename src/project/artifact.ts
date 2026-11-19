@@ -59,6 +59,14 @@ export interface DocumentProjectManifest {
    * @deprecated See {@link DocumentProjectManifest.previewLetter}.
    */
   engineLetter?: string;
+  /** The project's locales, default first, when it declared any. */
+  locales?: string[];
+  /**
+   * The files holding each non-default locale's documents. The default
+   * locale's are `previewDocument` and `engineDocument`, so an engine that
+   * knows nothing of locales goes on reading what it always read.
+   */
+  localizedDocuments?: Record<string, { previewDocument: string; engineDocument: string }>;
   /** The file holding the deriver bundle, when the document uses any. */
   derivers?: string;
   /** The derivers the engine document invokes. */
@@ -103,6 +111,8 @@ export interface DocumentProjectArtifact {
    * @deprecated See {@link DocumentProjectManifest.previewLetter}.
    */
   engineLetter?: DocumentModel;
+  /** Each non-default locale's documents, keyed by locale. */
+  localizedDocuments?: Record<string, { previewDocument: DocumentModel; engineDocument: DocumentModel }>;
   /** The project's derivers as loadable source, when the document uses any. */
   derivers?: DocumentDeriverBundle;
 }
@@ -138,7 +148,23 @@ export async function createDocumentProjectArtifact<TData>(
   const builtAt = options.builtAt ?? new Date().toISOString();
   const previewDocument = await buildProjectPreviewDocument(project);
   const engineDocument = await buildProjectEngineDocument(project);
-  const deriverNames = collectDocumentDeriverNames(engineDocument);
+  const [, ...otherLocales] = project.locales ?? [];
+  const localized: NonNullable<DocumentProjectArtifact["localizedDocuments"]> = {};
+  // One after another, like the two builds above: a build is one pass over
+  // shared hook state, not something to interleave.
+  for (const locale of otherLocales) {
+    localized[locale] = {
+      previewDocument: await buildProjectPreviewDocument(project, { locale }),
+      engineDocument: await buildProjectEngineDocument(project, { locale }),
+    };
+  }
+  const localizedDocuments = otherLocales.length === 0 ? undefined : localized;
+  // Every locale's: a component may branch on its locale into a deriver the
+  // default one never reaches, and the bundle has to carry it either way.
+  const deriverNames = [
+    ...new Set([engineDocument, ...Object.values(localized).map((d) => d.engineDocument)]
+      .flatMap(collectDocumentDeriverNames)),
+  ].sort((left, right) => left.localeCompare(right));
   assertReferencedDeriversAreAvailable(project, deriverNames);
   const derivers = createDeriverBundle(project.derivers, {
     names: deriverNames,
@@ -153,6 +179,7 @@ export async function createDocumentProjectArtifact<TData>(
     // finds what it is looking for.
     previewLetter: previewDocument,
     engineLetter: engineDocument,
+    localizedDocuments,
     derivers,
     manifest: {
       schemaVersion: "docxcelerate.project-manifest/v0",
@@ -166,12 +193,25 @@ export async function createDocumentProjectArtifact<TData>(
       engineDocument: engineFileName,
       previewLetter: previewFileName,
       engineLetter: engineFileName,
+      locales: project.locales,
+      localizedDocuments: localizedDocuments && Object.fromEntries(
+        Object.keys(localizedDocuments).map((locale) => [locale, {
+          previewDocument: withLocale(previewFileName, locale),
+          engineDocument: withLocale(engineFileName, locale),
+        }]),
+      ),
       derivers: derivers ? deriversFileName : undefined,
       deriverNames,
       style: project.style,
       metadata: project.metadata,
     },
   };
+}
+
+/** `preview.json` and `fr-FR` make `preview.fr-FR.json`. */
+function withLocale(fileName: string, locale: string): string {
+  const dot = fileName.lastIndexOf(".");
+  return dot <= 0 ? `${fileName}.${locale}` : `${fileName.slice(0, dot)}.${locale}${fileName.slice(dot)}`;
 }
 
 function assertReferencedDeriversAreAvailable<TData>(
@@ -216,6 +256,7 @@ export async function buildProjectPreviewDocument<TData>(
   options: ComponentRuntimeOptions = {},
 ): Promise<DocumentModel> {
   const doc = await buildDocument(project.template, project.previewData, {
+    locale: project.locales?.[0],
     ...project.previewOptions,
     ...options,
     derivers: project.derivers,
@@ -235,19 +276,24 @@ export async function buildProjectPreviewDocument<TData>(
  *
  * Nothing here is decided. The data is a stand-in for a request nobody has made,
  * so a branch keeps both arms under the condition that selects one, a loop stays
- * a loop, and every value stays the token the engine substitutes. What comes out
- * is the whole document with the decisions still in it.
+ * a loop, and every value stays the token the engine substitutes. A generated
+ * paragraph, image or chart is published with its prompts and nothing written
+ * in, for the engine's own client to answer per document. What comes out is the
+ * whole document with the decisions still in it.
  *
  * @typeParam TData The shape the project's template reads.
  * @param project The project to build.
  * @param options Runtime overrides for this build.
  * @returns The document, with its decisions still open.
+ * @throws If a paragraph holds a generated picture among its words, which an
+ *   engine cannot draw.
  */
 export async function buildProjectEngineDocument<TData>(
   project: DocumentProject<TData>,
   options: ComponentRuntimeOptions = {},
 ): Promise<DocumentModel> {
   const doc = await buildDocument(project.template, createPublishData() as TData, {
+    locale: project.locales?.[0],
     ...project.buildOptions,
     ...options,
     availableTokens: "{{ctx.availableTokens}}" as unknown as number,
@@ -260,11 +306,13 @@ export async function buildProjectEngineDocument<TData>(
 
   return {
     ...doc,
-    nodes: removeEmptyDynamicText(doc.nodes),
-    header: doc.header && removeEmptyDynamicText(doc.header),
-    footer: doc.footer && removeEmptyDynamicText(doc.footer),
-    firstHeader: doc.firstHeader && removeEmptyDynamicText(doc.firstHeader),
-    firstFooter: doc.firstFooter && removeEmptyDynamicText(doc.firstFooter),
+    nodes: removeEngineStandIns(doc.nodes),
+    header: doc.header && removeEngineStandIns(doc.header),
+    footer: doc.footer && removeEngineStandIns(doc.footer),
+    firstHeader: doc.firstHeader && removeEngineStandIns(doc.firstHeader),
+    firstFooter: doc.firstFooter && removeEngineStandIns(doc.firstFooter),
+    evenHeader: doc.evenHeader && removeEngineStandIns(doc.evenHeader),
+    evenFooter: doc.evenFooter && removeEngineStandIns(doc.evenFooter),
     style: project.style,
     metadata: project.metadata ? { ...project.metadata, ...doc.metadata } : doc.metadata,
   };
@@ -285,6 +333,7 @@ export async function buildProjectFinalDocument<TData>(
 ): Promise<DocumentModel> {
   const { data = project.previewData, ...runtimeOptions } = options;
   const doc = await buildDocument(project.template, data, {
+    locale: project.locales?.[0],
     ...project.buildOptions,
     ...runtimeOptions,
     derivers: project.derivers,
@@ -299,24 +348,50 @@ export async function buildProjectFinalDocument<TData>(
   };
 }
 
-const engineArtifactAiClient: AiClient = {
-  generateParagraph(): string {
-    return "";
-  },
+/**
+ * The client the engine build is written with. It answers every kind with
+ * nothing, so each dynamic node is assembled with its prompts on it and no
+ * content, and {@linkcode removeEngineStandIns} takes the empty answers back
+ * off. `Required` so a kind the client learns to write later cannot be left
+ * off here and fail every publish that uses it.
+ */
+const engineArtifactAiClient: Required<AiClient> = {
+  generateParagraph: () => "",
+  generateImage: () => ({ path: "" }),
+  generateGraph: () => ({}),
 };
 
-function removeEmptyDynamicText(nodes: DocumentModel["nodes"]): DocumentModel["nodes"] {
+/**
+ * Takes the empty answers {@linkcode engineArtifactAiClient} gave back off the
+ * nodes, at every depth: a cell or a shape holds a generated paragraph as much
+ * as a section does, and an engine reading `text: ""` reads it as written.
+ */
+function removeEngineStandIns(nodes: DocumentModel["nodes"]): DocumentModel["nodes"] {
   return nodes.map((node) => {
-    if (node.kind === "section" || node.kind === "repeat") {
-      return {
-        ...node,
-        children: removeEmptyDynamicText(node.children),
-      };
+    if (node.kind === "paragraph") {
+      const generated = node.inlineImages?.find(({ image }) => image.mode === "dynamic");
+      // The resolver fills block nodes, never a picture among a paragraph's
+      // words, so publishing one would ship a picture nothing ever draws.
+      if (generated) {
+        throw new Error(
+          `Paragraph "${node.id}" holds a generated picture, "${generated.image.id}", which an ` +
+            "engine cannot draw. Give the <Image> its own place beside the paragraph, or a src.",
+        );
+      }
+
+      if (node.mode === "dynamic" && node.text === "") {
+        const { text: _text, ...withoutText } = node;
+        return withoutText;
+      }
     }
 
-    if (node.kind === "paragraph" && node.mode === "dynamic" && node.text === "") {
-      const { text: _text, ...withoutText } = node;
-      return withoutText;
+    if (node.kind === "image" && node.mode === "dynamic" && node.path === "") {
+      const { path: _path, ...withoutPath } = node;
+      return withoutPath;
+    }
+
+    if ("children" in node) {
+      return { ...node, children: removeEngineStandIns(node.children) };
     }
 
     return node;

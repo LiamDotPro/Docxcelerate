@@ -9,6 +9,9 @@ import {
   registryRoot,
   resolveInstallOrder,
 } from "docxcelerate/registry/install";
+import { buildDocument } from "docxcelerate";
+import { Document, template } from "docxcelerate/template";
+import { jsx } from "docxcelerate/template/jsx-runtime";
 import { loadRegistryModule } from "./registry_support.ts";
 
 /**
@@ -55,25 +58,35 @@ test("every component compiles and loads the way a project's build would load it
   }
 });
 
-test("every component is laid out as a node, and at most one deriver beside it", async () => {
-  // One layout, so the node's `../derivers/` import resolves both in the
-  // registry and once installed, and so the installer's follow-up can name the
-  // deriver without reading it. Collected, so a failure names every entry.
+test("every component is laid out as a node, at most one deriver, and its arrangements", async () => {
+  // One layout, so the node's `../derivers/` and `../arrangements/` imports
+  // resolve both in the registry and once installed, and so the installer's
+  // follow-up can name the deriver without reading it. Collected, so a failure
+  // names every entry.
   const wrong: string[] = [];
 
   for (const component of COMPONENTS) {
     const { id } = component;
     const nodeFile = { source: `components/${id}/${id}.node.tsx`, target: `nodes/${id}.node.tsx` };
     const deriverFile = { source: `components/derivers/${id}.deriver.ts`, target: `derivers/${id}.deriver.ts` };
-    const [first, second, ...rest] = component.files;
+    const arranged = (file: string) => ({
+      source: `components/arrangements/${id}/${file}`,
+      target: `arrangements/${id}/${file}`,
+    });
+    // Every arrangement the catalog lists has its file, and nothing else is there.
+    const arrangementFiles = component.arrangements
+      ? [arranged("lines.ts"), ...component.arrangements.map((a) => arranged(`${a.id}.arrangement.tsx`))]
+      : [];
+    const [first, ...others] = component.files;
+    const hasDeriver = JSON.stringify(others[0]) === JSON.stringify(deriverFile);
+    const rest = hasDeriver ? others.slice(1) : others;
 
     if (JSON.stringify(first) !== JSON.stringify(nodeFile)) wrong.push(`${id}: first file is not ${nodeFile.source}`);
-    if (rest.length > 0) wrong.push(`${id}: more than a node and a deriver`);
-    if (!second) continue;
-    if (JSON.stringify(second) !== JSON.stringify(deriverFile)) {
-      wrong.push(`${id}: second file is not ${deriverFile.source}`);
-      continue;
+    if (JSON.stringify(rest) !== JSON.stringify(arrangementFiles)) {
+      wrong.push(`${id}: after the node and deriver, files are not ${JSON.stringify(arrangementFiles)}`);
     }
+
+    if (!hasDeriver) continue;
 
     const source = await readFile(join(registryRoot(), ...deriverFile.source.split("/")), "utf8");
     const name = id.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase());
@@ -123,6 +136,46 @@ test("a component that draws a chart says so in its tags", async () => {
   assertEquals(untagged, []);
 });
 
+// What a catalogued arrangement promises: the component takes it, and it places
+// things somewhere the others do not. A component that ignored the prop would
+// pass a build and show the same preview under every caption.
+test("every arrangement a component lists is one it builds, and each is its own", async () => {
+  for (const component of COMPONENTS) {
+    if (!component.arrangements) continue;
+
+    const ids = component.arrangements.map((arrangement) => arrangement.id);
+    assertEquals(`${component.id}: ${new Set(ids).size >= 2}`, `${component.id}: true`);
+    assertEquals(new Set(ids).size, ids.length);
+
+    const module = await loadRegistryModule<Record<string, unknown>>(component.files[0].source);
+    const build = (props: Record<string, unknown>) =>
+      buildDocument(
+        template(
+          jsx(Document, {
+            id: component.id,
+            title: component.title,
+            children: jsx(module[component.exports[0]] as never, props),
+          }),
+        ),
+        component.previewData,
+        { dynamicMode: "placeholder" },
+      );
+    const shapes = new Set<string>();
+
+    for (const id of ids) {
+      shapes.add(JSON.stringify((await build({ arrangement: id })).nodes));
+    }
+
+    assertEquals(`${component.id}: ${shapes.size} distinct`, `${component.id}: ${ids.length} distinct`);
+    // No prop is the first arrangement, as the catalog lists them.
+    assertEquals(
+      JSON.stringify((await build({})).nodes),
+      JSON.stringify((await build({ arrangement: ids[0] })).nodes),
+    );
+    await assertRejects(() => build({ arrangement: "no-such-arrangement" }), Error, "arrangement");
+  }
+});
+
 test("installing a component copies it in and re-exports it", async () => {
   const projectDir = await documentProject();
 
@@ -138,6 +191,20 @@ test("installing a component copies it in and re-exports it", async () => {
   // The fields it reads come back as work for a person, because nothing here
   // edits somebody's types.ts.
   assertStringIncludes(result.followUp.join("\n"), "sender.name");
+});
+
+test("installing a component with arrangements lands them where its node imports them from", async () => {
+  const projectDir = await documentProject();
+
+  const result = await installRegistryEntry({ ref: "invoice-document-type", projectDir });
+  const installed = await readFile(join(projectDir, "nodes", "invoice-document-type.node.tsx"), "utf8");
+
+  for (const file of ["lines.ts", "stacked.arrangement.tsx", "table.arrangement.tsx", "split.arrangement.tsx"]) {
+    assertStringIncludes(result.files.join("\n"), `arrangements/invoice-document-type/${file}`);
+    assertStringIncludes(installed, `"../arrangements/invoice-document-type/${file}"`);
+    await readFile(join(projectDir, "arrangements", "invoice-document-type", file), "utf8");
+  }
+  assertStringIncludes(result.followUp.join("\n"), 'arrangement=: "stacked", "table", "split"');
 });
 
 test("installing the same component twice does not double the export", async () => {

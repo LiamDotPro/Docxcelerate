@@ -7,7 +7,7 @@ import {
   InMemoryDataProvider,
   resolveDocument,
 } from "docxcelerate";
-import type { DocumentNode, ParagraphNode, RuntimeState } from "docxcelerate";
+import type { DocumentNode, RuntimeState } from "docxcelerate";
 import { createPublishData, Document, template } from "docxcelerate/template";
 import { assertEquals, assertRejects } from "./assert.ts";
 import { loadRegistryModule } from "./registry_support.ts";
@@ -33,6 +33,8 @@ interface Result {
   statement: string | null;
   issueDate: string;
   supplyLine: string | null;
+  supplyLabel: string | null;
+  supplyValue: string | null;
   vatNumber: string | null;
 }
 
@@ -65,6 +67,8 @@ test("defaults give a VAT invoice with the number and a long date", async () => 
     statement: null,
     issueDate: "1 March 2026",
     supplyLine: null,
+    supplyLabel: null,
+    supplyValue: null,
     vatNumber: "GB1",
   });
 });
@@ -75,6 +79,8 @@ test("a seller who is not registered, or unknown, gets a plain invoice", async (
     statement: null,
     issueDate: "1 March 2026",
     supplyLine: null,
+    supplyLabel: null,
+    supplyValue: null,
     vatNumber: null,
   });
   assertEquals(await run({}, { vatRegistered: undefined }).then((r) => r.heading), "Invoice");
@@ -148,6 +154,25 @@ test("date of supply", async () => {
   await assertRejects(() => run({ supplyDate: "next week" }), Error, "invoice.supplyDate");
 });
 
+test("the supply line comes apart into a label and a value", async () => {
+  const pick = (r: Result) => [r.supplyLabel, r.supplyValue, r.supplyLine];
+  assertEquals(pick(await run({ supplyDate: "2026-02-27" })), [
+    "Date of supply",
+    "27 February 2026",
+    "Date of supply: 27 February 2026",
+  ]);
+  assertEquals(pick(await run({ jurisdiction: "DE" })), [
+    "Leistungsdatum",
+    "entspricht Rechnungsdatum",
+    "Leistungsdatum entspricht Rechnungsdatum.",
+  ]);
+  assertEquals(pick(await run({ supplyPeriod: { from: "2026-02-01", to: "2026-02-28" } })), [
+    "Supply period",
+    "1 February 2026 to 28 February 2026",
+    "Supply period: 1 February 2026 to 28 February 2026",
+  ]);
+});
+
 test("Germany always prints a supply line", async () => {
   const same = "Leistungsdatum entspricht Rechnungsdatum.";
   assertEquals((await run({ jurisdiction: "DE" })).supplyLine, same);
@@ -193,44 +218,94 @@ const nodeData = {
   seller: baseSeller,
 };
 
-function documentOf() {
+const ARRANGEMENTS = ["stacked", "table", "split"] as const;
+
+function documentOf(arrangement?: (typeof ARRANGEMENTS)[number]) {
   return template(
     <Document title="Invoice">
-      <InvoiceDocumentType />
+      <InvoiceDocumentType arrangement={arrangement} />
     </Document>,
   );
 }
 
+/** Every line printed, in reading order, whatever the arrangement nests it in. */
 function texts(nodes: DocumentNode[]): string[] {
-  const section = nodes[0];
-
-  if (section?.kind !== "section") throw new Error("expected the section");
-
-  return [section.title ?? "", ...section.children.map((child) => (child as ParagraphNode).text ?? "")];
-}
-
-for (const purchaseOrder of ["PO-7", "", undefined]) {
-  test(`publishing the node then resolving matches building it directly (purchase order ${JSON.stringify(purchaseOrder)})`, async () => {
-    const data = { ...nodeData, invoice: { ...nodeData.invoice, purchaseOrder } };
-    const published = await buildDocument(documentOf(), createPublishData() as typeof data, {
-      branchMode: "publish",
-      deriverMode: "preserve",
-      dynamicMode: "resolve",
-      aiClient: { generateParagraph: () => "" },
-    });
-    const state: RuntimeState = {
-      ctx: { ...data },
-      derived: {},
-      dataProvider: new InMemoryDataProvider(data),
-      aiClient: { generateParagraph: () => "" },
-    };
-    const resolved = await resolveDocument(published, state, { derivers: registry });
-    const direct = await buildDocument(documentOf(), data, { dynamicMode: "placeholder" });
-
-    assertEquals(texts(resolved.nodes), texts(direct.nodes));
-    assertEquals(
-      texts(direct.nodes).some((line) => line.startsWith("Purchase order")),
-      Boolean(purchaseOrder),
-    );
+  return nodes.flatMap((node) => {
+    const own = node as { title?: string; text?: string; children?: DocumentNode[] };
+    return [
+      ...(node.kind === "section" && own.title ? [own.title] : []),
+      ...(own.text ? [own.text] : []),
+      ...texts(own.children ?? []),
+    ];
   });
 }
+
+for (const arrangement of ARRANGEMENTS) {
+  for (const purchaseOrder of ["PO-7", "", undefined]) {
+    test(`${arrangement}: publishing then resolving matches building directly (purchase order ${JSON.stringify(purchaseOrder)})`, async () => {
+      const data = { ...nodeData, invoice: { ...nodeData.invoice, purchaseOrder } };
+      const published = await buildDocument(documentOf(arrangement), createPublishData() as typeof data, {
+        branchMode: "publish",
+        deriverMode: "preserve",
+        dynamicMode: "resolve",
+        aiClient: { generateParagraph: () => "" },
+      });
+      const state: RuntimeState = {
+        ctx: { ...data },
+        derived: {},
+        dataProvider: new InMemoryDataProvider(data),
+        aiClient: { generateParagraph: () => "" },
+      };
+      const resolved = await resolveDocument(published, state, { derivers: registry });
+      const direct = await buildDocument(documentOf(arrangement), data, { dynamicMode: "placeholder" });
+
+      assertEquals(texts(resolved.nodes), texts(direct.nodes));
+      assertEquals(
+        texts(direct.nodes).some((line) => line.startsWith("Purchase order")),
+        Boolean(purchaseOrder),
+      );
+    });
+  }
+}
+
+test("every arrangement prints the same things, placed differently", async () => {
+  const data = { ...nodeData, seller: { ...baseSeller, vatRegistered: true } };
+  const lines = async (arrangement: (typeof ARRANGEMENTS)[number]) =>
+    texts((await buildDocument(documentOf(arrangement), data, { dynamicMode: "placeholder" })).nodes);
+
+  assertEquals(await lines("stacked"), [
+    "VAT invoice",
+    "Invoice number: 1",
+    "Date of issue: 1 March 2026",
+    "Date of supply: 27 February 2026",
+    "Purchase order: PO-7",
+    "VAT number: GB1",
+  ]);
+  assertEquals(await lines("table"), [
+    "VAT invoice",
+    "Invoice number",
+    "1",
+    "Date of issue",
+    "1 March 2026",
+    "Date of supply",
+    "27 February 2026",
+    "Purchase order",
+    "PO-7",
+    "VAT number",
+    "GB1",
+  ]);
+  assertEquals(await lines("split"), [
+    "VAT invoice",
+    "Invoice number: 1",
+    "Purchase order: PO-7",
+    "VAT number: GB1",
+    "Date of issue: 1 March 2026",
+    "Date of supply: 27 February 2026",
+  ]);
+});
+
+test("no arrangement is the stacked one", async () => {
+  const build = (arrangement?: "stacked") =>
+    buildDocument(documentOf(arrangement), nodeData, { dynamicMode: "placeholder" });
+  assertEquals((await build()).nodes, (await build("stacked")).nodes);
+});

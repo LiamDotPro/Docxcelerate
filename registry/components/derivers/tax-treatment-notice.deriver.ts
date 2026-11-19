@@ -14,15 +14,15 @@ import { deriver } from "docxcelerate/template";
  */
 export default deriver({
   name: "taxTreatmentNotice",
-  run: (amount: unknown): string => {
+  run: (amount: number | null | undefined): string => {
     if (amount == null) return "";
 
-    const n = Number(amount);
-
-    if (!Number.isFinite(n)) {
+    // The type is what the node passes; the data behind it is JSON nobody
+    // checked, so a string or NaN still has to be refused here.
+    if (!Number.isFinite(amount)) {
       throw new Error(`taxTreatmentNotice needs a finite amount in pounds sterling; got ${String(amount)}.`);
     }
 
-    return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
+    return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(amount);
   },
 });

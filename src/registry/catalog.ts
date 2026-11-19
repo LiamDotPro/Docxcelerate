@@ -35,6 +35,26 @@ export interface RegistryDataField {
   summary: string;
 }
 
+/**
+ * One way a component can place what it prints, chosen with its `arrangement`
+ * prop.
+ *
+ * Arrangements change where the lines sit, never which lines print: every one
+ * of a component's arrangements prints the same lines under the same
+ * conditions. The component picks between them with `arrange()` from
+ * `docxcelerate/template`, which treats the first as the default, the same
+ * order these are listed in. Each one is a file of its own, installed under
+ * `arrangements/<component id>/`.
+ */
+export interface RegistryArrangement {
+  /** The value the `arrangement` prop takes. */
+  id: string;
+  /** Its name, as it is printed. */
+  title: string;
+  /** One line: where things sit, and when you would want that. */
+  summary: string;
+}
+
 /** One file an install copies. */
 export interface RegistryFile {
   /** Path under `registry/`, inside the package. */
@@ -63,6 +83,11 @@ export interface RegistryComponent {
   exports: string[];
   /** What it reads, so a project knows what to add to its data type. */
   dataFields: RegistryDataField[];
+  /**
+   * The placements its `arrangement` prop chooses between, the default first.
+   * Missing for a component that has only the one.
+   */
+  arrangements?: RegistryArrangement[];
   /** The files copied in. */
   files: RegistryFile[];
   /** Data the previews on the site are built against, and a project can crib. */
@@ -85,11 +110,25 @@ export interface RegistryComponent {
  * sits in a `derivers/` folder in the registry too, so the node's
  * `../derivers/<id>.deriver.ts` import resolves the same before and after it is
  * copied.
+ *
+ * A component with arrangements keeps each one in its own file, laid out the
+ * same way and for the same reason: `arrangements/<id>/<name>.arrangement.tsx`,
+ * beside `arrangements/<id>/lines.ts`, the type of what the node hands every
+ * one of them. The node imports them from `../arrangements/<id>/`, so it reads
+ * as what it decides, and each file reads as where things sit.
  */
-function node(id: string, options: { deriver?: boolean } = {}): RegistryFile[] {
+function node(id: string, options: { deriver?: boolean; arrangements?: string[] } = {}): RegistryFile[] {
+  const arranged = (file: string) => ({
+    source: `components/arrangements/${id}/${file}`,
+    target: `arrangements/${id}/${file}`,
+  });
+
   return [
     { source: `components/${id}/${id}.node.tsx`, target: `nodes/${id}.node.tsx` },
     ...(options.deriver ? [{ source: `components/derivers/${id}.deriver.ts`, target: `derivers/${id}.deriver.ts` }] : []),
+    ...(options.arrangements
+      ? [arranged("lines.ts"), ...options.arrangements.map((name) => arranged(`${name}.arrangement.tsx`))]
+      : []),
   ];
 }
 
@@ -241,7 +280,7 @@ export const COMPONENTS: RegistryComponent[] = [
       "oddly at zero is the point — somebody who owes nothing should not be " +
       "given a payment deadline.",
     category: "Body",
-    tags: ["money", "branching", "section"],
+    tags: ["money", "branching", "section", "localised"],
     exports: ["PaymentSummary"],
     dataFields: [
       {
@@ -272,6 +311,64 @@ export const COMPONENTS: RegistryComponent[] = [
         balanceDue: 128.42,
         dueBy: "2026-09-30",
         currency: "GBP",
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "invoice-totals",
+    title: "Invoice totals",
+    summary: "Line items and VAT totals, worked in minor units and rounded once per rate.",
+    detail:
+      "The arithmetic every invoice gets subtly wrong, done once in a deriver. " +
+      "Money is worked in integer minor units at the currency's own exponent, " +
+      "so yen and dinars come out right and no float reaches a total. Each " +
+      "line is rounded once, lines are grouped by rate, and VAT is worked once " +
+      "per band on the band's sum. That is rate-level rounding, which HMRC and " +
+      "the EU accept, and it is the figure an accounting system recomputes; " +
+      "per-line VAT summed drifts a penny from it. Inclusive prices have their " +
+      "VAT backed out of the band's gross, so the total is exactly what was " +
+      "charged. Discounts reduce their own band. Exempt lines print under " +
+      "their own label rather than as 0%, and more than one band draws the " +
+      "per-rate VAT analysis an invoice is required to carry.",
+    category: "Body",
+    tags: ["money", "table", "tax", "invoice", "branching", "section"],
+    exports: ["InvoiceTotals"],
+    dataFields: [
+      {
+        path: "invoice.currency",
+        type: "string",
+        summary: "ISO 4217 code. Required; sets the decimal places.",
+      },
+      {
+        path: "invoice.pricing",
+        type: '"exclusive" | "inclusive" | undefined',
+        summary: "Whether unit prices exclude or include VAT. Defaults to exclusive.",
+      },
+      {
+        path: "invoice.lines",
+        type:
+          "Array<{ description: string; quantity: number; unit?: string; unitPrice: number; taxRate: number | null; taxLabel?: string }>",
+        summary:
+          "One per line, in print order. `taxRate` is a percentage; `null` is exempt or outside scope, labelled by `taxLabel`. Empty prints \"no charges\".",
+      },
+    ],
+    files: node("invoice-totals", { deriver: true }),
+    previewData: {
+      invoice: {
+        currency: "GBP",
+        pricing: "exclusive",
+        lines: [
+          { description: "Quarterly planned preventive maintenance of rooftop air handling units AHU-1 to AHU-6, including filter replacement and belt tensioning", quantity: 4, unit: "visits", unitPrice: 12850, taxRate: 20 },
+          { description: "Out-of-hours emergency call-out, chilled water pump failure at Riverside House, 14–15 March", quantity: 7.25, unit: "h", unitPrice: 142.5, taxRate: 20 },
+          { description: "Replacement variable-speed drive and mounting kit for pump P-03", quantity: 1, unitPrice: 3487.6, taxRate: 20 },
+          { description: "Communal heating fuel and power, March (reduced rate)", quantity: 18432.5, unit: "kWh", unitPrice: 0.2847, taxRate: 5 },
+          { description: "Printed site logbooks and operating manuals", quantity: 6, unit: "copies", unitPrice: 48.5, taxRate: 0 },
+          { description: "Plant breakdown insurance premium recharge, 2026–27", quantity: 1, unitPrice: 2310, taxRate: null, taxLabel: "Exempt" },
+          { description: "Loyalty discount on planned maintenance", quantity: 1, unitPrice: -2570, taxRate: 20 },
+        ],
       },
     },
     requires: [],
@@ -815,7 +912,24 @@ export const COMPONENTS: RegistryComponent[] = [
       { path: "seller.vatNumber", type: "string | undefined", summary: "Required when registered; the document fails without it." },
       { path: "seller.simplifiedAllowed", type: "boolean | undefined", summary: "Whether simplified invoices are issued at all. Missing means no." },
     ],
-    files: node("invoice-document-type", { deriver: true }),
+    arrangements: [
+      {
+        id: "stacked",
+        title: "Stacked",
+        summary: "One labelled line under another, down the text column.",
+      },
+      {
+        id: "table",
+        title: "Table",
+        summary: "Labels in a narrow column with the values beside them, so the values line up.",
+      },
+      {
+        id: "split",
+        title: "Split",
+        summary: "Number, purchase order and VAT number on the left; the dates ranged right.",
+      },
+    ],
+    files: node("invoice-document-type", { deriver: true, arrangements: ["stacked", "table", "split"] }),
     previewData: {
       invoice: {
         number: "SI-2026-11-004817/REV-2",
@@ -903,6 +1017,51 @@ export const COMPONENTS: RegistryComponent[] = [
       customer: {
         vatNumber: "NL123456789B01",
         resaleCertificate: { number: "SR EAA 102-345678", state: "California" },
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "invoice-billing-periods",
+    title: "Invoice billing periods",
+    summary: "The periods a subscription invoice bills for, in advance and in arrears.",
+    detail:
+      "Works out the periods an invoice states from the billing anchor and " +
+      "interval. Month-end anchors are clamped without being forgotten, so an " +
+      "anchor of the 31st bills on 31 Jan, 28 Feb and 31 Mar, and 29 Feb on an " +
+      "annual plan falls on 28 Feb in a common year. End dates are inclusive, " +
+      "the EN 16931 convention. Licensed items are billed in advance for the " +
+      "coming period and metered items in arrears for the previous one, so " +
+      "one invoice can state two periods; the header period then runs from " +
+      "the earliest start to the latest end, so it contains every line " +
+      "period, as Peppol requires. A first period that starts off the anchor " +
+      "is labelled a part period. Dates are calendar dates in the seller's " +
+      "billing time zone, never UTC. All of it is one deriver.",
+    category: "Opening",
+    tags: ["invoice", "subscription", "billing", "dates", "deriver", "section"],
+    exports: ["InvoiceBillingPeriods"],
+    dataFields: [
+      { path: "billing.anchor", type: "string", summary: "The original anchor date, YYYY-MM-DD or an instant with an offset. Required; its day is kept for every period." },
+      { path: "billing.interval", type: '"week" | "month" | "year"', summary: "The unit the cycle repeats in. Anything else fails the document." },
+      { path: "billing.intervalCount", type: "number | undefined", summary: "Units per period; 3 months is quarterly. Missing means 1." },
+      { path: "billing.invoiceDate", type: "string", summary: "When the invoice is issued, read in the billing time zone. Required." },
+      { path: "billing.timeZone", type: "string", summary: "The seller's IANA billing time zone. Required." },
+      { path: "billing.signupDate", type: "string | undefined", summary: "When the subscription started. Inside a billed period, it starts a part period." },
+      { path: "billing.hasAdvanceItems", type: "boolean", summary: "Licensed items, billed in advance for the coming period. Missing means false." },
+      { path: "billing.hasArrearsItems", type: "boolean", summary: "Metered items, billed in arrears for the previous period. Missing means false." },
+    ],
+    files: node("invoice-billing-periods", { deriver: true }),
+    previewData: {
+      billing: {
+        anchor: "2025-12-31",
+        interval: "month",
+        intervalCount: 1,
+        invoiceDate: "2027-01-01T02:30:00Z",
+        timeZone: "America/Argentina/Buenos_Aires",
+        signupDate: "2025-12-14",
+        hasAdvanceItems: true,
+        hasArrearsItems: true,
       },
     },
     requires: [],
@@ -1005,6 +1164,54 @@ export const COMPONENTS: RegistryComponent[] = [
       customer: { country: "FI", isBusiness: true, vatNumber: "FI12345678", vatNumberValidated: false },
       supply: { kind: "digital", shipsFrom: "DE", shipsTo: "FI" },
       vatRates: { DE: 19, FI: 25.5, NL: 21 },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "india-gst-split",
+    title: "India GST split",
+    summary: "CGST and SGST, or IGST, decided from the place of supply against the GSTIN's state code, never the billing address.",
+    detail:
+      "Picks the tax head from the place of supply against the state code in the " +
+      "supplier's GSTIN, never from the billing address or a typed state name: the " +
+      "same state gets CGST plus SGST (UTGST in a Union Territory without a " +
+      "legislature) at half the rate each, a different state gets IGST at the full " +
+      "rate. Supplies to an SEZ and exports are always inter-state; under a letter " +
+      "of undertaking they carry IGST at nil and the Rule 46 mention. Each half is " +
+      "rounded to the paisa on its own, so an odd paisa can make CGST plus SGST " +
+      "differ from IGST on the same base, which is correct. Prints place of supply " +
+      "as 'State (code)', the mandatory 'Reverse charge: Yes/No', an HSN/SAC-wise " +
+      "summary, the round-off to the nearest rupee, and the total in words in lakh " +
+      "and crore. Under reverse charge the tax is shown but not added to the amount " +
+      "payable. All of it is worked out by a deriver that ships with it.",
+    category: "Body",
+    tags: ["tax", "gst", "india", "invoice", "table", "branching", "deriver"],
+    exports: ["IndiaGstSplit"],
+    dataFields: [
+      { path: "seller.gstin", type: "string", summary: "The supplier's GSTIN. Its first two digits are the supplier's state, the only one believed." },
+      { path: "seller.stateCode", type: "string | undefined", summary: "Optional cross-check. Differing from the GSTIN's prefix throws." },
+      { path: "placeOfSupply.stateCode", type: "string", summary: "Two-digit GST state code, or 96 for an export. Decides the tax head with the GSTIN prefix." },
+      { path: "placeOfSupply.stateName", type: "string", summary: "Printed as 'Name (code)'. Never used to decide anything." },
+      { path: "customer.isSez", type: "boolean | undefined", summary: "A supply to an SEZ unit or developer, always inter-state. Missing means no." },
+      { path: "supply.exportUnderLut", type: "boolean | undefined", summary: "An export or SEZ supply under a letter of undertaking: IGST at nil with the Rule 46 mention." },
+      { path: "supply.reverseCharge", type: "boolean", summary: "Printed as 'Reverse charge: Yes/No'. Required. Yes leaves the tax out of the amount payable." },
+      { path: "lines", type: "Array<{ hsnSac: string; taxableMinor: number; rate: number }>", summary: "Taxable value in paise and the full GST rate per line, summed per HSN/SAC and rate." },
+    ],
+    files: node("india-gst-split", { deriver: true }),
+    previewData: {
+      seller: { gstin: "26AAACR5055K1Z5", stateCode: "26" },
+      placeOfSupply: { stateCode: "26", stateName: "Dadra and Nagar Haveli and Daman and Diu" },
+      customer: { isSez: false },
+      supply: { exportUnderLut: false, reverseCharge: false },
+      lines: [
+        { hsnSac: "84714190", taxableMinor: 12345678950, rate: 18 },
+        { hsnSac: "998314", taxableMinor: 4567890125, rate: 18 },
+        { hsnSac: "84714190", taxableMinor: 9999999, rate: 18 },
+        { hsnSac: "30049099", taxableMinor: 234567891, rate: 5 },
+        { hsnSac: "71023910", taxableMinor: 9876543, rate: 0.25 },
+      ],
     },
     requires: [],
   },

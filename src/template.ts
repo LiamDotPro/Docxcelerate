@@ -39,8 +39,10 @@ import type { DocumentProps } from "./template/elements.ts";
 export * from "./template/element.ts";
 export * from "./template/elements.ts";
 export * from "./template/hooks.ts";
+export * from "./template/messages.ts";
 export { deriver, type DeriverModule } from "./runtime/deriver_module.ts";
 export { type AiConfig, useAi } from "./template/ai.ts";
+export { arrange } from "./template/arrange.ts";
 export {
   and,
   branch,
@@ -54,7 +56,7 @@ export {
   truthy,
 } from "./template/branch.ts";
 export type { BranchMode, DeriverMode, DynamicMode } from "./template/context.ts";
-export { createPublishData, expr, isPublishValue, publishRefOf } from "./template/publish.ts";
+export { createPublishData, expr, isPublishValue, position, publishRefOf } from "./template/publish.ts";
 // The helpers compiled control flow calls into. Exported because the transform
 // emits imports of them, not because anybody writes one.
 export { __and, __compare, __not, __or, __test } from "./template/compiled.ts";

@@ -21,7 +21,7 @@ import type {
 import type { TemplateElement } from "./template/element.ts";
 import type { DocumentProps } from "./template/elements.ts";
 import { isPublishValue } from "./template/publish.ts";
-import { renderDocumentChildren, renderDocumentFurniture } from "./template/render.ts";
+import { renderDocumentChildren, renderDocumentFurniture, renderDocumentProperties } from "./template/render.ts";
 
 /**
  * Turning a template into a document: what a build is given, and what it hands
@@ -53,7 +53,14 @@ export interface ComponentRuntimeOptions {
   branchMode?: BranchMode;
   /** How many branches one published document may carry before it is a mistake. */
   branchLimit?: number;
-  /** Locale for `useFormat` and placeholder data. */
+  /**
+   * The document's locale, as a BCP 47 tag such as `fr-FR`.
+   *
+   * It picks the messages `useMessages` hands out and how `useFormat` writes
+   * numbers and dates, and it is recorded on the model so the renderer, the
+   * derivers and the AI client know it too. Formatting defaults to `en-GB`
+   * when this is absent, and nothing is recorded.
+   */
   locale?: string;
 }
 
@@ -98,7 +105,10 @@ export async function buildDocument<TData>(
   options: ComponentRuntimeOptions = {},
 ): Promise<DocumentModel> {
   const availableTokens = options.availableTokens ?? 2_000;
-  const context = createRenderContext(data, availableTokens, options);
+  // Checked here, where the tag enters, rather than as a RangeError from deep
+  // inside whichever formatter met it first.
+  const locale = options.locale === undefined ? undefined : canonicalLocale(options.locale);
+  const context = createRenderContext(data, availableTokens, { ...options, locale });
   const props = template.element.props as unknown as DocumentProps;
 
   // The body first, so ids are claimed in the order a reader meets them and a
@@ -110,11 +120,16 @@ export async function buildDocument<TData>(
     context,
   );
 
+  const properties = await renderDocumentProperties(props, context);
+
   return {
     schemaVersion: "docxcelerate.letter/v0",
     id: template.id,
     title: template.title,
+    ...(locale === undefined ? {} : { locale }),
+    ...(props.trackChanges ? { trackChanges: true } : {}),
     metadata: template.metadata,
+    ...(properties === undefined ? {} : { properties }),
     nodes,
     header,
     footer,
@@ -139,6 +154,7 @@ function createRenderContext<TData>(
     derived: {},
     dataProvider: new InMemoryDataProvider(ctx),
     aiClient: aiClient ?? missingAiClient,
+    ...(options.locale === undefined ? {} : { locale: options.locale }),
   };
 
   return {
@@ -174,6 +190,14 @@ function dataToObject<TData>(data: TData): JsonObject {
   }
 
   return { value: data };
+}
+
+function canonicalLocale(locale: string): string {
+  try {
+    return Intl.getCanonicalLocales(locale)[0];
+  } catch {
+    throw new Error(`"${locale}" is not a BCP 47 locale tag, such as "en-GB" or "fr".`);
+  }
 }
 
 const missingAiClient: AiClient = {
