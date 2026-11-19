@@ -133,7 +133,16 @@ export function collectDocumentDeriverNames(doc: DocumentModel): string[] {
   // The furniture too: a footer deriving its reference invokes a deriver as
   // much as any body node, and one only the furniture used would otherwise
   // slip past the registration check.
-  for (const furniture of [doc.header, doc.footer, doc.firstHeader, doc.firstFooter]) {
+  for (
+    const furniture of [
+      doc.header,
+      doc.footer,
+      doc.firstHeader,
+      doc.firstFooter,
+      doc.evenHeader,
+      doc.evenFooter,
+    ]
+  ) {
     if (furniture) {
       collectNodeDeriverNames(furniture, names);
     }
