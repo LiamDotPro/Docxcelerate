@@ -138,6 +138,7 @@ dxcl list components
 | `vat-place-of-supply` | Whose VAT applies and at what rate, decided before anything is printed. |
 | `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `pay-less-notice` | A UK pay less notice: sum due, itemised basis, and whether it was served in time. |
 | `prompt-payment-discount` | Early-payment discount terms, worked per VAT band under the rule where the invoice is issued. |
 | `credits-applied-to-invoice` | Open credit notes and payments on account set against an invoice, from total to amount due. |
 | `canadian-sales-tax` | GST/HST and provincial sales tax for the province of supply, each on its own base, with CRA's invoice checks. |

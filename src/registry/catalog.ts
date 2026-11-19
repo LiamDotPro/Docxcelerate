@@ -1125,6 +1125,68 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "pay-less-notice",
+    title: "Pay less notice",
+    summary: "A UK construction pay less notice: the sum due, every deduction itemised as its basis, and whether it was served in time.",
+    detail:
+      "Starts from the notified sum (the payment notice, or the payee's application or default notice) and lists every deduction under its own kind, so the itemised schedule is the basis of calculation section 111 requires, not one netted figure. " +
+      "Liquidated damages are days of delay times the daily or weekly rate, pro rata by the day, capped at the LD cap less what earlier notices already deducted, and the line says when the cap bit. " +
+      "A CIS deduction fails the document: tax withholding is not a pay-less ground. " +
+      "When deductions exceed the notified sum the sum due is nil and a separate line says the excess is not recovered here, so no negative payment is printed. " +
+      "A banner counts the pay-less deadline back from the final date for payment, skipping the days section 116 excludes, and says plainly when a late notice leaves the notified sum payable. " +
+      "A generated paragraph explains the schedule; the schedule stands as the basis whatever it says. All the arithmetic is one deriver.",
+    category: "Body",
+    tags: ["construction", "payment", "notice", "legal", "money", "table", "deriver", "branching", "generated", "section"],
+    exports: ["PayLessNotice"],
+    dataFields: [
+      { path: "payLess.contractRef", type: "string", summary: "The contract the notice is given under. Required." },
+      { path: "payLess.payer", type: "string", summary: "Who gives the notice. Required." },
+      { path: "payLess.payee", type: "string", summary: "Who receives it. Required." },
+      {
+        path: "payLess.notifiedSum",
+        type: '{ amountMinor: number; source: "payment-notice" | "application" | "default-notice"; reference?: string }',
+        summary: "The notified sum in pence and the notice that fixed it. Required.",
+      },
+      { path: "payLess.finalDateForPayment", type: "string", summary: "ISO 8601 final date for payment. Required." },
+      { path: "payLess.payLessDeadline", type: "string | undefined", summary: "ISO 8601 last day to serve. Wins over the prescribed period." },
+      { path: "payLess.prescribedPeriodDays", type: "number | undefined", summary: "Days before the final date for payment; 7 under the Scheme. One of this or the deadline is required." },
+      { path: "payLess.excludedDays", type: "string[] | undefined", summary: "Christmas Day, Good Friday and bank holidays, skipped when counting back (s.116)." },
+      { path: "payLess.servedDate", type: "string", summary: "ISO 8601 date of service. Required." },
+      {
+        path: "payLess.ld",
+        type: '{ rateMinor: number; per: "day" | "week"; delayDays: number; capMinor?: number; previouslyDeductedMinor?: number } | undefined',
+        summary: "Liquidated damages; the cap is net of earlier notices. Missing: no LD line.",
+      },
+      {
+        path: "payLess.deductions",
+        type: 'Array<{ kind: "contra" | "abatement" | "setoff" | "cis"; description: string; amountMinor: number; reference?: string }> | undefined',
+        summary: "Each deduction in pence. CIS fails the document. At most 12 lines with LDs.",
+      },
+    ],
+    files: node("pay-less-notice", { deriver: true }),
+    previewData: {
+      payLess: {
+        contractRef: "JCT Design and Build Sub-Contract 2016, NWH-PH2-MEP-0047, North Wharf Hospital Phase 2 Main Works",
+        payer: "Northgate Healthcare Infrastructure Construction (Phase 2) Limited",
+        payee: "Brightwater Mechanical & Electrical Building Services Contractors Limited",
+        notifiedSum: { amountMinor: 487231645, source: "payment-notice", reference: "Interim Payment Notice No. 14, valuation date 31 October 2026" },
+        finalDateForPayment: "2026-11-30",
+        prescribedPeriodDays: 7,
+        excludedDays: [],
+        servedDate: "2026-11-20",
+        ld: { rateMinor: 3500000, per: "week", delayDays: 47, capMinor: 125000000, previouslyDeductedMinor: 105000000 },
+        deductions: [
+          { kind: "contra", description: "Replacement by others of damaged ductwork on the Level 4 ward block following a failed pressure test", amountMinor: 18644218, reference: "CC-0193" },
+          { kind: "abatement", description: "Level 5 and 6 medical gas pipeline installation valued at 62% complete against 85% applied for", amountMinor: 31298050, reference: "Valuation 14, item 23.07" },
+          { kind: "setoff", description: "Delay and disruption costs to Plant Room B under Sub-Contract Order SO-118", amountMinor: 9460000, reference: "Notice of set-off dated 3 November 2026" },
+          { kind: "contra", description: "Out-of-hours security and site cleaning charged under clause 2.9 of the sub-contract", amountMinor: 4875000, reference: "CC-0201" },
+        ],
+      },
+    },
+    requires: [],
+  },
 
   {
     kind: "component",
