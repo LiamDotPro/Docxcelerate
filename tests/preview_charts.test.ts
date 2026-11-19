@@ -80,6 +80,20 @@ test("a chart comes back out of the file with its numbers intact", async () => {
   assertEquals([...read.series[1].values], [16, 14, 21, 27]);
 });
 
+test("a trendline is read back from the file, and the series keeps its own colour", async () => {
+  const series = [
+    { label: "A", values: [12, 18, 9, 22], color: "123456", trendline: "linear" },
+    { label: "B", values: [16, 14, 21, 27], trendline: { movingAverage: 2 } },
+  ];
+  const [read] = await readBack([chart({ data: { categories: quarters, series } as never })]);
+  const [plain] = await readBack([chart()]);
+
+  assertEquals(read.series[0].trendline, "linear");
+  assertEquals(read.series[1].trendline, { movingAverage: 2 });
+  assertEquals(read.series[0].color, "123456");
+  assertEquals(plain.series.map((entry) => entry.trendline), [undefined, undefined]);
+});
+
 test("a gap in a series is still a gap once it has been through the file", async () => {
   const [read] = await readBack([
     chart({ data: { categories: quarters, series: [{ label: "n", values: [1, null, 3, 4] }] } }),

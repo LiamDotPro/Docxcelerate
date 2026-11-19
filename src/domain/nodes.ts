@@ -158,7 +158,33 @@ export interface GraphSeries {
    * sizes a scatter rather than a bubble chart nobody asked for.
    */
   sizes?: (number | null)[];
+  /**
+   * A line of best fit over this series. See {@linkcode GraphTrendline}.
+   *
+   * Left out, the series is drawn as it stands, with no trendline.
+   */
+  trendline?: GraphTrendline;
 }
+
+/**
+ * A line of best fit drawn over one series, which Word works out from the
+ * series' own numbers.
+ *
+ * `"linear"` is the straight line through the readings by least squares: the
+ * direction the figures are heading. `{ movingAverage: n }` is the mean of each
+ * run of n readings in a row, which smooths a noisy series into its trend
+ * without pretending it is straight. n is a whole number of at least 2 and
+ * fewer than the chart's categories. A fraction is rounded and anything under 2
+ * is read as 2. A window as long as the series has no average to draw, so no
+ * trendline is written.
+ *
+ * Packed as a native trendline, not as figures, so a reader who edits the data
+ * gets a line that follows it. Word allows a trendline on unstacked bars,
+ * lines, areas, scatters and bubbles. A pie, a doughnut, a radar and any
+ * stacked chart have none, and on those the field is ignored. That is Word's
+ * rule, not this toolkit's.
+ */
+export type GraphTrendline = "linear" | { movingAverage: number };
 
 /** The numbers a {@linkcode GraphNode} plots, and what they are counted against. */
 export interface GraphData {
