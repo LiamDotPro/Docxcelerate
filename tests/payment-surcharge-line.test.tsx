@@ -236,6 +236,23 @@ test("24: shares sum to the surcharge, extra units to the earliest bands", async
   );
 });
 
+test("24b: a base past 2^53 / S still splits exactly", async () => {
+  const r = await run({
+    ...preview,
+    percent: 1.95,
+    costOfAcceptance: 2,
+    bands: [
+      { ratePercent: 20, net: 13624710.26, vat: 0 },
+      { ratePercent: 5, net: 16919167.38, vat: 0 },
+      { ratePercent: 0, net: 5505409.69, vat: 0 },
+    ],
+  });
+  assertEquals(r.surchargeAmount, "£702,961.10");
+  assertStringIncludes(r.taxNote ?? "", "£265,681.85 at 20%, £329,923.76 at 5%, £107,355.49 at 0%.");
+  // 53,136.37 + 16,496.19 (exact shares at 20% and 5%)
+  assertEquals(r.taxAmount, "£69,632.56");
+});
+
 test("25: a currency with no minor units", async () => {
   const r = await run({
     ...preview,

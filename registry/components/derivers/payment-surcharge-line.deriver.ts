@@ -143,9 +143,11 @@ export default deriver({
     if (S === 0) return none;
 
     // Largest remainder: shares sum to exactly S, ties to the earlier band.
-    const shares = bands.map((band) => floorDiv(S * band.netMinor, base));
-    const order = bands.map((band, i) => ({ i, rem: (S * band.netMinor) % base }))
-      .sort((a, b) => b.rem - a.rem || a.i - b.i);
+    // BigInt: S * netMinor passes 2^53 on a base of a few million pounds.
+    const products = bands.map((band) => BigInt(S) * BigInt(band.netMinor));
+    const shares = products.map((product) => Number(product / BigInt(base)));
+    const order = bands.map((_, i) => ({ i, rem: products[i] % BigInt(base) }))
+      .sort((a, b) => (a.rem === b.rem ? a.i - b.i : a.rem > b.rem ? -1 : 1));
     let leftover = S - shares.reduce((sum, share) => sum + share, 0);
     for (const { i } of order) {
       if (leftover === 0) break;
