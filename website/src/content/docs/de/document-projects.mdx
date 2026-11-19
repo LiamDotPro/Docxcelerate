@@ -40,7 +40,7 @@ Die Aufteilung ist der Punkt. Jede Datei beantwortet eine Frage:
 | `preview-data.ts` | Eine Ausprägung dieses Vertrags, für die Vorschau |
 | `document.tsx` | Nur Struktur: welche Nodes, in welchen Sections, in welcher Reihenfolge |
 | `nodes/` | Eine Komponente je Node, plus eine `index.ts`, die sie exportiert |
-| `document-style.ts` | Schriften, Abstände und Ränder für die gepackte `.docx` |
+| `document-style.ts` | Papier, Schriften, Abstände und Ränder für die gepackte `.docx` |
 | `derivers/index.ts` | Benannte Funktionen, die die Engine je Dokument ausführt |
 | `document.project.ts` | Verbindet das alles und benennt das Dokument |
 
@@ -82,6 +82,26 @@ export default defineDocumentProject<DocumentData>({
 Die Vorschau-App findet Projekte per Glob über `document.project.ts` — ein neues
 Dokument taucht also in der Auswahl auf, sobald es existiert. Es wird nirgends
 registriert.
+
+## Papier und Seitenzahlen
+
+`document-style.ts` entscheidet über das Blatt. `page.size` ist `"A4"`, `"LETTER"`,
+`"LEGAL"`, `"A5"`, `"A3"` oder `{ widthMm, heightMm }` für jedes andere Blatt,
+hochkant angegeben; `orientation: "landscape"` dreht beide Arten, und Tabellen,
+Bleeds, Formen und Diagramme ohne eigene Breite füllen die breitere Spalte, ohne
+dass man es ihnen sagt.
+
+`page.firstPageNumber` und `page.numberStyle` ändern, wie `<PageNumber>` zählt —
+ein Anhang, der ab Seite 37 weiterläuft, ein Vorspann mit i, ii, iii. Es bewegt
+sich nur die eigene Nummer der Seite; eine Gesamtzahl ist weiterhin die Anzahl der
+Seiten, wie Word sie druckt.
+
+```ts
+export const documentStyle: DocumentStyle = {
+  ...cleanMinimalDocumentStyle,
+  page: { ...cleanMinimalDocumentStyle.page, size: "A3", orientation: "landscape", firstPageNumber: 37 },
+};
+```
 
 ## Halten Sie die Vorschaudaten ehrlich
 

@@ -47,6 +47,35 @@ laat wijzen, dan overschrijft een commentaar
 `/** @jsxImportSource docxcelerate/template */` op regel één dat voor dat
 bestand.
 
+## Wat het document over zichzelf zegt
+
+`<Document>` kent twee instellingen die over het bestand gaan en niet over de
+pagina's. `properties` is wat Word's Bestand › Info, Verkenner, Finder en een
+documentopslag lezen — auteur, onderwerp, trefwoorden, beschrijving en
+`custom`-waarden om op te indexeren. Niets ervan wordt afgedrukt. Een template
+heeft geen data, dus een waarde die per document verschilt is een functie
+ervan:
+
+```tsx
+<Document
+  title="Invoice"
+  properties={(data: InvoiceData) => ({
+    author: "Ashcroft Housing",
+    subject: `Invoice ${data.invoice.number}`,
+    custom: { invoiceNumber: data.invoice.number },
+  })}
+>
+```
+
+Gepubliceerd is een geïnterpoleerde waarde een token dat de engine invult zoals
+elk ander; een custom-waarde die leeg uitkomt, wordt uit het bestand weggelaten.
+
+`trackChanges` opent het document in Word met Wijzigingen bijhouden aan — voor
+een contract of overeenkomst die wordt rondgestuurd om over te onderhandelen,
+zodat elke wijziging van de andere partij vanaf de eerste toetsaanslag wordt
+vastgelegd. Het is een instelling, geen slot, en de preview ziet er hetzelfde
+uit omdat er nog niets is bewerkt.
+
 ## Berekende structuur
 
 Een template staat op modulescope, waar nog geen data bestaat, dus structuur die
@@ -170,8 +199,16 @@ per document uitvoert:
 </Paragraph>
 ```
 
-`useFormat` en `useDeriver` rekenen in plaats daarvan tijdens de build, wat juist is
-zodra de waarde al bekend is. Grijp naar een deriver wanneer dat niet zo is.
+Een `variant` interpoleert op dezelfde manier: `<Row variant={line.status}>`
+publiceert het token, en de rijen van elke ontvanger nemen het blok dat zijn eigen
+status noemt. Noem de blokken van het thema naar de waarden die de data draagt.
+Een ternary die tussen namen kiest is rekenen — gepubliceerd krijgt elke
+ontvanger zijn ware tak — dus laat de naam in de data meekomen, of leid hem af.
+
+`useFormat` rekent tijdens de build. `useDeriver(deriver, inputs)` draait nu als
+de data bij de hand is, en tijdens het publiceren reist hij met de node mee en
+draait de engine hem per document — zodat zijn resultaat kan worden
+geïnterpoleerd zoals aanvraagdata.
 
 ### Lussen worden als lussen gepubliceerd
 
@@ -198,8 +235,13 @@ beide paden op positie benoemd, zodat een id hetzelfde betekent in een preview a
 het document dat iemand ontvangt.
 
 Alles wat eerst naar de items moet kijken voordat de body geschreven kan worden —
-`.filter()`, `.sort()`, `.length`, een `for`-lus — is bij het publiceren niet te
-beantwoorden. Dat verwijst naar een deriver, die draait waar de data staat.
+`.sort()`, `.length`, een `for`-lus — is bij het publiceren niet te beantwoorden
+en geeft een fout die naar een deriver verwijst, die draait waar de data staat.
+
+Map dan wat de deriver teruggeeft: dat publiceert ook als lus, en de engine loopt
+voor elke ontvanger door de rijen die hij opleverde. Een `.map()` over een veld
+van een item, binnen een andere `.map()`, publiceert op dezelfde manier.
+`.filter()` staat niet in dat rijtje — het publiceert als een test op elk item.
 
 ### Vertakkingen vermenigvuldigen
 

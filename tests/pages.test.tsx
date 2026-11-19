@@ -1,7 +1,9 @@
 import { test } from "node:test";
-import { assertEquals, assertStringIncludes } from "./assert.ts";
+import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
 import { buildDocument } from "docxcelerate";
 import { createDocxDocument } from "docxcelerate/docx";
+import { JSDOM } from "jsdom";
+import { fillPageFields, settleDocxPreview } from "docxcelerate/preview";
 import { documentXml, partNames, partXml } from "./docx.ts";
 import type { DocumentModel, DocumentStyle } from "docxcelerate";
 import {
@@ -278,6 +280,73 @@ test("a document says how far its running strips stand from the paper", async ()
   // unprintable edge, and it is a different distance from the margin.
   assertStringIncludes(xml, 'w:header="850"');
   assertStringIncludes(xml, 'w:footer="1020"');
+});
+
+const numbered = (page: object) => ({ ...styleWithBlocks, page: { ...styleWithBlocks.page, ...page } });
+const numberedXml = async (page?: object) =>
+  documentXml(
+    await build(
+      <Document id="d" title="D" footer={<PageNumber id="n" format="current" />}>
+        <Paragraph id="a">Body.</Paragraph>
+      </Document>,
+      page === undefined ? undefined : numbered(page),
+    ),
+  );
+
+test("a document numbers its pages from a given number, in roman", async () => {
+  assertStringIncludes(
+    await numberedXml({ firstPageNumber: 3, numberStyle: "lowerRoman" }),
+    '<w:pgNumType w:start="3" w:fmt="lowerRoman"/>',
+  );
+});
+
+test("a style alone keeps Word's own start", async () => {
+  const xml = await numberedXml({ numberStyle: "upperLetter" });
+  assertStringIncludes(xml, '<w:pgNumType w:fmt="upperLetter"/>');
+  assertEquals(xml.includes("w:start="), false);
+});
+
+test("a start alone stays decimal", async () => {
+  const xml = await numberedXml({ firstPageNumber: 37 });
+  assertStringIncludes(xml, '<w:pgNumType w:start="37"/>');
+  assertEquals(xml.includes("w:fmt="), false);
+});
+
+test("a document that says nothing numbers from one, as before", async () => {
+  assertStringIncludes(await numberedXml(), "<w:pgNumType/>");
+});
+
+test("a page number that is not a whole number from 0 is refused", async () => {
+  for (const firstPageNumber of [2.5, -1]) {
+    await assertRejects(() => numberedXml({ firstPageNumber }), RangeError, "firstPageNumber");
+  }
+  // A cover page numbered 0 is legitimate.
+  assertStringIncludes(await numberedXml({ firstPageNumber: 0 }), '<w:pgNumType w:start="0"/>');
+});
+
+test("the preview fills page numbers from the start and style, and again without them", () => {
+  const body = (count: number) => {
+    const { document } = new JSDOM(
+      `<body>${'<section class="docx"><footer><p><span>/</span></p></footer></section>'.repeat(count)}</body>`,
+    ).window;
+    return document.body;
+  };
+  const texts = (el: Element) => [...el.querySelectorAll("footer")].map((f) => f.textContent);
+
+  const roman = body(3);
+  fillPageFields(roman, { firstPageNumber: 3, numberStyle: "lowerRoman" });
+  assertEquals(texts(roman), ["iii / 3", "iv / 3", "v / 3"]);
+  // Pagination's call: no numbering, read back from the sheets.
+  fillPageFields(roman);
+  assertEquals(texts(roman), ["iii / 3", "iv / 3", "v / 3"]);
+
+  const letters = body(2);
+  fillPageFields(letters, { firstPageNumber: 26, numberStyle: "upperLetter" });
+  assertEquals(texts(letters), ["Z / 2", "AA / 2"]);
+
+  const plain = body(3);
+  fillPageFields(plain);
+  assertEquals(texts(plain), ["1 / 3", "2 / 3", "3 / 3"]);
 });
 
 test("a document that says nothing about them still gets Word's own distance", async () => {
@@ -561,4 +630,48 @@ test("a cell's variant reaches the cell, not the row it happens to sit in", asyn
   );
 
   assertEquals((xml.match(/w:fill="FBF0DC"/g) ?? []).length, 1);
+});
+
+/** The body's section properties, so a cell's own `w:vAlign` cannot answer for the page's. */
+function sectPrOf(xml: string): string {
+  return xml.match(/<w:sectPr[\s\S]*<\/w:sectPr>/)?.[0] ?? "";
+}
+
+const certificate = <Document id="d" title="D"><Paragraph id="a">Certificate.</Paragraph></Document>;
+const valigned = (valign?: "center" | "bottom") =>
+  valign ? { ...styleWithBlocks, page: { ...styleWithBlocks.page, valign } } : styleWithBlocks;
+
+test("a page that centres its body says so in the section, the way Word does", async () => {
+  const xml = await documentXml(await build(certificate, valigned("center")));
+  assertStringIncludes(sectPrOf(xml), '<w:vAlign w:val="center"/>');
+});
+
+test("bottom sets the body down on the bottom margin", async () => {
+  const xml = await documentXml(await build(certificate, valigned("bottom")));
+  assertStringIncludes(sectPrOf(xml), '<w:vAlign w:val="bottom"/>');
+});
+
+test("a page that says nothing starts at the top and writes nothing", async () => {
+  const xml = await documentXml(await build(certificate, valigned()));
+  assertEquals(sectPrOf(xml) !== "", true);
+  assertEquals(sectPrOf(xml).includes("<w:vAlign"), false);
+});
+
+test("the preview takes up the slack above the body, which is all centring is", async () => {
+  const article = async (valign?: "center" | "bottom") => {
+    const dom = new JSDOM(
+      '<div id="page"><section class="docx"><article><p>Certificate.</p></article></section></div>',
+    );
+    const page = dom.window.document.getElementById("page") as Element;
+    settleDocxPreview(page, await build(certificate, valigned(valign)));
+    return page.querySelector("article") as HTMLElement;
+  };
+
+  const centred = await article("center");
+  assertEquals(centred.style.marginTop, "auto");
+  assertEquals(centred.style.marginBottom, "");
+  const bottom = await article("bottom");
+  assertEquals(bottom.style.marginTop, "auto");
+  assertEquals(bottom.style.marginBottom, "0px");
+  assertEquals((await article()).getAttribute("style"), null);
 });
