@@ -608,6 +608,21 @@ export interface GraphNode extends BaseNode {
    * grid and ignore it.
    */
   gridlines?: boolean;
+  /**
+   * Whether the figures are printed in a grid under the plot — Word's data
+   * table.
+   *
+   * One row per series, headed by that series' key, and one column per
+   * category, so the exact numbers travel with the picture. Because the rows
+   * carry the keys, a chart with a table needs no legend of its own: left
+   * unsaid, `legend` becomes `"none"`; said, it is kept.
+   *
+   * Bars, lines and areas only — the charts Word draws a data table for. A
+   * pie, doughnut, scatter, radar or bubble ignores it, the way a pie ignores
+   * `stacked`: a chart's type can still be decided when its data is produced,
+   * so refusing the option up front would refuse a chart that ends up a bar.
+   */
+  dataTable?: boolean;
 }
 
 /**

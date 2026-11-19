@@ -962,6 +962,7 @@ test("a chart written as JSX carries every drawing decision into the node", asyn
             valueAxisMax={100}
             valueAxisStep={2}
             dataLabels
+            dataTable
             axes={false}
             gridlines={false}
             width={320}
@@ -998,6 +999,7 @@ test("a chart written as JSX carries every drawing decision into the node", asyn
   assertEquals(node?.valueAxisMax, 100);
   assertEquals(node?.valueAxisStep, 2);
   assertEquals(node?.dataLabels, true);
+  assertEquals(node?.dataTable, true);
   assertEquals(node?.axes, false);
   assertEquals(node?.gridlines, false);
   assertEquals(node?.width, 320);
@@ -1073,6 +1075,77 @@ test("a pie ignores axes and gridlines, having neither", async () => {
     await chartXml(documentOf([chart({ graphType: "pie", axes: false, gridlines: false })])),
     await chartXml(documentOf([chart({ graphType: "pie" })])),
   );
+});
+
+test("a chart with no dataTable prop carries no dataTable field", async () => {
+  const doc = await buildDocument(
+    template(
+      <Document id="doc" title="Doc">
+        <Graph id="g" data={{ categories: quarters, series: twoSeries }} />
+      </Document>,
+    ),
+    {},
+    { branchMode: "decide", dynamicMode: "placeholder" },
+  );
+
+  assertEquals("dataTable" in doc.nodes[0], false);
+});
+
+// ---------------------------------------------------------------------------
+// Data table
+// ---------------------------------------------------------------------------
+
+test("a bar asks for a table and gets one, between the axes and the plot area's fill", async () => {
+  const xml = await chartXml(documentOf([chart({ dataTable: true })]));
+
+  assertStringIncludes(
+    xml,
+    '<c:dTable><c:showHorzBorder val="1"/><c:showVertBorder val="1"/><c:showOutline val="1"/><c:showKeys val="1"/>',
+  );
+  assertStringIncludes(xml, "</c:valAx><c:dTable>");
+  assertStringIncludes(xml, '</c:dTable><c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr></c:plotArea>');
+  assertEquals(new RegExp(`<c:dTable>[\\s\\S]*<a:srgbClr val="${basePalette.rule}"/>[\\s\\S]*</c:dTable>`).test(xml), true);
+  // The rows carry the keys, so the legend the two series would get is dropped.
+  assertEquals(xml.includes("<c:legend>"), false);
+});
+
+test("an explicit legend is kept beside the table", async () => {
+  const xml = await chartXml(documentOf([chart({ dataTable: true, legend: "bottom" })]));
+
+  assertStringIncludes(xml, '<c:legendPos val="b"/>');
+  assertStringIncludes(xml, "<c:dTable>");
+});
+
+test("every chart Word tables takes the table", async () => {
+  for (const graphType of ["bar", "barHorizontal", "line", "area"] as const) {
+    assertStringIncludes(await chartXml(documentOf([chart({ graphType, dataTable: true })])), "<c:dTable>");
+  }
+});
+
+test("the other types ignore the table and keep their defaults", async () => {
+  for (const graphType of ["pie", "doughnut", "scatter", "radar", "bubble"] as const) {
+    const series = graphType === "bubble" ? { ...twoSeries[0], sizes: [1, 2, 3, 4] } : twoSeries[0];
+    const single = graphType === "pie" || graphType === "doughnut";
+    const xml = await chartXml(documentOf([
+      chart({
+        graphType,
+        dataTable: true,
+        data: { categories: quarters, series: single || graphType === "bubble" ? [series] : twoSeries },
+      }),
+    ]));
+
+    assertEquals(xml.includes("<c:dTable"), false);
+    if (graphType === "pie") {
+      assertStringIncludes(xml, '<c:legendPos val="b"/>');
+    }
+  }
+});
+
+test("a chart that does not ask for a table is written as it always was", async () => {
+  const off = await chartXml(documentOf([chart()]));
+
+  assertEquals(off.includes("<c:dTable"), false);
+  assertEquals(off, await chartXml(documentOf([chart({ dataTable: false })])));
 });
 
 // ---------------------------------------------------------------------------

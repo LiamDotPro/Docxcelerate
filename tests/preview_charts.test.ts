@@ -245,6 +245,15 @@ test("data labels come back, and which figure they print", async () => {
   assertEquals(percent.dataLabels, "percent");
 });
 
+test("a data table comes back from the file, and takes the legend with it", async () => {
+  const [off] = await readBack([chart()]);
+  const [on] = await readBack([chart({ dataTable: true })]);
+
+  assertEquals(off.dataTable, false);
+  assertEquals(on.dataTable, true);
+  assertEquals(on.legend, "none");
+});
+
 test("the frame comes back in points, which is what the drawer draws for", async () => {
   const [read] = await readBack([chart({ width: 300, height: 150 })]);
 

@@ -394,6 +394,14 @@ export interface GraphProps extends CommonElementProps, PromptProps {
   axes?: boolean;
   /** Whether the plot is ruled with gridlines. `false` draws no grid; independent of `axes`. */
   gridlines?: boolean;
+  /**
+   * Whether the exact figures are printed in a grid under the plot.
+   *
+   * Bars, lines and areas only; other chart types ignore it. The table's rows
+   * carry the series' keys, so a chart with one drops its legend unless
+   * `legend` is given.
+   */
+  dataTable?: boolean;
 }
 
 /** Props for the `<Table>` element. */

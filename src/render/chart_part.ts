@@ -202,6 +202,7 @@ function chartSpaceXml(
     `<c:plotArea><c:layout/>`,
     plotXml(node, data, colors),
     axesXml(node, palette),
+    dataTableXml(node, palette),
     `<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>`,
     `</c:plotArea>`,
     legendXml(legendOf(node, data.series.length), palette),
@@ -238,10 +239,39 @@ function titleXml(title: string | undefined, palette: ChartPalette): string {
   }</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/><c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr></c:title>`;
 }
 
+/** Whether the chart prints a data table: asked for, and a type Word draws one under. */
+function hasDataTable(node: GraphNode): boolean {
+  return node.dataTable === true &&
+    (node.graphType === "bar" || node.graphType === "barHorizontal" ||
+      node.graphType === "line" || node.graphType === "area");
+}
+
+/**
+ * The figures printed in a grid under the plot, each row headed by its key.
+ *
+ * Ruled and lettered like the axes, so the table reads as part of the chart.
+ * The figures are the cached values, so they print in the chart's own format.
+ */
+function dataTableXml(node: GraphNode, palette: ChartPalette): string {
+  if (!hasDataTable(node)) {
+    return "";
+  }
+
+  return `<c:dTable><c:showHorzBorder val="1"/><c:showVertBorder val="1"/><c:showOutline val="1"/><c:showKeys val="1"/>` +
+    axisLineXml(palette) +
+    textPropertiesXml(palette, CHART_TEXT_SIZE) +
+    `</c:dTable>`;
+}
+
 /** Where the key sits: what the node said, or what the chart needs. */
 function legendOf(node: GraphNode, count: number): GraphLegend {
   if (node.legend !== undefined) {
     return node.legend;
+  }
+
+  // The table's rows carry each series' key, so a legend would name them twice.
+  if (hasDataTable(node)) {
+    return "none";
   }
 
   // A pie's key names its slices, so it keeps one however few there are. Every
