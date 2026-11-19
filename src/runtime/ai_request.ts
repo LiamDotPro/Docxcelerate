@@ -6,8 +6,8 @@
  * have the components any more. They differ in everything except this — how the
  * client is checked, what it is handed, and what it is told when the method it
  * needs is not there. Both had their own copy of that, down to the wording of
- * the errors. A chart's answer is checked here too, for the same reason: both
- * places would otherwise pack whatever came back.
+ * the errors. A paragraph's and a chart's answers are checked here too, for the
+ * same reason: both places would otherwise pack whatever came back.
  *
  * Shaping the answer back onto the node stays with the caller, because a build
  * is assembling a node and a resolve is replacing one.
@@ -46,8 +46,9 @@ export function formatPromptText(prompts: PromptSpec[]): string {
  * @param node The paragraph being written.
  * @param prompts Its resolved prompts.
  * @param state Everything reachable while this document is being written.
- * @returns The paragraph text.
- * @throws If there is no client.
+ * @returns The paragraph text, trimmed and stripped of the characters XML
+ * cannot hold.
+ * @throws If there is no client, or it answers with something that is not text.
  */
 export async function generateParagraph(
   client: AiClient | undefined,
@@ -61,12 +62,41 @@ export async function generateParagraph(
 
   const asked = inDocumentLanguage(prompts, state);
 
-  return await client.generateParagraph({
+  return writable(
     node,
-    prompt: formatPromptText(asked),
-    prompts: asked,
-    state,
-  });
+    await client.generateParagraph({
+      node,
+      prompt: formatPromptText(asked),
+      prompts: asked,
+      state,
+    }),
+  );
+}
+
+// What XML 1.0 cannot hold, bar tab, line feed and carriage return: one of
+// these in word/document.xml is a file Word refuses to open.
+// deno-lint-ignore no-control-regex
+const XML_INVALID = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g;
+
+/**
+ * A model's paragraph as text the renderer can pack. An SDK response handed
+ * back whole would otherwise pack as "[object Object]", and a trailing newline
+ * as a line break nobody wrote.
+ */
+function writable(node: ParagraphNode, answer: unknown): string {
+  if (typeof answer !== "string") {
+    throw new Error(
+      `Dynamic paragraph "${node.id}" got an answer that is not text: it returned ${kindOf(answer)}.`,
+    );
+  }
+
+  return answer.replace(XML_INVALID, "").trim();
+}
+
+function kindOf(value: unknown): string {
+  if (value === null || value === undefined) return String(value);
+  if (Array.isArray(value)) return "an array";
+  return typeof value === "object" ? "an object" : `a ${typeof value}`;
 }
 
 /**
