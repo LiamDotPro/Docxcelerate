@@ -54,6 +54,22 @@ export function entryOf(zip: Uint8Array, wanted: string): Uint8Array {
   throw new Error(`no ${wanted} in the package`);
 }
 
+/**
+ * The `<w:p>` holding this anchor — the innermost one, so a text box's own
+ * paragraph is isolated without the outer paragraph's properties.
+ */
+export function paragraphOf(xml: string, anchor: string): string {
+  const at = xml.indexOf(anchor);
+  const start = at === -1 ? -1 : xml.lastIndexOf("<w:p>", at);
+  const end = at === -1 ? -1 : xml.indexOf("</w:p>", at);
+
+  if (start === -1 || end === -1) {
+    throw new Error(`no paragraph containing ${JSON.stringify(anchor)}`);
+  }
+
+  return xml.slice(start, end + "</w:p>".length);
+}
+
 /** One part of the packed file, as text. */
 export async function partXml(doc: DocumentModel, part: string): Promise<string> {
   const blob = await createDocxBlob(doc);

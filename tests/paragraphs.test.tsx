@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { buildDocument } from "docxcelerate";
-import { documentXml } from "./docx.ts";
+import { documentXml, paragraphOf } from "./docx.ts";
 import type { DocumentModel, DocumentStyle } from "docxcelerate";
 import { Document, Paragraph, template } from "docxcelerate/template";
 
@@ -72,18 +72,6 @@ function build(node: unknown): Promise<DocumentModel> {
     {},
     { branchMode: "decide", dynamicMode: "placeholder" },
   ).then((doc) => ({ ...doc, style }));
-}
-
-/** The `<w:p>` whose text contains this anchor. */
-function paragraphOf(xml: string, anchor: string): string {
-  const paragraphs = [...xml.matchAll(/<w:p>[\s\S]*?<\/w:p>/g)].map((match) => match[0]);
-  const found = paragraphs.find((paragraph) => paragraph.includes(anchor));
-
-  if (found === undefined) {
-    throw new Error(`no paragraph containing ${JSON.stringify(anchor)}`);
-  }
-
-  return found;
 }
 
 // ---------------------------------------------------------------------------

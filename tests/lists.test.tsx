@@ -21,7 +21,7 @@ import {
   useState,
 } from "docxcelerate/template";
 import { JSDOM } from "jsdom";
-import { documentXml, partXml } from "./docx.ts";
+import { documentXml, paragraphOf, partXml } from "./docx.ts";
 
 /**
  * A paragraph that is an item of a list.
@@ -40,13 +40,6 @@ function build(node: unknown): Promise<DocumentModel> {
     branchMode: "decide",
     dynamicMode: "placeholder",
   });
-}
-
-/** The `<w:p>` holding this anchor. */
-function paragraphOf(xml: string, anchor: string): string {
-  return [...xml.matchAll(/<w:p>[\s\S]*?<\/w:p>/g)]
-    .map((match) => match[0])
-    .find((candidate) => candidate.includes(anchor)) ?? "";
 }
 
 /** Which numbering a paragraph counts in, and how deep, or null when it is no item. */

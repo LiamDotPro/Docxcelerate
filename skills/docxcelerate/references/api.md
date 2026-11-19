@@ -440,9 +440,9 @@ blocks: {
 | `firstLineIndentMm` | the first line only, for a book's paragraph mark |
 | `hangingIndentMm` | the first line pulled back from the rest. Word writes one or the other, and a hang wins over a first-line indent |
 | `keepWithNext`, `keepLines` | refuse to be the last thing on a page, or to be split across one |
-| `tabStopsMm` | `[{ at, align?, leader? }]`, measured from the left margin. Put a `\t` in the text to reach one |
-| `bleed` | the block runs the full width of the page rather than the text |
-| `maxWidthMm` | a measure, narrowing the column from the right |
+| `tabStopsMm` | `[{ at, align?, leader? }]`, measured from the left margin — or, inside a `Cell` or `Shape`, from its inner left edge. Put a `\t` in the text to reach one |
+| `bleed` | the block runs the full width of the page rather than the text. Ignored inside a `Cell` or `Shape` |
+| `maxWidthMm` | a measure, narrowing the column from the right. Ignored inside a `Cell` or `Shape` |
 | `valign`, `heightPt`, `paddingSidesPt` | for a block that is a strip or a cell rather than prose |
 
 **Every one of these means the same thing on screen and in the `.docx`** — a
@@ -470,5 +470,4 @@ The paragraph properties above are held to Word by
 and compares the two against each other to the millimetre.
 
 A cell takes its block from its own `variant`, then its row's, then its table's
-— the narrower statement wins. A paragraph inside a cell is set by its own
-variant over the cell's, which is how a muted note sits inside a filled row.
+— the narrower statement wins. A paragraph inside a cell or shape is set by its own `align` and variant over the container's: its alignment, indents, tab stops, border and fill all apply, so a signature cell can carry a dotted leader and a card can hold a ruled quote. Only the paragraph's own variant draws a border or fill on it; the cell's stays on the cell. A tab leader inside a `Shape` draws in Word; the preview shows the gap without the dots.

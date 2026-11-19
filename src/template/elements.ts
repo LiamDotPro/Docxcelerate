@@ -122,7 +122,7 @@ export interface ParagraphProps extends CommonElementProps, PromptProps {
   /** Text children say the same thing; this is for when interpolation reads better. */
   text?: string;
   /**
-   * How the paragraph's lines sit in the text column.
+   * How the paragraph's lines sit in the text column, or in the cell or shape it sits in.
    *
    * Say it here when the alignment is what the paragraph *is* — a date ranged
    * right, a standfirst centred over the piece it opens. Leave it out and let

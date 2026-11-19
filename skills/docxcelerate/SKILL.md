@@ -166,6 +166,8 @@ negative indent past the margin. If a property cannot be expressed in Word it
 does not exist here, because a style that quietly did nothing in the format the
 framework produces is worse than one that was never offered.
 
+A paragraph keeps its own `align`, and its variant's indents, tab stops, border and fill, inside a `<Cell>` or `<Shape>` — a dotted `{"Signed\t"}` leader in a signature cell, a ruled quote inset inside a card. There, tab stops measure from the cell's or box's inner left edge, and `bleed` and `maxWidthMm` (page measures) do nothing.
+
 Ids are addresses: an engine targets a node by id and two build artifacts line
 up in a diff by id, so **treat a rename as a breaking change**. **Do not write
 ids by default.** A node without one is named after its heading, or after the
