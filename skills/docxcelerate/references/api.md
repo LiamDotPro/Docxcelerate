@@ -456,7 +456,11 @@ appendix that continues its parent's numbering or front matter numbered
 i, ii, iii),
 `typography` (body and heading font, body size in pt, line
 height, colour), `paragraph` (spacing after, in pt), and `title` and
-`sectionHeading` text blocks (font size, weight, spacing before and after).
+`sectionHeading` text blocks (font size, weight, spacing before and after, and
+`keepWithNext`). A heading is kept on the page with whatever follows it and never
+split across a page; that is on without asking, and
+`sectionHeading: { keepWithNext: false }` turns the first half off for a theme
+that wants headings to fall where they fall.
 `cleanMinimalDocumentStyle` is the one shipped preset — spread it and override
 what you need. `showTitle: false` stops a renderer printing the document's title
 above the body, for a document whose own letterhead already carries it; the

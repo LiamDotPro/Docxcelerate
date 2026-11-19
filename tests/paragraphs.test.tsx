@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { buildDocument } from "docxcelerate";
-import { documentXml, elementOf } from "./docx.ts";
+import { documentXml, elementOf, partXml } from "./docx.ts";
 import type { DocumentModel, DocumentStyle } from "docxcelerate";
-import { Document, Paragraph, template } from "docxcelerate/template";
+import { Document, PageBreak, Paragraph, Section, template } from "docxcelerate/template";
 
 /**
  * What a paragraph can be told to do, and what Word is handed when it is.
@@ -72,6 +72,13 @@ function build(node: unknown): Promise<DocumentModel> {
     {},
     { branchMode: "decide", dynamicMode: "placeholder" },
   ).then((doc) => ({ ...doc, style }));
+}
+
+/** One `<w:style>` out of styles.xml, by id. */
+function styleOf(styles: string, id: string): string {
+  const found = styles.match(new RegExp(`<w:style [^>]*w:styleId="${id}"[\\s\\S]*?</w:style>`));
+  if (found === null) throw new Error(`no style ${id}`);
+  return found[0];
 }
 
 // ---------------------------------------------------------------------------
@@ -284,6 +291,66 @@ test("a block can refuse to be the last thing on a page", async () => {
 
   assertStringIncludes(elementOf(xml, "w:p", "A heading."), "<w:keepNext/>");
   assertStringIncludes(elementOf(xml, "w:p", "An address block."), "<w:keepLines/>");
+});
+
+test("a section heading is kept with what follows it, without asking", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Section id="s" title="Heading.">
+        <Paragraph id="p">Body.</Paragraph>
+      </Section>
+    </Document>,
+  );
+  const styles = await partXml(doc, "word/styles.xml");
+  const paragraph = elementOf(await documentXml(doc), "w:p", "Heading.");
+
+  for (const id of ["Heading1", "Title"]) {
+    assertStringIncludes(styleOf(styles, id), "<w:keepNext/>");
+    assertStringIncludes(styleOf(styles, id), "<w:keepLines/>");
+  }
+  assertStringIncludes(paragraph, '<w:pStyle w:val="Heading1"/>');
+  // The keep rides the style, as it does on Word's own Heading 1.
+  assertEquals(paragraph.includes("keepNext"), false);
+});
+
+test("a theme that refuses the keep writes no keepNext, and still keeps the heading whole", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Section id="s" title="Heading.">
+        <Paragraph id="p">Body.</Paragraph>
+      </Section>
+    </Document>,
+  );
+  const styles = await partXml(
+    { ...doc, style: { ...style, sectionHeading: { ...style.sectionHeading, keepWithNext: false } } },
+    "word/styles.xml",
+  );
+  const heading = styleOf(styles, "Heading1");
+
+  assertEquals(heading.includes("keepNext"), false);
+  assertStringIncludes(heading, "<w:keepLines/>");
+  // The two blocks are independent.
+  assertStringIncludes(styleOf(styles, "Title"), "<w:keepNext/>");
+});
+
+test("a heading carrying a page break inherits the keep", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <PageBreak id="b" />
+      <Section id="s" title="Heading.">
+        <Paragraph id="p">Body.</Paragraph>
+      </Section>
+    </Document>,
+  );
+  const paragraph = elementOf(await documentXml(doc), "w:p", "Heading.");
+
+  assertStringIncludes(paragraph, '<w:pStyle w:val="PageBreakBeforeHeading1"/>');
+  assertEquals(paragraph.includes("keepNext"), false);
+  // Inherited through the style chain rather than copied.
+  assertStringIncludes(
+    styleOf(await partXml(doc, "word/styles.xml"), "PageBreakBeforeHeading1"),
+    '<w:basedOn w:val="Heading1"/>',
+  );
 });
 
 test("a paragraph with no opinion about breaks writes neither keep", async () => {

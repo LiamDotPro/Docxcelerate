@@ -133,7 +133,7 @@ Nothing leaves the machine, and the same build gives the same page every time.
 | Element | Holds | Notes |
 | --- | --- | --- |
 | `Document` | sections and nodes | `id` and `title` both required; one per template; `header`/`footer` take running furniture; `properties` sets the file's author, subject, keywords, description and `custom` values a DMS indexes. Pass a function of the data for a per-document value, e.g. `custom: { invoiceNumber: data.invoice.number }` |
-| `Section` | any nodes, including sections | the **only** container; `title` required and becomes a heading |
+| `Section` | any nodes, including sections | the **only** container; `title` required and becomes a heading, kept on the page with what follows it |
 | `Paragraph` | text children, or prompts | `text` prop says the same as children; a `\n` in the text is a line break; `list="bullet"` or `"number"` makes it a list item, counted by the renderer |
 | `Text` | words, inside a `Paragraph`, `Cell` or `Shape` | **not a node** — no `id`. `bold`, `italic`, `underline`, `strike`, `script` (`"superscript"` \| `"subscript"`), `href`. Never a colour or a size |
 | `Image` | `src`, `alt`, `width`, `height`, `align`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below; give one of `width`/`height` and the other keeps the picture's proportions; `align` (`left`/`center`/`right`) places it in the column |

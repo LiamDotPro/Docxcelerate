@@ -2120,43 +2120,34 @@ function createDocxStyles(style: DocumentStyle, locale: string | undefined) {
           },
         },
       },
-      title: {
-        run: {
-          font: style.typography.headingFont,
-          size: ptToHalfPoints(style.title.fontSizePt),
-          bold: style.title.weight === "bold",
-          color: headingColor(style, style.title),
-          allCaps: style.title.transform === "uppercase",
-          characterSpacing: trackingPt(style.title.letterSpacingEm, style.title.fontSizePt),
-        },
-        paragraph: {
-          spacing: {
-            before: ptToTwips(style.title.spacingBeforePt),
-            after: ptToTwips(style.title.spacingAfterPt),
-          },
-        },
-      },
-      heading1: {
-        run: {
-          font: style.typography.headingFont,
-          size: ptToHalfPoints(style.sectionHeading.fontSizePt),
-          bold: style.sectionHeading.weight === "bold",
-          color: headingColor(style, style.sectionHeading),
-          allCaps: style.sectionHeading.transform === "uppercase",
-          characterSpacing: trackingPt(
-            style.sectionHeading.letterSpacingEm,
-            style.sectionHeading.fontSizePt,
-          ),
-        },
-        paragraph: {
-          spacing: {
-            before: ptToTwips(style.sectionHeading.spacingBeforePt),
-            after: ptToTwips(style.sectionHeading.spacingAfterPt),
-          },
-        },
-      },
+      title: textBlockStyle(style, style.title),
+      heading1: textBlockStyle(style, style.sectionHeading),
     },
     paragraphStyles: breakStyles(),
+  };
+}
+
+/** A heading style's run and paragraph, from the theme's block for it. */
+function textBlockStyle(style: DocumentStyle, block: DocumentTextBlockStyle) {
+  return {
+    run: {
+      font: style.typography.headingFont,
+      size: ptToHalfPoints(block.fontSizePt),
+      bold: block.weight === "bold",
+      color: headingColor(style, block),
+      allCaps: block.transform === "uppercase",
+      characterSpacing: trackingPt(block.letterSpacingEm, block.fontSizePt),
+    },
+    paragraph: {
+      // On unless refused: a heading with its section overleaf is never the
+      // intent, and a heading cut in half is never the intent either.
+      ...(block.keepWithNext === false ? {} : { keepNext: true }),
+      keepLines: true,
+      spacing: {
+        before: ptToTwips(block.spacingBeforePt),
+        after: ptToTwips(block.spacingAfterPt),
+      },
+    },
   };
 }
 
