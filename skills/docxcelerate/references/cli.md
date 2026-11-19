@@ -132,6 +132,7 @@ dxcl list components
 | `terms-notice` | Numbered small print, one paragraph and one stable id per clause. |
 | `invoice-document-type` | What an invoice may call itself, and the dates it has to carry. |
 | `tax-treatment-notice` | The mention an invoice's tax treatment requires, or a warning when its ID is missing. |
+| `fee-cap-status` | What a capped, ceiling or estimated engagement may charge, and the overrun or notice wording it needs. |
 | `advance-payment-invoice` | A deposit or prepayment against an order: the share, what's already requested, and what's left. |
 | `vat-place-of-supply` | Whose VAT applies and at what rate, decided before anything is printed. |
 | `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
