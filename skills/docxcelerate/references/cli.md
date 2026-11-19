@@ -153,6 +153,7 @@ dxcl list components
 | `exemption-certificate-check` | Which lines of a US sale go out exempt under the buyer's certificates, and why the rest stay taxable. |
 | `japan-qualified-invoice` | The tax part of a Japanese qualified invoice: lines by rate, ※ marks, tax once per rate, and a checked T-number. |
 | `vat-in-local-currency` | A foreign-currency invoice's VAT bands in the currency the VAT is owed in, band by band. |
+| `patient-responsibility-breakdown` | What the patient owes on each claim line, from billed to allowed to deductible, copay and coinsurance. |
 | `voucher-redemption-lines` | Vouchers, coupons and gift cards placed where their tax treatment puts them. |
 | `prepaid-hours-drawdown` | Time entries drawn against prepaid hour blocks soonest-expiring first, with overage, rollover and lapsed hours in a ledger. |
 | `contingency-settlement-statement` | The closing statement for a contingent or damages-based fee: fee by band, statutory cap, liens, and the net. |
