@@ -132,6 +132,7 @@ dxcl list components
 | `invoice-document-type` | What an invoice may call itself, and the dates it has to carry. |
 | `tax-treatment-notice` | The mention an invoice's tax treatment requires, or a warning when its ID is missing. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `statement-of-account` | Every transaction in a period with a running balance, and what the closing balance means. |
 
 ## `dxcl show <id>`
 
