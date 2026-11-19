@@ -137,6 +137,7 @@ test("invalid input throws", async () => {
     { entries: [e("invoice", "", 1)] },
     { entries: [e("invoice", "A", Number.NaN)] },
     { openingBalance: undefined },
+    { dueBy: "soon" },
   ];
   for (const b of bad) await assertRejects(() => Promise.resolve().then(() => run(b)), Error);
 });
@@ -173,7 +174,7 @@ const collect = (nodes: DocumentNode[], into: DocumentNode[] = []): DocumentNode
 };
 
 test("publish, bundle and resolve: a map over derived rows becomes the ledger", async () => {
-  assertEquals(branches >= 5, true);
+  assertEquals(branches, 6);
   const published = await buildDocument(templateOf(), createPublishData() as Obj, {
     branchMode: "publish",
     deriverMode: "preserve",
@@ -192,10 +193,15 @@ test("publish, bundle and resolve: a map over derived rows becomes the ledger", 
   assertEquals(ids.includes("statement-of-account-owing"), true);
   assertEquals(["clear", "credit", "empty"].some((k) => ids.includes("statement-of-account-" + k)), false);
   assertStringIncludes(text, "Amount due: £600.00, payable by 30 November 2026.");
-  assertEquals(text.indexOf("£10.00") < text.indexOf("£600.00"), true);
   const direct = run({ entries: many });
-  assertEquals(direct.rows[0].balance, "£10.00");
-  assertStringIncludes(text, direct.rows[59].balance);
+  const cellTexts = (n: DocumentNode): string[] =>
+    ((n as { children?: DocumentNode[] }).children ?? []).map((c) => collect([c]).map((x) => (x as { text?: string }).text ?? "").join(""));
+  const resolvedRows = all.filter((n) => n.id.startsWith("statement-of-account-entry")).map(cellTexts);
+  assertEquals(resolvedRows.length, 60);
+  resolvedRows.forEach((cells, i) => {
+    const r = direct.rows[i];
+    assertEquals(cells, [r.date, r.details, r.debit, r.credit, r.balance]);
+  });
 
   const empty = await resolveIds({ openingBalance: 0 });
   const eIds = empty.map((n) => n.id);
@@ -205,6 +211,13 @@ test("publish, bundle and resolve: a map over derived rows becomes the ledger", 
     true,
   );
   assertEquals(eIds.includes("statement-of-account-owing"), false);
+
+  const owing = (await resolveIds({ openingBalance: 250 })).map((n) => n.id);
+  assertEquals(owing.includes("statement-of-account-ledger"), false);
+  assertEquals(
+    ["empty-opening", "empty", "owing"].every((k) => owing.includes("statement-of-account-" + k)),
+    true,
+  );
 
   const credit = await resolveIds({ openingBalance: -40 });
   assertEquals(credit.map((n) => n.id).includes("statement-of-account-credit"), true);
