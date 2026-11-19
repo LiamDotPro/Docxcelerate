@@ -1127,6 +1127,70 @@ export const COMPONENTS: RegistryComponent[] = [
   },
   {
     kind: "component",
+    id: "preferential-origin-statement",
+    title: "Preferential origin statement",
+    summary: "The statement on origin a trade agreement prescribes, or a warning when its exporter reference is missing.",
+    detail:
+      "Prints the statement on origin each agreement prescribes, in its own words: " +
+      "the EU-UK TCA statement on origin, the EU GSP REX statement, the CETA origin " +
+      "declaration, the EU-Japan statement and the UK DCTS statement, with the " +
+      "exporter reference, the origin, the origin criteria that agreement uses and " +
+      "the multiple-shipment period. The EUR 6,000 threshold is tested against the " +
+      "originating lines only, converted at the rate you supply, never against the " +
+      "invoice total or a fixed sterling figure. Above it the exporter's REX or EORI " +
+      "number is required, and when it is missing a warning prints in place of the " +
+      "statement, because an importer who claims preference on an incomplete " +
+      "statement faces a duty demand later. Non-originating lines are listed by " +
+      "reference, so \"except where otherwise clearly indicated\" is true. A period " +
+      "longer than 12 months is refused the same way. Nothing prints when no line is " +
+      "originating. Worked out by one deriver.",
+    category: "Legal",
+    tags: ["origin", "customs", "export", "invoice", "legal", "branching", "deriver"],
+    exports: ["PreferentialOriginStatement"],
+    dataFields: [
+      { path: "origin.agreement", type: '"eu-uk-tca" | "eu-gsp" | "ceta" | "eu-japan" | "uk-dcts"', summary: "Which agreement's prescribed wording, reference and criteria apply. Required." },
+      { path: "origin.originCountry", type: "string", summary: "UK or EU under the TCA, EU under CETA and EU-Japan, the beneficiary country under GSP and DCTS. Required." },
+      { path: "origin.exporterReference", type: "string | undefined", summary: "EORI for UK exporters, REX otherwise. Required when originating goods exceed EUR 6,000, or the statement is withheld." },
+      { path: "origin.eurRate", type: "number | undefined", summary: "Euros per unit of the consignment currency, for the EUR 6,000 test. Required unless the currency is EUR." },
+      { path: "origin.period", type: "{ from: string; to: string } | undefined", summary: "ISO dates for a multiple-shipment statement. Over 12 months withholds it." },
+      { path: "origin.place", type: "string", summary: "Where the statement is made. Required." },
+      { path: "origin.date", type: "string", summary: "ISO 8601 date of the statement. Required." },
+      { path: "origin.exporterName", type: "string", summary: "The exporter, closing the statement. Required." },
+      { path: "consignment.currency", type: "string", summary: "ISO 4217 code of the line values. Required." },
+      {
+        path: "consignment.lines",
+        type: "Array<{ ref: string; valueMinor: number; originating?: boolean; criterion?: string; hsHeading?: string }>",
+        summary: "Every line in integer minor units. Only lines marked originating count toward the threshold; the rest are listed as exceptions.",
+      },
+    ],
+    files: node("preferential-origin-statement", { deriver: true }),
+    previewData: {
+      origin: {
+        agreement: "eu-uk-tca",
+        originCountry: "UK",
+        exporterReference: "GB123456789000",
+        eurRate: 1.1712,
+        period: { from: "2026-12-01", to: "2027-11-30" },
+        place: "Newcastle upon Tyne, Tyne and Wear",
+        date: "2026-11-30",
+        exporterName: "Northumbrian Precision Engineering and Fabrication Holdings Limited",
+      },
+      consignment: {
+        currency: "GBP",
+        lines: [
+          { ref: "10", valueMinor: 128450000, originating: true, criterion: "A" },
+          { ref: "20", valueMinor: 96320075, originating: true, criterion: "A" },
+          { ref: "30", valueMinor: 18999900, originating: false },
+          { ref: "40", valueMinor: 254000000, originating: true, criterion: "C, D" },
+          { ref: "50", valueMinor: 7250050, originating: true, criterion: "E" },
+          { ref: "60", valueMinor: 4410000, originating: false },
+        ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
     id: "dunning-reminder",
     title: "Dunning reminder",
     summary: "A payment reminder that escalates one level at a time and never threatens what you won't do.",
