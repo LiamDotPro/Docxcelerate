@@ -66,6 +66,22 @@ test("tokens resolve against the request data", async () => {
   assertEquals(texts(doc.nodes), ["Hello Avery, of Leeds."]);
 });
 
+test("a chart's alt resolves its tokens against the request data", async () => {
+  const doc = await resolveDocument(
+    published([{
+      id: "revenue",
+      kind: "graph",
+      mode: "static",
+      graphType: "bar",
+      alt: "Revenue rose {{data.growth}}%",
+      data: { series: [{ values: [1] }] },
+    } as DocumentNode]),
+    engineState({ growth: 40 }),
+  );
+
+  assertEquals((doc.nodes[0] as GraphNode).alt, "Revenue rose 40%");
+});
+
 test("only the arm whose condition holds survives", async () => {
   const nodes = [
     paragraph("arrears", "You owe money.", {
@@ -98,6 +114,30 @@ test("a condition on a section takes its children with it", async () => {
   );
 
   assertEquals(doc.nodes, []);
+});
+
+test("a stored repeat binds its position when it names one, and restores it", async () => {
+  const state = engineState({
+    visits: [{ label: "A", kept: true }, { label: "B", kept: false }, { label: "C", kept: true }],
+  });
+  const doc = await resolveDocument(
+    published([
+      {
+        id: "visits",
+        kind: "repeat",
+        source: { scope: "data", path: "visits" },
+        as: "visit",
+        indexAs: "index",
+        positionAs: "position",
+        where: { type: "truthy", ref: { scope: "ctx", path: "visit.kept" } },
+        children: [paragraph("visit", "{{ctx.position}}/{{ctx.index}}: {{ctx.visit.label}}")],
+      },
+    ]),
+    state,
+  );
+
+  assertEquals(texts(doc.nodes), ["1/0: A", "2/2: C"]);
+  assertEquals(state.ctx.position, undefined);
 });
 
 test("a repeat is walked once per entry, with ids suffixed by position", async () => {
@@ -532,4 +572,110 @@ test("a chart client that throws is not caught", async () => {
       ),
     "model down",
   );
+});
+
+test("a variant resolves per entry of a repeat", async () => {
+  const doc = await resolveDocument(
+    published([
+      {
+        id: "lines",
+        kind: "repeat",
+        source: { scope: "data", path: "lines" },
+        as: "line",
+        indexAs: "index",
+        children: [paragraph("row", "{{ctx.line.desc}}", { variant: "{{ctx.line.status}}" })],
+      },
+    ]),
+    engineState({ lines: [{ desc: "A", status: "overdue" }, { desc: "B", status: "paid" }] }),
+  );
+
+  assertEquals(doc.nodes.map((node) => node.variant), ["overdue", "paid"]);
+  assertEquals(ids(doc.nodes), ["row-0", "row-1"]);
+});
+
+test("a variant with no token, and a node with none, come back as they were", async () => {
+  const doc = await resolveDocument(
+    published([paragraph("a", "x", { variant: "band" }), paragraph("b", "x")]),
+    engineState({}),
+  );
+
+  assertEquals(doc.nodes[0].variant, "band");
+  assertEquals("variant" in doc.nodes[1], false);
+});
+
+test("a variant in the furniture resolves too", async () => {
+  const doc = await resolveDocument(
+    { ...published([]), footer: [paragraph("f", "x", { variant: "{{data.tier}}" })] },
+    engineState({ tier: "gold" }),
+  );
+
+  assertEquals(doc.footer?.[0].variant, "gold");
+});
+
+test("a container's own variant resolves", async () => {
+  const doc = await resolveDocument(
+    published([
+      {
+        id: "cell",
+        kind: "tableCell",
+        variant: "{{data.state}}",
+        children: [paragraph("p", "x")],
+      } as DocumentNode,
+    ]),
+    engineState({ state: "paid" }),
+  );
+
+  assertEquals(doc.nodes[0].variant, "paid");
+});
+
+const gt0 = {
+  type: "compare",
+  operator: "gt",
+  left: { type: "ref", ref: { scope: "data", path: "balanceDue" } },
+  right: { type: "literal", value: 0 },
+} as const;
+
+test("even-page furniture resolves like the rest of the furniture", async () => {
+  const doc = await resolveDocument(
+    {
+      ...published([]),
+      evenHeader: [paragraph("eh", "Ref {{data.reference}}")],
+      evenFooter: [
+        paragraph("ef", "Due {{derived.due}}", {
+          derivers: [{
+            name: "currencyLabel",
+            output: "due",
+            inputs: [{ type: "ref", ref: { scope: "data", path: "balanceDue" } }],
+          }],
+        }),
+      ],
+    },
+    engineState({ reference: "INV-1", balanceDue: 240 }),
+    {
+      derivers: createDeriverRegistry({
+        currencyLabel: ([amount]) => `£${Number(amount).toFixed(2)}`,
+      }),
+    },
+  );
+
+  assertEquals(texts(doc.evenHeader!), ["Ref INV-1"]);
+  assertEquals(texts(doc.evenFooter!), ["Due £240.00"]);
+});
+
+test("absent even furniture stays absent, and an empty one stays empty", async () => {
+  const absent = await resolveDocument(published([]), engineState({}));
+  const empty = await resolveDocument({ ...published([]), evenHeader: [] }, engineState({}));
+
+  assertEquals(absent.evenHeader, undefined);
+  assertEquals(absent.evenFooter, undefined);
+  assertEquals(empty.evenHeader, []);
+});
+
+test("a condition in even furniture is evaluated per document", async () => {
+  const model = { ...published([]), evenFooter: [paragraph("ef", "Owing", { when: gt0 })] };
+  const clear = await resolveDocument(model, engineState({ balanceDue: 0 }));
+  const owing = await resolveDocument(model, engineState({ balanceDue: 240 }));
+
+  assertEquals(clear.evenFooter, []);
+  assertEquals(owing.evenFooter!.length, 1);
 });

@@ -116,9 +116,16 @@ dxcl list components
 
 | Component | What it is |
 | --- | --- |
+| `status-banner` | A drawn block at the top of the page saying where things stand. |
 | `letterhead` | Who sent this, from where, and when. |
 | `recipient-block` | The address, and a greeting that survives a missing name. |
 | `payment-summary` | What is owed, by when — and what to say when nothing is. |
+| `balance-trend` | A line of how a balance has moved, and a sentence saying the same thing. |
+| `usage-breakdown` | A pie of where a total went, with the tail folded into Other. |
+| `period-comparison` | This period against the last, category by category, as clustered bars. |
+| `mix-over-time` | How a make-up shifted across periods, as a hundred per cent stack. |
+| `profile-compare` | One subject against a benchmark across several measures, as a radar. |
+| `weighted-scatter` | Two measures against each other, with a third drawn as the point's size. |
 | `next-steps` | A generated paragraph with its prompts already fenced off. |
 | `signature-block` | A closing, a signature image, and who signed it. |
 | `terms-notice` | Numbered small print, one paragraph and one stable id per clause. |

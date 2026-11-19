@@ -132,18 +132,18 @@ Nothing leaves the machine, and the same build gives the same page every time.
 
 | Element | Holds | Notes |
 | --- | --- | --- |
-| `Document` | sections and nodes | `id` and `title` both required; one per template; `header`/`footer` take running furniture |
-| `Section` | any nodes, including sections | the **only** container; `title` required and becomes a heading |
-| `Paragraph` | text children, or prompts | `text` prop says the same as children; a `\n` in the text is a line break; `list="bullet"` or `"number"` makes it a list item, counted by the renderer |
-| `Text` | words, inside a `Paragraph`, `Cell` or `Shape` | **not a node** — no `id`. `bold`, `italic`, `underline`, `strike`, `href`. Never a colour or a size |
-| `Image` | `src`, `alt`, `width`, `height`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below |
-| `Graph` | `graphType`, `data`, `title`, `caption`, or prompts | packed as a real Word chart, never a picture of one — the numbers travel with it. With prompts, the `caption` written here stays unless the model sends its own |
-| `Table` | `Row`s, and any `.map()` producing them | `columns` declared once, in mm or `"auto"`, with `align` |
-| `Row` | `Cell`s | `header` marks a heading row; only *leading* ones repeat across pages |
+| `Document` | sections and nodes | `title` required, `id` is taken from it unless written; one per template; `header`/`footer` take running furniture; `properties` sets the file's author, subject, keywords, description and `custom` values a DMS indexes. a per-document value takes a function — see Publishing below; `trackChanges` opens it in Word with Track Changes on |
+| `Section` | any nodes, including sections | the **only** container; `title` required and becomes a heading, kept on the page with what follows it |
+| `Paragraph` | text children, or prompts | `text` prop says the same as children; a `\n` in the text is a line break; `list="bullet"` or `"number"` makes it a list item, counted by the renderer; on a numbered item, `listStyle="lowerLetterParen"` (or `upperRoman`, `lowerRomanParen`, …) sets that level's numerals: (a), I., (i) |
+| `Text` | words, inside a `Paragraph`, `Cell` or `Shape` | **not a node** — no `id`. `bold`, `italic`, `underline`, `strike`, `script` (`"superscript"` \| `"subscript"`), `href`, `variant` (a theme block name: colour, shading, size, face, weight, caps, tracking). Never a colour or a size of its own — `variant` names a theme block that has them |
+| `Image` | `src`, `alt`, `width`, `height`, `align`, `href`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below; give one of `width`/`height` and the other keeps the picture's proportions; `align` (`left`/`center`/`right`) places it in the column; `href` makes the picture a link |
+| `Graph` | `graphType`, `data`, `title`, `alt`, `caption`, `align`, or prompts | packed as a real Word chart, never a picture of one — the numbers travel with it; `align` places a chart narrower than the column, and its caption follows; `alt` is what a screen reader hears; `valueAxisMin`/`valueAxisMax`/`valueAxisStep` fix the value axis when small changes must show. With prompts, the `caption` written here stays unless the model sends its own |
+| `Table` | `Row`s, and any `.map()` producing them | `columns` declared once, in mm or `"auto"`, with `align`; `align` on the table (`"center"`/`"right"`) moves a narrow one across the column |
+| `Row` | `Cell`s | `header` marks a heading row; only *leading* ones repeat across pages. `keepTogether` keeps a multi-line row whole on one page. `height` (pt) is a floor; `heightRule="exact"` fixes it and clips what overflows |
 | `Cell` | text, or paragraphs when a line is not enough | `span`, and `align` when it departs from its column |
 | `TableOfContents` | nothing | a marker; renderers print the title and stop |
 | `PageBreak` | nothing | for a break that is part of what the document *is* |
-| `PageNumber` | nothing | `format` (`current`/`total`/`currentOfTotal`) and `separator`; counted by the renderer |
+| `PageNumber` | nothing | `format` (`current`/`total`/`currentOfTotal`) and `separator`; counted by the renderer, from `style.page.firstPageNumber` in `style.page.numberStyle` (roman, letters) when set |
 
 **An `<Image>` only travels if it carries its bytes.** A `data:` URI does; a
 path or a URL draws on screen, where a browser can fetch it, but packs into Word
@@ -152,19 +152,63 @@ the engine writing the document is not on the machine the file was on. Word will
 not embed an SVG alone either, so give one a `fallbackSrc` raster: the screen
 draws the SVG and the Word file gets the raster.
 
+Give a picture one side and the other follows its own proportions —
+`<Image src={logo} width={160} />` is a 160pt-wide logo at its real shape, not a
+square. With neither side it is 120pt wide; with both it is exactly the box you
+gave, stretched if that box disagrees with the picture.
+
+**A picture can be a link.** `<Image href="https://pay.example.com/inv/123">`
+makes a QR code, a Pay-now button or a logo open that address — Ctrl+click in
+Word, a click in the preview. The same allowlist as `<Text href>`: `https:`,
+`http:`, `mailto:`, `tel:`; anything else draws the picture unlinked. Give a
+linked picture `alt` that says where it goes.
+
 Every element also takes **`variant`** — a name the theme looks up, never an
 appearance: `<Cell variant="badge">`, `<Paragraph variant="band">`. The colours
 live in the style's `blocks`, so a document restyles without a node changing,
 and a name the theme has not heard of draws as an ordinary block rather than
 failing. Never write a colour into a component.
 
+A `<Section variant="schedule">` sets its **heading** from that block — size,
+weight, `transform`, tracking, colour, `align`, a `border` rule, space before
+and after, and the keeps — over the theme's `sectionHeading`, and it is still a
+Heading 1 for the contents. That is how schedule or annex headings are centred
+capitals while clause headings stay as they are. `transform: "none"` turns off
+capitals the theme's headings ask for.
+
+`<Text variant="amountDue">` sets a phrase from a theme block, for an amount due
+inside a sentence or a defined term. Only the block's `color`, `fill`,
+`fontSizePt`, `weight`, `font`, `transform` and `letterSpacingEm` reach the
+words. `bold` and the other marks said beside it win.
+
+A variant can be read off the data, so one published document styles each
+recipient and each row differently: `<Cell variant={line.status}>`,
+``<Paragraph variant={`tier-${state.tier}`}>``. Name the theme's blocks after the
+values the data carries. A value with no block draws plain. Never pick a variant
+with a ternary (`variant={line.overdue ? "overdue" : undefined}`): when the
+document is published, every recipient gets the true arm. Interpolate the field
+itself, or use a deriver to produce the name.
+
 A block style says `fill`, `color`, `border` (with `borderWidthPt`,
-`borderSides`), `paddingPt`, `fontSizePt`, `weight`, `transform`,
+`borderSides`, `borderStyle`), `paddingPt`, `fontSizePt`, `weight`, `transform`,
 `letterSpacingEm` and `bleed`. **All of them mean the same thing on screen and
 in the `.docx`** — a fill is shading, a border is a real border, a bleed is a
 negative indent past the margin. If a property cannot be expressed in Word it
 does not exist here, because a style that quietly did nothing in the format the
 framework produces is worse than one that was never offered.
+
+The page takes one setting of the same kind: `page.valign: "center"` in
+`document-style.ts` sets a one-page certificate or cover sheet mid-page, and
+`"bottom"` rests it on the bottom margin. Never push text down with empty
+paragraphs — they stop being right the moment the text changes length. It
+applies to every page, so a short last page moves too; keep it for one-page
+documents.
+
+A paragraph keeps its own `align`, and its variant's indents, tab stops, border
+and fill, inside a `<Cell>` or `<Shape>` — a dotted `{"Signed\t"}` leader in a
+signature cell, a ruled quote inset inside a card. There, tab stops measure from
+the cell's or box's inner left edge, and `bleed` and `maxWidthMm` (page
+measures) do nothing.
 
 Ids are addresses: an engine targets a node by id and two build artifacts line
 up in a diff by id, so **treat a rename as a breaking change**. **Do not write
@@ -210,7 +254,7 @@ prints it, `dxcl show <id>` prints one entry in full, and `dxcl add <id>`
 installs it.
 
 ```sh
-dxcl list                               # 5 themes, 6 components
+dxcl list                               # 5 themes, 16 components
 dxcl show payment-summary               # what it does and what it reads
 dxcl add slate-report letterhead        # a theme and a node, into this project
 ```
@@ -227,6 +271,12 @@ already passes through — so the next preview is themed. It replaces a
 `document-style.ts` nothing has touched; once you have edited that file,
 replacing it needs `--force`.
 
+Paper and turn are `page.size` and `page.orientation` in `document-style.ts`:
+`A4`, `LETTER`, `LEGAL`, `A5`, `A3`, or `{ widthMm, heightMm }`. Override them
+on a theme with `themeStyle(theme, { page: { size: "LEGAL" } })`. In landscape,
+auto columns, bleeds and unsized shapes and charts take the wider column on
+their own.
+
 Reach for the registry first when a request names something ordinary — a
 letterhead, an address block, a signature, small print. Every entry is listed in
 [references/cli.md](references/cli.md) and browsable at
@@ -241,6 +291,11 @@ decision that depends on request data has to travel to the engine instead:
 - **Interpolating** a value publishes fine — it becomes a `{{data.x}}` token.
   **Computing** on one does not; use a **deriver**, which the engine runs per
   document. Never hand-write a `{{data.…}}` token; interpolation produces it.
+  This holds in every header and footer, the first-page and even-page ones
+  included.
+- **`<Document properties>` reads data only as a function** —
+  `properties={(data: MyData) => ({ … })}`. Interpolation publishes as a token,
+  like anywhere else; a computed value cannot reach it.
 - **A preview never waits.** It is rebuilt on every save, so generated nodes show
   the placeholder `useAi` required and derivers that declared a `placeholder`
   stand in rather than run. Cheap derivers still run, so the figures are real.
@@ -249,8 +304,12 @@ decision that depends on request data has to travel to the engine instead:
 - **`.map()` over request data is how a loop is written.** It walks the list when
   the data is real and is published as a loop the engine walks when it is not.
   Never hand-write a `{{ctx.…}}` token inside one — the entry writes its own
-  references. Anything needing the entries first (`.filter`, `.length`, `for…of`)
-  belongs in a deriver.
+  references. Number what a map produces with `position(i)` from
+  `docxcelerate/template`: 1, 2, 3 on both paths, counted over what a `.filter()`
+  kept. `i + 1` does not publish. Anything needing the entries first (`.filter`, `.length`, `for…of`)
+  belongs in a deriver. `.map()` over what a deriver returns is published as a
+  loop too, and the engine walks the rows it returns for each document; a
+  `.map()` inside a `.map()` publishes the same way.
 - **A decision is written as an ordinary conditional.** An `if` that returns, a
   ternary, and `cond && <Node />` are all compiled into the condition the engine
   evaluates per document, so both arms travel with the test that selects them.

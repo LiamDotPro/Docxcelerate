@@ -13,7 +13,7 @@ import type {
 import { generateGraph, generateImage, generateParagraph } from "./ai_request.ts";
 import { evaluateCondition } from "./conditions.ts";
 import { createDefaultDeriverRegistry, type DeriverRegistry, runDerivers } from "./derivers.ts";
-import { renderTemplate, resolveReference } from "./templates.ts";
+import { renderProperties, renderTemplate, resolveReference } from "./templates.ts";
 
 /**
  * Settling a published document against real data.
@@ -56,25 +56,23 @@ export async function resolveDocument(
   const nodes = await resolveNodes(doc.nodes, state, derivers);
   // The furniture is resolved too: a footer naming the recipient's reference
   // is as much a published token as anything in the body, and it is the part
-  // that appears on every page if it is left unresolved.
-  const header = doc.header ? await resolveNodes(doc.header, state, derivers) : undefined;
-  const footer = doc.footer ? await resolveNodes(doc.footer, state, derivers) : undefined;
-  // First-page furniture keeps an empty array as an empty array: it means "the
-  // first page shows nothing here", which is a decision, not an absence.
-  const firstHeader = doc.firstHeader
-    ? await resolveNodes(doc.firstHeader, state, derivers)
-    : doc.firstHeader;
-  const firstFooter = doc.firstFooter
-    ? await resolveNodes(doc.firstFooter, state, derivers)
-    : doc.firstFooter;
+  // that appears on every page if it is left unresolved. An empty array stays
+  // an empty array: it is a decision ("this page shows nothing here"), and for
+  // even furniture it is what keeps w:evenAndOddHeaders on.
+  const furniture = (part?: DocumentNode[]) => part && resolveNodes(part, state, derivers);
 
   return {
     ...doc,
+    ...(doc.properties === undefined
+      ? {}
+      : { properties: await renderProperties(doc.properties, (value) => renderTemplate(value, state)) }),
     nodes,
-    header,
-    footer,
-    firstHeader,
-    firstFooter,
+    header: await furniture(doc.header),
+    footer: await furniture(doc.footer),
+    firstHeader: await furniture(doc.firstHeader),
+    firstFooter: await furniture(doc.firstFooter),
+    evenHeader: await furniture(doc.evenHeader),
+    evenFooter: await furniture(doc.evenFooter),
   };
 }
 
@@ -105,6 +103,12 @@ async function resolveNode(
   const conditionMatches = await evaluateCondition(node.when, state);
   if (!conditionMatches) {
     return undefined;
+  }
+
+  // A variant can be read off the data — a row's status, a customer's tier —
+  // so it is a published token like the words, settled per entry.
+  if (node.variant !== undefined) {
+    node = { ...node, variant: await renderTemplate(node.variant, state) };
   }
 
   if (node.kind === "section") {
@@ -149,7 +153,7 @@ async function resolveNode(
 /**
  * Walks a published loop, now that the request has said how long it is.
  *
- * Each pass binds the entry and its position into `ctx`, so the body reads them
+ * Each pass binds the entry, its raw index and its position among the survivors into `ctx`, so the body reads them
  * the way it reads anything else, and suffixes ids with the index so the nodes
  * of one pass stay distinguishable from the next. The passes are spliced in
  * where the loop stood rather than wrapped in anything, because a wrapper would
@@ -164,6 +168,7 @@ async function resolveRepeat(
   const entries = await resolveReference(node.source, state);
   const previousEntry = state.ctx[node.as];
   const previousIndex = state.ctx[node.indexAs];
+  const previousPosition = node.positionAs === undefined ? undefined : state.ctx[node.positionAs];
   const children: DocumentNode[] = [];
 
   let pass = 0;
@@ -179,6 +184,10 @@ async function resolveRepeat(
       continue;
     }
 
+    if (node.positionAs !== undefined) {
+      state.ctx[node.positionAs] = pass + 1;
+    }
+
     for (const child of node.children) {
       const resolved = await resolveNode(suffixIds(child, pass), state, derivers);
 
@@ -192,6 +201,10 @@ async function resolveRepeat(
 
   state.ctx[node.as] = previousEntry;
   state.ctx[node.indexAs] = previousIndex;
+
+  if (node.positionAs !== undefined) {
+    state.ctx[node.positionAs] = previousPosition;
+  }
 
   return children;
 }
@@ -248,9 +261,12 @@ async function resolveImage(
   node: ImageNode,
   state: RuntimeState,
 ): Promise<ImageNode> {
+  const href = node.href === undefined ? {} : { href: await renderTemplate(node.href, state) };
+
   if (node.mode === "static") {
     return {
       ...node,
+      ...href,
       path: node.path ? await renderTemplate(node.path, state) : node.path,
       alt: node.alt ? await renderTemplate(node.alt, state) : node.alt,
     };
@@ -261,6 +277,7 @@ async function resolveImage(
 
   return {
     ...node,
+    ...href,
     prompts,
     path: result.path,
     alt: result.alt,
@@ -273,9 +290,12 @@ async function resolveGraph(
   node: GraphNode,
   state: RuntimeState,
 ): Promise<GraphNode> {
+  const alt = node.alt ? await renderTemplate(node.alt, state) : node.alt;
+
   if (node.mode === "static") {
     return {
       ...node,
+      alt,
       data: node.data
         ? await renderJsonObjectTemplates(
           node.data as unknown as JsonObject,
@@ -291,6 +311,7 @@ async function resolveGraph(
 
   return {
     ...node,
+    alt,
     prompts,
     graphType: result.graphType ?? node.graphType,
     data: result.data ?? node.data,
