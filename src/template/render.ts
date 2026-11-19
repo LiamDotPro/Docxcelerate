@@ -511,6 +511,7 @@ async function renderTable(
     kind: "table",
     columns: props.columns.map((column) => prune({ ...column })),
     align: props.align,
+    keepTogether: props.keepTogether ? true : undefined,
     when,
     children: await renderYield(props.children, context, {
       path: `${frame.path}/${id}`,
@@ -567,6 +568,7 @@ async function renderCell(
     kind: "tableCell",
     span: props.span,
     align: props.align,
+    textDirection: props.textDirection,
     when,
     children: holdsElements(props.children)
       ? await renderYield(props.children, context, childFrame)
@@ -777,6 +779,7 @@ async function renderParagraph(
     align: props.align,
     list: listOf(props, id),
     prompts: specs,
+    aiOptions: prompts.aiOptions,
   };
 
   return prune({
@@ -860,6 +863,7 @@ async function renderImage(
     when,
     ...drawn,
     prompts: specs,
+    aiOptions: prompts.aiOptions,
   };
 
   const result = await generateImage(context.aiClient, node, specs, context.state);
@@ -946,6 +950,7 @@ async function renderGraph(
     ...drawn,
     caption: await text(props.caption, context),
     prompts: specs,
+    aiOptions: prompts.aiOptions,
   };
 
   const result = await generateGraph(context.aiClient, node, specs, context.state);
