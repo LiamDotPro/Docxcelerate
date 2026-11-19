@@ -1022,6 +1022,56 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "prompt-payment-discount",
+    title: "Prompt payment discount terms",
+    summary: "Early-payment discount terms, worked per VAT band under the rule where the invoice is issued.",
+    detail:
+      "Since April 2015 UK VAT is charged on the full price, so this never " +
+      "recomputes the invoice's VAT on the discounted price and never takes the " +
+      "discount off the gross total. A UK invoice gets, per band, the discounted " +
+      "net, the VAT on it rounded once per band, and what is payable if paid " +
+      "early, followed by HMRC's wording when no credit note will be issued, " +
+      "without which the supplier has to issue one. A German invoice states the " +
+      "Skonto with a fixed date and, on a mixed-rate invoice, the reduction per " +
+      "rate, split to the cent by largest remainder; the invoice's own VAT stays " +
+      "on the full price. Zero-rated, exempt and reverse-charge bands have their " +
+      "net reduced and their VAT left at nothing. A US invoice gets the usual " +
+      "'2/10, net 30' and the early-payment amount, with sales tax on the full or " +
+      "discounted price looked up per state, never assumed. No discount prints " +
+      "nothing; a discount deadline after the due date fails the document. All " +
+      "of it is one deriver.",
+    category: "Closing",
+    tags: ["invoice", "vat", "tax", "payment", "discount", "table", "deriver", "branching", "section"],
+    exports: ["PromptPaymentDiscount"],
+    dataFields: [
+      { path: "invoice.issueDate", type: "string", summary: "ISO 8601 date of issue; the deadline is counted from it. Required when a discount applies." },
+      { path: "invoice.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required when a discount applies." },
+      { path: "invoice.jurisdiction", type: '"UK" | "EU" | "DE" | "FR" | "US"', summary: "Whose rules apply, and which language the block is written in." },
+      { path: "invoice.usState", type: "string | undefined", summary: "US only: decides whether sales tax follows the discount. Missing or unknown fails the document." },
+      { path: "invoice.dueDays", type: "number | undefined", summary: "The payment term in days. A discount deadline after it fails the document. Missing skips the check." },
+      { path: "invoice.bands", type: 'Array<{ rate: number | null; treatment: "standard" | "reduced" | "zero" | "exempt" | "reverse-charge"; net: number; vat: number }>', summary: "The VAT analysis at full price, major units, at most six non-zero bands. Required when a discount applies." },
+      { path: "invoice.promptPaymentDiscount", type: "{ percent: number; days: number; issuesCreditNote?: boolean } | undefined", summary: "The terms. Missing, 0% or no deadline prints nothing. issuesCreditNote is UK only; missing prints HMRC's no-credit-note wording." },
+    ],
+    files: node("prompt-payment-discount", { deriver: true }),
+    previewData: {
+      invoice: {
+        issueDate: "2026-11-30",
+        currency: "GBP",
+        jurisdiction: "UK",
+        dueDays: 30,
+        bands: [
+          { rate: 20, treatment: "standard", net: 1284750.0, vat: 256950.0 },
+          { rate: 5, treatment: "reduced", net: 48215.4, vat: 2410.77 },
+          { rate: 0, treatment: "zero", net: 12480.0, vat: 0 },
+          { rate: null, treatment: "reverse-charge", net: 96300.0, vat: 0 },
+        ],
+        promptPaymentDiscount: { percent: 2.5, days: 14, issuesCreditNote: false },
+      },
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
