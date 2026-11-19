@@ -1127,6 +1127,65 @@ export const COMPONENTS: RegistryComponent[] = [
   },
   {
     kind: "component",
+    id: "financial-assistance-notice",
+    title: "Financial assistance and collections timeline (501(r))",
+    summary: "The financial assistance notice a US tax-exempt hospital's bill must carry, and the dates collections may start and applications close.",
+    detail:
+      "Every statement from a tax-exempt hospital carries the 501(r) notice: " +
+      "assistance is available, and where to get the policy, the application and " +
+      "the plain-language summary. A missing phone number or web address prints " +
+      "an 'incomplete' warning instead. Collections may not start until 120 days " +
+      "after the first post-discharge statement and 30 days after the written " +
+      "collections notice, and the later date is printed. Until that notice is " +
+      "sent, the statement says collection waits for it. Applications are " +
+      "accepted for 240 days, or until the collections date if later. A pending " +
+      "application suspends collections and the statement says so. A partial " +
+      "approval caps the balance at the amount generally billed, worked out in " +
+      "whole cents and rounded half-up, and the statement shows the working. " +
+      "Free care says nothing is owed. A for-profit facility prints nothing " +
+      "unless state law asks for the notice, and then gets the notice alone. One " +
+      "deriver decides all of it.",
+    category: "Legal",
+    tags: ["healthcare", "legal", "us", "collections", "branching", "deriver"],
+    exports: ["FinancialAssistanceNotice"],
+    dataFields: [
+      { path: "facility.taxExempt", type: "boolean", summary: "Whether 501(r) applies. Missing is read as true." },
+      { path: "facility.stateNoticeRequired", type: "boolean | undefined", summary: "For a for-profit facility: print the notice alone because state law requires it." },
+      { path: "facility.fapUrl", type: "string", summary: "Where the policy, form and plain-language summary are. Missing prints a warning." },
+      { path: "facility.fapPhone", type: "string", summary: "Who to call about the policy. Missing prints a warning." },
+      { path: "billing.currency", type: "string | undefined", summary: "ISO 4217 code. Defaults to USD." },
+      { path: "billing.firstPostDischargeStatementDate", type: "string", summary: "ISO 8601. Both clocks start here. Required." },
+      { path: "billing.ecaNoticeDate", type: "string | undefined", summary: "ISO 8601 date of the written collections notice. Missing means none sent." },
+      {
+        path: "billing.application",
+        type: '{ status?: "none" | "pending" | "approved" | "denied"; discount?: "free" | "partial" } | undefined',
+        summary: "The application. Missing means none.",
+      },
+      { path: "billing.grossCharges", type: "number | undefined", summary: "Gross charges. Required for a partial approval." },
+      { path: "billing.agbPercent", type: "number | undefined", summary: "AGB percentage, such as 37.85. Required for a partial approval." },
+      { path: "billing.balanceDue", type: "number | undefined", summary: "What would otherwise be billed. The patient owes the lower of this and AGB." },
+    ],
+    files: node("financial-assistance-notice", { deriver: true }),
+    previewData: {
+      facility: {
+        taxExempt: true,
+        fapUrl: "https://www.stmarysregionalmedicalcenter.org/patients/billing/financial-assistance-policy",
+        fapPhone: "1-800-555-0142 (TTY 711), Monday to Friday 8am-6pm Central",
+      },
+      billing: {
+        currency: "USD",
+        firstPostDischargeStatementDate: "2026-11-02",
+        ecaNoticeDate: "2027-02-25",
+        application: { status: "approved", discount: "partial" },
+        grossCharges: 1284567.89,
+        agbPercent: 37.85,
+        balanceDue: 812450.0,
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
     id: "prepaid-hours-drawdown",
     title: "Prepaid hours drawdown",
     summary: "Time entries drawn against prepaid hour blocks soonest-expiring first, with overage, rollover and lapsed hours in a ledger.",
