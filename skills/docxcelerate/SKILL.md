@@ -293,6 +293,10 @@ decision that depends on request data has to travel to the engine instead:
   document. Never hand-write a `{{data.…}}` token; interpolation produces it.
   This holds in every header and footer, the first-page and even-page ones
   included.
+- **`useAi({ from: { … } })` takes request data as it is.** Each field you name
+  publishes as its token, so the model is sent the recipient's facts — a list
+  arrives whole, as JSON. Name the fields (`from: { period: data.period }`), never
+  the whole request data, and pass a collection itself rather than a `.map()` of it.
 - **`<Document properties>` reads data only as a function** —
   `properties={(data: MyData) => ({ … })}`. Interpolation publishes as a token,
   like anywhere else; a computed value cannot reach it.
