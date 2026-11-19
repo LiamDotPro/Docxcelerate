@@ -9,18 +9,18 @@ export const linesThenSummary = (lines: CommodityCodeSummaryLines): Yield => (
   <>
     <Paragraph id="commodity-code-summary-basis">{lines.basis}</Paragraph>
     {lines.attention && <Paragraph id="commodity-code-summary-attention">{lines.attention}</Paragraph>}
-    {/* Item auto; 24mm code (10 digits), 14 origin, 12 pref., 20 quantity, 22 supp. unit, 26 mass ("12,000.000"), 34 value ("£1,485,000.00"). */}
+    {/* Item auto; 20mm code (10 digits), 10 origin, 9 pref., 13 quantity, 15 supp. unit, 17 mass ("12,000.000"), 23 value ("£1,485,000.00"): 107mm fixed, so Item keeps ~39mm on a 146mm column. */}
     <Table
       id="commodity-code-summary-lines"
       columns={[
         { width: "auto" },
-        { width: 24 },
-        { width: 14 },
-        { width: 12 },
-        { width: 20, align: "right" },
-        { width: 22, align: "right" },
-        { width: 26, align: "right" },
-        { width: 34, align: "right" },
+        { width: 20 },
+        { width: 10 },
+        { width: 9 },
+        { width: 13, align: "right" },
+        { width: 15, align: "right" },
+        { width: 17, align: "right" },
+        { width: 23, align: "right" },
       ]}
     >
       <Row id="commodity-code-summary-lines-header" header>
@@ -49,17 +49,17 @@ export const linesThenSummary = (lines: CommodityCodeSummaryLines): Yield => (
         </Row>
       ))}
     </Table>
-    {/* Code auto (it carries the warning); 14 origin, 12 pref., 20 lines, 22 supp. unit, 26 mass, 34 value. */}
+    {/* Code auto (it carries the warning); 10 origin, 9 pref., 13 lines, 15 supp. unit, 17 mass, 23 value. */}
     <Table
       id="commodity-code-summary-groups"
       columns={[
         { width: "auto" },
-        { width: 14 },
-        { width: 12 },
-        { width: 20, align: "right" },
-        { width: 22, align: "right" },
-        { width: 26, align: "right" },
-        { width: 34, align: "right" },
+        { width: 10 },
+        { width: 9 },
+        { width: 13, align: "right" },
+        { width: 15, align: "right" },
+        { width: 17, align: "right" },
+        { width: 23, align: "right" },
       ]}
     >
       <Row id="commodity-code-summary-groups-header" header>

@@ -9,6 +9,7 @@ import {
 import type { DocumentNode, RuntimeState } from "docxcelerate";
 import { createPublishData, Document, template } from "docxcelerate/template";
 import { COMPONENTS } from "docxcelerate/registry";
+import type { CommodityCodeSummaryLines } from "../registry/components/arrangements/commodity-code-summary/lines.ts";
 import { assertEquals, assertRejects } from "./assert.ts";
 import { loadRegistryModule } from "./registry_support.ts";
 
@@ -20,38 +21,7 @@ const { CommodityCodeSummary } = await loadRegistryModule<
 >("components/commodity-code-summary/commodity-code-summary.node.tsx");
 
 type Obj = Record<string, unknown>;
-interface Row {
-  item: string;
-  tariffCode: string;
-  origin: string;
-  preference: string;
-  quantity: string;
-  supplementary: string;
-  netMass: string;
-  value: string;
-  warning: string;
-}
-interface Group {
-  tariffCode: string;
-  origin: string;
-  preference: string;
-  lineCount: string;
-  supplementary: string;
-  netMass: string;
-  value: string;
-  warning: string;
-}
-interface Result {
-  empty: boolean;
-  basis: string;
-  attention: string;
-  lines: Row[];
-  groups: Group[];
-  totalNetMass: string;
-  totalValue: string;
-  grossMass: string;
-  grossWarning: string;
-}
+type Result = CommodityCodeSummaryLines & { empty: boolean };
 
 const line = (over: Obj = {}): Obj => ({
   ref: "R1",
@@ -252,11 +222,12 @@ test("both arrangements print the same nodes, the summary first in one", async (
   assertEquals((await build(data)).nodes, (await build(data, "lines-then-summary")).nodes);
 });
 
-test("published, the tables loop over derived rows and resolve on the engine", async () => {
+for (const arrangement of ["lines-then-summary", "summary-first"] as const) {
+test(`published, the ${arrangement} tables loop over derived rows and resolve on the engine`, async () => {
   const bad = structuredClone(previewData.customs) as { lines: Obj[] };
   bad.lines[1].tariffCode = "090121";
   const data = { customs: bad };
-  const published = await buildDocument(documentOf(), createPublishData() as never, {
+  const published = await buildDocument(documentOf(arrangement), createPublishData() as never, {
     branchMode: "publish",
     deriverMode: "preserve",
     dynamicMode: "resolve",
@@ -282,4 +253,10 @@ test("published, the tables loop over derived rows and resolve on the engine", a
   const text = JSON.stringify(resolved.nodes);
   assertEquals(text.includes("25,539.986"), true);
   assertEquals(count("commodity-code-summary-line-warning"), 1);
+  const line1 = found.find((n) => (n as { id?: string }).id === "commodity-code-summary-line-1")!;
+  assertEquals(
+    walk([line1]).filter((n) => ((n as { id?: string }).id ?? "").startsWith("commodity-code-summary-line-warning")).length,
+    1,
+  );
 });
+}
