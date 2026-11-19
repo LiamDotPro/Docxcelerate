@@ -115,6 +115,27 @@ export interface GraphSeries {
    * sizes a scatter rather than a bubble chart nobody asked for.
    */
   sizes?: (number | null)[];
+  /** Drawn dashed: the benchmark beside the portfolio, the line before costs. Line charts. */
+  dash?: boolean;
+  /**
+   * The lower edge of a band this series fills up to, on a line chart.
+   *
+   * A series with a band is drawn as the ground between the two — a range of
+   * projections, the gap costs open between two lines — rather than as a line,
+   * and sits under the lines the chart also draws. Packed the way Word draws
+   * one itself: a stacked area whose first part is left unfilled.
+   */
+  band?: (number | null)[];
+  /** A colour for each point, in order, where the points differ: this quarter's bars among the year's. Bars. */
+  colors?: (string | undefined)[];
+  /** How heavy the line is drawn, in points. Line charts; Word's own is 2.25, and 0 draws none. */
+  widthPt?: number;
+  /**
+   * The series' name printed beside its last point, in its own colour — a
+   * projection that says what it is where it ends. Line charts. A line drawn
+   * at `widthPt: 0` is a label with no line, for naming the edge of a band.
+   */
+  endLabel?: boolean;
 }
 
 /** The numbers a {@linkcode GraphNode} plots, and what they are counted against. */
@@ -246,6 +267,17 @@ export interface ParagraphNode extends BaseNode {
    * ends it, and a numbered list after that starts again at one.
    */
   list?: ParagraphList;
+  /**
+   * Set by a preview build on a paragraph the engine will write: the text is
+   * its placeholder, standing in until a model has written the real thing.
+   *
+   * Carried so a theme can say so on the page — a style that names a
+   * `dynamicLabel` block prints "Dynamic: <name>" above each one — rather than
+   * a stand-in passing for the finished words in a proof. The value is that
+   * name: the id as the template wrote it, before a loop numbered it per entry,
+   * because a proof names the node an author would look for.
+   */
+  standIn?: string;
 }
 
 /**
@@ -263,9 +295,12 @@ export type ListKind = "bullet" | "number";
  * The name is Word's own number format (`w:numFmt`), so `"lowerLetter"` counts
  * a, b, c and is followed by a full stop. The `Paren` form puts the numeral in
  * brackets with no stop, which is how a contract writes a sub-clause: (a), (i).
+ * `"decimalPlain"` is the bare figure, no stop — a list of points numbered in
+ * a margin of their own.
  */
 export type ListStyle =
   | "decimal"
+  | "decimalPlain"
   | "lowerLetter"
   | "upperLetter"
   | "lowerRoman"
@@ -381,6 +416,29 @@ export interface ImageNode extends BaseNode {
   href?: string;
   /** What to show while the image has not been produced yet. */
   placeholder?: string;
+  /**
+   * Lifts the picture out of the line and pins it to the page.
+   *
+   * Absent, the picture is a character in its paragraph, like any other. Given,
+   * it is anchored to the paragraph it is written in but placed from the
+   * paper's top-left corner, and text runs over it rather than around it.
+   */
+  float?: ImageFloat;
+}
+
+/**
+ * Where a floating picture sits on the page.
+ *
+ * Measured from the paper's corner, not the margin, because what floats is
+ * usually what reaches the edge: a cover photograph, a band, a watermark.
+ */
+export interface ImageFloat {
+  /** From the paper's left edge, in millimetres. */
+  xMm: number;
+  /** From the paper's top edge, in millimetres. */
+  yMm: number;
+  /** Behind the text rather than in front of it. */
+  behind?: boolean;
 }
 
 /**
@@ -474,6 +532,42 @@ export interface GraphNode extends BaseNode {
    * worth turning on for a pie, where the slices are the reading.
    */
   dataLabels?: boolean;
+  /** Whether a line's points are marked with a dot. On unless this says `false`. */
+  markers?: boolean;
+  /** Whether lines run across the plot at each step of the value axis. On unless this says `false`. */
+  gridlines?: boolean;
+  /**
+   * Whether the axes are drawn at all. Off for a sparkline, which is the shape
+   * of a line and nothing else; gridlines go with them.
+   */
+  axes?: boolean;
+  /** The size the chart's labels are set in, in points. Left out, 9. */
+  textSizePt?: number;
+  /**
+   * Where the plot sits inside the chart's frame: how far in from each edge,
+   * in points. Left out, Word and the preview each lay it out their own way,
+   * and the two agree only roughly. Stated, both draw the plot in the same
+   * rectangle — which is what lets a chart match a design to the point.
+   */
+  plotArea?: GraphPlotArea;
+  /**
+   * The first and last points on the plot's left and right edges, rather than
+   * in the middle of their categories. Line charts: a twelve-month line that
+   * runs edge to edge.
+   */
+  fromEdge?: boolean;
+}
+
+/** How far the plot stands in from each edge of a chart's frame, in points. */
+export interface GraphPlotArea {
+  /** From the frame's left edge to the plot's, where the value labels stand. */
+  leftPt: number;
+  /** From the frame's top to the plot's. */
+  topPt: number;
+  /** From the plot's right edge to the frame's, where end labels stand. */
+  rightPt: number;
+  /** From the plot's foot to the frame's, where the category labels stand. */
+  bottomPt: number;
 }
 
 /**

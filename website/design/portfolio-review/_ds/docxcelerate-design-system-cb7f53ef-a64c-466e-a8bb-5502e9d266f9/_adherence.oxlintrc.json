@@ -1,0 +1,535 @@
+{
+  "plugins": [
+    "react",
+    "import"
+  ],
+  "rules": {
+    "react/forbid-elements": [
+      "warn",
+      {
+        "forbid": []
+      }
+    ],
+    "no-restricted-imports": [
+      "warn",
+      {
+        "patterns": [
+          {
+            "group": [
+              "components/brand/**",
+              "components/content/**",
+              "components/core/**",
+              "components/navigation/**",
+              "components/product/**",
+              "ui_kits/preview-app/**",
+              "ui_kits/website/**"
+            ],
+            "message": "Import design-system components from 'index.js', not component internals."
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+        "message": "Raw hex color — use a design-system color token via var()."
+      },
+      {
+        "selector": "Literal[value=/\\b\\d+px\\b/]",
+        "message": "Raw px value — use a design-system spacing token via var()."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Badge'] > JSXAttribute > JSXIdentifier[name!=/^(?:tone|shape|children|style|key|ref|className|style|children)$/]",
+        "message": "<Badge> doesn't accept that prop. Declared props: tone, shape, children, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Badge'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:outline|reversed|accent)$/]",
+        "message": "<Badge> tone must be one of 'outline' | 'reversed' | 'accent'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Badge'] > JSXAttribute[name.name='shape'] > Literal[value!=/^(?:pill|square)$/]",
+        "message": "<Badge> shape must be one of 'pill' | 'square'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Button'] > JSXAttribute > JSXIdentifier[name!=/^(?:variant|href|disabled|children|style|key|ref|className|style|children)$/]",
+        "message": "<Button> doesn't accept that prop. Declared props: variant, href, disabled, children, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Button'] > JSXAttribute[name.name='variant'] > Literal[value!=/^(?:primary|secondary|tertiary|quiet|link)$/]",
+        "message": "<Button> variant must be one of 'primary' | 'secondary' | 'tertiary' | 'quiet' | 'link'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Card'] > JSXAttribute > JSXIdentifier[name!=/^(?:variant|interactive|as|children|style|key|ref|className|style|children)$/]",
+        "message": "<Card> doesn't accept that prop. Declared props: variant, interactive, as, children, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Card'] > JSXAttribute[name.name='variant'] > Literal[value!=/^(?:surface|paper)$/]",
+        "message": "<Card> variant must be one of 'surface' | 'paper'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='CodeSpan'] > JSXAttribute > JSXIdentifier[name!=/^(?:text|tone|key|ref|className|style|children)$/]",
+        "message": "<CodeSpan> doesn't accept that prop. Declared props: text, tone."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='CopyField'] > JSXAttribute > JSXIdentifier[name!=/^(?:command|prompt|labelIdle|labelCopied|style|key|ref|className|style|children)$/]",
+        "message": "<CopyField> doesn't accept that prop. Declared props: command, prompt, labelIdle, labelCopied, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='DiffHunk'] > JSXAttribute > JSXIdentifier[name!=/^(?:file|removed|added|key|ref|className|style|children)$/]",
+        "message": "<DiffHunk> doesn't accept that prop. Declared props: file, removed, added."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='DocCard'] > JSXAttribute > JSXIdentifier[name!=/^(?:index|title|blurb|href|style|key|ref|className|style|children)$/]",
+        "message": "<DocCard> doesn't accept that prop. Declared props: index, title, blurb, href, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='SidebarPage'] > JSXAttribute > JSXIdentifier[name!=/^(?:slug|title|key|ref|className|style|children)$/]",
+        "message": "<SidebarPage> doesn't accept that prop. Declared props: slug, title."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Eyebrow'] > JSXAttribute > JSXIdentifier[name!=/^(?:index|tone|children|style|key|ref|className|style|children)$/]",
+        "message": "<Eyebrow> doesn't accept that prop. Declared props: index, tone, children, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Eyebrow'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:accent|muted)$/]",
+        "message": "<Eyebrow> tone must be one of 'accent' | 'muted'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='TreeNode'] > JSXAttribute > JSXIdentifier[name!=/^(?:kind|id|label|depth|sector|children|key|ref|className|style|children)$/]",
+        "message": "<TreeNode> doesn't accept that prop. Declared props: kind, id, label, depth, sector, children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='TreeNode'] > JSXAttribute[name.name='kind'] > Literal[value!=/^(?:dir|document|file)$/]",
+        "message": "<TreeNode> kind must be one of 'dir' | 'document' | 'file'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='LicenceSheet'] > JSXAttribute > JSXIdentifier[name!=/^(?:licence|copyright|pages|verbs|readLabel|readHref|style|key|ref|className|style|children)$/]",
+        "message": "<LicenceSheet> doesn't accept that prop. Declared props: licence, copyright, pages, verbs, readLabel, readHref, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Mark'] > JSXAttribute > JSXIdentifier[name!=/^(?:height|accentColor|title|style|key|ref|className|style|children)$/]",
+        "message": "<Mark> doesn't accept that prop. Declared props: height, accentColor, title, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Step'] > JSXAttribute > JSXIdentifier[name!=/^(?:title|detail|figure|key|ref|className|style|children)$/]",
+        "message": "<Step> doesn't accept that prop. Declared props: title, detail, figure."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='TocHeading'] > JSXAttribute > JSXIdentifier[name!=/^(?:slug|text|depth|key|ref|className|style|children)$/]",
+        "message": "<TocHeading> doesn't accept that prop. Declared props: slug, text, depth."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='PanelBar'] > JSXAttribute > JSXIdentifier[name!=/^(?:path|hint|children|style|key|ref|className|style|children)$/]",
+        "message": "<PanelBar> doesn't accept that prop. Declared props: path, hint, children, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='PaperPage'] > JSXAttribute > JSXIdentifier[name!=/^(?:title|scale|children|style|key|ref|className|style|children)$/]",
+        "message": "<PaperPage> doesn't accept that prop. Declared props: title, scale, children, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='PillTabItem'] > JSXAttribute > JSXIdentifier[name!=/^(?:id|label|key|ref|className|style|children)$/]",
+        "message": "<PillTabItem> doesn't accept that prop. Declared props: id, label."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='PullQuote'] > JSXAttribute > JSXIdentifier[name!=/^(?:quote|name|role|portrait|style|key|ref|className|style|children)$/]",
+        "message": "<PullQuote> doesn't accept that prop. Declared props: quote, name, role, portrait, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='FooterLink'] > JSXAttribute > JSXIdentifier[name!=/^(?:label|href|external|soon|key|ref|className|style|children)$/]",
+        "message": "<FooterLink> doesn't accept that prop. Declared props: label, href, external, soon."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='HeaderLink'] > JSXAttribute > JSXIdentifier[name!=/^(?:label|href|external|icon|soon|current|key|ref|className|style|children)$/]",
+        "message": "<HeaderLink> doesn't accept that prop. Declared props: label, href, external, icon, soon, current."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='HeaderLink'] > JSXAttribute[name.name='icon'] > Literal[value!=/^(?:github)$/]",
+        "message": "<HeaderLink> icon must be one of 'github'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Wordmark'] > JSXAttribute > JSXIdentifier[name!=/^(?:size|tone|weight|as|style|key|ref|className|style|children)$/]",
+        "message": "<Wordmark> doesn't accept that prop. Declared props: size, tone, weight, as, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Wordmark'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:theme|reversed)$/]",
+        "message": "<Wordmark> tone must be one of 'theme' | 'reversed'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='WordShell'] > JSXAttribute > JSXIdentifier[name!=/^(?:title|live|pageWidth|children|style|key|ref|className|style|children)$/]",
+        "message": "<WordShell> doesn't accept that prop. Declared props: title, live, pageWidth, children, style."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/index.js"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
+  "x-omelette": {
+    "components": {
+      "Badge": {
+        "replaces": []
+      },
+      "Button": {
+        "replaces": []
+      },
+      "Card": {
+        "replaces": []
+      },
+      "CodeSpan": {
+        "replaces": []
+      },
+      "CopyField": {
+        "replaces": []
+      },
+      "DiffHunk": {
+        "replaces": []
+      },
+      "DocCard": {
+        "replaces": []
+      },
+      "SidebarPage": {
+        "replaces": []
+      },
+      "Eyebrow": {
+        "replaces": []
+      },
+      "TreeNode": {
+        "replaces": []
+      },
+      "LicenceSheet": {
+        "replaces": []
+      },
+      "Mark": {
+        "replaces": []
+      },
+      "Step": {
+        "replaces": []
+      },
+      "TocHeading": {
+        "replaces": []
+      },
+      "PanelBar": {
+        "replaces": []
+      },
+      "PaperPage": {
+        "replaces": []
+      },
+      "PillTabItem": {
+        "replaces": []
+      },
+      "PullQuote": {
+        "replaces": []
+      },
+      "FooterLink": {
+        "replaces": []
+      },
+      "HeaderLink": {
+        "replaces": []
+      },
+      "Wordmark": {
+        "replaces": []
+      },
+      "WordShell": {
+        "replaces": []
+      }
+    },
+    "tokens": [
+      "--accent",
+      "--accent-deep",
+      "--accent-solid",
+      "--accent-tint",
+      "--border",
+      "--border-accent",
+      "--border-firm",
+      "--border-hairline",
+      "--border-strong",
+      "--border-width",
+      "--color-ledger-100",
+      "--color-ledger-200",
+      "--color-ledger-300",
+      "--color-ledger-400",
+      "--color-ledger-50",
+      "--color-ledger-500",
+      "--color-ledger-600",
+      "--color-ledger-700",
+      "--color-ledger-800",
+      "--color-ledger-900",
+      "--color-ledger-950",
+      "--container-page",
+      "--container-prose",
+      "--container-wide",
+      "--docx-accent",
+      "--docx-chrome",
+      "--docx-chrome-border",
+      "--docx-page",
+      "--docx-page-border",
+      "--docx-text",
+      "--docx-text-muted",
+      "--docx-titlebar",
+      "--docx-workspace",
+      "--duration",
+      "--duration-fast",
+      "--duration-slow",
+      "--ease",
+      "--focus-offset",
+      "--focus-ring",
+      "--font-letter",
+      "--font-mono",
+      "--font-sans",
+      "--font-serif",
+      "--glow-band",
+      "--gutter",
+      "--gutter-sm",
+      "--header-height",
+      "--ink",
+      "--leading-body",
+      "--leading-heading",
+      "--leading-hero",
+      "--leading-prose",
+      "--leading-quote",
+      "--measure-lead",
+      "--measure-prose",
+      "--muted",
+      "--nudge-x",
+      "--on-accent",
+      "--pad-button",
+      "--pad-card",
+      "--pad-card-lg",
+      "--pad-pill",
+      "--paper",
+      "--paper-fixed",
+      "--paper-fixed-border",
+      "--paper-fixed-ink",
+      "--radius",
+      "--radius-lg",
+      "--radius-md",
+      "--radius-pill",
+      "--radius-sm",
+      "--radius-xs",
+      "--rail-left",
+      "--rail-right",
+      "--rubric",
+      "--rubric-tint",
+      "--section-y",
+      "--section-y-lg",
+      "--selection",
+      "--shadow-none",
+      "--shadow-page",
+      "--shadow-page-docx",
+      "--shadow-quote-glow",
+      "--shadow-sheet",
+      "--shadow-shell",
+      "--space-0-5",
+      "--space-1",
+      "--space-1-5",
+      "--space-10",
+      "--space-12",
+      "--space-14",
+      "--space-16",
+      "--space-2",
+      "--space-2-5",
+      "--space-20",
+      "--space-24",
+      "--space-28",
+      "--space-3",
+      "--space-3-5",
+      "--space-4",
+      "--space-5",
+      "--space-6",
+      "--space-7",
+      "--space-8",
+      "--space-px",
+      "--sticky-top",
+      "--surface",
+      "--surface-2",
+      "--text-badge",
+      "--text-body",
+      "--text-body-card",
+      "--text-body-point",
+      "--text-code",
+      "--text-code-figure",
+      "--text-eyebrow",
+      "--text-h2",
+      "--text-h2-point",
+      "--text-h3",
+      "--text-h3-card",
+      "--text-hero",
+      "--text-lead",
+      "--text-meta",
+      "--text-quote",
+      "--text-sm",
+      "--text-tree",
+      "--tracking-eyebrow",
+      "--tracking-heading",
+      "--tracking-hero",
+      "--tracking-label",
+      "--tracking-pill",
+      "--transition-colors",
+      "--transition-transform",
+      "--type-body",
+      "--type-code",
+      "--type-display",
+      "--type-heading",
+      "--type-quote",
+      "--wash",
+      "--wash-underlay",
+      "--weight-bold",
+      "--weight-medium",
+      "--weight-regular",
+      "--weight-semibold"
+    ],
+    "tokenKinds": {
+      "--color-ledger-50": "color",
+      "--color-ledger-100": "color",
+      "--color-ledger-200": "color",
+      "--color-ledger-300": "color",
+      "--color-ledger-400": "color",
+      "--color-ledger-500": "color",
+      "--color-ledger-600": "color",
+      "--color-ledger-700": "color",
+      "--color-ledger-800": "color",
+      "--color-ledger-900": "color",
+      "--color-ledger-950": "color",
+      "--paper": "color",
+      "--surface": "color",
+      "--surface-2": "color",
+      "--border": "color",
+      "--border-firm": "color",
+      "--ink": "color",
+      "--muted": "color",
+      "--accent": "color",
+      "--accent-deep": "color",
+      "--accent-solid": "color",
+      "--accent-tint": "color",
+      "--on-accent": "color",
+      "--selection": "color",
+      "--rubric": "color",
+      "--rubric-tint": "color",
+      "--wash": "color",
+      "--docx-chrome": "color",
+      "--docx-chrome-border": "color",
+      "--docx-workspace": "color",
+      "--docx-page": "color",
+      "--docx-page-border": "color",
+      "--docx-text": "font",
+      "--docx-text-muted": "font",
+      "--docx-accent": "color",
+      "--docx-titlebar": "color",
+      "--font-sans": "font",
+      "--font-serif": "font",
+      "--font-mono": "font",
+      "--font-letter": "font",
+      "--text-hero": "font",
+      "--text-quote": "font",
+      "--text-h2": "font",
+      "--text-h2-point": "font",
+      "--text-h3": "font",
+      "--text-h3-card": "font",
+      "--text-lead": "font",
+      "--text-body": "font",
+      "--text-body-point": "font",
+      "--text-body-card": "font",
+      "--text-sm": "font",
+      "--text-code": "font",
+      "--text-code-figure": "font",
+      "--text-tree": "font",
+      "--text-eyebrow": "font",
+      "--text-badge": "font",
+      "--text-meta": "font",
+      "--leading-hero": "font",
+      "--leading-quote": "font",
+      "--leading-heading": "font",
+      "--leading-body": "font",
+      "--leading-prose": "font",
+      "--tracking-hero": "font",
+      "--tracking-heading": "font",
+      "--tracking-eyebrow": "font",
+      "--tracking-label": "font",
+      "--tracking-pill": "font",
+      "--weight-regular": "font",
+      "--weight-medium": "font",
+      "--weight-semibold": "font",
+      "--weight-bold": "font",
+      "--type-display": "font",
+      "--type-quote": "font",
+      "--type-heading": "font",
+      "--type-body": "font",
+      "--type-code": "font",
+      "--measure-prose": "spacing",
+      "--measure-lead": "spacing",
+      "--space-px": "spacing",
+      "--space-0-5": "spacing",
+      "--space-1": "spacing",
+      "--space-1-5": "spacing",
+      "--space-2": "spacing",
+      "--space-2-5": "spacing",
+      "--space-3": "spacing",
+      "--space-3-5": "spacing",
+      "--space-4": "spacing",
+      "--space-5": "spacing",
+      "--space-6": "spacing",
+      "--space-7": "spacing",
+      "--space-8": "spacing",
+      "--space-10": "spacing",
+      "--space-12": "spacing",
+      "--space-14": "spacing",
+      "--space-16": "spacing",
+      "--space-20": "spacing",
+      "--space-24": "spacing",
+      "--space-28": "spacing",
+      "--container-prose": "spacing",
+      "--container-page": "spacing",
+      "--container-wide": "spacing",
+      "--gutter": "spacing",
+      "--gutter-sm": "spacing",
+      "--section-y": "color",
+      "--section-y-lg": "color",
+      "--header-height": "spacing",
+      "--rail-left": "spacing",
+      "--rail-right": "spacing",
+      "--sticky-top": "spacing",
+      "--pad-card": "spacing",
+      "--pad-card-lg": "spacing",
+      "--pad-button": "spacing",
+      "--pad-pill": "spacing",
+      "--radius-xs": "radius",
+      "--radius-sm": "radius",
+      "--radius": "radius",
+      "--radius-md": "radius",
+      "--radius-lg": "radius",
+      "--radius-pill": "radius",
+      "--border-width": "spacing",
+      "--border-hairline": "color",
+      "--border-strong": "color",
+      "--border-accent": "color",
+      "--shadow-none": "shadow",
+      "--shadow-shell": "shadow",
+      "--shadow-sheet": "shadow",
+      "--shadow-page": "shadow",
+      "--shadow-page-docx": "shadow",
+      "--shadow-quote-glow": "shadow",
+      "--glow-band": "color",
+      "--wash-underlay": "color",
+      "--paper-fixed": "color",
+      "--paper-fixed-ink": "color",
+      "--paper-fixed-border": "color",
+      "--duration-fast": "other",
+      "--duration": "other",
+      "--duration-slow": "other",
+      "--ease": "other",
+      "--transition-colors": "color",
+      "--transition-transform": "color",
+      "--nudge-x": "spacing",
+      "--focus-ring": "color",
+      "--focus-offset": "spacing"
+    },
+    "fontFamilies": []
+  }
+}

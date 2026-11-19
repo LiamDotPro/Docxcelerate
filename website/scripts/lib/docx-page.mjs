@@ -184,7 +184,7 @@ export async function renderDocxPreview(document) {
   return {
     styles: withFontFallbacks(styleContainer.innerHTML),
     pages: withImageTypes(withFontFallbacks(bodyContainer.innerHTML)),
-    running: await renderRunningFurniture(packed, docxPreview, window),
+    running: await renderRunningFurniture(packed, docxPreview, window, document),
     packed: await readPackedParagraphs(packed),
   };
 }
@@ -208,8 +208,11 @@ export async function renderDocxPreview(document) {
  * Nothing is written back to the file, and the real preview is rendered from
  * the untouched bytes. A document that is not a title page skips this entirely.
  */
-async function renderRunningFurniture(packed, docxPreview, window) {
+async function renderRunningFurniture(packed, docxPreview, window, document) {
   const parsed = await docxPreview.parseAsync(packed);
+  // The strips are finished the way the body is, or a tracked label in the
+  // running band loses its tracking on every page but the first.
+  const settle = async (body) => settleDocxPreview(body, document, await readPackedParagraphs(packed), await readPackedTables(packed));
   // The section properties live on the body itself — `body.props` — not on a
   // `sections` list. A document with one section has one set of them, and it is
   // the same object `renderHeaderFooter` consults.
@@ -220,7 +223,7 @@ async function renderRunningFurniture(packed, docxPreview, window) {
   }
 
   const running = properties.titlePage === true
-    ? await drawStrips(parsed, docxPreview, window, () => {
+    ? await drawStrips(parsed, docxPreview, window, settle, () => {
       properties.titlePage = false;
     })
     : { header: null, footer: null };
@@ -234,7 +237,7 @@ async function renderRunningFurniture(packed, docxPreview, window) {
     (properties.footerRefs ?? []).some((ref) => ref.type === "even");
 
   const even = hasEven
-    ? await drawStrips(parsed, docxPreview, window, () => {
+    ? await drawStrips(parsed, docxPreview, window, settle, () => {
       properties.titlePage = false;
       promoteEven(properties.headerRefs);
       promoteEven(properties.footerRefs);
@@ -260,7 +263,7 @@ function promoteEven(refs) {
 }
 
 /** One scratch render, and the strips it drew. */
-async function drawStrips(parsed, docxPreview, window, prepare) {
+async function drawStrips(parsed, docxPreview, window, settle, prepare) {
   prepare();
 
   const body = window.document.createElement("div");
@@ -273,6 +276,7 @@ async function drawStrips(parsed, docxPreview, window, prepare) {
     useBase64URL: true,
   });
 
+  await settle(body);
   const page = body.querySelector("section.docx");
 
   return {
@@ -332,7 +336,10 @@ function runningMarkup(running) {
  * use, not a font database.
  */
 function withFontFallbacks(html) {
-  return html.replaceAll(/font-family:\s*([^;"']+)/g, (rule, families) => {
+  // A name with a space in it arrives quoted, and quoted as `&quot;` once the
+  // markup is serialised — whose `;` a plain "up to the next semicolon" stops
+  // inside, splicing the fallback into the middle of the name.
+  return html.replaceAll(/font-family:\s*((?:&quot;[^&]*&quot;|[^;"'&])+)/g, (rule, families) => {
     const listed = families.split(",").map((family) => family.trim());
     const generic = genericFor(listed[0]);
 
@@ -344,10 +351,14 @@ function withFontFallbacks(html) {
 function genericFor(font) {
   const serif = ["cambria", "georgia", "times new roman", "garamond", "book antiqua", "palatino"];
   const mono = ["consolas", "courier new", "cascadia mono", "menlo"];
-  const key = font.replaceAll(/["']/g, "").trim().toLowerCase();
+  const script = ["brush script mt", "segoe script", "lucida handwriting"];
+  const key = font.replaceAll(/&quot;|["']/g, "").trim().toLowerCase();
 
   if (serif.includes(key)) {
     return "serif";
+  }
+  if (script.includes(key)) {
+    return "cursive";
   }
 
   return mono.includes(key) ? "monospace" : "sans-serif";
@@ -505,11 +516,30 @@ export const NODE_ONLY_STYLE = `
 async function paginatorScript() {
   const { readFile } = await import("node:fs/promises");
   const { createRequire } = await import("node:module");
-  const path = createRequire(import.meta.url)
-    .resolve("docxcelerate/preview")
-    .replace(/docx_preview\.js$/, "docx_paginate.js");
-
-  const source = (await readFile(path, "utf8")).replace(/^export /gm, "");
+  const preview = createRequire(import.meta.url).resolve("docxcelerate/preview");
+  // The three modules the page script calls into, inlined in dependency order.
+  // A module script written into the page cannot resolve the relative imports
+  // between them, and one that fails to load fails whole: no tab stops, and
+  // no pagination after them.
+  const sources = await Promise.all(
+    ["docx_fields.js", "docx_tabs.js", "docx_paginate.js"].map((name) =>
+      readFile(preview.replace(/docx_preview\.js$/, name), "utf8")
+    ),
+  );
+  // Each in a scope of its own, handing on only what it exports: the modules
+  // share private names (both measure in PX_PER_PT), and a module script that
+  // declares one twice is a syntax error that stops the whole page script.
+  const source = sources
+    .map((code) => {
+      const names = [...code.matchAll(/^export (?:async )?(?:function|const|let|class) (\w+)/gm)].map((m) => m[1]);
+      const body = code
+        .replace(/^import [^;]*;$/gm, "")
+        .replace(/^export \{[^}]*\}( from [^;]*)?;$/gm, "")
+        .replace(/^export /gm, "")
+        .replace(/^\/\/# sourceMappingURL.*$/gm, "");
+      return names.length === 0 ? "" : `const { ${names.join(", ")} } = (() => {\n${body}\nreturn { ${names.join(", ")} };\n})();`;
+    })
+    .join("\n");
 
   return `    <script type="module">
 ${source}

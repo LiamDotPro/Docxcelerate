@@ -763,6 +763,7 @@ async function renderParagraph(
       align: props.align,
       list: listOf(props),
       text: await placeholderText(prompts, id, context),
+      standIn: props.id ?? id,
     });
   }
 
@@ -809,6 +810,7 @@ async function renderImage(
     width: props.width,
     height: props.height,
     align: props.align,
+    float: props.float,
   };
 
   if (!isDynamic(prompts)) {
@@ -884,6 +886,12 @@ async function renderGraph(
     valueAxisMax: props.valueAxisMax,
     valueAxisStep: props.valueAxisStep,
     dataLabels: props.dataLabels,
+    markers: props.markers,
+    gridlines: props.gridlines,
+    axes: props.axes,
+    textSizePt: props.textSizePt,
+    plotArea: props.plotArea,
+    fromEdge: props.fromEdge,
     align: props.align,
   };
 

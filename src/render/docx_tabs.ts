@@ -129,7 +129,7 @@ function placeTabs(
     }
 
     const target = stop.positionPt * PX_PER_PT;
-    const width = stop.align === "left" ? target - before : trailingWidth(tab, target, left);
+    const width = stop.align === "left" ? target - before : trailingWidth(tab, paragraph, target, left);
 
     if (!Number.isFinite(width) || width < 0) {
       continue;
@@ -158,11 +158,16 @@ function placeTabs(
  * stop less the width of everything after the tab — measured, because that is
  * the only way to know it.
  */
-function trailingWidth(tab: HTMLElement, target: number, left: number): number {
+function trailingWidth(tab: HTMLElement, paragraph: HTMLElement, target: number, left: number): number {
   const range = tab.ownerDocument.createRange();
 
+  // To the end of the paragraph, not of the tab's own parent: docx-preview
+  // puts a tab inside the span of the run it belongs to, so the words after
+  // it are in the next run's span — and a range stopping at the end of the
+  // tab's span measures nothing, sending the trailing words past the stop
+  // and onto a line of their own.
   range.setStartAfter(tab);
-  range.setEndAfter(tab.parentNode?.lastChild ?? tab);
+  range.setEndAfter(paragraph.lastChild ?? tab);
 
   const trailing = range.getBoundingClientRect().width;
 

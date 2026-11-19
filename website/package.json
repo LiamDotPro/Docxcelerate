@@ -15,7 +15,10 @@
     "preview": "astro preview",
     "check": "astro check",
     "registry": "node scripts/build-registry.mjs",
-    "verify:invoice": "node scripts/verify-invoice.mjs"
+    "verify:invoice": "node scripts/verify-invoice.mjs",
+    "parity": "node scripts/design-parity.mjs",
+    "parity:steps": "node scripts/parity-steps.mjs",
+    "parity:word": "node scripts/word-pdf.mjs"
   },
   "dependencies": {
     "docxcelerate": "file:.."

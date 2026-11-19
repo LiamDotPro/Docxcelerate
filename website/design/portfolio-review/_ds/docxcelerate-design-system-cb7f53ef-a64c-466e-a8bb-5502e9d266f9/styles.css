@@ -1,0 +1,7 @@
+/* Docxcelerate design system — global entry point. Imports only. */
+@import "./tokens/colors.css";
+@import "./tokens/typography.css";
+@import "./tokens/spacing.css";
+@import "./tokens/surfaces.css";
+@import "./tokens/motion.css";
+@import "./tokens/base.css";

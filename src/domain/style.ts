@@ -427,6 +427,39 @@ export interface DocumentBlockStyle {
    * that draws a grid where a line was wanted.
    */
   tabStopsMm?: TabStop[];
+  /**
+   * Whether a placeholder set in this variant is labelled in a preview build,
+   * when the theme has a `dynamicLabel` block. On unless this says `false`.
+   *
+   * A label names a block still to be written, and some blocks are one thing
+   * written in two paragraphs, or a single word inside a stamp whose own
+   * caption already says what it is. Those turn it off.
+   */
+  standInLabel?: boolean;
+  /**
+   * The variant this block is drawn with, over its own, while what it holds is
+   * a placeholder in a preview build.
+   *
+   * A decision stamp is a filled green box once the engine has decided; in a
+   * proof, before anyone has, a filled box would read as the decision taken.
+   * Naming a quieter look here — an outline, a muted ink — is how it says so.
+   * A cell takes it when any of its paragraphs is a stand-in; a paragraph
+   * when it is one.
+   */
+  standIn?: string;
+  /**
+   * The variant a numbered list's numerals are set in, named on its items'
+   * own variant: points numbered in the heading face and the accent, beside
+   * words in the body's. Left out, the numerals are set like the words.
+   */
+  marker?: string;
+  /**
+   * The paragraph opens on a drop cap: its first letter set in `variant`, in a
+   * frame `lines` deep that the rest of the words wrap beside — the opening
+   * of a letter. Written text only: a placeholder is not the letter's opening,
+   * and the paragraphs after the first of a written passage are not either.
+   */
+  dropCap?: { lines: number; variant: string };
 }
 
 /**
