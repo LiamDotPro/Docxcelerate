@@ -798,6 +798,7 @@ function listOf(props: ParagraphProps, id: string): ParagraphList | undefined {
       // Bullets count nothing, so a style on one would only be noise in the model.
       style: props.list === "number" ? props.listStyle : undefined,
       start: props.list === "number" ? start : undefined,
+      marker: props.list === "bullet" ? props.listMarker : undefined,
     });
 }
 

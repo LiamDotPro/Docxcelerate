@@ -42,6 +42,7 @@ import type {
   DocumentTextBlockStyle,
   GraphNode,
   ImageNode,
+  ListMarker,
   ListStyle,
   PageNumberNode,
   ParagraphList,
@@ -109,7 +110,7 @@ export function createDocxDocument(doc: DocumentModel): Document {
     styles: createDocxStyles(style, doc.locale),
     // Only for a document with a list in it, so one without is packed with
     // exactly the numbering part it always had.
-    numbering: lists.items === 0 ? undefined : listNumbering(lists.numbered),
+    numbering: lists.items === 0 ? undefined : listNumbering(lists.numbered, lists.markers),
     evenAndOddHeaderAndFooters: evenAndOdd || undefined,
     // A settings-part switch, like the one above. Passed only when asked:
     // `docx` writes `w:val="false"` for an explicit false, and a document that
@@ -663,6 +664,11 @@ const BULLET_LIST = "dxcl-bullet";
 /** The stem of a numbered list's numbering; each list gets one of its own. */
 const NUMBER_LIST = "dxcl-number";
 
+/** The numbering a bulleted item is marked in: one per marker, shared like the bullet's. */
+function bulletReference(marker: ListMarker | undefined): string {
+  return marker === undefined ? BULLET_LIST : `${BULLET_LIST}-${marker}`;
+}
+
 /**
  * How far an item's words stand in from its marker, and each level from the
  * one above, in points. A quarter of an inch, which is Word's own.
@@ -672,8 +678,11 @@ const LIST_HANG_PT = 18;
 /** As deep as Word's numbering goes. */
 const LIST_LEVELS = 9;
 
+/** The glyph each chosen marker stands for, in the paragraph's own face like the bullet. */
+const MARKERS: Record<ListMarker, string> = { dash: "\u2013", tick: "\u2713", cross: "\u2717", square: "\u25AA" };
+
 /** Plain glyphs in the paragraph's own face: no symbol font for a preview to be missing. */
-const BULLETS = ["\u2022", "\u25E6", "\u25AA"];
+const BULLETS = ["\u2022", "\u25E6", MARKERS.square];
 
 /** Figures, then letters, then roman numerals, and round again. */
 const NUMBER_FORMATS = [LevelFormat.DECIMAL, LevelFormat.LOWER_LETTER, LevelFormat.LOWER_ROMAN];
@@ -712,8 +721,11 @@ type ListLevelSettings = { style?: ListStyle; start?: number };
  * @returns How many items there are, and for each numbered list the numerals
  * and starting number each of its levels was given.
  */
-function placeLists(doc: DocumentModel): { items: number; numbered: ListLevelSettings[][] } {
+function placeLists(
+  doc: DocumentModel,
+): { items: number; numbered: ListLevelSettings[][]; markers: Set<ListMarker> } {
   let items = 0;
+  const markers = new Set<ListMarker>();
   const numbered: ListLevelSettings[][] = [];
 
   const walk = (nodes: readonly DocumentNode[]): void => {
@@ -743,10 +755,14 @@ function placeLists(doc: DocumentModel): { items: number; numbered: ListLevelSet
         level.style ??= node.list.style;
       }
 
+      if (node.list.marker !== undefined) {
+        markers.add(node.list.marker);
+      }
+
       const next = nodes[index + 1];
       items += 1;
       listPlaces.set(node, {
-        reference: node.list.kind === "number" && reference !== undefined ? reference : BULLET_LIST,
+        reference: node.list.kind === "number" && reference !== undefined ? reference : bulletReference(node.list.marker),
         tight: next?.kind === "paragraph" && next.list !== undefined,
       });
     });
@@ -768,7 +784,7 @@ function placeLists(doc: DocumentModel): { items: number; numbered: ListLevelSet
     }
   }
 
-  return { items, numbered };
+  return { items, numbered, markers };
 }
 
 /**
@@ -782,7 +798,7 @@ function placeLists(doc: DocumentModel): { items: number; numbered: ListLevelSet
  * at all. This is the form both engines read, which is the same reason a
  * shape is packed as VML.
  */
-function listNumbering(numbered: ListLevelSettings[][]) {
+function listNumbering(numbered: ListLevelSettings[][], markers: ReadonlySet<ListMarker>) {
   const levels = (
     marker: (level: number) => { format: (typeof LevelFormat)[keyof typeof LevelFormat]; text: string; start?: number },
   ) =>
@@ -795,13 +811,14 @@ function listNumbering(numbered: ListLevelSettings[][]) {
 
   return {
     config: [
-      {
-        reference: BULLET_LIST,
+      // The default bullet is always written, so a document without markers keeps its numbering.
+      ...[undefined, ...markers].map((marker) => ({
+        reference: bulletReference(marker),
         levels: levels((level) => ({
           format: LevelFormat.BULLET,
-          text: BULLETS[level % BULLETS.length],
+          text: marker === undefined ? BULLETS[level % BULLETS.length] : MARKERS[marker],
         })),
-      },
+      })),
       ...numbered.map((settings, index) => ({
         reference: `${NUMBER_LIST}-${index + 1}`,
         levels: levels((level) => ({ ...numberMarker(settings[level]?.style, level), start: settings[level]?.start })),
