@@ -437,6 +437,8 @@ export default defineDocumentProject<DocumentData>({
   previewData,                 // what the preview resolves against
   derivers,                    // values computed per document rather than per build
   style: documentStyle,        // applied when packing
+  locales: ["en-GB", "en-US"],  // default first; each other one gets its own preview and engine document
+  localeStyles: { "en-US": usLetterStyle }, // a whole style for one locale instead of `style`
   previewOptions: { availableTokens: 800 },
   buildOptions: {},            // runtime options for engine and final builds
   metadata: {},
@@ -446,6 +448,8 @@ export default defineDocumentProject<DocumentData>({
 `version` defaults to `"0.1.0"`. The preview app discovers projects by globbing
 for `document.project.ts` — a new document appears in the picker as soon as it
 exists, and nothing registers it.
+
+`localeStyles` keys must be among `locales` — `defineDocumentProject` throws otherwise. A key matches the build's locale exactly, ignoring case: `en-CA` does not fall back to `en-US`. The manifest's `style` is the default locale's, and an entry in `localizedDocuments` carries its own `style` only when it differs.
 
 ## Building
 
@@ -462,7 +466,7 @@ import {
 | Function | Builds |
 | --- | --- |
 | `buildDocument(template, data, options?)` | The raw model from a template and data you hold |
-| `buildProjectPreviewDocument(project, options?)` | What the preview app shows: dynamic nodes → placeholders, derivers resolved, project style applied |
+| `buildProjectPreviewDocument(project, options?)` | What the preview app shows: dynamic nodes → placeholders, derivers resolved, the style for its locale applied |
 | `buildProjectEngineDocument(project, options?)` | The upload artifact: values stay tokens, branches keep both arms, loops stay loops, and every generated paragraph, image and chart keeps its prompts for the engine's client to answer |
 | `buildProjectFinalDocument(project, { data, aiClient, … })` | A finished document at request time, dynamic nodes run through the AI client |
 | `createDocumentProjectArtifact(project, options?)` | The manifest, both documents and the deriver bundle together |

@@ -313,6 +313,9 @@ on a theme with `themeStyle(theme, { page: { size: "LEGAL" } })`. In landscape,
 auto columns, bleeds and unsized shapes and charts take the wider column on
 their own.
 
+A project in several `locales` can put one of them on other paper:
+`localeStyles: { "en-US": themeStyle(theme, { page: { size: "LETTER" } }) }` beside `style`. That locale's preview, engine and final documents are built on it; every other locale stays on `style`. Keys are written as they are in `locales`.
+
 A document in Japanese, Chinese or Korean names its face for those characters:
 `themeStyle(theme, { typography: { eastAsiaFont: "Yu Mincho" } })`; Arabic or
 Hebrew text takes `complexScriptFont`. Without it Word substitutes a face of
