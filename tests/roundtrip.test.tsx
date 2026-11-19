@@ -1,26 +1,35 @@
 import { test } from "node:test";
-import { assertEquals } from "./assert.ts";
+import { assertEquals, assertRejects } from "./assert.ts";
 import {
+  type AiClient,
   buildProjectEngineDocument,
   buildProjectFinalDocument,
   createDeriverRegistry,
+  createDocumentProjectArtifact,
   dataRef,
   defineDocumentProject,
   derive,
   type DocumentModel,
+  type DocumentNode,
   InMemoryDataProvider,
   resolveDocument,
   type RuntimeState,
 } from "docxcelerate";
 import {
   branch,
+  Cell,
   compare,
   dataPath,
   Document,
+  Graph,
+  Image,
   literal,
   Paragraph,
+  Row,
   Section,
+  Table,
   template,
+  useAi,
   useSetPlaceholders,
   useSetPrompts,
   useState,
@@ -240,4 +249,298 @@ test("an empty collection drops its passes on both paths", async () => {
 
   assertEquals(shape(await throughEngine(none)).filter((l) => l.startsWith("visit-")), []);
   assertEquals(shape(await throughEngine(none)), shape(await directly(none)));
+});
+
+// ---------------------------------------------------------------------------
+// Generated charts and pictures, published
+// ---------------------------------------------------------------------------
+
+interface ReportData {
+  city: string;
+}
+
+const Trend = () => {
+  const [state] = useState((data: ReportData) => ({ city: data.city }));
+  useAi({ ask: `Plot monthly visits for ${state.city}.`, placeholder: "A trend chart." });
+  return <Graph id="trend" graphType="line" title={`Visits in ${state.city}`} width={300} />;
+};
+
+const Cover = () => {
+  const [state] = useState((data: ReportData) => ({ city: data.city }));
+  useAi({ ask: `Draw ${state.city} at dusk.`, placeholder: "A picture of the city." });
+  return <Image id="cover" alt={`Picture of ${state.city}`} width={200} height={120} />;
+};
+
+const CellNote = () => {
+  useAi({ ask: "One line on the figures.", placeholder: "A note." });
+  return <Paragraph id="cell-note" />;
+};
+
+const reportProject = defineDocumentProject<ReportData>({
+  id: "report",
+  name: "Report",
+  template: template<ReportData>(
+    <Document id="report" title="Report">
+      <Section id="figures" title="Figures">
+        <Trend />
+        <Cover />
+      </Section>
+      <Table id="grid" columns={[{ width: "auto" }]}>
+        <Row>
+          <Cell>
+            <CellNote />
+          </Cell>
+        </Row>
+      </Table>
+    </Document>,
+  ),
+  previewData: { city: "Leeds" },
+});
+
+/** A model that draws, scripted so both paths can be compared. */
+const drawingClient: AiClient = {
+  generateParagraph: (request) => `[draft] ${request.prompt}`,
+  generateGraph: (request) => ({
+    graphType: "bar",
+    data: { categories: ["Jan", "Feb"], series: [{ label: `${request.node.title} / ${request.prompt}`, values: [3, 5] }] },
+    caption: "Visits by month.",
+  }),
+  generateImage: (request) => ({ path: "data:image/png;base64,iVBORw0KGgo=", alt: `${request.node.alt} / ${request.prompt}` }),
+};
+
+function reportState(data: ReportData, client: AiClient): RuntimeState {
+  const ctx = { ...data } as Record<string, unknown>;
+
+  return { ctx, derived: {}, dataProvider: new InMemoryDataProvider(ctx), aiClient: client };
+}
+
+function findNode(nodes: DocumentNode[], id: string): DocumentNode | undefined {
+  for (const node of nodes) {
+    if (node.id === id) {
+      return node;
+    }
+
+    const found = "children" in node ? findNode(node.children, id) : undefined;
+    if (found) {
+      return found;
+    }
+  }
+
+  return undefined;
+}
+
+/** What a stored model is: keys holding `undefined` are not part of it. */
+const json = (value: unknown) => JSON.parse(JSON.stringify(value));
+
+const leeds: ReportData = { city: "Leeds" };
+
+test("a generated chart and image publish, then resolve to what a direct build writes", async () => {
+  const published = await buildProjectEngineDocument(reportProject);
+  const resolved = await resolveDocument(published, reportState(leeds, drawingClient));
+  const direct = await buildProjectFinalDocument(reportProject, { data: leeds, aiClient: drawingClient });
+
+  assertEquals(json(resolved.nodes), json(direct.nodes));
+
+  const trend = findNode(resolved.nodes, "trend");
+  assertEquals(
+    trend?.kind === "graph" ? [trend.graphType, trend.caption, trend.width] : undefined,
+    ["bar", "Visits by month.", 300],
+  );
+
+  const cover = findNode(resolved.nodes, "cover");
+  assertEquals(
+    cover?.kind === "image" ? [cover.path, cover.alt, cover.width, cover.height] : undefined,
+    ["data:image/png;base64,iVBORw0KGgo=", "Picture of Leeds / GENERAL: Draw Leeds at dusk.", 200, 120],
+  );
+});
+
+test("a published chart and image carry their prompts and nothing generated", async () => {
+  const published = await buildProjectEngineDocument(reportProject);
+  const trend = findNode(published.nodes, "trend");
+  const cover = findNode(published.nodes, "cover");
+
+  assertEquals(trend !== undefined && ("data" in trend || "caption" in trend), false);
+  assertEquals(trend?.kind === "graph" && trend.prompts?.some((p) => p.text.includes("{{data.city}}")), true);
+  assertEquals(cover !== undefined && "path" in cover, false);
+  assertEquals(
+    cover?.kind === "image" ? [cover.alt, cover.width, cover.height] : undefined,
+    ["Picture of {{data.city}}", 200, 120],
+  );
+  assertEquals(JSON.stringify(published).includes("Leeds"), false);
+});
+
+test("a generated paragraph inside a table cell publishes without empty text", async () => {
+  const note = findNode((await buildProjectEngineDocument(reportProject)).nodes, "cell-note");
+
+  assertEquals(note?.kind, "paragraph");
+  assertEquals(note !== undefined && "text" in note, false);
+});
+
+test("a project with a generated chart builds an artifact whose preview shows the placeholder", async () => {
+  const artifact = await createDocumentProjectArtifact(reportProject, {
+    builtAt: "2026-01-01T00:00:00.000Z",
+  });
+
+  assertEquals(json(artifact.engineDocument), json(await buildProjectEngineDocument(reportProject)));
+
+  const previewTrend = findNode(artifact.previewDocument.nodes, "trend");
+  assertEquals(previewTrend?.kind === "graph" ? previewTrend.placeholder : undefined, "A trend chart.");
+  assertEquals(previewTrend !== undefined && "data" in previewTrend, false);
+});
+
+test("a model that answers a chart with nothing fails on both paths, naming the node", async () => {
+  const emptyChart: AiClient = { ...drawingClient, generateGraph: () => ({}) };
+  const expected = 'Dynamic graph "trend" got an answer it cannot plot: it has no data.';
+
+  await assertRejects(
+    async () => resolveDocument(await buildProjectEngineDocument(reportProject), reportState(leeds, emptyChart)),
+    Error,
+    expected,
+  );
+  await assertRejects(
+    () => buildProjectFinalDocument(reportProject, { data: leeds, aiClient: emptyChart }),
+    Error,
+    expected,
+  );
+});
+
+test("an engine whose client cannot draw, or throws, fails the resolve naming why", async () => {
+  const published = await buildProjectEngineDocument(reportProject);
+
+  await assertRejects(
+    () => resolveDocument(published, reportState(leeds, { generateParagraph: () => "x" })),
+    Error,
+    'Dynamic graph "trend" requires an aiClient.generateGraph method.',
+  );
+  await assertRejects(
+    () =>
+      resolveDocument(
+        published,
+        reportState(leeds, {
+          ...drawingClient,
+          generateGraph: () => {
+            throw new Error("model down");
+          },
+        }),
+      ),
+    Error,
+    "model down",
+  );
+});
+
+test("a generated picture among a paragraph's words refuses to publish", async () => {
+  const inlineProject = defineDocumentProject({
+    id: "inline",
+    name: "Inline",
+    template: template(
+      <Document id="inline" title="Inline">
+        <Paragraph id="p">
+          See <Image id="icon" generalPrompt="Draw an icon." placeholder="An icon." /> here.
+        </Paragraph>
+      </Document>,
+    ),
+    previewData: {},
+  });
+
+  await assertRejects(
+    () => buildProjectEngineDocument(inlineProject),
+    Error,
+    'Paragraph "p" holds a generated picture, "icon"',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Chart words, published and resolved
+// ---------------------------------------------------------------------------
+
+interface SpendData {
+  city: string;
+  currency: string;
+}
+
+const StaticSpend = () => {
+  const [state] = useState((data: SpendData) => ({ city: data.city, currency: data.currency }));
+  return (
+    <Graph
+      id="spend-static"
+      graphType="bar"
+      title={`Visits in ${state.city}`}
+      categoryAxisTitle={`Month in ${state.city}`}
+      valueAxisTitle={`Spend (${state.currency})`}
+      caption={`Figures for ${state.city}.`}
+      data={{ categories: ["Jan"], series: [{ values: [1] }] }}
+    />
+  );
+};
+
+const GeneratedSpend = () => {
+  const [state] = useState((data: SpendData) => ({ city: data.city, currency: data.currency }));
+  useAi({ ask: `Plot spend for ${state.city}.`, placeholder: "A spend chart." });
+  return (
+    <Graph
+      id="spend-generated"
+      title={`Visits in ${state.city}`}
+      categoryAxisTitle={`Month in ${state.city}`}
+      valueAxisTitle={`Spend (${state.currency})`}
+      caption={`Figures for ${state.city}.`}
+    />
+  );
+};
+
+const spendProject = defineDocumentProject<SpendData>({
+  id: "spend",
+  name: "Spend",
+  template: template<SpendData>(
+    <Document id="spend-report" title="Spend">
+      <Section id="charts" title="Charts">
+        <StaticSpend />
+        <GeneratedSpend />
+      </Section>
+    </Document>,
+  ),
+  previewData: { city: "Leeds", currency: "GBP" },
+});
+
+const axisClient: AiClient = {
+  generateParagraph: () => "",
+  generateGraph: (request) => ({
+    data: {
+      categories: [request.node.categoryAxisTitle ?? ""],
+      series: [{ label: request.node.valueAxisTitle, values: [1] }],
+    },
+  }),
+};
+
+const spendLeeds: SpendData = { city: "Leeds", currency: "GBP" };
+
+test("a chart's title, caption and axis titles publish as tokens and resolve to what a direct build writes", async () => {
+  const published = await buildProjectEngineDocument(spendProject);
+  const staticSpend = findNode(published.nodes, "spend-static");
+  assertEquals(
+    staticSpend?.kind === "graph" ? staticSpend.valueAxisTitle : undefined,
+    "Spend ({{data.currency}})",
+  );
+  const publishedText = JSON.stringify(published);
+  assertEquals(publishedText.includes("Leeds"), false);
+  assertEquals(publishedText.includes("GBP"), false);
+
+  const resolved = await resolveDocument(published, reportState(spendLeeds, axisClient));
+  const direct = await buildProjectFinalDocument(spendProject, { data: spendLeeds, aiClient: axisClient });
+  assertEquals(json(resolved.nodes), json(direct.nodes));
+
+  for (const id of ["spend-static", "spend-generated"]) {
+    const chart = findNode(resolved.nodes, id);
+    assertEquals(
+      chart?.kind === "graph"
+        ? [chart.title, chart.categoryAxisTitle, chart.valueAxisTitle, chart.caption]
+        : undefined,
+      ["Visits in Leeds", "Month in Leeds", "Spend (GBP)", "Figures for Leeds."],
+    );
+  }
+
+  const generated = findNode(resolved.nodes, "spend-generated");
+  assertEquals(
+    generated?.kind === "graph" ? generated.data : undefined,
+    { categories: ["Month in Leeds"], series: [{ label: "Spend (GBP)", values: [1] }] },
+  );
 });

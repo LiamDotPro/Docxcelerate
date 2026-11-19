@@ -8,6 +8,7 @@
  */
 
 import type {
+  CellTextDirection,
   DocumentProperties,
   GraphData,
   GraphLegend,
@@ -15,6 +16,7 @@ import type {
   GraphType,
   JsonObject,
   ListKind,
+  ListMarker,
   ListStyle,
   PageNumberFormat,
   RowHeightRule,
@@ -176,6 +178,21 @@ export interface ParagraphProps extends CommonElementProps, PromptProps {
    * a level counts 1., a., i. by depth as it always has. Ignored on a bullet.
    */
   listStyle?: ListStyle;
+  /**
+   * The number a numbered list counts from at this item's level: `listStart={4}`
+   * makes the list count 4, 5, 6 — a list taken up again after a table, say.
+   * Say it on the item that opens the level; on any later item it is ignored,
+   * since it would renumber items already printed. A whole number from 1.
+   * Omitted, a level counts from 1 as it always has. Ignored on a bullet.
+   */
+  listStart?: number;
+  /**
+   * The glyph a bulleted item is marked with: `"tick"` for ✓, `"cross"` for ✗,
+   * `"dash"` for –, `"square"` for ▪. Say it on each item that wants it; an
+   * item without it keeps the bullet. Omitted, bullets are •, ◦, ▪ by depth as
+   * they always have been. Ignored on a numbered item.
+   */
+  listMarker?: ListMarker;
   /** The paragraph's text, as children. */
   children?: Yield<"paragraph">;
 }
@@ -194,8 +211,11 @@ export interface TextProps {
   bold?: boolean;
   /** Set in italics. */
   italic?: boolean;
-  /** Set with a rule beneath. */
-  underline?: boolean;
+  /**
+   * Set with a rule beneath: `true` for a single rule, `"double"` for the
+   * accounting double rule under a grand total. Left out or `false`, no rule.
+   */
+  underline?: boolean | "double";
   /** Set struck through. */
   strike?: boolean;
   /**
@@ -213,7 +233,7 @@ export interface TextProps {
    *
    * A name, not an appearance, the same as `variant` on every element. Only the
    * block's character settings reach a run: `color`, `fill` (drawn as shading
-   * behind the words), `fontSizePt`, `weight`, `font`, `transform` and
+   * behind the words), `fontSizePt`, `weight`, `italic`, `font`, `transform` and
    * `letterSpacingEm`. Borders, padding, spacing and alignment belong to a
    * paragraph and are ignored here. An unknown name draws the words plain.
    * `bold`, `italic`, `underline` and `strike` said beside it win over the
@@ -371,10 +391,21 @@ export interface TableProps extends CommonElementProps {
   /**
    * Where the table sits across the text column. Left unless it is said.
    *
-   * Only a table narrower than the column can move: any `"auto"` column fills
+   * Only a table narrower than the column can move: any `"auto"` column, or shares adding up to 100%, fills
    * the column, and a `bleed` table spans the paper, so either ignores it.
    */
   align?: TableAlign;
+  /**
+   * Whether the whole table stays on one page rather than breaking between rows.
+   *
+   * For a short table that reads as one thing — a totals box, bank details, a
+   * signature block — where a page break between two of its rows leaves a
+   * subtotal on one page and the total it leads to on the next. Word moves the
+   * whole table over instead. Every row is also kept whole, as `keepTogether`
+   * on a `<Row>` does. A table taller than a page breaks anyway, having nowhere
+   * else to go; leave it off a long table, where a break between rows is fine.
+   */
+  keepTogether?: boolean;
   /** The rows, and any `.map()` producing them. */
   children?: Yield;
 }
@@ -417,6 +448,14 @@ export interface CellProps extends CommonElementProps {
   span?: number;
   /** Alignment, when this cell departs from its column's. */
   align?: TableAlign;
+  /**
+   * Turns the cell's words on their side. Horizontal unless it is said.
+   *
+   * For a heading over a column too narrow to hold it across — a day on a rota,
+   * a requirement in a compliance grid — or a label down the side of a form.
+   * The row grows to fit the turned words; give it a `height` for an even depth.
+   */
+  textDirection?: CellTextDirection;
   /**
    * What the cell holds.
    *
@@ -466,6 +505,13 @@ export interface PageNumberProps extends CommonElementProps {
   format?: PageNumberFormat;
   /** What sits between the two numbers. Defaults to ` / `. */
   separator?: string;
+  /** Words printed before the number, such as `"Page "`. Nothing when it is left out. */
+  prefix?: string;
+  /**
+   * How the line sits across the column. Left out, it inherits. A `variant`
+   * can carry it instead, and this wins when both say.
+   */
+  align?: TextAlign;
 }
 
 // The types below are written out rather than inferred from `host`. Both

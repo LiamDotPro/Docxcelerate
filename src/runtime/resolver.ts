@@ -36,7 +36,7 @@ export interface ResolveOptions {
  * conditions, unrolls repeats, and substitutes every `{{...}}` token.
  *
  * @param doc The published document.
- * @param state The data, context and clients to resolve against.
+ * @param state The data, context and clients to resolve against; build it with {@linkcode createRuntimeState}.
  * @param options The derivers the document may invoke.
  * @returns The document with nothing left to decide.
  * @throws If the document invokes a deriver the registry does not hold.
@@ -153,7 +153,7 @@ async function resolveNode(
 /**
  * Walks a published loop, now that the request has said how long it is.
  *
- * Each pass binds the entry and its position into `ctx`, so the body reads them
+ * Each pass binds the entry, its raw index and its position among the survivors into `ctx`, so the body reads them
  * the way it reads anything else, and suffixes ids with the index so the nodes
  * of one pass stay distinguishable from the next. The passes are spliced in
  * where the loop stood rather than wrapped in anything, because a wrapper would
@@ -168,6 +168,7 @@ async function resolveRepeat(
   const entries = await resolveReference(node.source, state);
   const previousEntry = state.ctx[node.as];
   const previousIndex = state.ctx[node.indexAs];
+  const previousPosition = node.positionAs === undefined ? undefined : state.ctx[node.positionAs];
   const children: DocumentNode[] = [];
 
   let pass = 0;
@@ -183,6 +184,10 @@ async function resolveRepeat(
       continue;
     }
 
+    if (node.positionAs !== undefined) {
+      state.ctx[node.positionAs] = pass + 1;
+    }
+
     for (const child of node.children) {
       const resolved = await resolveNode(suffixIds(child, pass), state, derivers);
 
@@ -196,6 +201,10 @@ async function resolveRepeat(
 
   state.ctx[node.as] = previousEntry;
   state.ctx[node.indexAs] = previousIndex;
+
+  if (node.positionAs !== undefined) {
+    state.ctx[node.positionAs] = previousPosition;
+  }
 
   return children;
 }
@@ -244,7 +253,7 @@ async function resolveParagraph(
   return {
     ...node,
     prompts,
-    text: await generateParagraph(state.aiClient, node, prompts, state),
+    text: await generateParagraph(state.aiClient, { ...node, prompts }, prompts, state),
   };
 }
 
@@ -252,6 +261,9 @@ async function resolveImage(
   node: ImageNode,
   state: RuntimeState,
 ): Promise<ImageNode> {
+  // Rendered before the client is called, so it sees what a direct build shows it.
+  const alt = node.alt ? await renderTemplate(node.alt, state) : node.alt;
+
   const href = node.href === undefined ? {} : { href: await renderTemplate(node.href, state) };
 
   if (node.mode === "static") {
@@ -259,54 +271,77 @@ async function resolveImage(
       ...node,
       ...href,
       path: node.path ? await renderTemplate(node.path, state) : node.path,
-      alt: node.alt ? await renderTemplate(node.alt, state) : node.alt,
+      alt,
     };
   }
 
   const prompts = await resolvePrompts(node.prompts, state);
-  const result = await generateImage(state.aiClient, { ...node, prompts }, prompts, state);
+  const result = await generateImage(state.aiClient, { ...node, prompts, alt }, prompts, state);
 
   return {
     ...node,
     ...href,
     prompts,
     path: result.path,
-    alt: result.alt,
-    width: result.width,
-    height: result.height,
+    // The size and description the template stated belong to the node, as they
+    // do in a direct build; a client that does not restate them keeps them.
+    alt: result.alt ?? alt,
+    width: result.width ?? node.width,
+    height: result.height ?? node.height,
   };
+}
+
+/** The words a template writes on a chart; each is a published token like any other text. */
+const GRAPH_TEXT = ["alt", "title", "caption", "categoryAxisTitle", "valueAxisTitle"] as const;
+
+/**
+ * A chart with the words its template wrote settled against the data. Only the
+ * fields the node has are written, so a chart without them gains no keys and a
+ * stored model resolves to the same JSON it did before.
+ */
+async function withGraphText(node: GraphNode, state: RuntimeState): Promise<GraphNode> {
+  const drawn = { ...node };
+
+  for (const field of GRAPH_TEXT) {
+    const value = node[field];
+    if (value) {
+      drawn[field] = await renderTemplate(value, state);
+    }
+  }
+
+  return drawn;
 }
 
 async function resolveGraph(
   node: GraphNode,
   state: RuntimeState,
 ): Promise<GraphNode> {
-  const alt = node.alt ? await renderTemplate(node.alt, state) : node.alt;
+  // Rendered before the client is called, so it sees what a direct build shows it.
+  const drawn = await withGraphText(node, state);
 
   if (node.mode === "static") {
     return {
-      ...node,
-      alt,
+      ...drawn,
       data: node.data
         ? await renderJsonObjectTemplates(
           node.data as unknown as JsonObject,
           state,
         ) as unknown as GraphData
         : node.data,
-      caption: node.caption ? await renderTemplate(node.caption, state) : node.caption,
     };
   }
 
   const prompts = await resolvePrompts(node.prompts, state);
-  const result = await generateGraph(state.aiClient, { ...node, prompts }, prompts, state);
+  const result = await generateGraph(state.aiClient, { ...drawn, prompts }, prompts, state);
 
   return {
-    ...node,
-    alt,
+    ...drawn,
     prompts,
     graphType: result.graphType ?? node.graphType,
-    data: result.data,
-    caption: result.caption,
+    data: result.data ?? node.data,
+    // A model's caption is printed as written: rendering it would let a
+    // `{{data.x}}` in an answer pull request data into the document.
+    caption: result.caption ?? drawn.caption,
   };
 }
 

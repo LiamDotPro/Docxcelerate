@@ -429,7 +429,9 @@ async function renderHostKind(
       id,
       kind: "pageNumber",
       format: pageProps.format,
+      prefix: pageProps.prefix,
       separator: pageProps.separator,
+      align: pageProps.align,
       when,
     });
   }
@@ -509,6 +511,7 @@ async function renderTable(
     kind: "table",
     columns: props.columns.map((column) => prune({ ...column })),
     align: props.align,
+    keepTogether: props.keepTogether ? true : undefined,
     when,
     children: await renderYield(props.children, context, {
       path: `${frame.path}/${id}`,
@@ -565,6 +568,7 @@ async function renderCell(
     kind: "tableCell",
     span: props.span,
     align: props.align,
+    textDirection: props.textDirection,
     when,
     children: holdsElements(props.children)
       ? await renderYield(props.children, context, childFrame)
@@ -701,6 +705,7 @@ async function renderLoop(
     source: { scope: props.overScope, path: props.over },
     as: props.as,
     indexAs: props.indexAs,
+    positionAs: props.positionAs,
     where: props.where,
     when,
     children: await renderYield(props.children, context, {
@@ -745,7 +750,7 @@ async function renderParagraph(
       mode: "static",
       when,
       align: props.align,
-      list: listOf(props),
+      list: listOf(props, id),
       ...await words(body, pieces, context),
       inlineImages: inlineImages.length === 0 ? undefined : inlineImages,
     };
@@ -760,7 +765,7 @@ async function renderParagraph(
       mode: "dynamic",
       when,
       align: props.align,
-      list: listOf(props),
+      list: listOf(props, id),
       text: await placeholderText(prompts, id, context),
     });
   }
@@ -772,7 +777,7 @@ async function renderParagraph(
     mode: "dynamic",
     when,
     align: props.align,
-    list: listOf(props),
+    list: listOf(props, id),
     prompts: specs,
   };
 
@@ -783,7 +788,12 @@ async function renderParagraph(
 }
 
 /** A paragraph's place in a list, as the model says it. A first-level item says no level. */
-function listOf(props: ParagraphProps): ParagraphList | undefined {
+function listOf(props: ParagraphProps, id: string): ParagraphList | undefined {
+  const start = props.listStart;
+  if (props.list === "number" && start !== undefined && (!Number.isInteger(start) || start < 1)) {
+    throw new Error(`<Paragraph id="${id}"> has listStart ${start}; a list counts from a whole number, 1 or more.`);
+  }
+
   return props.list === undefined
     ? undefined
     : prune({
@@ -791,6 +801,8 @@ function listOf(props: ParagraphProps): ParagraphList | undefined {
       level: props.listLevel || undefined,
       // Bullets count nothing, so a style on one would only be noise in the model.
       style: props.list === "number" ? props.listStyle : undefined,
+      start: props.list === "number" ? start : undefined,
+      marker: props.list === "bullet" ? props.listMarker : undefined,
     });
 }
 
@@ -877,8 +889,8 @@ async function renderGraph(
     legend: props.legend,
     stacked: props.stacked,
     numberFormat: props.numberFormat,
-    categoryAxisTitle: props.categoryAxisTitle,
-    valueAxisTitle: props.valueAxisTitle,
+    categoryAxisTitle: await text(props.categoryAxisTitle, context),
+    valueAxisTitle: await text(props.valueAxisTitle, context),
     valueAxisMin: props.valueAxisMin,
     valueAxisMax: props.valueAxisMax,
     valueAxisStep: props.valueAxisStep,
@@ -913,6 +925,7 @@ async function renderGraph(
       when,
       graphType,
       ...drawn,
+      caption: await text(props.caption, context),
       placeholder: await placeholderText(prompts, id, context),
     });
   }
@@ -925,6 +938,7 @@ async function renderGraph(
     when,
     graphType,
     ...drawn,
+    caption: await text(props.caption, context),
     prompts: specs,
   };
 
@@ -933,8 +947,8 @@ async function renderGraph(
   return prune({
     ...node,
     graphType: result.graphType ?? graphType,
-    data: result.data,
-    caption: result.caption,
+    data: result.data ?? node.data,
+    caption: result.caption ?? node.caption,
   });
 }
 

@@ -254,6 +254,13 @@ export interface ParagraphNode extends BaseNode {
  */
 export type RowHeightRule = "atLeast" | "exact";
 
+/**
+ * Which way a cell's words run when they are turned on their side: `"up"` reads
+ * from the foot of the cell to its head, as a spine label does, and `"down"`
+ * from the head to the foot.
+ */
+export type CellTextDirection = "up" | "down";
+
 /** Which kind of list a paragraph is an item of: marked with a bullet, or counted. */
 export type ListKind = "bullet" | "number";
 
@@ -276,6 +283,15 @@ export type ListStyle =
   | "lowerRomanParen"
   | "upperRomanParen";
 
+/**
+ * The glyph a bulleted item is marked with, in place of the bullet.
+ *
+ * `"dash"` is an en dash (–), `"tick"` a check mark (✓), `"cross"` a ballot
+ * x (✗) and `"square"` a small square (▪). Each is a plain Unicode glyph in
+ * the paragraph's own face, like the bullet, so no symbol font is needed.
+ */
+export type ListMarker = "dash" | "tick" | "cross" | "square";
+
 /** A paragraph's place in a list. */
 export interface ParagraphList {
   /** Whether the item is marked or counted. */
@@ -292,6 +308,17 @@ export interface ParagraphList {
    * each followed by a full stop. A bulleted item has none.
    */
   style?: ListStyle;
+  /**
+   * The number this item's level counts from, for a numbered item that opens
+   * the level in its list. Absent means 1. A bulleted item has none.
+   */
+  start?: number;
+  /**
+   * The glyph this item is marked with, for a bulleted item. Each item says its
+   * own, so ticks and crosses can stand in one list. Absent means the bullet:
+   * •, ◦, ▪ by depth. A numbered item has none.
+   */
+  marker?: ListMarker;
 }
 
 /**
@@ -309,8 +336,11 @@ export interface ParagraphRun {
   bold?: boolean;
   /** Set in italics. */
   italic?: boolean;
-  /** Set with a rule beneath. */
-  underline?: boolean;
+  /**
+   * Set with a rule beneath: `true` for a single rule, `"double"` for the
+   * accounting double rule under a grand total. Left out or `false`, no rule.
+   */
+  underline?: boolean | "double";
   /** Set struck through. */
   strike?: boolean;
   /** Raised above the line or dropped below it, smaller. Absent, the words sit on it. */
@@ -485,12 +515,16 @@ export interface GraphNode extends BaseNode {
  */
 export interface TableColumn {
   /**
-   * Width in millimetres, or `"auto"` to share out what the fixed ones leave.
+   * Width in millimetres, a share of the text column such as `"30%"`, or
+   * `"auto"` to share out what the others leave. Left out, it is `"auto"`.
    *
    * Millimetres rather than points because a page is measured in them: a
    * 26mm money column against a 210mm page is a proportion a reader can check.
+   * A percentage is for the table that has to keep its proportions on any
+   * paper: it is a share of the text column, or of the paper for a `bleed`
+   * table, worked out when the page is known.
    */
-  width?: number | "auto";
+  width?: number | "auto" | `${number}%`;
   /** How this column's cells are aligned. Left unless it is said. */
   align?: TableAlign;
 }
@@ -511,6 +545,17 @@ export interface TableNode extends BaseNode {
   columns: TableColumn[];
   /** Where the table sits across the text column. Left unless it is said. */
   align?: TableAlign;
+  /**
+   * Whether the whole table stays on one page rather than breaking between rows.
+   *
+   * For a short table that reads as one thing — a totals box, bank details, a
+   * signature block — where a page break between two of its rows leaves a
+   * subtotal on one page and the total it leads to on the next. Word moves the
+   * whole table over instead. Every row is also kept whole, as `keepTogether`
+   * on a row does. A table taller than a page breaks anyway, having nowhere
+   * else to go. Left out, Word may break the table between any two rows.
+   */
+  keepTogether?: boolean;
   /** The rows, and any loops that produce them. */
   children: DocumentNode[];
 }
@@ -558,6 +603,8 @@ export interface TableCellNode extends BaseNode {
   span?: number;
   /** Alignment, when this cell departs from its column's. */
   align?: TableAlign;
+  /** Turns the cell's words on their side. Absent, they run across. */
+  textDirection?: CellTextDirection;
   /** What the cell holds — paragraphs, usually, but any node fits. */
   children: DocumentNode[];
 }
@@ -642,6 +689,21 @@ export interface PageNumberNode extends BaseNode {
   format?: PageNumberFormat;
   /** What sits between the two numbers in `currentOfTotal`. Defaults to ` / `. */
   separator?: string;
+  /**
+   * Words printed before the number: `"Page "` for "Page 3 of 10".
+   *
+   * Printed as written, spaces included, and set in the same type as the
+   * numbers. Absent prints nothing before them.
+   */
+  prefix?: string;
+  /**
+   * How the line sits across the column, the same as a paragraph's.
+   *
+   * Absent writes no `w:jc`, so the line inherits whatever the style around it
+   * decides, which is what a page number did before it could say. A theme can
+   * also say it through `variant`, and when both do the node wins.
+   */
+  align?: TextAlign;
 }
 
 /**
@@ -650,7 +712,7 @@ export interface PageNumberNode extends BaseNode {
  * A build cannot unroll this the way it unrolls a branch: the length of
  * `source` is not known until a document is written. So the loop itself is
  * what gets published, and the engine walks it. Each pass binds the entry under
- * `as` and its position under `indexAs`, both readable through `ctx`, and
+ * `as` and its position under `indexAs`, and its one-based place among the entries that pass `where` under `positionAs`, both readable through `ctx`, and
  * suffixes child ids with the index so they stay unique across passes.
  */
 export interface RepeatNode extends BaseNode {
@@ -662,6 +724,14 @@ export interface RepeatNode extends BaseNode {
   as: string;
   /** The `ctx` key each entry's zero-based position is bound to. */
   indexAs: string;
+  /**
+   * The `ctx` key each walked entry's position, counting from one, is bound to.
+   *
+   * Counted over the entries that pass `where`, so a filtered loop numbers what
+   * the recipient sees. Absent on a loop published before positions existed,
+   * which binds none.
+   */
+  positionAs?: string;
   /**
    * A test each entry has to pass to be walked at all.
    *

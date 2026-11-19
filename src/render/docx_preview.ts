@@ -24,7 +24,7 @@
 
 import type { DocumentModel } from "../domain/types.ts";
 import { fillPageFields } from "./docx_fields.ts";
-import { columnWidthMm } from "./page_size.ts";
+import { columnWidthMm, pageBorderOffsetPt } from "./page_size.ts";
 import type { PackedParagraph, PackedTable } from "./docx_packed.ts";
 
 export { fillPageFields } from "./docx_fields.ts";
@@ -66,7 +66,7 @@ const PT_PER_MM = 72 / 25.4;
  *
  * @param container The element `renderAsync` rendered into.
  * @param model The document that was packed, for the facts the DOM cannot
- * supply on its own — page size and margins.
+ * supply on its own — page size, margins, and where the body sits on the page.
  * @param packed What the file says about its own paragraphs, from
  * {@linkcode readPackedParagraphs}. Two of docx-preview's omissions can only be
  * put back from the file itself; without this they stay omitted, and the
@@ -97,12 +97,14 @@ export function settleDocxPreview(
   inlinePictureWrappers(container);
   applyDoubleBorders(container);
   liftShapeText(container);
-  fillPageFields(container, model?.style?.page);
+  fillPageFields(container, model?.style?.page, model);
   seatFooters(container);
   hangListMarkers(container);
 
   if (model !== undefined) {
     applyTableIndents(container, model);
+    alignPageBodies(container, model);
+    framePages(container, model);
   }
 
   if (packed !== undefined) {
@@ -447,6 +449,47 @@ export function liftShapeText(container: Element): void {
     }
   }
 }
+
+/**
+ * The body set where `w:vAlign` puts it on the page.
+ *
+ * docx-preview reads the section's size, margins and furniture and skips its
+ * vertical alignment, so a centred certificate drew at the top of its sheet.
+ * Its own stylesheet already lays a page out as a flex column whose article
+ * has `margin-bottom: auto` (that is what holds the footer down), so taking
+ * up the slack above the article as well is all centring is.
+ */
+function alignPageBodies(container: Element, model: DocumentModel): void {
+  const valign = model.style?.page?.valign;
+  if (valign !== "center" && valign !== "bottom") return;
+
+  for (const article of container.querySelectorAll("section.docx > article")) {
+    const style = (article as HTMLElement).style;
+    style.marginTop = "auto";
+    if (valign === "bottom") style.marginBottom = "0px";
+  }
+}
+
+/**
+ * The page border, drawn as an outline inset from each sheet's edge.
+ *
+ * docx-preview parses `w:pgBorders` and draws nothing from it. An outline rather
+ * than a CSS border because Word's page border takes up no room: it moves no
+ * text, and an outline is the one CSS line that stays out of layout too. The
+ * offset is to the line's outer edge, which is what `w:space` measures from the paper.
+ */
+function framePages(container: Element, model: DocumentModel): void {
+  const page = model.style?.page;
+  if (!page?.border) return;
+  // Three widths across for a double, for the reason applyDoubleBorders gives.
+  const widthPt = (page.borderWidthPt ?? 1) * (page.borderStyle === "double" ? 3 : 1);
+  const line = page.borderStyle === undefined || page.borderStyle === "single" ? "solid" : page.borderStyle;
+  for (const section of container.querySelectorAll<HTMLElement>("section.docx")) {
+    section.style.outline = `${widthPt}pt ${line} #${page.border}`;
+    section.style.outlineOffset = `-${pageBorderOffsetPt(page) + widthPt}pt`;
+  }
+}
+
 /**
  * The indent a bleeding table declares, put back.
  *

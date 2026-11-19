@@ -245,6 +245,7 @@ function readParagraph(xml, index) {
     /** The three-state keeps. */
     keepNext: toggle(pPr, "w:keepNext"),
     keepLines: toggle(pPr, "w:keepLines"),
+    outlineLvl: childNum(pPr, "w:outlineLvl", "w:val"),
     widowControl: toggle(pPr, "w:widowControl"),
     pageBreakBefore: toggle(pPr, "w:pageBreakBefore"),
 
@@ -270,12 +271,15 @@ function readParagraph(xml, index) {
 
     run: {
       font: childAttr(rPr, "w:rFonts", "w:ascii"),
+      eastAsiaFont: childAttr(rPr, "w:rFonts", "w:eastAsia"),
+      csFont: childAttr(rPr, "w:rFonts", "w:cs"),
       /** Half-points, as OOXML counts them. */
       szHalfPt: childNum(rPr, "w:sz", "w:val"),
       color: childAttr(rPr, "w:color", "w:val"),
       bold: toggle(rPr, "w:b"),
       italics: toggle(rPr, "w:i"),
       caps: toggle(rPr, "w:caps"),
+      smallCaps: toggle(rPr, "w:smallCaps"),
       /** Letter spacing, in twips. */
       spacing: childNum(rPr, "w:spacing", "w:val"),
     },
@@ -566,6 +570,7 @@ function readCell(xml, index, column) {
     shd: childAttr(tcPr, "w:shd", "w:fill"),
     /** How the content sits against the height of the cell. */
     vAlign: childAttr(tcPr, "w:vAlign", "w:val"),
+    textDirection: childAttr(tcPr, "w:textDirection", "w:val"),
     /** Borders, by edge. An undrawn edge is null. */
     borders: bordersOf(tcPr, "w:tcBorders"),
     /** The room left inside the cell, in twips. */
@@ -757,7 +762,11 @@ export function measureOoxml(zip) {
         bottom: numAttr(pgMar, "w:bottom"),
         left: numAttr(pgMar, "w:left"),
       },
+      // Where the body sits between the top and bottom margins; null is Word's top.
+      vAlign: sectPr === null ? null : childAttr(sectPr, "w:vAlign", "w:val"),
       titlePg: sectPr === null ? null : toggle(sectPr, "w:titlePg"),
+      pgBorders: sectPr === null ? null : bordersOf(sectPr, "w:pgBorders"),
+      pgBordersOffsetFrom: sectPr === null ? null : childAttr(sectPr, "w:pgBorders", "w:offsetFrom"),
       // How far the running strips stand from the paper, in twips. A
       // different distance from the margin, and the one a document has no
       // way to state today.
@@ -1016,6 +1025,8 @@ function readDocDefaults(styles) {
       lineRule: attr(spacing, "w:lineRule"),
     },
     font: rPr === null ? null : childAttr(rPr, "w:rFonts", "w:ascii"),
+    eastAsiaFont: rPr === null ? null : childAttr(rPr, "w:rFonts", "w:eastAsia"),
+    csFont: rPr === null ? null : childAttr(rPr, "w:rFonts", "w:cs"),
     szHalfPt: rPr === null ? null : childNum(rPr, "w:sz", "w:val"),
     color: rPr === null ? null : childAttr(rPr, "w:color", "w:val"),
   };
@@ -1245,6 +1256,7 @@ function missingCell(anchor) {
     vMerge: null,
     shd: null,
     vAlign: null,
+    textDirection: null,
     borders: null,
     margins: null,
     paragraphs: [],
@@ -1306,6 +1318,7 @@ function missingParagraph(anchor) {
     spacing: null,
     keepNext: null,
     keepLines: null,
+    outlineLvl: null,
     widowControl: null,
     pageBreakBefore: null,
     tabs: [],
@@ -1313,11 +1326,14 @@ function missingParagraph(anchor) {
     pBdr: null,
     run: {
       font: null,
+      eastAsiaFont: null,
+      csFont: null,
       szHalfPt: null,
       color: null,
       bold: null,
       italics: null,
       caps: null,
+      smallCaps: null,
       spacing: null,
     },
     runs: [],
