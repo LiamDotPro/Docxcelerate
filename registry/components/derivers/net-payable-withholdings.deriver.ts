@@ -174,11 +174,11 @@ export default deriver({
     );
     const exemptRow = rows(E > 0, text.exempt, E);
     const stampRow = rows(stamp > 0, "Imposta di bollo (DPR 642/1972)", stamp);
-    const withholdingRow = rows(withheld, text.withholding, -withholding);
+    const withholdingRow = rows(withheld, text.withholding, 0 - withholding);
     const splitRow = rows(
       split,
       "IVA versata dal committente, scissione dei pagamenti (art. 17-ter DPR 633/1972)",
-      -splitPayment,
+      0 - splitPayment,
     );
 
     return {

@@ -124,8 +124,8 @@ test("Spain: recargo de equivalencia follows the IVA rate", async () => {
 test("rounding is half up, in integer cents", async () => {
   const r = await figures(es({ base: "0.10" }));
   assertEquals([r.r.cents.vat, r.total, r.withholding, r.net], [2, 12, 2, 10]);
-  assertEquals((await run(es({ base: "0.50" }))).cents.vat, 11);
-  assertEquals((await run(es({ base: 1000.5 }))).cents.base, 100050);
+  assertEquals((await figures(es({ base: "0.50" }))).r.cents.vat, 11);
+  assertEquals((await figures(es({ base: 1000.5 }))).r.cents.base, 100050);
 });
 
 test("Italy: the ritenuta base is the fee plus rivalsa, never the cassa", async () => {
@@ -159,12 +159,12 @@ test("Italy forfettario: no IVA, bollo as a note or re-charged", async () => {
 });
 
 test("bollo is strictly over 77.47 carrying no IVA", async () => {
-  const due = async (input: Input) => (await run(input)).stampNote !== null;
+  const due = async (input: Input) => (await figures(input)).r.stampNote !== null;
   assertEquals(await due(forfettario({ base: "77.47" }, { rivalsaInps: false })), false);
   assertEquals(await due(forfettario({ base: "77.48" }, { rivalsaInps: false })), true);
   assertEquals(await due(it({ exemptAmount: "77.47" })), false);
   assertEquals(await due(it({ exemptAmount: "77.48" })), true);
-  const spain = await run(es({ exemptAmount: "500.00" }));
+  const spain = (await figures(es({ exemptAmount: "500.00" }))).r;
   assertEquals([spain.stampLabel, spain.stampNote], [null, null]);
 });
 
@@ -177,7 +177,7 @@ test("split payment shows the IVA, then takes it off", async () => {
 
 test("a zero base prints zero rows and does not throw", async () => {
   const r = await figures(es({ base: "0" }));
-  assertEquals([r.r.base, r.r.vat, r.r.total, r.r.withholding, r.r.net], ["0,00 €", "0,00 €", "0,00 €", "-0,00 €", "0,00 €"].map(eur));
+  assertEquals([r.r.base, r.r.vat, r.r.total, r.r.withholding, r.r.net], ["0,00 €", "0,00 €", "0,00 €", "0,00 €", "0,00 €"].map(eur));
 });
 
 test("unclear or contradictory data throws, naming the field", async () => {
@@ -247,7 +247,6 @@ const publish = (arrangement: (typeof ARRANGEMENTS)[number]) =>
 test("published, the node carries 10 conditionals and one deriver call", async () => {
   const built = await publish("table");
   assertEquals(conditionals(built.nodes), 10);
-  assertEquals(JSON.stringify(built).split('"netPayableWithholdings"').length - 1 >= 1, true);
   assertEquals((JSON.stringify(built).match(/"name":"netPayableWithholdings"/g) ?? []).length, 1);
 });
 
