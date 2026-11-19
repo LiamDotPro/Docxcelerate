@@ -2,6 +2,9 @@ import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { buildDocument } from "docxcelerate";
 import { createDocxDocument } from "docxcelerate/docx";
+import { JSDOM } from "jsdom";
+import { fillPageFields } from "docxcelerate/preview";
+import { assertRejects } from "./assert.ts";
 import { documentXml, partNames, partXml } from "./docx.ts";
 import type { DocumentModel, DocumentStyle } from "docxcelerate";
 import {
@@ -278,6 +281,73 @@ test("a document says how far its running strips stand from the paper", async ()
   // unprintable edge, and it is a different distance from the margin.
   assertStringIncludes(xml, 'w:header="850"');
   assertStringIncludes(xml, 'w:footer="1020"');
+});
+
+const numbered = (page: object) => ({ ...styleWithBlocks, page: { ...styleWithBlocks.page, ...page } });
+const numberedXml = async (page?: object) =>
+  documentXml(
+    await build(
+      <Document id="d" title="D" footer={<PageNumber id="n" format="current" />}>
+        <Paragraph id="a">Body.</Paragraph>
+      </Document>,
+      page === undefined ? undefined : numbered(page),
+    ),
+  );
+
+test("a document numbers its pages from a given number, in roman", async () => {
+  assertStringIncludes(
+    await numberedXml({ firstPageNumber: 3, numberStyle: "lowerRoman" }),
+    '<w:pgNumType w:start="3" w:fmt="lowerRoman"/>',
+  );
+});
+
+test("a style alone keeps Word's own start", async () => {
+  const xml = await numberedXml({ numberStyle: "upperLetter" });
+  assertStringIncludes(xml, '<w:pgNumType w:fmt="upperLetter"/>');
+  assertEquals(xml.includes("w:start="), false);
+});
+
+test("a start alone stays decimal", async () => {
+  const xml = await numberedXml({ firstPageNumber: 37 });
+  assertStringIncludes(xml, '<w:pgNumType w:start="37"/>');
+  assertEquals(xml.includes("w:fmt="), false);
+});
+
+test("a document that says nothing numbers from one, as before", async () => {
+  assertStringIncludes(await numberedXml(), "<w:pgNumType/>");
+});
+
+test("a page number that is not a whole number from 0 is refused", async () => {
+  for (const firstPageNumber of [2.5, -1]) {
+    await assertRejects(() => numberedXml({ firstPageNumber }), RangeError, "firstPageNumber");
+  }
+  // A cover page numbered 0 is legitimate.
+  assertStringIncludes(await numberedXml({ firstPageNumber: 0 }), '<w:pgNumType w:start="0"/>');
+});
+
+test("the preview fills page numbers from the start and style, and again without them", () => {
+  const body = (count: number) => {
+    const { document } = new JSDOM(
+      `<body>${'<section class="docx"><footer><p><span>/</span></p></footer></section>'.repeat(count)}</body>`,
+    ).window;
+    return document.body;
+  };
+  const texts = (el: Element) => [...el.querySelectorAll("footer")].map((f) => f.textContent);
+
+  const roman = body(3);
+  fillPageFields(roman, { firstPageNumber: 3, numberStyle: "lowerRoman" });
+  assertEquals(texts(roman), ["iii / 3", "iv / 3", "v / 3"]);
+  // Pagination's call: no numbering, read back from the sheets.
+  fillPageFields(roman);
+  assertEquals(texts(roman), ["iii / 3", "iv / 3", "v / 3"]);
+
+  const letters = body(2);
+  fillPageFields(letters, { firstPageNumber: 26, numberStyle: "upperLetter" });
+  assertEquals(texts(letters), ["Z / 2", "AA / 2"]);
+
+  const plain = body(3);
+  fillPageFields(plain);
+  assertEquals(texts(plain), ["1 / 3", "2 / 3", "3 / 3"]);
 });
 
 test("a document that says nothing about them still gets Word's own distance", async () => {

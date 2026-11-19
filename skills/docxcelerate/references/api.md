@@ -111,6 +111,7 @@ Notes worth knowing:
   measured from the paper rather than the margin. A letterhead meant to appear
   once goes in the body. `PageNumber` belongs here; a build cannot know the
   count, so Word gets a field it recounts and the preview counts its own pages.
+- `PageNumber` counts in the page style's numbering: `page.firstPageNumber: 37` makes the first page 37, `page.numberStyle: "lowerRoman"` writes i, ii, iii. Only the current number moves — `total` is still the count of pages, as Word prints it. The whole document shares one numbering; roman front matter then a body from 1 is two documents.
 - `firstHeader` / `firstFooter` are page one's own, for a letter whose letterhead
   *is* the top of the first page. `false` means the first page shows nothing
   where the others show the strip; absent means it is like every other page.
@@ -402,7 +403,7 @@ export const documentStyle: DocumentStyle = {
 
 `DocumentStyle` covers `preset`, `page` (size `A4` or `LETTER`, orientation,
 margins in mm, and `headerMm` / `footerMm` — how far the running strips stand
-from the *paper's* edge rather than from the margin, 12.5mm unless said),
+from the *paper's* edge rather than from the margin, 12.5mm unless said), and `firstPageNumber` / `numberStyle` — where page numbering starts (a whole number from 0, default 1) and how it is written (`"decimal"`, `"lowerRoman"`, `"upperRoman"`, `"lowerLetter"`, `"upperLetter"`; default decimal), for an appendix that continues its parent's numbering or front matter numbered i, ii, iii,
 `typography` (body and heading font, body size in pt, line
 height, colour), `paragraph` (spacing after, in pt), and `title` and
 `sectionHeading` text blocks (font size, weight, spacing before and after).

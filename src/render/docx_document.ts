@@ -119,6 +119,12 @@ export function createDocxDocument(doc: DocumentModel): Document {
               header: mmToTwips(style.page.headerMm ?? DEFAULT_FURNITURE_MM),
               footer: mmToTwips(style.page.footerMm ?? DEFAULT_FURNITURE_MM),
             },
+            // Word's PAGE field reads both from here, so every <PageNumber>
+            // follows without the node knowing.
+            pageNumbers: {
+              start: firstPageNumberOf(style),
+              formatType: style.page.numberStyle,
+            },
           },
           titlePage: titlePage || undefined,
         },
@@ -2117,6 +2123,15 @@ function createDocxStyles(style: DocumentStyle, locale: string | undefined) {
  */
 function headingColor(style: DocumentStyle, block: DocumentTextBlockStyle): string {
   return block.color ?? style.palette?.heading ?? style.typography.color;
+}
+
+/** The page the numbering starts on, checked because docx floors 2.5 and takes -1 silently. */
+function firstPageNumberOf(style: DocumentStyle): number | undefined {
+  const start = style.page.firstPageNumber;
+  if (start !== undefined && !(Number.isInteger(start) && start >= 0)) {
+    throw new RangeError(`page.firstPageNumber must be a whole number from 0, not ${start}`);
+  }
+  return start;
 }
 
 function pageWidthTwips(style: DocumentStyle): number {

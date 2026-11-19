@@ -96,7 +96,30 @@ export interface DocumentPageStyle {
   headerMm?: number;
   /** How far the running footer stands from the foot of the paper, in mm. */
   footerMm?: number;
+  /**
+   * The number the first page carries, counting on from there.
+   *
+   * For a document that continues another — an appendix whose pages run on
+   * from the report it belongs to. A whole number from 0; absent, the first
+   * page is 1. Only the page's own number moves: a `<PageNumber>` total is
+   * still the count of pages, which is what Word prints too.
+   */
+  firstPageNumber?: number;
+  /**
+   * How the page numbers are written — `"lowerRoman"` for front matter that
+   * runs i, ii, iii. Absent, they are decimal.
+   */
+  numberStyle?: PageNumberStyle;
 }
+
+/**
+ * How a page number is written: Word's own names for its number formats.
+ *
+ * `decimal` is 1, 2, 3; `lowerRoman` i, ii, iii; `upperRoman` I, II, III;
+ * `lowerLetter` a, b, c; `upperLetter` A, B, C — after Z, Word doubles the
+ * letter (AA, BB), and so does the preview.
+ */
+export type PageNumberStyle = "decimal" | "lowerRoman" | "upperRoman" | "lowerLetter" | "upperLetter";
 
 /** How body text is set. */
 export interface DocumentTypographyStyle {
