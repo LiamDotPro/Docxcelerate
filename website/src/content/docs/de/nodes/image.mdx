@@ -13,8 +13,8 @@ import NodeVariants from "../../../../components/NodeVariants.astro";
 
 ## Jedes Feld ist ein Prop
 
-`src`, `alt`, `width` und `height` sind einfache Props, aus dem State berechnet,
-bevor das Element zurückgegeben wird. Eine Unterschrift, die je Standort
+`src`, `alt`, `width`, `height`, `align` und `href` sind einfache Props, aus dem
+State berechnet, bevor das Element zurückgegeben wird. Eine Unterschrift, die je Standort
 abweicht, ein Logo je Marke, ein Foto nach Aktenzeichen — all das bleibt in der
 Komponente, statt zu einer Verzweigung im Template zu werden:
 
@@ -35,6 +35,32 @@ export const Signature: Image = () => {
 
 Das Prop heißt `src`; der aufgelöste Node nennt sie `path`. Klappen Sie *Wozu
 es aufgelöst wird* bei der ersten Variante unten auf, um es zu sehen.
+
+## Größe und Platz
+
+Geben Sie eine Seite an, und die andere folgt den eigenen Proportionen des Bildes,
+gelesen aus dem PNG, JPEG, GIF oder BMP, das es trägt (bei einem SVG aus seinem
+`fallbackSrc`): `<Image src={logo} width={160} />` ist ein Logo mit 160 pt in
+seiner wirklichen Form, kein Quadrat. Ohne beides ist es 120 pt breit; mit beiden
+ist es die Box, die Sie angegeben haben. Ein Bild, das noch keine Bytes hat — eine
+URL, ein noch nicht beantworteter Prompt —, reserviert ein Quadrat.
+
+`align="center"` oder `"right"` verschiebt die eigene Zeile des Bildes quer über die
+Spalte. Nichts schwebt, und kein Text umfließt es. In einer Zelle oder einer Form
+bestimmt die Ausrichtung der Spalte beziehungsweise der Form.
+
+## Ein Bild, das verlinkt
+
+`href` lässt das Bild eine Adresse öffnen — einen QR-Code, einen Jetzt-bezahlen-
+Button, ein Logo —, in Word mit Strg+Klick, in der Vorschau mit einem Klick. Es
+gelten dieselben vier Schemata wie bei einem
+[`<Text>`-Link](/de/docs/nodes/paragraph/#anders-gesetzte-wörter); alles andere
+zeichnet das Bild ohne Link, weil die Adresse aus Ihren Daten stammen kann. Sein
+`alt` ist das, was ein Screenreader ansagt, sagen Sie also, wohin es führt:
+
+```tsx
+<Image src={state.qr} alt="Pay invoice 1042 online" width={96} align="right" href={state.payUrl} />
+```
 
 ## Dynamische Bilder
 
