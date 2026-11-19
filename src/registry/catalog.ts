@@ -1125,6 +1125,86 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+
+  {
+    kind: "component",
+    id: "us-sales-tax-breakdown",
+    title: "US sales tax breakdown",
+    summary: "Sales tax split into state, county, city and district rows that add up to the tax charged.",
+    detail:
+      "Splits the sales tax into one row per jurisdiction, state first, each on its " +
+      "own taxable amount, because a city can exempt clothing the state taxes and a " +
+      "county can cap the taxable price of a single item. Each row is rounded on its " +
+      "own base and the cent left over against the total is put on the state row, so " +
+      "the rows always add up to the tax charged, which multiplying a combined rate " +
+      "by the subtotal does not give you. Rates are decimal strings worked in whole " +
+      "numbers, never floats. Shipping is taxed only where the jurisdiction taxes " +
+      "delivery and only for the taxable share of the order, and a charge sent as " +
+      "shipping and handling together prints a warning, because that makes delivery " +
+      "taxable where it would not be. Exempt lines are listed under their reason. " +
+      "When a marketplace facilitator collected the tax, the rows are replaced by a " +
+      "statement saying so. Everything is worked out by a deriver that ships with it.",
+    category: "Body",
+    tags: ["tax", "sales-tax", "us", "invoice", "table", "deriver"],
+    exports: ["UsSalesTaxBreakdown"],
+    dataFields: [
+      { path: "salesTax.currency", type: "string | undefined", summary: "ISO 4217 code for every amount. Defaults to USD." },
+      {
+        path: "salesTax.lines",
+        type:
+          "Array<{ description: string; amountMinor: number; taxable: boolean; category?: string; exemptReason?: string }> | undefined",
+        summary: "Net line prices in cents. Taxable is required; non-taxable lines are listed under their reason.",
+      },
+      {
+        path: "salesTax.shipping",
+        type: "{ amountMinor: number; separatelyStated?: boolean; combinedWithHandling?: boolean } | undefined",
+        summary: "The delivery charge. Combined with handling, it warns in states that exempt delivery stated on its own.",
+      },
+      {
+        path: "salesTax.jurisdictions",
+        type:
+          '{ level: "state" | "county" | "city" | "special"; name: string; rate: string; taxesShipping?: boolean; exemptCategories?: string[]; perItemCapMinor?: number }[] | undefined',
+        summary: 'Every taxing jurisdiction, exactly one state. Rates are decimal strings such as "0.0625".',
+      },
+      {
+        path: "salesTax.collectedBy",
+        type: '"seller" | "marketplace" | undefined',
+        summary: "Marketplace replaces the rows with the facilitator statement. Defaults to seller.",
+      },
+      {
+        path: "salesTax.marketplaceName",
+        type: "string | undefined",
+        summary: "Named in the facilitator statement when the marketplace collected the tax.",
+      },
+    ],
+    files: [...node("us-sales-tax-breakdown", { deriver: true })],
+    previewData: {
+      salesTax: {
+        currency: "USD",
+        lines: [
+          {
+            description: "Ride-on industrial floor scrubber, 40-inch cleaning path, lithium-ion battery (x12)",
+            amountMinor: 148750000, taxable: true, category: "manufacturing-machinery",
+          },
+          { description: "Replacement squeegee blades and brush decks, assorted", amountMinor: 2486475, taxable: true },
+          {
+            description: "Extended service agreement, 60 months", amountMinor: 18750000, taxable: false,
+            exemptReason: "Optional service contract, not tangible personal property",
+          },
+        ],
+        shipping: { amountMinor: 2485000, separatelyStated: true, combinedWithHandling: true },
+        jurisdictions: [
+          { level: "state", name: "Colorado", rate: "0.029", exemptCategories: ["manufacturing-machinery"] },
+          { level: "county", name: "Arapahoe County", rate: "0.0025", exemptCategories: ["manufacturing-machinery"] },
+          { level: "city", name: "City of Greenwood Village", rate: "0.03" },
+          { level: "special", name: "Regional Transportation District", rate: "0.01", exemptCategories: ["manufacturing-machinery"] },
+          { level: "special", name: "Scientific and Cultural Facilities District", rate: "0.001", exemptCategories: ["manufacturing-machinery"] },
+        ],
+        collectedBy: "seller",
+      },
+    },
+    requires: [],
+  },
   {
     kind: "component",
     id: "vat-place-of-supply",

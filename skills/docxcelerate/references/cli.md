@@ -135,6 +135,7 @@ dxcl list components
 | `vat-place-of-supply` | Whose VAT applies and at what rate, decided before anything is printed. |
 | `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `us-sales-tax-breakdown` | Sales tax by state, county, city and district, in rows that add up to the tax charged. |
 | `india-gst-split` | CGST and SGST or IGST from the place of supply, with the summary, round-off and total in words. |
 
 ## `dxcl show <id>`
