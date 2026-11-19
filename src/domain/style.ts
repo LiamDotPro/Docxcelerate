@@ -155,6 +155,21 @@ export interface DocumentTypographyStyle {
   bodyFont: string;
   /** Font family for titles and section headings. */
   headingFont: string;
+  /**
+   * The face Word sets Chinese, Japanese and Korean characters in.
+   *
+   * A Latin face has no kanji, hanzi or hangul, so without one Word substitutes
+   * its own East Asian default and the page is set in a face nobody chose.
+   * One face serves body and headings alike. Omitted, the body or heading
+   * font is named for these characters too, exactly as before.
+   */
+  eastAsiaFont?: string;
+  /**
+   * The face Word sets complex-script characters in, such as Arabic and Hebrew.
+   *
+   * Omitted, the body or heading font is named for them, exactly as before.
+   */
+  complexScriptFont?: string;
   /** Body text size, in points. */
   bodySizePt: number;
   /** Body line height, as a multiple of the font size. */
@@ -320,6 +335,8 @@ export interface DocumentBlockStyle {
   letterSpacingEm?: number;
   /**
    * The face this block is set in, when it is not the body's.
+   * It is the Latin face: a theme's `eastAsiaFont` and `complexScriptFont` still
+   * set the characters they cover.
    *
    * A money column is the reason: proportional digits do not line up under one
    * another, so a figure needs a face whose digits are all one width. Word
