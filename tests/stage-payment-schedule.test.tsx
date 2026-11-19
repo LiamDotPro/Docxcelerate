@@ -76,6 +76,25 @@ test("allocation errors", async () => {
   await throws(sum(10001, [st({ amountMinor: 2501 }), st({ percent: 75 })]), "contract sum");
 });
 
+test("a percentage stage that floors to nothing still states the excess", async () => {
+  await throws(sum(100, [st({ amountMinor: 100 }), st({ percent: 0.5 })]), "£0.01 more than the contract sum");
+});
+
+test("status strings, intro and tax note", () => {
+  const o = run(sum(10000, [
+    st({ percent: 30, state: "paid", paidDate: "2026-03-10" }),
+    st({ percent: 30, state: "reached" }),
+    st({ percent: 40, state: "invoiced", invoiceDate: "2026-08-07" }),
+  ], { deposit: { amountMinor: 1500, receivedDate: "2026-02-16", application: "first" } }));
+  assertEquals([o.deposit.status, o.stages[1].status, o.stages[2].status], ["Received 16 Feb 2026", "Reached", "Invoiced 7 Aug 2026"]);
+  assertEquals(o.intro, "The contract sum of £100.00 is paid in 3 stages, after a deposit of £15.00.");
+  assertEquals(run(sum(10000, pct(100))).intro, "The contract sum of £100.00 is paid in one stage.");
+  const vat = (deposit?: Obj) => run(sum(10000, halves, { vat: uk, deposit })).taxNote;
+  assertStringIncludes(vat(), "Reaching a stage is not a tax point");
+  assertEquals(vat().includes("VAT on the deposit"), false);
+  assertStringIncludes(vat({ amountMinor: 2000, receivedDate: "2026-01-15", application: "first" }), "VAT on the deposit");
+});
+
 test("eight stages print, nine throw, none throw", async () => {
   const eight = sum(8000, Array.from({ length: 8 }, () => st({ amountMinor: 1000 })));
   assertEquals(run(eight).stages.filter((l) => l.description).length, 8);

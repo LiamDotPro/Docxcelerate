@@ -150,7 +150,13 @@ export default deriver({
             " short of the contract sum; make the last stage `balance: true`",
         );
       }
-      if (exact > whole) throw new Error("contract.stages come to more than the contract sum");
+      if (exact > whole) {
+        // The percentages floor but the sum is checked exactly, so a stage can round to nothing and still tip it over.
+        throw new Error(
+          "contract.stages come to " + fmtMoney(Number((exact - whole + 9999n) / 10000n)) +
+            " more than the contract sum (a percentage stage rounds to less than one penny)",
+        );
+      }
       // Lost pennies go on the last percentage stage; a fixed stage is paid as stated.
       let last = -1;
       stages.forEach((s: any, i: number) => {
