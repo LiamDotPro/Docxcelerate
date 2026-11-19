@@ -1,5 +1,5 @@
 import { test } from "node:test";
-import { assertEquals, assertStringIncludes } from "./assert.ts";
+import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
 import { buildDocument, cleanMinimalDocumentStyle } from "docxcelerate";
 import { createDocxBlob, createDocxDocument } from "docxcelerate/docx";
 import { readPackedParagraphs } from "docxcelerate/preview";
@@ -733,6 +733,78 @@ test("the preview reader finds a cell's tab stops, and the body after the table"
   assertEquals(stop?.leader, "dot");
   assertEquals(Math.abs((stop?.positionPt ?? 0) - 60 * 72 / 25.4) < 0.1, true);
   assertEquals(read.at(-1)?.text.includes("After the table"), true);
+});
+
+// ---------------------------------------------------------------------------
+// Columns as a share of the column
+// ---------------------------------------------------------------------------
+
+const margins20 = { topMm: 20, rightMm: 20, bottomMm: 20, leftMm: 20 };
+
+function pageStyle(size: "A4" | "LETTER", orientation: "portrait" | "landscape" = "portrait"): DocumentStyle {
+  return {
+    ...cellStyle,
+    page: { ...cleanMinimalDocumentStyle.page, size, orientation, margins: margins20 },
+  };
+}
+
+async function gridOn(
+  columns: unknown[],
+  style: DocumentStyle,
+  variant?: string,
+): Promise<{ xml: string; grid: number[] }> {
+  const doc = await build(() => (
+    <Table id="t" variant={variant} columns={columns as never}>
+      <Row>{columns.map(() => <Cell>x</Cell>)}</Row>
+    </Table>
+  ));
+  const xml = await documentXml({ ...(doc as DocumentModel), style });
+  return { xml, grid: [...xml.matchAll(/<w:gridCol w:w="(\d+)"\/>/g)].map((m) => Number(m[1])) };
+}
+
+const split = [{ width: "50%" }, { width: "30%" }, { width: "20%" }];
+
+test("a column's share stays a share in the model", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: "50%" }, { width: 26 }, {}]}>
+      <Row>
+        <Cell>a</Cell>
+        <Cell>b</Cell>
+        <Cell>c</Cell>
+      </Row>
+    </Table>
+  ));
+
+  assertEquals(tableOf(doc).columns, [{ width: "50%" }, { width: 26 }, {}]);
+});
+
+test("shares are taken from the text column of whatever page it is", async () => {
+  const a4 = await gridOn(split, pageStyle("A4"));
+  assertEquals(a4.grid, [4819, 2891, 1927]);
+  assertStringIncludes(a4.xml, '<w:tblW w:type="dxa" w:w="9637"/>');
+  assertEquals((await gridOn(split, pageStyle("LETTER"))).grid, [4986, 2991, 1994]);
+  assertEquals((await gridOn(split, pageStyle("A4", "landscape"))).grid, [7285, 4371, 2914]);
+});
+
+test("millimetre, share and auto columns mix, and auto takes the rest", async () => {
+  const { grid } = await gridOn([{ width: 60 }, { width: "40%" }, { width: "auto" }], pageStyle("A4"));
+  assertEquals(grid, [3402, 3855, 2381]);
+  assertEquals((await gridOn([{ width: "auto" }, { width: 26 }], pageStyle("A4"))).grid, [8164, 1474]);
+});
+
+test("a bleeding table's share is of the paper", async () => {
+  const { grid } = await gridOn([{ width: "50%" }, { width: "auto" }], pageStyle("A4"), "bleeding");
+  assertEquals(grid[0], 5953);
+});
+
+test("a share outside 0% to 100% throws, naming it", async () => {
+  for (const width of ["0%", "150%", "abc%"]) {
+    await assertRejects(
+      () => gridOn([{ width }], pageStyle("A4")),
+      RangeError,
+      width,
+    );
+  }
 });
 
 const turned = () => (

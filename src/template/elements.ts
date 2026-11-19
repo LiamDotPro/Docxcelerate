@@ -391,7 +391,7 @@ export interface TableProps extends CommonElementProps {
   /**
    * Where the table sits across the text column. Left unless it is said.
    *
-   * Only a table narrower than the column can move: any `"auto"` column fills
+   * Only a table narrower than the column can move: any `"auto"` column, or shares adding up to 100%, fills
    * the column, and a `bleed` table spans the paper, so either ignores it.
    */
   align?: TableAlign;

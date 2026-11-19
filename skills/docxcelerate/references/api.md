@@ -103,7 +103,7 @@ Notes worth knowing:
   sections — but both shipped renderers print every section title at one level,
   so a three-deep document does not yet *look* three-deep. `Table`, `Row` and
   `Cell` hold nodes too; they just do not head anything.
-- **A table's columns are declared once, on the table**, in millimetres or
+- **A table's columns are declared once, on the table**, in millimetres, as a percentage or
   `"auto"`, each with an optional `align`. Rows and cells are ordinary nodes, so
   a `.map()` produces rows, a condition drops one, and every id names itself —
   none of it is a special case. `header` on a row draws it as a heading; only
@@ -122,6 +122,15 @@ Notes worth knowing:
   prints 1, 2, 3 in a preview and in every published document, counting only the
   rows a `.filter()` kept. The bare index counts from zero and, in a published
   filtered loop, counts the entries dropped too; `i + 1` throws while publishing.
+- **A column can be a share of the column**: `width: "30%"` is 30% of the text
+  column (of the paper for a `bleed` table), worked out for whatever page the
+  document is set on. A 50/30/20 table keeps its proportions on A4, Letter or
+  landscape, where millimetres would have to be redone. Mix freely: millimetre
+  and percentage columns are taken first and `"auto"` ones share what is left.
+  Shares are not rescaled, so make them add up to 100% (or less, with an
+  `"auto"` column) or the table runs past the margin. A share from 0 to 100% is
+  the only form, and anything else throws. In a table inside a cell, the share
+  is still of the page's text column, not of the cell.
 - **A row can be given a height**, in points: `<Row height={56}>` is a floor the
   row grows past if its cells need more, which is what a box to sign in wants.
   `heightRule="exact"` makes it a fixed depth instead — a label sheet, a form
@@ -139,7 +148,7 @@ Notes worth knowing:
 - **`align` on a `<Table>` moves the whole table**, not its words: a totals
   block of fixed-width columns with `align="right"` sits against the right
   margin, with no empty spacer column to hold it there. It only moves a table
-  narrower than the text column — any `"auto"` column fills the column, and a
+  narrower than the text column — any `"auto"` column, or shares adding up to 100%, fills the column, and a
   `bleed` table spans the paper and ignores it. Column and cell `align` still
   set the text inside.
 - **`Cell` takes text directly** — `<Cell>{line.qty}</Cell>` is the common case.

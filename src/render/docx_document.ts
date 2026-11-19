@@ -2285,14 +2285,31 @@ function columnWidths(
   const pageTwips = mmToTwips(pageWidthMm(style.page));
   const available = bleed ? pageTwips : pageTwips -
     mmToTwips(style.page.margins.leftMm + style.page.margins.rightMm);
-  const fixed = columns.map((column) =>
-    typeof column.width === "number" ? mmToTwips(column.width) : 0
-  );
+  const fixed = columns.map((column) => declaredTwips(column.width, available));
   const autos = fixed.filter((width) => width === 0).length;
   const spare = Math.max(available - fixed.reduce((total, width) => total + width, 0), 0);
   const each = autos > 0 ? Math.floor(spare / autos) : 0;
 
   return fixed.map((width) => (width === 0 ? each : width));
+}
+
+/** A column's own width in twips; 0 means it shares out what is left. */
+function declaredTwips(width: TableColumn["width"], available: number): number {
+  if (typeof width === "number") {
+    return mmToTwips(width);
+  }
+  if (typeof width !== "string" || !width.endsWith("%")) {
+    return 0;
+  }
+  const share = Number(width.slice(0, -1));
+  if (!Number.isFinite(share) || share <= 0 || share > 100) {
+    throw new RangeError(
+      `a table column's width must be a share from 0% to 100%, like "30%", not "${width}"`,
+    );
+  }
+  // Floored like the auto share below, so columns that add up to 100% never
+  // overhang the margin by a twip of rounding.
+  return Math.floor(available * share / 100);
 }
 
 /**
