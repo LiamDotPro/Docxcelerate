@@ -1525,7 +1525,6 @@ function chartDrawing(node: GraphNode, widthPt: number, heightPt: number): Impor
       id: String(drawingId(node.id)),
       name: `Chart ${node.id}`,
       // What a screen reader reads out where a sighted reader sees the plot.
-      // What a screen reader reads out where a sighted reader sees the plot.
       descr: node.alt ?? node.title ?? node.caption ?? node.id,
     }),
   );
