@@ -1125,6 +1125,77 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+
+  {
+    kind: "component",
+    id: "deposit-cancellation-outcome",
+    title: "Deposit outcome on cancellation",
+    summary: "What a cancelled order refunds and keeps from money paid in advance, and the VAT on each part.",
+    detail:
+      "Security deposits, refundable advances and non-refundable advances look alike and are " +
+      "taxed differently. A security deposit carries no VAT and comes back less itemised " +
+      "deductions, each marked as a VAT-bearing supply or as compensation outside the scope. In " +
+      "the UK since March 2019, VAT on a retained advance stays due with no credit note, and the " +
+      "refunded part gets one at the original rate. In Germany the VAT is corrected only when the " +
+      "refund is actually paid. In the US a state flag says whether a forfeit is taxed, rather " +
+      "than a guess. A partly retained advance is split per VAT band, with VAT worked on the " +
+      "retained part and the remainder refunded, so the halves always add up to the VAT charged. " +
+      "No amount is printed negative. One deriver does all of it.",
+    category: "Body",
+    tags: ["cancellation", "deposit", "refund", "vat", "tax", "deriver", "branching", "section"],
+    exports: ["DepositCancellationOutcome"],
+    dataFields: [
+      { path: "order.reference", type: "string", summary: "The cancelled order, printed as given. Required." },
+      { path: "order.currency", type: "string", summary: "ISO 4217 code. Required." },
+      { path: "order.jurisdiction", type: '"UK" | "DE" | "US"', summary: "Whose rules apply. Anything else fails the document." },
+      { path: "order.usState", type: "string | undefined", summary: "US only: the state named in the sales-tax line. Required when an advance is retained." },
+      { path: "order.usForfeitTaxable", type: "boolean | undefined", summary: "US only: whether that state taxes a forfeited deposit. Required when an advance is retained." },
+      { path: "order.cancelledOn", type: "string", summary: "ISO 8601 cancellation date. Required; UK before 2019-03-01 fails." },
+      { path: "order.payments", type: "Array<{ kind; gross; bands?; invoiceNumber? }> | undefined", summary: "Money taken in advance, with its VAT bands as invoiced. Missing means nothing was paid." },
+      { path: "order.retention", type: "{ percent?; amount?; reason } | undefined", summary: "The cancellation fee kept from refundable advances: a percent or an amount, and why." },
+      { path: "order.deductions", type: "Array<{ label; amount; isSupply?; vatRate? }> | undefined", summary: "Up to 6 itemised deductions from the security deposit." },
+      { path: "order.creditNoteNumber", type: "string | undefined", summary: "The credit note for the refunded VAT. Missing says one will follow." },
+      { path: "order.refundPaidOn", type: "string | undefined", summary: "When the refund was paid. Missing means not yet; in Germany it times the VAT correction." },
+    ],
+    arrangements: [
+      { id: "table", title: "Table", summary: "Each label beside its amount, amounts right-aligned so they add down the column." },
+      { id: "stacked", title: "Stacked", summary: "One 'Label: amount' line under another, down the text column." },
+    ],
+    files: node("deposit-cancellation-outcome", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      order: {
+        reference: "BK-2026-HALL-0048817/WEDDING-RECEPTION-REV-3",
+        currency: "GBP",
+        jurisdiction: "UK",
+        cancelledOn: "2026-11-03",
+        payments: [
+          { kind: "security", gross: 25000.0 },
+          {
+            kind: "refundable-advance",
+            gross: 1284750.0,
+            bands: [
+              { rate: 20, net: 1000000.0, vat: 200000.0 },
+              { rate: 5, net: 80714.29, vat: 4035.71 },
+            ],
+            invoiceNumber: "SI-2026-07-004817/DEP-1",
+          },
+          {
+            kind: "non-refundable-advance",
+            gross: 48000.0,
+            bands: [{ rate: 20, net: 40000.0, vat: 8000.0 }],
+            invoiceNumber: "SI-2026-05-003302/RES",
+          },
+        ],
+        retention: { percent: 25, reason: "cancellation less than 90 days before the event, clause 14.2" },
+        deductions: [
+          { label: "Specialist cleaning of the main hall carpets after the rehearsal dinner", amount: 1850.4, isSupply: true, vatRate: 20 },
+          { label: "Replacement of two damaged antique Venetian glass chandeliers in the Long Gallery", amount: 12600.0, isSupply: false },
+        ],
+        creditNoteNumber: "CN-2026-11-000913/BK-0048817",
+      },
+    },
+    requires: [],
+  },
   {
     kind: "component",
     id: "prompt-payment-discount",
