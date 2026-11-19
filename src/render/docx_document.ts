@@ -30,6 +30,7 @@ import {
   TableRow,
   TabStopType,
   TextRun,
+  UnderlineType,
   VerticalAlign,
   WidthType,
 } from "docx";
@@ -489,18 +490,7 @@ function renderNode(
         ...breakStyle(broken),
         numbering: item?.numbering,
         ...paragraphFrame(node, block),
-        indent: blockIndent(block, style) ?? item?.indent,
-        spacing: {
-          ...blockSpacingBefore(block),
-          // Items of one list stand together: the space a paragraph leaves
-          // under itself belongs after the list, not between its items. A
-          // block that names its own spacing still gets it.
-          after: ptToTwips(
-            block?.spacingAfterPt ?? (item?.tight ? 0 : style.paragraph.spacingAfterPt),
-          ),
-          ...blockLine(block, style),
-        },
-        ...blockKeeps(block),
+        ...blockLayout(block, style, item),
         ...blockOutline(block),
       }),
     ];
@@ -546,7 +536,21 @@ function renderNode(
   // number that stops being true the moment an engine writes a longer
   // paragraph into a dynamic node.
   if (node.kind === "pageNumber") {
-    return [new Paragraph({ children: pageNumberRuns(node), ...breakStyle(broken), ...inCell(cell) })];
+    const block = blockOf(style, node.variant);
+
+    return [
+      new Paragraph({
+        children: pageNumberRuns(node, blockRun(block, style)),
+        ...breakStyle(broken),
+        ...paragraphFrame(node, block),
+        // Only when a block is named: an unstyled page number writes no
+        // spacing of its own, and its bytes stay what they were.
+        ...(block === undefined ? {} : blockLayout(block, style)),
+        // Last, so a cell's column alignment and spacing win, as they do for
+        // every paragraph in a cell.
+        ...inCell(cell),
+      }),
+    ];
   }
 
   // A built document has already walked its loops, so this is a published one
@@ -924,6 +928,8 @@ function markedRun(
 ): TextRun | ExternalHyperlink {
   const own = blockOf(style, run.variant);
   // shortcut: tracking is worked out at the block's size or the body's, so a tracked variant with no size inside a larger paragraph is tracked at body size.
+  // Only "double" names a style; any other truthy value is the single rule, so nothing unknown reaches w:val.
+  const underline = run.underline === "double" ? { type: UnderlineType.DOUBLE } : run.underline ? {} : undefined;
   const props = {
     ...base,
     // A field the block leaves out has no opinion, so it must not blank the paragraph's.
@@ -931,7 +937,7 @@ function markedRun(
     ...(own?.fill === undefined ? {} : { shading: { type: ShadingType.CLEAR, fill: own.fill } }),
     ...(run.bold === undefined ? {} : { bold: run.bold }),
     ...(run.italic === undefined ? {} : { italics: run.italic }),
-    ...(run.underline ? { underline: {} } : {}),
+    ...(underline === undefined ? {} : { underline }),
     ...(run.strike === undefined ? {} : { strike: run.strike }),
     ...(run.script === "superscript" ? { superScript: true } : {}),
     ...(run.script === "subscript" ? { subScript: true } : {}),
@@ -947,7 +953,7 @@ function markedRun(
         // or header cell the accent is the fill, and the link would vanish into it.
         // A style with no palette leaves the link in the ink around it.
         color: (props as { color?: string }).color ?? style.palette?.accent,
-        underline: {},
+        underline: underline ?? {},
       }),
     ],
   });
@@ -1290,7 +1296,7 @@ function blockInset(block: DocumentBlockStyle | undefined) {
  * a cell, a box. Alignment only when the node or its block said: a paragraph
  * that never said writes no `w:jc` and goes on inheriting.
  */
-function paragraphFrame(node: ParagraphNode, block: DocumentBlockStyle | undefined) {
+function paragraphFrame(node: { align?: TextAlign }, block: DocumentBlockStyle | undefined) {
   return {
     alignment: textAlignmentOf(node.align ?? block?.align),
     shading: block?.fill === undefined
@@ -1298,6 +1304,35 @@ function paragraphFrame(node: ParagraphNode, block: DocumentBlockStyle | undefin
       : { type: ShadingType.CLEAR, fill: block.fill },
     border: blockBorders(block, "paragraph"),
     ...blockTabStops(block),
+  };
+}
+
+/**
+ * What a block gives a paragraph it draws besides its frame: room, spacing and
+ * keeps.
+ *
+ * Shared, so that a page number in a variant is set exactly as a paragraph in
+ * that variant is. A list item's indent and tight spacing apply only where the
+ * block does not say otherwise.
+ */
+function blockLayout(
+  block: DocumentBlockStyle | undefined,
+  style: DocumentStyle,
+  item?: ReturnType<typeof listItem>,
+) {
+  return {
+    indent: blockIndent(block, style) ?? item?.indent,
+    spacing: {
+      ...blockSpacingBefore(block),
+      // Items of one list stand together: the space a paragraph leaves
+      // under itself belongs after the list, not between its items. A
+      // block that names its own spacing still gets it.
+      after: ptToTwips(
+        block?.spacingAfterPt ?? (item?.tight ? 0 : style.paragraph.spacingAfterPt),
+      ),
+      ...blockLine(block, style),
+    },
+    ...blockKeeps(block),
   };
 }
 
@@ -1471,23 +1506,18 @@ function ptToPx(points: number): number {
   return Math.round(points * (96 / 72));
 }
 
-/** The runs a page number becomes — Word's own fields, not a printed digit. */
-function pageNumberRuns(node: PageNumberNode): TextRun[] {
+/** The runs a page number becomes: Word's own fields, not a printed digit, all set in the block's type. */
+function pageNumberRuns(node: PageNumberNode, base: Record<string, unknown>): TextRun[] {
+  const field = (which: (typeof PageNumber)[keyof typeof PageNumber]) =>
+    new TextRun({ children: [which], ...base });
   const format = node.format ?? "currentOfTotal";
+  const numbers = format === "current"
+    ? [field(PageNumber.CURRENT)]
+    : format === "total"
+    ? [field(PageNumber.TOTAL_PAGES)]
+    : [field(PageNumber.CURRENT), textRun(node.separator ?? " / ", base), field(PageNumber.TOTAL_PAGES)];
 
-  if (format === "current") {
-    return [new TextRun({ children: [PageNumber.CURRENT] })];
-  }
-
-  if (format === "total") {
-    return [new TextRun({ children: [PageNumber.TOTAL_PAGES] })];
-  }
-
-  return [
-    new TextRun({ children: [PageNumber.CURRENT] }),
-    new TextRun(node.separator ?? " / "),
-    new TextRun({ children: [PageNumber.TOTAL_PAGES] }),
-  ];
+  return node.prefix ? [textRun(node.prefix, base), ...numbers] : numbers;
 }
 
 /**
