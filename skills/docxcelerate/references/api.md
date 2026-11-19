@@ -62,13 +62,13 @@ interface PromptProps {
 | --- | --- |
 | `Document` | `id?`, `title` (required), `metadata?`, `properties?`, `header?`, `footer?`, `firstHeader?`, `firstFooter?`, `evenHeader?`, `evenFooter?`, `trackChanges?`, `children?` |
 | `Section` | `title` (required), `showTitle?` (default `true`), `children?` |
-| `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0), `listStyle?` (`"decimal" \| "lowerLetter" \| "upperLetter" \| "lowerRoman" \| "upperRoman"`, or any of them with `Paren` appended: `"lowerLetterParen"` is (a); default by depth 1. a. i.), `listStart?` (a whole number from 1, default 1; numbered items only) |
+| `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0), `listStyle?` (`"decimal" \| "lowerLetter" \| "upperLetter" \| "lowerRoman" \| "upperRoman"`, or any of them with `Paren` appended: `"lowerLetterParen"` is (a); default by depth 1. a. i.), `listStart?` (a whole number from 1, default 1; numbered items only), `listMarker?` (`"dash" \| "tick" \| "cross" \| "square"`: –, ✓, ✗, ▪; default the bullet, • ◦ ▪ by depth; bulleted items only) |
 | `Text` | `bold?`, `italic?`, `underline?` (`true` single, `"double"` the accounting double rule; a link is always underlined), `strike?`, `script?` (`"superscript" \| "subscript"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`), `variant?` (a block name; only its character settings apply), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` (points; give one and the other keeps the picture's proportions, neither is 120pt wide), `align?` (`"left" \| "center" \| "right"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`) |
 | `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `alt?`, `caption?`, `width?`, `height?` (points), `align?` (`"left" \| "center" \| "right"`), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `valueAxisMin?`, `valueAxisMax?`, `valueAxisStep?` (numbers; fix the value axis, Word picks any left out), `dataLabels?` |
-| `Table` | `columns` (required), `align?` (`"left" \| "center" \| "right"`, default left), `children?` |
+| `Table` | `columns` (required), `align?` (`"left" \| "center" \| "right"`, default left), `keepTogether?`, `children?` |
 | `Row` | `header?`, `keepTogether?`, `height?`, `heightRule?`, `children?` |
-| `Cell` | `span?`, `align?`, `children?` |
+| `Cell` | `span?`, `align?`, `textDirection?` (`"up" \| "down"`; horizontal when left out), `children?` |
 | `Shape` | `width?`, `height?` (points), `children?` |
 | `TableOfContents` | `title?` |
 | `PageBreak` | nothing beyond the common props |
@@ -84,7 +84,7 @@ Notes worth knowing:
   one after another are one list and the renderer counts them; anything that is
   not an item ends it, and the next numbered list starts at one. Never type a
   bullet or a number into the text. `listLevel={1}` nests an item under the one
-  above. `listStyle` on a numbered item picks the numerals for that item's level in its list — `listStyle="lowerLetterParen"` on the first sub-clause makes every sub-clause (a), (b); the first item at a level to say decides it, so say it once. Without it a level counts 1., a., i. by depth. Ignored on bullets. `listStart={4}` on the item that opens a numbered list (or a level of one) makes it count from 4: a list that resumes after a table or a quote is a new list, so say where it picks up. It is ignored on any later item and on bullets, and anything but a whole number from 1 is refused at build. Not drawn on a `<Shape>`.
+  above. `listStyle` on a numbered item picks the numerals for that item's level in its list — `listStyle="lowerLetterParen"` on the first sub-clause makes every sub-clause (a), (b); the first item at a level to say decides it, so say it once. Without it a level counts 1., a., i. by depth. Ignored on bullets. `listStart={4}` on the item that opens a numbered list (or a level of one) makes it count from 4: a list that resumes after a table or a quote is a new list, so say where it picks up. It is ignored on any later item and on bullets, and anything but a whole number from 1 is refused at build. `listMarker="tick"` on a bulleted item marks it ✓ instead of •; `"cross"` is ✗, `"dash"` an en dash, `"square"` ▪. Each item says its own, so a list of what is covered (`tick`) and what is not (`cross`) is one list. An item without it keeps the bullet. Ignored on numbered items. Never type a tick or a dash into the text. Not drawn on a `<Shape>`.
 - `<Text>` sets some of a paragraph's words differently:
   `Due within <Text bold>thirty days</Text>.` One inside another takes both
   settings. m<Text script="superscript">2</Text>, CO<Text script="subscript">2</Text>
@@ -94,7 +94,7 @@ Notes worth knowing:
   is drawn in the theme's accent. Either way it is underlined, so a link on a
   dark band stays readable. To make a phrase stand out, name a theme block:
   `The amount due is <Text variant="amountDue">£1,240.00</Text>.` The block's
-  `color`, `fill` (shading behind the words), `fontSizePt`, `weight`, `font`,
+  `color`, `fill` (shading behind the words), `fontSizePt`, `weight`, `italic`, `font`,
   `transform` and `letterSpacingEm` apply. Borders, padding and spacing do not.
   An unknown name prints plain, and an inner `variant` replaces an outer one.
   A line end (`\n`) in a paragraph's text is a line break, not a new
@@ -103,7 +103,7 @@ Notes worth knowing:
   sections — but both shipped renderers print every section title at one level,
   so a three-deep document does not yet *look* three-deep. `Table`, `Row` and
   `Cell` hold nodes too; they just do not head anything.
-- **A table's columns are declared once, on the table**, in millimetres or
+- **A table's columns are declared once, on the table**, in millimetres, as a percentage or
   `"auto"`, each with an optional `align`. Rows and cells are ordinary nodes, so
   a `.map()` produces rows, a condition drops one, and every id names itself —
   none of it is a special case. `header` on a row draws it as a heading; only
@@ -112,21 +112,43 @@ Notes worth knowing:
   `keepTogether` on a row stops Word breaking it across a page — the whole row
   moves over instead. Put it on the row a `.map()` produces and every line of an
   invoice or schedule gets it; leave it off a long table's short rows, where a
-  break between them is fine. To number the rows, pass the map's index to
+  break between them is fine. `keepTogether` on the `<Table>` keeps the whole
+  table on one page — every row whole, and each kept with the one after it — so
+  a totals box, bank details or a signature block moves over as one rather than
+  leaving its last line overleaf. Use it on short tables only: a table taller
+  than a page breaks anyway, and on a long one it just pushes the whole thing to
+  a new page. To number the rows, pass the map's index to
   `position`: `lines.map((line, i) => <Row id="line"><Cell id="no">{position(i)}</Cell>…</Row>)`
   prints 1, 2, 3 in a preview and in every published document, counting only the
   rows a `.filter()` kept. The bare index counts from zero and, in a published
   filtered loop, counts the entries dropped too; `i + 1` throws while publishing.
+- **A column can be a share of the column**: `width: "30%"` is 30% of the text
+  column (of the paper for a `bleed` table), worked out for whatever page the
+  document is set on. A 50/30/20 table keeps its proportions on A4, Letter or
+  landscape, where millimetres would have to be redone. Mix freely: millimetre
+  and percentage columns are taken first and `"auto"` ones share what is left.
+  Shares are not rescaled, so make them add up to 100% (or less, with an
+  `"auto"` column) or the table runs past the margin. A share from 0 to 100% is
+  the only form, and anything else throws. In a table inside a cell, the share
+  is still of the page's text column, not of the cell.
 - **A row can be given a height**, in points: `<Row height={56}>` is a floor the
   row grows past if its cells need more, which is what a box to sign in wants.
   `heightRule="exact"` makes it a fixed depth instead — a label sheet, a form
   grid — and Word clips whatever does not fit, so keep an exact row's contents
   inside it (the preview grows the row rather than hiding the overflow). This
   is not a block's `heightPt`, which sets a paragraph's leading, not a row's depth.
+- **`textDirection` on a `<Cell>` turns its words on their side**: `"up"` reads
+  from the foot of the cell to its head, like a spine label; `"down"` from the
+  head to the foot. It is for a heading over a column too narrow to hold it —
+  days across a rota, requirements across a compliance grid — and for a label
+  down the side of a form. Word grows the row to fit the turned words, so give
+  the row a `height` when the headings should share one depth. The column's
+  `align` still applies, along the turned line. Never fake it by breaking a
+  word into one letter per line.
 - **`align` on a `<Table>` moves the whole table**, not its words: a totals
   block of fixed-width columns with `align="right"` sits against the right
   margin, with no empty spacer column to hold it there. It only moves a table
-  narrower than the text column — any `"auto"` column fills the column, and a
+  narrower than the text column — any `"auto"` column, or shares adding up to 100%, fills the column, and a
   `bleed` table spans the paper and ignores it. Column and cell `align` still
   set the text inside.
 - **`Cell` takes text directly** — `<Cell>{line.qty}</Cell>` is the common case.
@@ -155,6 +177,11 @@ Notes worth knowing:
   `href` links the picture — block, inline, in a cell or in the furniture — and
   lands on the node as `href`, settled like a run's. A refused scheme or an
   unsettled token draws the picture alone.
+- **A picture among a `Paragraph`'s words sits where it was written** — in the
+  body, in a `Cell` and in a `Shape` alike: `<Paragraph>Paid <Image src={tick}
+  width={8} /> on 3 March</Paragraph>` prints the tick between the words, in the
+  cell's own styling on both sides. Inside a `Cell` or `Shape`, write the
+  sentence as a `<Paragraph>`; that is what holds an inline picture.
 - `PageBreak` is for a break that is part of what the document *is* — payment
   details on their own page. Nudging a paragraph off the bottom of a page is the
   margins' job.
@@ -268,6 +295,7 @@ Each of these is an error naming the position, not a quiet reinterpretation:
 | A prompted `<Image>` among a paragraph's words, published to an engine | An engine draws block nodes only — give the `<Image>` its own place beside the paragraph |
 | A generated chart whose answer is not a chart (`"twelve"` as a value, an unknown `graphType`) | Word would draw it empty; the error names the node and the field |
 | A generated paragraph whose answer is not a string (a provider's response object, `undefined`) | It would pack as `[object Object]` or nothing; the error names the node |
+| A client method that throws or rejects (`fetch failed`, a 429) | Rejects with `AiGenerationError`: `nodeId`, `kind`, and the client's error as `cause` |
 
 ## Component types
 
@@ -336,6 +364,15 @@ holds still the opening, the order, the length and the register and leaves only
 the per-document parts to be written. Give it as finished text, not a form with
 blanks in it. Pass an array when the shape legitimately varies by case — they
 travel numbered, and read as a pattern rather than a template.
+
+`aiProps(config: AiConfig) => PromptProps` is `useAi` for after an `await`. It
+is not a hook: it takes the same config, applies the same rules (`placeholder`
+and `ask` required), and returns `{ generalPrompt, placeholder, systemPrompt?,
+infoPrompt?, negativePrompt?, examplePrompt? }` to spread on the element. Use it
+when the ask or the facts read what `await useDeriver(...)` returned —
+interpolate the result, and publishing writes `{{derived.…}}` for you. Props on
+the element win over what a hook set around it. A deriver's whole result passed
+as `from` travels as one token and arrives as its JSON.
 
 What `aiClient.generateParagraph` returns is the paragraph itself, so return the
 text, not the provider's response object: anything but a string fails with an
@@ -514,6 +551,8 @@ const doc = await resolveDocument(
 | `locale` | the document's | A BCP 47 tag; an invalid one throws |
 | `availableTokens` | `2000` | What `{{ctx.availableTokens}}` prints — what `useAvailableTokens()` returned in the build |
 
+A locale whose script is Chinese, Japanese or Korean is also written to Word's East Asian language slot, and an Arabic or Hebrew one to its complex-script slot, so Word proofs the text in that language.
+
 The third argument is `{ derivers?: DeriverRegistry }`. `artifact.derivers` is
 the bundle of the derivers the document references, and
 `createDeriverRegistryFromBundle` loads it over the built-in `sum`, `join` and
@@ -636,7 +675,7 @@ catch, retry or time out:
 
 | The client… | `resolveDocument` |
 | --- | --- |
-| throws or rejects | rejects with that error |
+| throws or rejects | rejects with an `AiGenerationError` naming the node, the client's error as `cause` |
 | never settles | never settles — bound the call with `AbortSignal.timeout` |
 | returns a non-string paragraph, or a chart it cannot plot | rejects, naming the node |
 | lacks `generateGraph` / `generateImage` for a node that needs it | rejects, naming the node and the method |
@@ -644,6 +683,32 @@ catch, retry or time out:
 A dynamic node in an arm whose condition is false is never asked for. To show
 the placeholder, or a stock sentence, instead of failing the document, catch
 inside your client and return that text.
+
+### When the model call fails
+
+A client method that throws or rejects fails the build or resolve with an
+`AiGenerationError`. Nodes are written in order, so nothing after the failed
+node is asked.
+
+```ts
+import { AiGenerationError } from "docxcelerate";
+
+try {
+  await resolveDocument(artifact.engineDocument, createRuntimeState({ data, aiClient }));
+} catch (err) {
+  if (err instanceof AiGenerationError) {
+    err.nodeId; // "summary", or "note-1" inside a repeat
+    err.kind;   // "paragraph" | "image" | "graph"
+    err.cause;  // exactly what the client threw: read a status from it to retry
+  }
+  throw err;
+}
+```
+
+Only the client's failure is wrapped. No client, a missing `generateImage` or
+`generateGraph`, and an answer that is not text or not a chart fail with their
+own errors. The error carries nothing from the request — no prompts, no data.
+A preview (`dynamicMode: "placeholder"`) never calls the client.
 
 ### Stand-in AI clients
 
@@ -667,8 +732,8 @@ ai.requests; // ScriptedAiRequest[]: { id, kind, prompt, prompts }, in the order
 
 `ScriptedAiClient` matches an exact id first, then the id with each trailing
 `-<index>` a repeat added taken off in turn (`note-1-2` → `note-1` → `note`). An
-id with no answer, or an answer of the wrong shape for the node, throws and the
-build or resolve rejects. Previews (`dynamicMode: "placeholder"`) never call it.
+id with no answer, or an answer of the wrong shape for the node, throws, and the
+build or resolve rejects with an `AiGenerationError` whose `cause` is that error. Previews (`dynamicMode: "placeholder"`) never call it.
 
 ## The built document
 
@@ -723,14 +788,17 @@ from the *paper's* edge rather than from the margin, 12.5mm unless said —
 `valign`, `"top"` unless said, `"center"` or `"bottom"`, which is where the body
 sits between the top and bottom margins: Word's own vertical alignment, for a
 certificate or cover sheet set mid-page; it applies to every page, so a short
-last page is centred too — and `firstPageNumber` / `numberStyle`: where page numbering starts, a whole number
+last page is centred too — `border` (with `borderWidthPt`, `borderStyle` as on a block, and `borderOffsetMm`, how far in from the paper's edge to the rule's outer edge, 8.5mm unless said, 0–11mm, anything else throws), a rule round all four edges of every page: Word's page border, for a certificate or a formal notice; it moves no text, so the margins must be wider than the offset; nothing is drawn without `border` — and `firstPageNumber` / `numberStyle`: where page numbering starts, a whole number
 from 0 (default 1), and how it is written, `"decimal"` (default),
 `"lowerRoman"`, `"upperRoman"`, `"lowerLetter"` or `"upperLetter"`, for an
 appendix that continues its parent's numbering or front matter numbered
 i, ii, iii),
 `typography` (body and heading font, body size in pt, line
-height, colour), `paragraph` (spacing after, in pt), and `title` and
-`sectionHeading` text blocks (font size, weight, spacing before and after, and
+height, colour, and optionally `eastAsiaFont` — the face for Chinese, Japanese
+and Korean characters — and `complexScriptFont` — the face for Arabic and
+Hebrew; omitted, those characters are asked for in the body or heading face,
+which a Latin font cannot draw. A block's `font` changes only the Latin face), `paragraph` (spacing after, in pt), and `title` and
+`sectionHeading` text blocks (font size, weight, `italic`, `transform` (`"uppercase"` \| `"smallCaps"` \| `"none"`), spacing before and after, and
 `keepWithNext`). A heading is kept on the page with whatever follows it and never
 split across a page; that is on without asking, and
 `sectionHeading: { keepWithNext: false }` turns the first half off for a theme
@@ -752,7 +820,9 @@ blocks: {
   badge: { fill: "FBF0DC", border: "E5C78A", color: "8A5A06", fontSizePt: 7,
            weight: "bold", transform: "uppercase", letterSpacingEm: 0.1, paddingPt: 5 },
   quote: { indentMm: 10, indentRightMm: 10 },
-  heading: { keepWithNext: true, spacingBeforePt: 18, spacingAfterPt: 4 },
+  epigraph: { italic: true, indentMm: 40, align: "right" },
+  term: { transform: "smallCaps" },
+  heading: { keepWithNext: true, outlineLevel: 1, spacingBeforePt: 18, spacingAfterPt: 4 },
   contentsLine: { tabStopsMm: [{ at: 170, align: "right", leader: "dot" }] },
 }
 ```
@@ -763,13 +833,14 @@ blocks: {
 | `color` | text colour, and the colour of any link in the block |
 | `border`, `borderWidthPt`, `borderSides`, `borderStyle` | a border, on all four edges unless sides are named. `borderStyle` is `"single"` (default) \| `"double"` \| `"dashed"` \| `"dotted"` and applies to every drawn edge — a double rule under a total, a dashed tear-off line. Paragraphs and cells only; a `<Shape>` outline is always solid |
 | `paddingPt` | the gap between a drawn border and the text. Word records it on the border, so a block with a fill and no border cannot be padded — see below |
-| `fontSizePt`, `weight`, `transform`, `letterSpacingEm`, `font`, `lineHeight` | how the text is set. `transform: "none"` turns capitals off where a heading or header row would otherwise use them |
+| `fontSizePt`, `weight`, `italic`, `transform`, `letterSpacingEm`, `font`, `lineHeight` | how the text is set. `italic: false` sets words upright inside italic. `transform` is `"uppercase"`, `"smallCaps"` (small capitals, for defined terms and formal headings) or `"none"`, which turns capitals off where a heading or header row would otherwise use them |
 | `align` | `"left" \| "center" \| "right" \| "justify"`. A node's own `align` wins |
 | `spacingBeforePt`, `spacingAfterPt` | space above and below, in points |
 | `indentMm`, `indentRightMm` | inset from the left and right margins |
 | `firstLineIndentMm` | the first line only, for a book's paragraph mark |
 | `hangingIndentMm` | the first line pulled back from the rest. Word writes one or the other, and a hang wins over a first-line indent |
 | `keepWithNext`, `keepLines` | refuse to be the last thing on a page, or to be split across one |
+| `outlineLevel` | `1`–`9`: the block is a heading to Word — listed in the navigation pane, in a contents Word builds, and in an exported PDF's bookmarks — at that level. Changes nothing about how it looks, here or on screen. Paragraphs and section headings; ignored inside a `Cell` or `Shape` |
 | `tabStopsMm` | `[{ at, align?, leader? }]`, measured from the left margin — or, inside a `Cell` or `Shape`, from its inner left edge. Put a `\t` in the text to reach one |
 | `bleed` | the block runs the full width of the page rather than the text. Ignored inside a `Cell` or `Shape` |
 | `maxWidthMm` | a measure, narrowing the column from the right. Ignored inside a `Cell` or `Shape` |
@@ -808,7 +879,7 @@ Only the paragraph's own variant draws a border or fill on it; the cell's stays
 on the cell. A tab leader inside a `Shape` draws in Word; the preview shows the
 gap without the dots.
 
-A section's `variant` styles its printed heading, not its children. The heading takes the block's `fontSizePt`, `weight`, `transform`, `letterSpacingEm`, `color`, `font`, `align`, `border`/`borderWidthPt`/`borderSides`/`paddingPt`, `spacingBeforePt`, `spacingAfterPt`, `keepWithNext` and `keepLines`. Anything the block leaves out comes from `sectionHeading`, and it stays a Heading 1, so the contents still lists it. Fill, indents, bleed, measure, leading and tab stops are not applied to a heading. With `showTitle={false}` there is no heading and the variant does nothing.
+A section's `variant` styles its printed heading, not its children. The heading takes the block's `fontSizePt`, `weight`, `italic`, `transform`, `letterSpacingEm`, `color`, `font`, `align`, `border`/`borderWidthPt`/`borderSides`/`paddingPt`, `spacingBeforePt`, `spacingAfterPt`, `keepWithNext`, `keepLines` and `outlineLevel`. Anything the block leaves out comes from `sectionHeading`, and it stays a Heading 1, so the contents still lists it. A block's `outlineLevel` moves the heading in the outline — `2` lists an annex under the clauses — and it still looks like a Heading 1. Fill, indents, bleed, measure, leading and tab stops are not applied to a heading. A heading variant cannot undo the other casing the theme's `sectionHeading` sets; put that casing on `sectionHeading` itself. With `showTitle={false}` there is no heading and the variant does nothing.
 
 ```tsx
 <Section id="schedule-1" title="Schedule 1: Services" variant="schedule">…</Section>
