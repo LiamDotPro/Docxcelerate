@@ -130,6 +130,7 @@ dxcl list components
 | `next-steps` | A generated paragraph with its prompts already fenced off. |
 | `signature-block` | A closing, a signature image, and who signed it. |
 | `terms-notice` | Numbered small print, one paragraph and one stable id per clause. |
+| `finnish-virtual-barcode` | The 54-digit Finnish virtual barcode, or the IBAN and reference alone when it can't be trusted. |
 | `invoice-document-type` | What an invoice may call itself, and the dates it has to carry. |
 | `commodity-code-summary` | Tariff codes kept as text and checked by length, and a summary by code and origin that adds up. |
 | `deposit-cancellation-outcome` | What a cancelled order refunds and keeps, and the VAT on each part. |
