@@ -82,6 +82,12 @@ export interface PreviewChart {
   readonly categoryAxisTitle?: string;
   /** What the value axis measures. */
   readonly valueAxisTitle?: string;
+  /** Where the file fixes the value axis's lower end; absent where Word picks it. */
+  readonly valueAxisMin?: number;
+  /** Where the file fixes the value axis's upper end; absent where Word picks it. */
+  readonly valueAxisMax?: number;
+  /** The distance the file fixes between the value axis's ticks; absent where Word picks it. */
+  readonly valueAxisStep?: number;
   /** The categories the values are counted against. */
   readonly categories: readonly string[];
   /** The series, in the order they are drawn and keyed. */
@@ -350,6 +356,9 @@ function readChart(xml: string): Omit<PreviewChart, "widthPt" | "heightPt"> {
     dataLabels: labelsOf(element(xml, "c:dLbls") ?? ""),
     categoryAxisTitle: titleOf(categoryAxis),
     valueAxisTitle: titleOf(valueAxis),
+    valueAxisMin: numberAttribute(element(valueAxis, "c:min") ?? "", "val"),
+    valueAxisMax: numberAttribute(element(valueAxis, "c:max") ?? "", "val"),
+    valueAxisStep: numberAttribute(element(valueAxis, "c:majorUnit") ?? "", "val"),
     // A scatter and a bubble count along numbers rather than names, so their
     // categories are the x values written out — which is what a drawer wants
     // to put under the points either way.

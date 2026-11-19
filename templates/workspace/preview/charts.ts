@@ -82,7 +82,12 @@ function optionFor(chart: PreviewChart): echarts.EChartsOption {
     : chart.series.some((series) => series.label !== undefined);
 
   const text = { color: ink, fontFamily: font, fontSize: 11 };
-  const values = valueAxis(rule, text, chart.numberFormat);
+  const values = {
+    ...valueAxis(rule, text, chart.numberFormat),
+    ...(chart.valueAxisMin === undefined ? {} : { min: chart.valueAxisMin }),
+    ...(chart.valueAxisMax === undefined ? {} : { max: chart.valueAxisMax }),
+    ...(chart.valueAxisStep === undefined ? {} : { interval: chart.valueAxisStep }),
+  };
   // A scatter and a bubble count along numbers on both axes, so what stands
   // where the categories would is a second measured axis rather than a named
   // one.
@@ -199,7 +204,12 @@ function radarFor(chart: PreviewChart, rule: string, text: AxisText) {
   const most = readings.length === 0 ? 1 : Math.max(...readings, 0);
 
   return {
-    indicator: chart.categories.map((name) => ({ name, max: most === 0 ? 1 : most })),
+    // The step is not drawn: ECharts takes `splitNumber` on a radar, not an interval.
+    indicator: chart.categories.map((name) => ({
+      name,
+      max: chart.valueAxisMax ?? (most === 0 ? 1 : most),
+      ...(chart.valueAxisMin === undefined ? {} : { min: chart.valueAxisMin }),
+    })),
     center: ["50%", chart.title === undefined ? "52%" : "56%"] as [string, string],
     radius: "62%",
     axisName: text,
