@@ -467,6 +467,31 @@ interface ComponentRuntimeOptions {
 want. `"publish"` is for the artifact that goes to an engine, where the decision
 belongs to a request that has not happened yet.
 
+### Stand-in AI clients
+
+Both come from `docxcelerate` and need no network. Use them in tests and offline previews.
+
+```ts
+import { EchoAiClient, ScriptedAiClient } from "docxcelerate";
+
+new EchoAiClient();
+// paragraph → "[AI draft for <id>] <prompt>"
+// graph     → three sample points, captioned with the echoed prompt; the node keeps its graphType
+// image     → a one-pixel grey PNG at the node's width/height, alt = the echoed prompt
+
+const ai = new ScriptedAiClient({
+  "tutor-note": "A warm note.",                                   // paragraph: a string
+  revenue: { data: { series: [{ values: [1, 2] }] }, caption: "" }, // graph: AiGraphResult
+  portrait: { path: "data:image/png;base64,…" },                  // image: AiImageResult
+});
+ai.requests; // ScriptedAiRequest[]: { id, kind, prompt, prompts }, in the order asked
+```
+
+`ScriptedAiClient` matches an exact id first, then the id with each trailing
+`-<index>` a repeat added taken off in turn (`note-1-2` → `note-1` → `note`). An
+id with no answer, or an answer of the wrong shape for the node, throws and the
+build or resolve rejects. Previews (`dynamicMode: "placeholder"`) never call it.
+
 ## The built document
 
 ```ts
