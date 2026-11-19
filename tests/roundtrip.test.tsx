@@ -308,13 +308,6 @@ const drawingClient: AiClient = {
   generateImage: (request) => ({ path: "data:image/png;base64,iVBORw0KGgo=", alt: `${request.node.alt} / ${request.prompt}` }),
 };
 
-/** A model that answers every node with nothing. */
-const silentClient: AiClient = {
-  generateParagraph: () => "",
-  generateGraph: () => ({}),
-  generateImage: () => ({ path: "" }),
-};
-
 function reportState(data: ReportData, client: AiClient): RuntimeState {
   const ctx = { ...data } as Record<string, unknown>;
 
@@ -395,15 +388,20 @@ test("a project with a generated chart builds an artifact whose preview shows th
   assertEquals(previewTrend !== undefined && "data" in previewTrend, false);
 });
 
-test("a model that answers a chart and image with nothing leaves them undrawn on both paths", async () => {
-  const resolved = await resolveDocument(
-    await buildProjectEngineDocument(reportProject),
-    reportState(leeds, silentClient),
-  );
-  const direct = await buildProjectFinalDocument(reportProject, { data: leeds, aiClient: silentClient });
+test("a model that answers a chart with nothing fails on both paths, naming the node", async () => {
+  const emptyChart: AiClient = { ...drawingClient, generateGraph: () => ({}) };
+  const expected = 'Dynamic graph "trend" got an answer it cannot plot: it has no data.';
 
-  assertEquals(json(resolved.nodes), json(direct.nodes));
-  assertEquals("data" in json(findNode(resolved.nodes, "trend")), false);
+  await assertRejects(
+    async () => resolveDocument(await buildProjectEngineDocument(reportProject), reportState(leeds, emptyChart)),
+    Error,
+    expected,
+  );
+  await assertRejects(
+    () => buildProjectFinalDocument(reportProject, { data: leeds, aiClient: emptyChart }),
+    Error,
+    expected,
+  );
 });
 
 test("an engine whose client cannot draw, or throws, fails the resolve naming why", async () => {

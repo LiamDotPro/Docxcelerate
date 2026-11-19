@@ -676,6 +676,59 @@ test("the preview takes up the slack above the body, which is all centring is", 
   assertEquals((await article()).getAttribute("style"), null);
 });
 
+const framedXml = async (page: object) => sectPrOf(await documentXml(await build(certificate, numbered(page))));
+const sides = ["top", "left", "bottom", "right"];
+
+test("a page border is one line, 1pt, Word's 24pt from the edge, on all four sides", async () => {
+  const xml = await framedXml({ border: "1F3A5F" });
+  assertStringIncludes(xml, '<w:pgBorders w:offsetFrom="page">');
+  for (const side of sides) {
+    assertStringIncludes(xml, `<w:${side} w:val="single" w:color="1F3A5F" w:sz="8" w:space="24"/>`);
+  }
+});
+
+test("a page border's style, width and offset are written as asked", async () => {
+  const xml = await framedXml({ border: "1F3A5F", borderStyle: "double", borderWidthPt: 1.5, borderOffsetMm: 10 });
+  for (const side of sides) {
+    assertStringIncludes(xml, `<w:${side} w:val="double" w:color="1F3A5F" w:sz="12" w:space="28"/>`);
+  }
+});
+
+test("without a border colour there is no page border, and a bare style writes nothing", async () => {
+  const xml = await framedXml({ borderStyle: "double", borderWidthPt: 3, borderOffsetMm: 5 });
+  assertEquals(xml !== "", true);
+  assertEquals(xml.includes("<w:pgBorders"), false);
+  const plain = sectPrOf(await documentXml(await build(certificate, styleWithBlocks)));
+  assertEquals(plain.includes("pgBorders"), false);
+});
+
+test("an offset Word cannot hold is refused, and the ends of its range are kept", async () => {
+  for (const borderOffsetMm of [12, -1, NaN]) {
+    await assertRejects(() => framedXml({ border: "1F3A5F", borderOffsetMm }), RangeError, "borderOffsetMm");
+  }
+  assertStringIncludes(await framedXml({ border: "1F3A5F", borderOffsetMm: 0 }), 'w:space="0"');
+  assertStringIncludes(await framedXml({ border: "1F3A5F", borderOffsetMm: 11 }), 'w:space="31"');
+});
+
+test("the preview frames the sheet with an outline that takes up no room", async () => {
+  const outline = async (page: object) => {
+    const dom = new JSDOM(
+      '<div id="page"><section class="docx"><article><p>Certificate.</p></article></section></div>',
+    );
+    const root = dom.window.document.getElementById("page") as Element;
+    settleDocxPreview(root, await build(certificate, numbered(page)));
+    const section = root.querySelector("section") as HTMLElement;
+    return [section.style.outline, section.style.outlineOffset];
+  };
+
+  assertEquals(
+    await outline({ border: "1F3A5F", borderStyle: "double", borderWidthPt: 1.5, borderOffsetMm: 10 }),
+    ["4.5pt double #1F3A5F", "-32.5pt"],
+  );
+  assertEquals(await outline({ border: "1F3A5F" }), ["1pt solid #1F3A5F", "-25pt"]);
+  assertEquals((await outline({}))[0], "");
+});
+
 // ---------------------------------------------------------------------------
 // A labelled page number
 // ---------------------------------------------------------------------------
