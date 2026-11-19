@@ -12,11 +12,13 @@ import type { DocumentModel, DocumentStyle } from "docxcelerate";
 import {
   Cell,
   Document,
+  Graph,
   Image,
   PageBreak,
   PageNumber,
   Paragraph,
   Row,
+  Shape,
   Table,
   template,
   createPublishData,
@@ -57,6 +59,10 @@ const style: DocumentStyle = {
   title: { fontSizePt: 20, weight: "bold", spacingBeforePt: 0, spacingAfterPt: 10 },
   sectionHeading: { fontSizePt: 8, weight: "bold", spacingBeforePt: 10, spacingAfterPt: 4 },
   blocks: {
+    grandTotal: { border: "1C2340", borderSides: ["bottom"], borderStyle: "double" },
+    tearOff: { border: "5A6482", borderSides: ["top"], borderStyle: "dashed", paddingPt: 6 },
+    plainEdge: { borderStyle: "single" },
+    dotted: { border: "1C2340", borderSides: ["bottom"], borderStyle: "dotted" },
     band: {
       fill: "F4F6FD",
       bleed: true,
@@ -168,6 +174,65 @@ test("a block's border is drawn, on the edges it named", async () => {
   assertStringIncludes(xml, "<w:bottom");
   // Only the bottom was asked for, so no other edge is drawn.
   assertEquals(/<w:pBdr>(?:(?!<\/w:pBdr>).)*<w:top /s.test(xml), false);
+});
+
+test("a block's border style is written on the edge, padding kept", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a" variant="grandTotal">Total.</Paragraph>
+        <Paragraph id="b" variant="tearOff">Detach.</Paragraph>
+      </Document>,
+    ),
+  );
+
+  assertStringIncludes(xml, '<w:bottom w:val="double" w:color="1C2340" w:sz="8" w:space="0"/>');
+  assertStringIncludes(xml, '<w:top w:val="dashed" w:color="5A6482" w:sz="8" w:space="6"/>');
+});
+
+test("a cell's border style is written on its tcBorders", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell id="c" variant="dotted">x</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  assertStringIncludes(xml, '<w:bottom w:val="dotted" w:color="1C2340" w:sz="8"/>');
+});
+
+test("a border with no style is single, as it always was", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a" variant="band">Dates.</Paragraph>
+      </Document>,
+    ),
+  );
+
+  assertEquals(/<w:pBdr>(?:(?!<\/w:pBdr>).)*<w:bottom w:val="single"/s.test(xml), true);
+});
+
+test("a cell can say single over a table that asked for dashed", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" variant="tearOff" columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell id="c" variant="plainEdge">x</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  assertEquals(/<w:tcBorders>(?:(?!<\/w:tcBorders>).)*w:val="single"/s.test(xml), true);
+  assertEquals(xml.includes('w:val="dashed"'), false);
 });
 
 test("a bleeding block reaches past the margin, by indenting negatively", async () => {
@@ -367,6 +432,73 @@ test("a bleeding table reaches the paper's edge, not the margin", async () => {
   // the whole 210mm sheet rather than the 178mm text column.
   assertStringIncludes(xml, '<w:tblInd w:type="dxa" w:w="-907"/>');
   assertStringIncludes(xml, '<w:tblW w:type="dxa" w:w="11906"/>');
+});
+
+const landscape: DocumentStyle = { ...style, page: { ...style.page, orientation: "landscape" } };
+
+test("landscape tables fill the turned page, not the upright one", async () => {
+  const table = (variant?: string) =>
+    build(
+      <Document id="d" title="D">
+        <Table id="t" variant={variant} columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell id="c">Wide.</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ).then((doc) => documentXml({ ...doc, style: landscape }));
+
+  // 297mm less two 16mm margins.
+  assertStringIncludes(await table(), '<w:tblW w:type="dxa" w:w="15024"/>');
+
+  const bleed = await table("band");
+  assertStringIncludes(bleed, '<w:tblInd w:type="dxa" w:w="-907"/>');
+  assertStringIncludes(bleed, '<w:tblW w:type="dxa" w:w="16838"/>');
+});
+
+test("landscape measures, shapes and charts take the wider column", async () => {
+  const measured = await documentXml({
+    ...(await build(
+      <Document id="d" title="D">
+        <Paragraph id="a" variant="measured">Held to a measure.</Paragraph>
+      </Document>,
+    )),
+    style: landscape,
+  });
+
+  // 265mm column held to 100mm leaves 165mm on the right.
+  assertStringIncludes(measured, 'w:right="9354"');
+  assertEquals(/<w:ind[^>]*w:left/.test(measured), false);
+
+  const drawn = await documentXml({
+    ...(await build(
+      <Document id="d" title="D">
+        <Shape id="s" height={40}>On it</Shape>
+        <Graph id="g" data={{ categories: ["a"], series: [{ label: "n", values: [1] }] }} />
+      </Document>,
+    )),
+    style: landscape,
+  });
+
+  assertStringIncludes(drawn, "width:751.18pt");
+  assertStringIncludes(drawn, 'cx="9540000"');
+});
+
+test("a bleeding table ignores align, since Word drops the indent it needs", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="bar" variant="band" align="center" columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell id="c">Registered in England</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  assertStringIncludes(xml, '<w:tblInd w:type="dxa" w:w="-907"/>');
+  assertEquals((xml.match(/<w:tblPr>[\s\S]*?<\/w:tblPr>/)?.[0] ?? "").includes("<w:jc"), false);
 });
 
 test("a table that does not bleed still stands on the text column", async () => {
@@ -658,6 +790,20 @@ test("a picture's variant draws a box around it, because a run cannot have one",
   assertStringIncludes(xml, 'w:w="2360"');
 });
 
+test("a boxed picture given only a height is as wide as its proportions", async () => {
+  // 4x2 PNG at 80pt high is 160pt wide; plus 5pt of padding either side.
+  const wide = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAIAAADwyuo0AAAAC0lEQVR42mNgwAUAABoAAS+Yl6YAAAAASUVORK5CYII=";
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Image id="code" variant="badge" src={wide} alt="Scan" height={80} />
+      </Document>,
+    ),
+  );
+
+  assertStringIncludes(xml, 'w:w="3400"');
+});
+
 test("a data URI carrying a parameter is still a picture", async () => {
   const svg = "data:image/svg+xml;utf8," +
     encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"></svg>');
@@ -932,4 +1078,40 @@ test("a picture in a cell is not laid out as a paragraph of prose", async () => 
     false,
   );
   assertStringIncludes(xml, "<w:drawing>");
+});
+
+const negotiated = (props: string) =>
+  build(
+    <Document id="d" title="D" {...(props ? { trackChanges: props === "true" } : {})}>
+      <Paragraph id="a">Body.</Paragraph>
+    </Document>,
+  );
+
+test("a document marked for negotiation opens with Track Changes on", async () => {
+  const doc = await negotiated("true");
+  assertEquals(doc.trackChanges, true);
+  assertStringIncludes(await partXml(doc, "word/settings.xml"), "<w:trackRevisions/>");
+});
+
+test("a document that never asked packs without the switch", async () => {
+  const doc = await negotiated("");
+  assertEquals("trackChanges" in doc, false);
+  assertEquals((await partXml(doc, "word/settings.xml")).includes("<w:trackRevisions"), false);
+});
+
+test("trackChanges={false} is the same as leaving it out", async () => {
+  const doc = await negotiated("false");
+  assertEquals("trackChanges" in doc, false);
+  assertEquals((await partXml(doc, "word/settings.xml")).includes("<w:trackRevisions"), false);
+});
+
+test("resolving a document keeps it opening with Track Changes on", async () => {
+  const resolved = await resolveDocument(await negotiated("true"), {
+    ctx: {},
+    derived: {},
+    dataProvider: new InMemoryDataProvider({}),
+    aiClient: new EchoAiClient(),
+  }, { derivers: createDeriverRegistry() });
+  assertEquals(resolved.trackChanges, true);
+  assertStringIncludes(await partXml(resolved, "word/settings.xml"), "<w:trackRevisions/>");
 });

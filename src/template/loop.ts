@@ -28,6 +28,8 @@ export interface LoopProps extends CommonElementProps {
   as: string;
   /** The `ctx` key each entry's position is bound to. */
   indexAs: string;
+  /** The `ctx` key each entry's position, counting from one, is bound to. */
+  positionAs: string;
   /** The test a `.filter()` left behind, applied per entry by the engine. */
   where?: Condition;
   /** The body, walked once against a stand-in for one entry. */
