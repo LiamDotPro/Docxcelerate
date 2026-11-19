@@ -37,7 +37,8 @@ const sectionOf = (href: string) => `/${href.split("/")[1] ?? ""}`;
       aria-label={SITE.name}
     >
       <Mark class="h-[1.35em] w-auto" animate />
-      <span>Docx<span class="text-accent">celerate</span></span>
+      <!-- Under 26rem the mark stands alone; the link keeps its name. -->
+      <span class="hidden min-[26rem]:inline">Docx<span class="text-accent">celerate</span></span>
     </a>
 
     <nav aria-label={t.nav.label} class="ml-auto flex items-center gap-2 text-sm sm:gap-5">
@@ -51,9 +52,15 @@ const sectionOf = (href: string) => `/${href.split("/")[1] ?? ""}`;
               href={href}
               class:list={[
                 "items-center gap-1.5 no-underline transition-colors hover:text-accent",
-                // A phone has room for the links a reader came for; the cloud
-                // is not open yet, so it is the one that waits for a wider screen.
-                link.key === "cloud" ? "hidden sm:inline-flex" : "inline-flex",
+                // A phone has room for the links a reader came for. GitHub is
+                // in the footer too, and the cloud is not open yet, so those
+                // wait for a wider screen — the cloud longest, because Russian's
+                // labels need until md to fit beside it.
+                link.key === "cloud"
+                  ? "hidden md:inline-flex"
+                  : link.key === "github"
+                  ? "hidden sm:inline-flex"
+                  : "inline-flex",
                 current ? "font-semibold text-accent" : "text-muted",
               ]}
               {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}

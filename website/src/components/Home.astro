@@ -207,8 +207,9 @@ const codeThemes = { light: "github-light", dark: "github-dark-dimmed" } as cons
 
       <!-- Page one at 60%, running off the bottom of the band like a sheet
            half out of the tray. Decorative: the same page is in the preview
-           below, where it can be read and scrolled. -->
-      <div class="relative hidden min-h-[640px] lg:block" aria-hidden="true">
+           below, where it can be read and scrolled. Under the copy from sm,
+           beside it from lg; a phone is too narrow for a page that reads. -->
+      <div class="relative -mt-8 hidden h-[26rem] sm:block lg:mt-0 lg:h-auto lg:min-h-[640px]" aria-hidden="true">
         <div class="hero-sheet absolute top-0 bottom-0 left-0">
           <iframe
             src={hasEngine ? heroEngine : heroPreview}
@@ -406,7 +407,7 @@ const codeThemes = { light: "github-light", dark: "github-dark-dimmed" } as cons
       </div>
       <div class="clause mt-18">
         <span aria-hidden="true"></span>
-        <ol class="m-0 grid list-none gap-8 p-0 md:grid-cols-3">
+        <ol class="m-0 grid list-none grid-cols-[minmax(0,1fr)] gap-8 p-0 md:grid-cols-3">
           {
             STATIONS.map((station, index) => (
               <li class="m-0 flex flex-col gap-2.5 border-t-2 border-ink pt-4">
@@ -455,7 +456,7 @@ const codeThemes = { light: "github-light", dark: "github-dark-dimmed" } as cons
             <span class="font-[Aptos,'Segoe_UI',Arial,sans-serif] text-[7.5px] leading-normal">{THEME_SAMPLE}</span>
             <span class="theme-name">clean-minimal</span>
           </div>
-          <div class="theme-sheet hidden gap-1.5 px-3.5 pb-4 font-[Calibri,Arial,sans-serif] sm:flex">
+          <div class="theme-sheet theme-sheet-optional gap-1.5 px-3.5 pb-4 font-[Calibri,Arial,sans-serif]">
             <span class="-mx-3.5 mb-1 bg-[#3d4a5c] px-3.5 py-2.5 text-[10px] font-bold tracking-[0.06em] text-white [font-variant:small-caps]">Membership renewal</span>
             <span class="text-[7px] leading-[1.4]">{THEME_SAMPLE}</span>
             <span class="border-b border-[#c7ccd6] pb-0.5 text-[7px] font-bold tracking-[0.06em] text-[#3d4a5c] [font-variant:small-caps]">What happens next</span>
@@ -699,6 +700,13 @@ const codeThemes = { light: "github-light", dark: "github-dark-dimmed" } as cons
     padding-left: 88px;
     overflow: hidden;
   }
+  /* The hand is wider than a phone. Held from the right, the top card stays
+     whole and the ones under it run off the left edge, as a stack would. */
+  @media (max-width: 26.99rem) {
+    .fan {
+      justify-content: flex-end;
+    }
+  }
   .fan-page {
     flex: none;
     width: 150px;
@@ -755,17 +763,30 @@ const codeThemes = { light: "github-light", dark: "github-dark-dimmed" } as cons
     line-height: 1.4;
   }
 
+  /* Equal outer widths however each sheet pads itself: two to a row on a
+     phone, where the middle one steps out, three from sm. */
   .theme-sheet {
     display: flex;
     flex-direction: column;
-    flex: 0 1 180px;
-    min-width: 0;
+    flex: none;
+    width: min(180px, calc((100% - 1.25rem) / 2));
     aspect-ratio: 180 / 255;
     overflow: hidden;
     background: #ffffff;
     border: 1px solid #c7ccd6;
     box-shadow: 0 2px 6px rgb(0 0 0 / 10%), 0 14px 34px -18px rgb(0 0 0 / 40%);
     color: #111827;
+  }
+  .theme-sheet-optional {
+    display: none;
+  }
+  @media (min-width: 40rem) {
+    .theme-sheet {
+      width: min(180px, calc((100% - 2.5rem) / 3));
+    }
+    .theme-sheet-optional {
+      display: flex;
+    }
   }
   .theme-name {
     margin-top: auto;
