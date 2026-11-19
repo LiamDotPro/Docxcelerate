@@ -116,16 +116,32 @@ dxcl list components
 
 | Component | What it is |
 | --- | --- |
+| `status-banner` | A drawn block at the top of the page saying where things stand. |
 | `letterhead` | Who sent this, from where, and when. |
 | `recipient-block` | The address, and a greeting that survives a missing name. |
 | `payment-summary` | What is owed, by when — and what to say when nothing is. |
+| `invoice-totals` | Line items and VAT totals, rounded per rate — the penny the customer's system expects. |
+| `balance-trend` | A line of how a balance has moved, and a sentence saying the same thing. |
+| `usage-breakdown` | A pie of where a total went, with the tail folded into Other. |
+| `period-comparison` | This period against the last, category by category, as clustered bars. |
+| `mix-over-time` | How a make-up shifted across periods, as a hundred per cent stack. |
+| `profile-compare` | One subject against a benchmark across several measures, as a radar. |
+| `weighted-scatter` | Two measures against each other, with a third drawn as the point's size. |
 | `next-steps` | A generated paragraph with its prompts already fenced off. |
 | `signature-block` | A closing, a signature image, and who signed it. |
 | `terms-notice` | Numbered small print, one paragraph and one stable id per clause. |
 | `invoice-document-type` | What an invoice may call itself, and the dates it has to carry. |
 | `tax-treatment-notice` | The mention an invoice's tax treatment requires, or a warning when its ID is missing. |
+| `advance-payment-invoice` | A deposit or prepayment against an order: the share, what's already requested, and what's left. |
+| `vat-place-of-supply` | Whose VAT applies and at what rate, decided before anything is printed. |
+| `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
 | `final-invoice-settlement` | The final invoice after advances: the whole supply by VAT rate, each advance deducted, and the balance. |
+| `credit-note-totals` | What a credit note credits, by VAT band, worked from the original invoice. |
+| `construction-payment-timetable` | The Construction Act payment dates for one interim payment, counted the way section 116 counts them. |
+| `cis-invoice-deduction` | What a subcontractor is paid on an invoice, after CIS and VAT. |
+| `us-sales-tax-breakdown` | Sales tax by state, county, city and district, in rows that add up to the tax charged. |
+| `india-gst-split` | CGST and SGST or IGST from the place of supply, with the summary, round-off and total in words. |
 
 ## `dxcl show <id>`
 

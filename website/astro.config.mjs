@@ -19,6 +19,53 @@ const localised = (from, to) =>
     ...PREFIXED_LOCALES.map((locale) => [`/${locale}${from}`, `/${locale}${to}`]),
   ]);
 
+/** @param {string} tagName */
+const element = (tagName, children = /** @type {any[]} */ ([]), properties = {}) => ({
+  type: "element",
+  tagName,
+  properties,
+  children,
+});
+
+/**
+ * Wraps every markdown table in a `.table-scroll` box. The box is what scrolls
+ * on a phone, so the table can stay a real table at full width: a table set to
+ * `display: block` to get that scroll stops stretching its rows to fill it.
+ *
+ * Code inside a table also gets a line break allowed after each `.` and `/`.
+ * Without one, a name like `previewOptions.availableTokens` cannot wrap and
+ * takes a phone's whole width; letting it break anywhere instead splits short
+ * names mid-word, because the table then sizes that column down to nothing.
+ *
+ * @returns {(tree: any) => void}
+ */
+const wrapTables = () => (tree) => {
+  /** @param {any} node @param {boolean} inTable */
+  const walk = (node, inTable) => {
+    node.children?.forEach((/** @type {any} */ child, /** @type {number} */ i) => {
+      if (child.type !== "element") return;
+      if (child.tagName === "table") {
+        node.children[i] = element("div", [child], { className: ["table-scroll"] });
+        walk(child, true);
+      } else if (inTable && child.tagName === "code") {
+        child.children = child.children.flatMap((/** @type {any} */ text) =>
+          text.type === "text"
+            ? text.value
+              .split(/(?<=[^./][./])/)
+              .flatMap((/** @type {string} */ part, /** @type {number} */ at) => [
+                ...(at > 0 ? [element("wbr")] : []),
+                { type: "text", value: part },
+              ])
+            : [text]
+        );
+      } else {
+        walk(child, inTable);
+      }
+    });
+  };
+  walk(tree, false);
+};
+
 export default defineConfig({
   site: "https://docxcelerate.com",
   // Served by Cloudflare Workers as static assets (see wrangler.jsonc). Every
@@ -63,6 +110,7 @@ export default defineConfig({
     plugins: [/** @type {any} */ (tailwindcss())],
   },
   markdown: {
+    rehypePlugins: [wrapTables],
     shikiConfig: {
       themes: { light: "github-light", dark: "github-dark-dimmed" },
       wrap: false,
