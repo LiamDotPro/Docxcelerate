@@ -137,6 +137,7 @@ dxcl list components
 | `vat-place-of-supply` | Whose VAT applies and at what rate, decided before anything is printed. |
 | `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `credits-applied-to-invoice` | Open credit notes and payments on account set against an invoice, from total to amount due. |
 | `canadian-sales-tax` | GST/HST and provincial sales tax for the province of supply, each on its own base, with CRA's invoice checks. |
 | `net-payable-withholdings` | From a Spanish or Italian invoice total to what is actually transferred, after IRPF, ritenuta and split payment. |
 | `invoice-change-explainer` | Why this invoice differs from the last, or nothing when it barely does. |
