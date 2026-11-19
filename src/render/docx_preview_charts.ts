@@ -78,6 +78,10 @@ export interface PreviewChart {
   readonly numberFormat?: string;
   /** Whether each point prints its own figure, and which figure. */
   readonly dataLabels: "none" | "value" | "percent";
+  /** Whether the axes are drawn. False where the file writes them deleted; true for a chart with none to delete. */
+  readonly axes: boolean;
+  /** Whether the plot is ruled: whether the file carries any `c:majorGridlines`. */
+  readonly gridlines: boolean;
   /** What the category axis counts along. */
   readonly categoryAxisTitle?: string;
   /** What the value axis measures. */
@@ -354,6 +358,8 @@ function readChart(xml: string): Omit<PreviewChart, "widthPt" | "heightPt"> {
     stacked: stackingOf(xml),
     numberFormat: formatOf(attribute(element(valueAxis, "c:numFmt") ?? "", "formatCode")),
     dataLabels: labelsOf(element(xml, "c:dLbls") ?? ""),
+    axes: attribute(element(xml, "c:delete") ?? "", "val") !== "1",
+    gridlines: element(xml, "c:majorGridlines") !== null,
     categoryAxisTitle: titleOf(categoryAxis),
     valueAxisTitle: titleOf(valueAxis),
     valueAxisMin: numberAttribute(element(valueAxis, "c:min") ?? "", "val"),
@@ -381,7 +387,7 @@ function readChart(xml: string): Omit<PreviewChart, "widthPt" | "heightPt"> {
         .filter((color): color is string => color !== undefined)
       : [],
     textColor: colorOf(element(xml, "c:txPr") ?? ""),
-    ruleColor: colorOf(element(xml, "c:majorGridlines") ?? ""),
+    ruleColor: colorOf(element(xml, "c:majorGridlines") ?? elements(categoryAxis, "c:spPr").at(-1) ?? ""),
     font: attribute(element(xml, "a:latin") ?? "", "typeface"),
   };
 }

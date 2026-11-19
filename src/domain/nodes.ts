@@ -497,6 +497,25 @@ export interface GraphNode extends BaseNode {
    * worth turning on for a pie, where the slices are the reading.
    */
   dataLabels?: boolean;
+  /**
+   * Whether the chart draws its axes.
+   *
+   * Absent or `true` draws them. `false` writes both axes deleted, so there is
+   * no axis line and no tick labels, and Word lets the plot take the frame: a
+   * sparkline. The axes are still in the part, because every plot group points
+   * at two of them and the scale still comes from them. Axis titles that are
+   * given are still printed. Pie and doughnut have no axes and ignore it.
+   */
+  axes?: boolean;
+  /**
+   * Whether the plot is ruled with gridlines.
+   *
+   * Absent or `true` rules the value axis, and on a radar the spokes too.
+   * `false` draws no grid. It is independent of `axes`: a chart can keep its
+   * axes and lose its grid, or the other way round. Pie and doughnut have no
+   * grid and ignore it.
+   */
+  gridlines?: boolean;
 }
 
 /**

@@ -893,6 +893,8 @@ async function renderGraph(
     valueAxisMax: props.valueAxisMax,
     valueAxisStep: props.valueAxisStep,
     dataLabels: props.dataLabels,
+    axes: props.axes,
+    gridlines: props.gridlines,
     align: props.align,
   };
 

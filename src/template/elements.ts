@@ -376,6 +376,10 @@ export interface GraphProps extends CommonElementProps, PromptProps {
   valueAxisStep?: number;
   /** Whether each point prints its own figure. Worth it on a pie, rarely elsewhere. */
   dataLabels?: boolean;
+  /** Whether the chart draws its axes. `false` deletes both: no line, no labels, the plot fills the frame. */
+  axes?: boolean;
+  /** Whether the plot is ruled with gridlines. `false` draws no grid; independent of `axes`. */
+  gridlines?: boolean;
 }
 
 /** Props for the `<Table>` element. */

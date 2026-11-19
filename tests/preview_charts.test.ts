@@ -379,3 +379,21 @@ test("the value axis's fixed bounds are read from the file, and absent where Wor
   assertEquals(plain.valueAxisMax, undefined);
   assertEquals(plain.valueAxisStep, undefined);
 });
+
+test("whether the axes and the grid are drawn comes back as the file states it", async () => {
+  const [plain, bare, ungridded] = await readBack([
+    chart({ id: "plain" }),
+    chart({ id: "bare", axes: false, gridlines: false }),
+    chart({ id: "ungridded", gridlines: false }),
+  ]);
+
+  assertEquals(plain.axes, true);
+  assertEquals(plain.gridlines, true);
+  assertEquals(bare.axes, false);
+  assertEquals(bare.gridlines, false);
+  assertEquals(ungridded.axes, true);
+  assertEquals(ungridded.gridlines, false);
+  // The rule colour falls back to the axis line, so the theme's hairline survives.
+  assertEquals(ungridded.ruleColor, plain.ruleColor);
+  assertEquals(ungridded.ruleColor === undefined, false);
+});
