@@ -1125,6 +1125,68 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "disbursements-and-recharges",
+    title: "Disbursements and recharges",
+    summary: "Expenses split into recharges that carry your fees' VAT and disbursements passed on at cost outside it.",
+    detail:
+      "Splits a professional-services invoice's expenses into the two VAT treatments. " +
+      "A recharge is a cost of your own service: it takes the main supply's VAT rate " +
+      "on what you are out of pocket, net of input VAT you reclaimed and including tax " +
+      "you could not, so a zero-rated fare or exempt postage recharged becomes " +
+      "standard-rated. A disbursement is paid as the client's agent at exact cost, " +
+      "outside the scope of VAT, and listed after the recharges' VAT total. An item " +
+      "marked as paid as agent is moved to the recharges with a printed note, or " +
+      "refused in strict mode, when it carries a markup, input VAT you reclaimed, or a " +
+      "category HMRC treats as your own cost such as travel or electronic search fees. " +
+      "Foreign receipts are converted at the rate for the expense date and print the " +
+      "original amount, rate and converted figure. VAT is worked once on the " +
+      "recharges' net, half away from zero. US invoices skip VAT and split on a " +
+      "per-line taxable flag. All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "invoice", "vat", "sales-tax", "expenses", "table", "deriver", "branching", "section"],
+    exports: ["DisbursementsAndRecharges"],
+    dataFields: [
+      {
+        path: "invoice.jurisdiction",
+        type: '"UK" | "EU" | "DE" | "FR" | "US"',
+        summary: "Whose rules apply. DE and FR read as EU; US skips VAT. Required with expenses.",
+      },
+      { path: "invoice.currency", type: "string", summary: "ISO 4217 code every figure is printed in. Required with expenses." },
+      {
+        path: "invoice.mainSupplyVatRate",
+        type: "number | null",
+        summary: "Fees' VAT rate as a percentage; every recharge takes it. null: fees carry no VAT, so neither do recharges.",
+      },
+      {
+        path: "invoice.expenses",
+        type:
+          "Array<{ date: string; description: string; category?: string; net: number; inputVatReclaimed?: number; irrecoverableTax?: number; currency?: string; fxRate?: number; markupPercent?: number; paidAsAgent?: boolean; supplierName?: string; taxable?: boolean }>",
+        summary: "Each expense in major units before tax on it. Missing or empty prints nothing.",
+      },
+    ],
+    files: node("disbursements-and-recharges", { deriver: true }),
+    previewData: {
+      invoice: {
+        jurisdiction: "UK",
+        currency: "GBP",
+        mainSupplyVatRate: 20,
+        expenses: [
+          { date: "2026-10-20", description: "Stamp Duty Land Tax on the purchase of Unit 4, Riverside Commercial Park", net: 487250, supplierName: "HM Revenue & Customs", paidAsAgent: true },
+          { date: "2026-10-07", description: "Return rail fare, London Euston to Manchester Piccadilly, for the site inspection", category: "travel", net: 382.4, paidAsAgent: true },
+          { date: "2026-10-02", description: "Court issue fee, claim form, Business and Property Courts", category: "court-fee", net: 10000, supplierName: "HM Courts & Tribunals Service", paidAsAgent: true },
+          { date: "2026-10-08", description: "Hotel, two nights, Frankfurt am Main, for the witness interviews", category: "accommodation", currency: "EUR", net: 1250, irrecoverableTax: 87.5, fxRate: 0.8571 },
+          { date: "2026-10-13", description: "Electronic local authority and drainage searches, 14 registered titles", category: "electronic-search", net: 2940, supplierName: "Northgate Property Searches Ltd", paidAsAgent: true },
+          { date: "2026-10-06", description: "HM Land Registry official copies and title plans, 14 registered titles", category: "land-registry", net: 147, supplierName: "HM Land Registry", paidAsAgent: true },
+          { date: "2026-10-15", description: "Printing and binding of eight lever-arch trial bundles", category: "printing", net: 1184.6, inputVatReclaimed: 236.92 },
+          { date: "2026-10-21", description: "Counsel's fee for advice on the lease and rent review", net: 18750, supplierName: "Three Crowns Lane Chambers", paidAsAgent: true },
+          { date: "2026-10-17", description: "Translation of German witness statements into English", currency: "EUR", net: 4800, fxRate: 0.8569, markupPercent: 10 },
+        ],
+      },
+    },
+    requires: [],
+  },
 
   {
     kind: "component",
