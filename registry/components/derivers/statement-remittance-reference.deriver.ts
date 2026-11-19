@@ -92,7 +92,8 @@ export default deriver({
       if (seen.has(key)) throw new Error(at + ".number duplicates another " + it.type + ", " + it.number.trim());
       seen.add(key);
       const date = isoDay(it.date, at + ".date");
-      const hasDue = it.dueDate !== undefined && it.dueDate !== null && it.dueDate !== "";
+      // A credit has no due date; it is ordered by its own date.
+      const hasDue = it.type === "invoice" && it.dueDate !== undefined && it.dueDate !== null && it.dueDate !== "";
       const due = hasDue ? isoDay(it.dueDate, at + ".dueDate") : date;
       if (typeof it.amount !== "number" || !Number.isFinite(it.amount)) {
         throw new Error(at + ".amount must be a finite number");
@@ -137,7 +138,7 @@ export default deriver({
       );
       const clauses: string[] = [];
       if (cleared.length > 0) clauses.push((many ? "They clear " : "It clears ") + list.format(cleared.map((c) => c.number)));
-      if (part) clauses.push((many ? "leave " : "leaves ") + fmt(part.remaining) + " to pay on " + part.number);
+      if (part) clauses.push((cleared.length > 0 ? (many ? "leave " : "leaves ") : (many ? "They leave " : "It leaves ")) + fmt(part.remaining) + " to pay on " + part.number);
       creditsNote = named.charAt(0).toUpperCase() + named.slice(1) + (many ? " are" : " is") +
         " set against your oldest invoices first. " + clauses.join(", and ") + ".";
     }
@@ -182,13 +183,14 @@ export default deriver({
 
     // Fits already-folded tokens into the rail's lines. Breaks only between
     // tokens, so a number is never split; a comma stays on the line it ended.
-    // shortcut: greedy and never re-wraps, so a comma that overflows fails the step.
+    // Greedy; a token fits only if its trailing comma will too (when more follow).
     const place = (tokens: string[]): string[] | null => {
       if (tokens.length === 0 || tokens.some((t) => t === "")) return null;
       const lines: string[] = [];
       let line = tokens[0];
-      for (const t of tokens.slice(1)) {
-        if ((line + cfg.sep + t).length <= cfg.width) {
+      for (const [k, t] of tokens.slice(1).entries()) {
+        const comma = cfg.sep === "," && k < tokens.length - 2 ? 1 : 0;
+        if ((line + cfg.sep + t).length + comma <= cfg.width) {
           line += cfg.sep + t;
         } else {
           lines.push(cfg.sep === "," ? line + "," : line);

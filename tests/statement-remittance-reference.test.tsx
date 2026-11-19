@@ -136,10 +136,45 @@ test("RF check digits follow ISO 11649", () => {
   assertEquals((bad.referenceLines as string[])[0] === "RF19539007547034", false);
 });
 
-test("the RF of the ISO example base is RF18539007547034", () => {
-  // Base alone: a 13-character date suffix would push it over, so use a statement whose base is the example.
+test("generated RF check digits match an independent mod 97 of the base", () => {
+  // The base 539007547034 alone cannot be generated (the date always joins a short base), so
+  // verify the full string against BigInt arithmetic, and the ISO example as a held reference.
   const o = run(stmt("sepa-rf", { customerNumber: "539007547034", date: "2026-11-30" }), [inv("A", 1), inv("B", 1)]);
-  assertEquals((o.referenceLines as string[])[0].slice(4), "539007547034261130");
+  const base = "539007547034261130";
+  const check = String(98n - (BigInt(base + "271500") % 97n)).padStart(2, "0");
+  assertEquals(o.referenceLines, ["RF" + check + base]);
+  const iso = run(stmt("sepa-rf"), [inv("A", 1, { reference: "RF18539007547034" })]);
+  assertEquals(iso.referenceLines, ["RF18539007547034"]);
+  assertEquals(String(98n - (BigInt("539007547034271500") % 97n)), "18");
+});
+
+test("credits part-paying one invoice and clearing none open the note with a subject", () => {
+  const two = run(stmt(), [
+    inv("I1", 1000),
+    { type: "credit-note", number: "CN-A", date: "2026-09-01", amount: 10 },
+    { type: "credit-note", number: "CN-B", date: "2026-10-01", amount: 10 },
+  ]);
+  assertEquals(
+    two.creditsNote,
+    "Credit note CN-A (£10.00) and credit note CN-B (£10.00) are set against your oldest invoices first. They leave £980.00 to pay on I1.",
+  );
+  const one = run(stmt(), [inv("I1", 1000), { type: "credit-note", number: "CN-A", date: "2026-09-01", amount: 10 }]);
+  assertStringIncludes(one.creditsNote as string, "first. It leaves £990.00 to pay on I1.");
+});
+
+test("a credit's dueDate is ignored and credits go by date then number", () => {
+  const o = run(stmt(), [
+    inv("I1", 1000),
+    { type: "credit-note", number: "CN-A", date: "2026-09-01", dueDate: "2026-12-31", amount: 10 },
+    { type: "credit-note", number: "CN-B", date: "2026-10-01", amount: 10 },
+  ]);
+  assertStringIncludes(o.creditsNote as string, "Credit note CN-A (£10.00) and credit note CN-B");
+  run(stmt(), [inv("I1", 1000), { type: "payment", number: "P1", date: "2026-09-01", dueDate: "nonsense", amount: 10 }]);
+});
+
+test("the swift list counts the trailing comma, so an exact 35 character line wraps", () => {
+  const o = run(stmt("swift"), [inv("X-111111111111111", 1), inv("Y-222222222222222", 1), inv("Z-333", 1)]);
+  assertEquals([o.referenceRule, o.referenceLines], ["list", ["X-111111111111111,", "Y-222222222222222,Z-333"]]);
 });
 
 test("sepa-rf: valid RF, statement RF fallback, and no free text", () => {
@@ -295,7 +330,7 @@ test("a publish build loops over the derived rows and reference lines", async ()
     { scope: "derived", path: "statementRemittanceReference.referenceLines" },
     { scope: "derived", path: "statementRemittanceReference.rows" },
   ]);
-  assertEquals(branches <= 32, true);
+  assertEquals(branches, 13);
   const ids = new Set(all.map((n) => n.id));
   for (
     const id of [
@@ -321,4 +356,26 @@ test("the published document resolves to what the local build prints", async () 
   assertStringIncludes(joined, "INV-1042 1047");
   assertStringIncludes(joined, "- - - - - - - - - - - - - - - - - - - -  Detach here  - - - - - - - - - - - - - - - - - - - -");
   assertStringIncludes(joined, "INV-1050 (in dispute, not included)");
+});
+
+test("the published conditions pick the right arms for each outcome", async () => {
+  const published = await buildDocument(templateOf(), createPublishData() as Obj, {
+    branchMode: "publish",
+    deriverMode: "preserve",
+    dynamicMode: "resolve",
+    aiClient: { generateParagraph: () => "" },
+  });
+  const ids = async (statement: Obj, items: Obj[]) => {
+    const r = await resolveDocument(published, state({ statement, items }), { derivers });
+    return new Set(collect(r.nodes).map((n) => n.id));
+  };
+  const has = (set: Set<string | undefined>, id: string) => set.has("statement-remittance-" + id);
+  const credit = await ids(stmt(), [inv("A", 10), { type: "credit-note", number: "C", date: "2026-09-01", amount: 50 }]);
+  assertEquals([has(credit, "credit"), has(credit, "clear"), has(credit, "pay"), has(credit, "tick"), has(credit, "credits")], [true, false, false, false, true]);
+  const clear = await ids(stmt(), [inv("A", 10), { type: "credit-note", number: "C", date: "2026-09-01", amount: 10 }]);
+  assertEquals([has(clear, "credit"), has(clear, "clear"), has(clear, "pay"), has(clear, "advice-heading")], [false, true, false, false]);
+  const per = await ids(stmt("kid"), [inv("A", 10, { reference: "1234" }), inv("B", 10, { reference: "5678" })]);
+  assertEquals([has(per, "pay"), has(per, "per-item"), has(per, "reference-label"), has(per, "tick")], [true, true, false, true]);
+  const single = await ids(stmt(), [inv("A", 10)]);
+  assertEquals([has(single, "pay"), has(single, "per-item"), has(single, "reference-label"), has(single, "tick")], [true, false, true, false]);
 });
