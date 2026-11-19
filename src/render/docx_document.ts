@@ -910,9 +910,10 @@ function runsOf(node: ParagraphNode): ParagraphRun[] {
  * One run of the node's, as Word is handed it.
  *
  * The run's variant goes over the block, and its own settings over that, so a
- * word can be lightened in a bold block as well as stressed in a plain one. A link is drawn in the
- * theme's accent with a rule beneath: what a link looks like is the theme's
- * to say, and a link nobody can tell from the words around it is not one.
+ * word can be lightened in a bold block as well as stressed in a plain one. A
+ * link is drawn in the ink its block already gave the words, falling back to
+ * the theme's accent, always with a rule beneath. An accent link on a filled
+ * band or header cell is a link nobody can read.
  */
 function markedRun(
   run: ParagraphRun,
@@ -940,8 +941,10 @@ function markedRun(
     children: [
       textRun(run.text, {
         ...props,
+        // The ink the block gave the words, else the theme's accent. On a filled band
+        // or header cell the accent is the fill, and the link would vanish into it.
         // A style with no palette leaves the link in the ink around it.
-        ...(style.palette === undefined ? {} : { color: style.palette.accent }),
+        color: (props as { color?: string }).color ?? style.palette?.accent,
         underline: {},
       }),
     ],

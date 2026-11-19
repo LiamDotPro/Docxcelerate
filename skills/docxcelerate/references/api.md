@@ -85,8 +85,10 @@ Notes worth knowing:
   `Due within <Text bold>thirty days</Text>.` One inside another takes both
   settings. m<Text script="superscript">2</Text>, CO<Text script="subscript">2</Text>
   and 1<Text script="superscript">st</Text> are raised or lowered by Word — never
-  type `²` or `₂` in their place. It carries no colour or size — a link is drawn in the theme's
-  accent. To make a phrase stand out, name a theme block:
+  type `²` or `₂` in their place. It carries no colour or size. A link is drawn in its block's `color` when the
+  paragraph's or cell's variant sets one, and in a header cell's ink. Otherwise it
+  is drawn in the theme's accent. Either way it is underlined, so a link on a
+  dark band stays readable. To make a phrase stand out, name a theme block:
   `The amount due is <Text variant="amountDue">£1,240.00</Text>.` The block's
   `color`, `fill` (shading behind the words), `fontSizePt`, `weight`, `font`,
   `transform` and `letterSpacingEm` apply. Borders, padding and spacing do not.
@@ -582,7 +584,7 @@ blocks: {
 | Field | Means |
 | --- | --- |
 | `fill` | background, hex without the `#` |
-| `color` | text colour |
+| `color` | text colour, and the colour of any link in the block |
 | `border`, `borderWidthPt`, `borderSides`, `borderStyle` | a border, on all four edges unless sides are named. `borderStyle` is `"single"` (default) \| `"double"` \| `"dashed"` \| `"dotted"` and applies to every drawn edge — a double rule under a total, a dashed tear-off line. Paragraphs and cells only; a `<Shape>` outline is always solid |
 | `paddingPt` | the gap between a drawn border and the text. Word records it on the border, so a block with a fill and no border cannot be padded — see below |
 | `fontSizePt`, `weight`, `transform`, `letterSpacingEm`, `font`, `lineHeight` | how the text is set. `transform: "none"` turns capitals off where a heading or header row would otherwise use them |
