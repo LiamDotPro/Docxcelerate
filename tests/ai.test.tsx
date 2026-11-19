@@ -8,8 +8,8 @@ import {
   InMemoryDataProvider,
   resolveDocument,
 } from "docxcelerate";
-import type { DocumentNode, ParagraphNode, PromptSpec } from "docxcelerate";
-import { Document, Paragraph, Section, template, useAi, useState } from "docxcelerate/template";
+import type { DocumentNode, GraphNode, ParagraphNode, PromptSpec } from "docxcelerate";
+import { Document, Graph, Paragraph, Section, template, useAi, useState } from "docxcelerate/template";
 
 /**
  * One hook for a node an engine writes.
@@ -561,4 +561,42 @@ test("an example set by a shared hook comes back with the rest of the prompts", 
     placeholder: "A summary.",
     examplePrompt: "This invoice covers the June sprint.",
   });
+});
+
+function graphOf(nodes: DocumentNode[]): GraphNode {
+  const section = nodes[0];
+  const graph = section?.kind === "section" ? section.children[0] : undefined;
+  if (graph?.kind !== "graph") {
+    throw new Error("expected one graph in the body");
+  }
+  return graph;
+}
+
+test("a dynamic chart keeps its own caption when the model does not write one", async () => {
+  const built = await buildWith(
+    () => <Graph id="trend" generalPrompt="Plot the balance." caption="Own caption" />,
+    {
+      dynamicMode: "resolve",
+      aiClient: {
+        generateParagraph: () => "",
+        // The cast lets a string through GraphData, as a real client returns parsed JSON.
+        generateGraph: () => ({ data: { series: [{ values: ["12"] }] } }) as never,
+      },
+    },
+  );
+
+  assertEquals(graphOf(built.nodes).caption, "Own caption");
+  assertEquals(graphOf(built.nodes).data, { series: [{ values: [12] }] });
+});
+
+test("a preview of a dynamic chart carries its caption", async () => {
+  const built = await buildWith(
+    () => <Graph id="trend" generalPrompt="Plot the balance." caption="Own caption" />,
+    { dynamicMode: "placeholder" },
+  );
+
+  const graph = graphOf(built.nodes);
+  assertEquals(graph.caption, "Own caption");
+  assertEquals(graph.mode, "dynamic");
+  assertEquals("data" in graph, false);
 });
