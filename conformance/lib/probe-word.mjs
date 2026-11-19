@@ -208,6 +208,8 @@ export function wordView(measure) {
     differentFirstPage: () => measure.pageSetup?.differentFirstPageHeaderFooter ?? null,
     /** Whether Word was told left and right pages differ. */
     differentOddAndEven: () => measure.pageSetup?.oddAndEvenPagesHeaderFooter ?? null,
+    /** Whether Word opens the document recording revisions. */
+    trackRevisions: () => measure.trackRevisions ?? null,
     // --- tables -------------------------------------------------------------
     //
     // Word counts a cell's paragraph among the document's paragraphs, and the

@@ -125,6 +125,7 @@ export async function buildDocument<TData>(
     id: template.id,
     title: template.title,
     ...(locale === undefined ? {} : { locale }),
+    ...(props.trackChanges ? { trackChanges: true } : {}),
     metadata: template.metadata,
     nodes,
     header,

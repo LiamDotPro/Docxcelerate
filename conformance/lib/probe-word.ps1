@@ -514,6 +514,7 @@ $out = [ordered]@{
     wordVersion = $null
     pages       = $null
     pageSetup   = $null
+    trackRevisions = $null
     furniture   = $null
     tables      = @()
     shapes      = @()
@@ -585,6 +586,7 @@ try {
             oddAndEvenPagesHeaderFooter = ([int]$ps.OddAndEvenPagesHeaderFooter -ne 0)
         }
     } catch { $errors += "pageSetup: $($_.Exception.Message)" }
+    try { $out.trackRevisions = ([int]$d.TrackRevisions -ne 0) } catch { $errors += "trackRevisions: $($_.Exception.Message)" }
 
     # The running furniture, by the kind of page it is drawn on.
     #

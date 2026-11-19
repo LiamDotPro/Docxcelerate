@@ -619,6 +619,14 @@ export interface DocumentModel {
    * dynamic nodes are asked to be written in it.
    */
   locale?: string;
+  /**
+   * Whether Word opens the document with Track Changes on.
+   *
+   * Absent on a document that never asked, which packs as it always has. It is
+   * a setting, not content: there is nothing to draw until someone edits the
+   * file in Word, so a preview shows the document exactly as it is.
+   */
+  trackChanges?: boolean;
   /** Anything the caller wants to carry alongside the document. */
   metadata?: JsonObject;
   /** The body of the document, in order. */

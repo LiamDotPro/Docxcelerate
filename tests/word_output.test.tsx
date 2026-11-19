@@ -933,3 +933,39 @@ test("a picture in a cell is not laid out as a paragraph of prose", async () => 
   );
   assertStringIncludes(xml, "<w:drawing>");
 });
+
+const negotiated = (props: string) =>
+  build(
+    <Document id="d" title="D" {...(props ? { trackChanges: props === "true" } : {})}>
+      <Paragraph id="a">Body.</Paragraph>
+    </Document>,
+  );
+
+test("a document marked for negotiation opens with Track Changes on", async () => {
+  const doc = await negotiated("true");
+  assertEquals(doc.trackChanges, true);
+  assertStringIncludes(await partXml(doc, "word/settings.xml"), "<w:trackRevisions/>");
+});
+
+test("a document that never asked packs without the switch", async () => {
+  const doc = await negotiated("");
+  assertEquals("trackChanges" in doc, false);
+  assertEquals((await partXml(doc, "word/settings.xml")).includes("<w:trackRevisions"), false);
+});
+
+test("trackChanges={false} is the same as leaving it out", async () => {
+  const doc = await negotiated("false");
+  assertEquals("trackChanges" in doc, false);
+  assertEquals((await partXml(doc, "word/settings.xml")).includes("<w:trackRevisions"), false);
+});
+
+test("resolving a document keeps it opening with Track Changes on", async () => {
+  const resolved = await resolveDocument(await negotiated("true"), {
+    ctx: {},
+    derived: {},
+    dataProvider: new InMemoryDataProvider({}),
+    aiClient: new EchoAiClient(),
+  }, { derivers: createDeriverRegistry() });
+  assertEquals(resolved.trackChanges, true);
+  assertStringIncludes(await partXml(resolved, "word/settings.xml"), "<w:trackRevisions/>");
+});

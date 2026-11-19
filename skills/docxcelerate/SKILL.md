@@ -132,7 +132,7 @@ Nothing leaves the machine, and the same build gives the same page every time.
 
 | Element | Holds | Notes |
 | --- | --- | --- |
-| `Document` | sections and nodes | `id` and `title` both required; one per template; `header`/`footer` take running furniture |
+| `Document` | sections and nodes | `id` and `title` both required; one per template; `header`/`footer` take running furniture; `trackChanges` opens it in Word with Track Changes on |
 | `Section` | any nodes, including sections | the **only** container; `title` required and becomes a heading |
 | `Paragraph` | text children, or prompts | `text` prop says the same as children; a `\n` in the text is a line break; `list="bullet"` or `"number"` makes it a list item, counted by the renderer |
 | `Text` | words, inside a `Paragraph`, `Cell` or `Shape` | **not a node** — no `id`. `bold`, `italic`, `underline`, `strike`, `href`. Never a colour or a size |

@@ -95,6 +95,10 @@ export function createDocxDocument(doc: DocumentModel): Document {
     // exactly the numbering part it always had.
     numbering: lists.items === 0 ? undefined : listNumbering(lists.numbered),
     evenAndOddHeaderAndFooters: evenAndOdd || undefined,
+    // A settings-part switch, like the one above. Passed only when asked:
+    // `docx` writes `w:val="false"` for an explicit false, and a document that
+    // never asked should pack byte for byte as it did.
+    features: doc.trackChanges ? { trackRevisions: true } : undefined,
     sections: [
       {
         properties: {
