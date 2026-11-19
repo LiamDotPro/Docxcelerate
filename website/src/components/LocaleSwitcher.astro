@@ -21,7 +21,7 @@ const canonical = stripLocale(Astro.url.pathname);
 
 <details class="locale-switcher relative" data-locale-switcher>
   <summary
-    class="flex h-8 cursor-pointer list-none items-center gap-1.5 rounded border border-border px-2 text-muted transition-colors hover:border-border-firm hover:text-accent [&::-webkit-details-marker]:hidden"
+    class="flex h-8 cursor-pointer list-none items-center gap-1.5 rounded border border-border px-1.5 text-muted sm:px-2 transition-colors hover:border-border-firm hover:text-accent [&::-webkit-details-marker]:hidden"
     title={t.nav.language}
     aria-label={t.nav.language}
   >
@@ -29,7 +29,7 @@ const canonical = stripLocale(Astro.url.pathname);
       <circle cx="12" cy="12" r="9" />
       <path d="M3 12h18M12 3c2.4 2.6 3.6 5.6 3.6 9s-1.2 6.4-3.6 9c-2.4-2.6-3.6-5.6-3.6-9S9.6 5.6 12 3Z" />
     </svg>
-    <span class="text-xs font-medium">{LOCALE_META[locale].native}</span>
+    <span class="hidden text-xs font-medium md:inline">{LOCALE_META[locale].native}</span>
   </summary>
 
   <ul

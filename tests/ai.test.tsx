@@ -1,16 +1,38 @@
 import { test } from "node:test";
-import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
+import { assertEquals, assertRejects, assertStringIncludes, rejectionOf } from "./assert.ts";
 import {
+  AiGenerationError,
   buildDocument,
   buildProjectEngineDocument,
+  createDeriverRegistry,
   defineDocumentProject,
   EchoAiClient,
   InMemoryDataProvider,
   resolveDocument,
   ScriptedAiClient,
 } from "docxcelerate";
-import type { DocumentModel, DocumentNode, GraphNode, ParagraphNode, PromptSpec } from "docxcelerate";
-import { Document, Graph, Image, Paragraph, Section, template, useAi, useState } from "docxcelerate/template";
+import type {
+  DocumentModel,
+  DocumentNode,
+  GraphNode,
+  ParagraphNode,
+  PromptSpec,
+  RuntimeState,
+} from "docxcelerate";
+import {
+  aiProps,
+  createPublishData,
+  deriver,
+  Document,
+  Graph,
+  Image,
+  Paragraph,
+  Section,
+  template,
+  useAi,
+  useDeriver,
+  useState,
+} from "docxcelerate/template";
 
 /**
  * One hook for a node an engine writes.
@@ -130,7 +152,7 @@ test("`voice` travels as the standing instruction", async () => {
     });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   assertEquals(
     promptOf(paragraphOf(built.nodes).prompts, "system"),
@@ -147,7 +169,7 @@ test("`avoid` travels as what the node must not say", async () => {
     });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   assertEquals(
     promptOf(paragraphOf(built.nodes).prompts, "negative"),
@@ -170,7 +192,7 @@ test("`from` takes the data itself rather than a sentence about it", async () =>
     });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   const facts = promptOf(paragraphOf(built.nodes).prompts, "info") ?? "";
 
@@ -187,7 +209,7 @@ test("`from` still accepts a sentence, for facts that are already prose", async 
     });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   assertEquals(
     promptOf(paragraphOf(built.nodes).prompts, "info"),
@@ -204,7 +226,7 @@ test("a fact nobody supplied is left out rather than written as null", async () 
     });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   const facts = promptOf(paragraphOf(built.nodes).prompts, "info") ?? "";
 
@@ -302,7 +324,7 @@ test("a local build writes `from` exactly as it did before publishing could", as
     });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   assertEquals(
     promptOf(paragraphOf(built.nodes).prompts, "info"),
@@ -339,7 +361,7 @@ test("`example` travels as the shape a good answer takes", async () => {
     });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   assertEquals(
     promptOf(paragraphOf(built.nodes).prompts, "example"),
@@ -354,7 +376,7 @@ test("a lone example travels as itself, with nothing wrapped around it", async (
     useAi({ ask: "Summarise.", placeholder: "A summary.", example: "One short line." });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   assertEquals(promptOf(paragraphOf(built.nodes).prompts, "example"), "One short line.");
 });
@@ -368,7 +390,7 @@ test("several examples are numbered, so two do not read as one long answer", asy
     });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   const shown = promptOf(paragraphOf(built.nodes).prompts, "example") ?? "";
 
@@ -381,7 +403,7 @@ test("a blank example is dropped rather than shown as the right answer", async (
     useAi({ ask: "Summarise.", placeholder: "A summary.", example: ["  ", ""] });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   assertEquals(promptOf(paragraphOf(built.nodes).prompts, "example"), undefined);
 });
@@ -400,7 +422,7 @@ test("the example reads last, after the request and the limits", async () => {
     });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   assertEquals(
     paragraphOf(built.nodes).prompts?.map((prompt) => prompt.kind),
@@ -532,7 +554,7 @@ test("a shared hook can set the voice on a node it does not own", async () => {
   const built = await buildWith(() => {
     useHouseVoice();
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   assertStringIncludes(
     promptOf(paragraphOf(built.nodes).prompts, "system") ?? "",
@@ -618,6 +640,71 @@ test("ScriptedAiClient answers a chart and an image by their ids", async () => {
   }
 
   assertEquals(ai.requests.map((r) => [r.id, r.kind]), [["revenue", "graph"], ["portrait", "image"]]);
+});
+
+test("a build whose client throws fails as an AiGenerationError naming the node", async () => {
+  const down = new TypeError("fetch failed");
+
+  const paragraphError = await rejectionOf(() =>
+    buildWith(summary, { dynamicMode: "resolve", aiClient: { generateParagraph: () => { throw down; } } })
+  );
+  assertEquals(paragraphError instanceof AiGenerationError, true);
+  const paragraphFailed = paragraphError as AiGenerationError;
+  assertEquals(paragraphFailed.nodeId, "summary");
+  assertEquals(paragraphFailed.kind, "paragraph");
+  assertEquals(paragraphFailed.cause === down, true);
+  assertEquals(paragraphFailed.message, 'Dynamic paragraph "summary" failed to generate: fetch failed');
+
+  const graphError = await rejectionOf(() =>
+    buildWith(() => <Graph id="revenue" generalPrompt="Plot revenue." placeholder="Revenue." />, {
+      dynamicMode: "resolve",
+      aiClient: { generateParagraph: () => "", generateGraph: () => Promise.reject(down) },
+    })
+  );
+  assertEquals(graphError instanceof AiGenerationError, true);
+  assertEquals((graphError as AiGenerationError).nodeId, "revenue");
+  assertEquals((graphError as AiGenerationError).kind, "graph");
+  assertEquals((graphError as AiGenerationError).cause === down, true);
+
+  const imageError = await rejectionOf(() =>
+    buildWith(() => <Image id="portrait" generalPrompt="Draw it." placeholder="A portrait." />, {
+      dynamicMode: "resolve",
+      aiClient: { generateParagraph: () => "", generateImage: () => { throw down; } },
+    })
+  );
+  assertEquals(imageError instanceof AiGenerationError, true);
+  assertEquals((imageError as AiGenerationError).nodeId, "portrait");
+  assertEquals((imageError as AiGenerationError).kind, "image");
+  assertEquals((imageError as AiGenerationError).cause === down, true);
+});
+
+test("a preview never calls the client, so a failing client cannot fail it", async () => {
+  const built = await buildWith(summary, {
+    dynamicMode: "placeholder",
+    aiClient: { generateParagraph: () => { throw new Error("never"); } },
+  });
+
+  assertEquals(paragraphOf(built.nodes).text, "A short summary of the work this invoice covers.");
+});
+
+test("a ScriptedAiClient with no answer fails as an AiGenerationError, its own message on cause", async () => {
+  const error = await rejectionOf(() =>
+    buildWith(summary, { dynamicMode: "resolve", aiClient: new ScriptedAiClient({}) })
+  );
+
+  assertEquals(error instanceof AiGenerationError, true);
+  const failed = error as AiGenerationError;
+  assertEquals(failed.nodeId, "summary");
+  assertEquals((failed.cause as Error).message, 'ScriptedAiClient has no answer for paragraph "summary". Known ids: (none).');
+});
+
+test("an answer that is not text is docxcelerate's refusal, not an AiGenerationError", async () => {
+  const error = await rejectionOf(() =>
+    buildWith(summary, { dynamicMode: "resolve", aiClient: { generateParagraph: () => ({ text: "hi" }) as never } })
+  );
+
+  assertEquals(error instanceof AiGenerationError, false);
+  assertStringIncludes((error as Error).message, 'Dynamic paragraph "summary" got an answer that is not text');
 });
 
 test("ScriptedAiClient matches a repeat's suffixed ids by their base id, and an exact id wins", async () => {
@@ -749,7 +836,7 @@ test("a dynamic chart keeps its own caption when the model does not write one", 
     {
       dynamicMode: "resolve",
       aiClient: {
-        generateParagraph: () => "",
+        generateParagraph: () => "Written.",
         // The cast lets a string through GraphData, as a real client returns parsed JSON.
         generateGraph: () => ({ data: { series: [{ values: ["12"] }] } }) as never,
       },
@@ -780,6 +867,73 @@ test("a generated paragraph is trimmed and stripped of characters Word cannot op
   assertEquals(paragraphOf(built.nodes).text, "Hello world end");
 });
 
+test("a generated paragraph with nothing left once trimmed names the node", async () => {
+  await assertRejects(
+    () => buildWith(summary, { dynamicMode: "resolve", aiClient: { generateParagraph: () => " \n " } }),
+    Error,
+    'Dynamic paragraph "summary" got an empty answer.',
+  );
+});
+
+test("a generated chart with nothing to plot names the node", async () => {
+  const chart = () => <Graph id="trend" generalPrompt="Plot the balance." />;
+
+  for (const answer of [{}, { data: { series: [{ values: [null] }] } }]) {
+    await assertRejects(
+      () =>
+        buildWith(chart, {
+          dynamicMode: "resolve",
+          aiClient: { generateParagraph: () => "Written.", generateGraph: () => answer },
+        }),
+      Error,
+      'Dynamic graph "trend" got an answer it cannot plot:',
+    );
+  }
+});
+
+test("ScriptedAiClient's empty answer is refused like a model's", async () => {
+  await assertRejects(
+    () => buildWith(summary, { dynamicMode: "resolve", aiClient: new ScriptedAiClient({ summary: "" }) }),
+    Error,
+    'Dynamic paragraph "summary" got an empty answer.',
+  );
+});
+
+test("a preview never asks, so it shows the placeholder, not an empty answer", async () => {
+  const built = await buildWith(summary, {
+    dynamicMode: "placeholder",
+    aiClient: { generateParagraph: () => "" },
+  });
+
+  assertEquals(paragraphOf(built.nodes).text, "A short summary of the work this invoice covers.");
+});
+
+test("publishing a generated paragraph and chart writes neither text nor data", async () => {
+  const Summary = summary as () => never;
+  const published = await buildProjectEngineDocument(defineDocumentProject<InvoiceData>({
+    id: "invoice",
+    name: "Invoice",
+    template: template<InvoiceData>(
+      <Document id="invoice" title="Invoice">
+        <Section id="body" title="Body">
+          <Summary />
+          <Graph id="trend" generalPrompt="Plot the balance." />
+        </Section>
+      </Document>,
+    ),
+    previewData: invoice,
+  }));
+
+  const section = published.nodes[0];
+  if (section?.kind !== "section") throw new Error("expected the body section");
+  const [paragraph, graph] = section.children;
+
+  assertEquals(paragraph?.kind === "paragraph" && "text" in paragraph, false);
+  assertEquals(graph?.kind === "graph" && "data" in graph, false);
+  assertEquals(paragraph?.kind, "paragraph");
+  assertEquals(graph?.kind, "graph");
+});
+
 test("a generated paragraph that is not text names the node", async () => {
   await assertRejects(
     () =>
@@ -789,5 +943,237 @@ test("a generated paragraph that is not text names the node", async () => {
       }),
     Error,
     'Dynamic paragraph "summary" got an answer that is not text: it returned an object.',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// After a deriver: the same config, as props
+// ---------------------------------------------------------------------------
+
+/** Cheap, so it runs in a preview too. */
+const lineFacts = deriver({
+  name: "lineFacts",
+  run: (lines: Array<{ desc: string }>) => ({ count: lines.length, first: lines[0]?.desc ?? "" }),
+});
+
+const Reminder = async () => {
+  const [lines] = useState((data: InvoiceData) => data.lines);
+  const facts = await useDeriver(lineFacts, [lines]);
+
+  return (
+    <Paragraph
+      id="reminder"
+      {...aiProps({
+        ask: `Say that ${facts.count} line is billed.`,
+        placeholder: `A reminder about ${facts.count} line.`,
+        from: { first: facts.first },
+      })}
+    />
+  );
+};
+
+const RESOLVE = { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } } as const;
+
+function publishDoc(component: () => unknown): Promise<DocumentModel> {
+  const Body = component as () => never;
+
+  return buildDocument(
+    template<InvoiceData>(
+      <Document id="invoice" title="Invoice">
+        <Section id="body" title="Body">
+          <Body />
+        </Section>
+      </Document>,
+    ),
+    createPublishData() as InvoiceData,
+    {
+      branchMode: "publish",
+      deriverMode: "preserve",
+      dynamicMode: "resolve",
+      aiClient: { generateParagraph: () => "Written." },
+    },
+  );
+}
+
+function stateWith(aiClient: RuntimeState["aiClient"]): RuntimeState {
+  return {
+    ctx: { ...invoice },
+    derived: {},
+    dataProvider: new InMemoryDataProvider(invoice as unknown as Record<string, unknown>),
+    aiClient,
+  };
+}
+
+test("aiProps returns the prompts useAi would set, and nothing it was not given", () => {
+  assertEquals(aiProps({ ask: "Summarise.", placeholder: "A summary." }), {
+    generalPrompt: "Summarise.",
+    placeholder: "A summary.",
+  });
+});
+
+test("aiProps maps every field the way useAi does", () => {
+  assertEquals(
+    aiProps({
+      ask: "Summarise.",
+      placeholder: "A summary.",
+      voice: "Plain.",
+      from: { period: "August 2026", chaser: undefined },
+      avoid: "No totals.",
+      example: ["One.", "Two."],
+    }),
+    {
+      generalPrompt: "Summarise.",
+      placeholder: "A summary.",
+      systemPrompt: "Plain.",
+      negativePrompt: "No totals.",
+      infoPrompt: '{\n  "period": "August 2026"\n}',
+      examplePrompt: "Example 1:\nOne.\n\nExample 2:\nTwo.",
+    },
+  );
+});
+
+test("aiProps spread on an element makes the node generated", async () => {
+  const built = await buildWith(
+    () => <Paragraph id="summary" {...aiProps({ ask: "Summarise.", placeholder: "A summary.", voice: "Plain." })} />,
+    RESOLVE,
+  );
+  const node = paragraphOf(built.nodes);
+
+  assertEquals(node.mode, "dynamic");
+  assertEquals(promptOf(node.prompts, "general"), "Summarise.");
+  assertEquals(promptOf(node.prompts, "system"), "Plain.");
+});
+
+test("aiProps written after await useDeriver reads the deriver's result", async () => {
+  const built = await buildWith(Reminder, RESOLVE);
+  const node = paragraphOf(built.nodes);
+
+  assertEquals(promptOf(node.prompts, "general"), "Say that 1 line is billed.");
+  assertEquals(promptOf(node.prompts, "info"), '{\n  "first": "API build"\n}');
+});
+
+test("a preview shows the placeholder, filled from the deriver's result", async () => {
+  const built = await buildWith(Reminder, { dynamicMode: "placeholder" });
+
+  assertEquals(paragraphOf(built.nodes).text, "A reminder about 1 line.");
+});
+
+test("published, the prompts carry the tokens the stand-in wrote", async () => {
+  const published = await publishDoc(Reminder);
+  const node = paragraphOf(published.nodes);
+
+  assertEquals(promptOf(node.prompts, "general"), "Say that {{derived.lineFacts.count}} line is billed.");
+  assertEquals(promptOf(node.prompts, "info"), '{\n  "first": {{derived.lineFacts.first}}\n}');
+  assertEquals(node.derivers?.map((invocation) => invocation.name), ["lineFacts"]);
+});
+
+test("publishing then resolving asks the model what building directly asks", async () => {
+  const asked: PromptSpec[][] = [];
+  const client = {
+    generateParagraph: (request: { prompts: PromptSpec[] }) => (asked.push(request.prompts), "Written."),
+  };
+
+  const published = await publishDoc(Reminder);
+  const resolved = await resolveDocument(published, stateWith(client), {
+    derivers: createDeriverRegistry([lineFacts]),
+  });
+  const direct = await buildWith(Reminder, { dynamicMode: "resolve", aiClient: client });
+
+  assertEquals(asked.length, 2);
+  // A string filled in from request data is written unquoted, as main has always
+  // published it, so the only difference from a direct build is the quotes round it.
+  assertEquals(asked[0][0], asked[1][0]);
+  assertEquals(asked[0][1], { kind: "info", text: '{\n  "first": API build\n}' });
+  assertEquals(asked[1][1], { kind: "info", text: '{\n  "first": "API build"\n}' });
+  assertEquals(paragraphOf(resolved.nodes).text, "Written.");
+  assertEquals(paragraphOf(direct.nodes).text, "Written.");
+});
+
+test("a deriver's whole result as `from` publishes as its one token", async () => {
+  const published = await publishDoc(async () => {
+    const [lines] = useState((data: InvoiceData) => data.lines);
+    const facts = await useDeriver(lineFacts, [lines]);
+
+    return <Paragraph id="reminder" {...aiProps({ ask: "Remind.", placeholder: "A reminder.", from: facts })} />;
+  });
+
+  assertEquals(promptOf(paragraphOf(published.nodes).prompts, "info"), "{{derived.lineFacts}}");
+});
+
+test("useAi's facts from request data publish as tokens", async () => {
+  const published = await publishDoc(() => {
+    const [data] = useState((input: InvoiceData) => input);
+
+    useAi({ ask: "Summarise.", placeholder: "A summary.", from: { period: data.period } });
+
+    return <Paragraph id="summary" />;
+  });
+
+  assertEquals(promptOf(paragraphOf(published.nodes).prompts, "info"), '{\n  "period": {{data.period}}\n}');
+});
+
+test("aiProps refuses a missing placeholder, under its own name", () => {
+  let message = "";
+
+  try {
+    (aiProps as (config: unknown) => unknown)({ ask: "Summarise." });
+  } catch (error) {
+    message = (error as Error).message;
+  }
+
+  assertStringIncludes(message, "aiProps needs a placeholder");
+  assertStringIncludes(message, "skipped or failed");
+});
+
+test("aiProps refuses a blank ask", () => {
+  let message = "";
+
+  try {
+    aiProps({ ask: "  ", placeholder: "A summary." });
+  } catch (error) {
+    message = (error as Error).message;
+  }
+
+  assertStringIncludes(message, "aiProps needs an `ask`");
+});
+
+test("aiProps on the element wins over what a hook set around it", async () => {
+  const built = await buildWith(() => {
+    useAi({ ask: "House ask.", placeholder: "House.", voice: "House voice." });
+
+    return <Paragraph id="summary" {...aiProps({ ask: "Own ask.", placeholder: "Own.", voice: "Own voice." })} />;
+  }, RESOLVE);
+  const node = paragraphOf(built.nodes);
+
+  assertEquals(promptOf(node.prompts, "system"), "Own voice.");
+  assertEquals(promptOf(node.prompts, "general"), "Own ask.");
+});
+
+test("aiProps beside written text is the same contradiction as prompt props", async () => {
+  await assertRejects(
+    () =>
+      buildWith(() => (
+        <Paragraph id="summary" {...aiProps({ ask: "Summarise.", placeholder: "A summary." })}>
+          Already written.
+        </Paragraph>
+      )),
+    Error,
+    "supplies both its content and a prompt",
+  );
+});
+
+test("a client that throws while resolving an aiProps node fails the document", async () => {
+  const published = await publishDoc(Reminder);
+
+  const failing = {
+    generateParagraph: () => {
+      throw new Error("model down");
+    },
+  };
+
+  await assertRejects(
+    () => resolveDocument(published, stateWith(failing), { derivers: createDeriverRegistry([lineFacts]) }),
+    Error,
+    "model down",
   );
 });

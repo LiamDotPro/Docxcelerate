@@ -1,15 +1,19 @@
 import { test } from "node:test";
-import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
+import { assertEquals, assertRejects, assertStringIncludes, rejectionOf } from "./assert.ts";
 import {
+  AiGenerationError,
   type AiGraphResult,
+  aiGraphResultSchema,
   createDeriverRegistry,
   createRuntimeState,
   type DocumentModel,
   type DocumentNode,
   type GraphNode,
+  type GraphType,
   resolveDocument,
   type RuntimeState,
 } from "docxcelerate";
+import { renderDocxBytes } from "docxcelerate/docx";
 
 /**
  * What an engine does with a published document.
@@ -540,6 +544,7 @@ test("a generated chart that cannot be plotted names the node and the field", as
     [{ data: { series: [{ values: [""] }] } }, 'data.series[0].values[0] is "", not a number.'],
     [{ data: { categories: [{}], series: [] } }, "data.categories[0] is {}, not text."],
     [{ caption: 42 }, "caption is not text."],
+    [{ data: { series: [{ label: 7, values: [1] }] } }, "data.series[0].label is not text."],
   ];
 
   for (const [answer, expected] of cases) {
@@ -547,29 +552,138 @@ test("a generated chart that cannot be plotted names the node and the field", as
   }
 });
 
-test("a chart client that throws is not caught", async () => {
+test("a generated chart with nothing to plot names the node", async () => {
+  const cases: Array<[unknown, string]> = [
+    [{}, 'Dynamic graph "trend" got an answer it cannot plot: it has no data.'],
+    [{ data: null, caption: "Up" }, "it has no data."],
+    [{ data: { series: [] } }, "no series has a value to plot."],
+    [{ data: { series: [{ values: [] }] } }, "no series has a value to plot."],
+    [{ data: { series: [{ values: [null, null] }, { values: [] }] } }, "no series has a value to plot."],
+  ];
+
+  for (const [answer, expected] of cases) {
+    await assertRejectsWith(() => generatedChart(answer), expected);
+  }
+});
+
+test("a chart answer with one value to plot is drawn", async () => {
+  assertEquals(
+    graphOf(await generatedChart({ data: { series: [{ values: [null] }, { values: [null, 0] }] } })).data,
+    { series: [{ values: [null] }, { values: [null, 0] }] },
+  );
+});
+
+test("the chart schema offers exactly the chart types the check accepts", async () => {
+  const every: Record<GraphType, true> = {
+    bar: true,
+    barHorizontal: true,
+    line: true,
+    area: true,
+    pie: true,
+    doughnut: true,
+    scatter: true,
+    radar: true,
+    bubble: true,
+  };
+  const schema = aiGraphResultSchema as unknown as {
+    properties: { graphType: { anyOf: [{ enum: string[] }, { type: string }] } };
+  };
+  const named = schema.properties.graphType.anyOf[0].enum;
+
+  assertEquals([...named].sort(), Object.keys(every).sort());
+  assertEquals(schema.properties.graphType.anyOf[1], { type: "null" });
+
+  for (const graphType of named) {
+    const graph = graphOf(await generatedChart({ graphType, data: { series: [{ values: [1] }] } }));
+    assertEquals(graph.graphType, graphType);
+  }
+});
+
+test("an answer in the chart schema's shape, nulls and all, keeps the node's own and packs", async () => {
+  const doc = await generatedChart(
+    {
+      graphType: null,
+      data: { categories: null, series: [{ label: null, values: [4, null], sizes: null }] },
+      caption: null,
+    },
+    { caption: "Own caption" },
+  );
+  const graph = graphOf(doc);
+
+  assertEquals(graph.graphType, "bar");
+  assertEquals(graph.caption, "Own caption");
+  assertEquals(graph.data, { series: [{ values: [4, null] }] }); // deepStrictEqual: no label/sizes/categories keys
+  const bytes = await renderDocxBytes(doc);
+  assertEquals(bytes.byteLength > 0, true); // threw a TypeError in escapeXml before the label fix
+
+  const filled = graphOf(await generatedChart({
+    graphType: "line",
+    data: { categories: ["Q1", "Q2"], series: [{ label: "Paid", values: [1, 2], sizes: null }] },
+    caption: "Up",
+  }));
+  assertEquals(filled.graphType, "line");
+  assertEquals(filled.caption, "Up");
+  assertEquals(filled.data, { categories: ["Q1", "Q2"], series: [{ label: "Paid", values: [1, 2] }] });
+});
+
+test("the chart schema is plain JSON that strict structured-output modes accept", () => {
+  assertEquals(JSON.parse(JSON.stringify(aiGraphResultSchema)), aiGraphResultSchema);
+  assertEquals(aiGraphResultSchema.type, "object");
+
+  const objects: string[] = [];
+  const broken: string[] = [];
+  const walk = (value: unknown, at: string): void => {
+    if (Array.isArray(value)) return value.forEach((entry, index) => walk(entry, `${at}[${index}]`));
+    if (typeof value !== "object" || value === null) return;
+    const entry = value as Record<string, unknown>;
+    if (entry.properties) {
+      objects.push(at);
+      const keys = Object.keys(entry.properties as object).sort();
+      if (entry.additionalProperties !== false) broken.push(`${at} allows other fields`);
+      const required = (entry.required ?? []) as string[];
+      if (JSON.stringify([...required].sort()) !== JSON.stringify(keys)) {
+        broken.push(`${at} does not require every field`);
+      }
+    }
+    for (const [key, child] of Object.entries(entry)) walk(child, `${at}.${key}`);
+  };
+  walk(aiGraphResultSchema, "schema");
+
+  assertEquals(objects, ["schema", "schema.properties.data", "schema.properties.data.properties.series.items"]);
+  assertEquals(broken, []);
+});
+
+test("a chart client that throws fails as an AiGenerationError naming the node", async () => {
   const state = engineState({});
+  const down = new Error("model down");
   state.aiClient = {
     generateParagraph: () => "",
     generateGraph: () => {
-      throw new Error("model down");
+      throw down;
     },
   };
 
-  await assertRejectsWith(
-    () =>
-      resolveDocument(
-        published([{
-          id: "trend",
-          kind: "graph",
-          mode: "dynamic",
-          graphType: "bar",
-          prompts: [{ kind: "general", text: "Plot it." }],
-        } as DocumentNode]),
-        state,
-      ),
-    "model down",
+  const error = await rejectionOf(() =>
+    resolveDocument(
+      published([{
+        id: "trend",
+        kind: "graph",
+        mode: "dynamic",
+        graphType: "bar",
+        prompts: [{ kind: "general", text: "Plot it." }],
+      } as DocumentNode]),
+      state,
+    )
   );
+
+  assertEquals(error instanceof AiGenerationError, true);
+  const failed = error as AiGenerationError;
+  assertEquals(failed.nodeId, "trend");
+  assertEquals(failed.kind, "graph");
+  assertEquals(failed.cause === down, true);
+  assertEquals(failed.message, 'Dynamic graph "trend" failed to generate: model down');
+  assertEquals(failed.name, "AiGenerationError");
+  assertEquals(Object.keys(failed).sort(), ["kind", "name", "nodeId"]);
 });
 
 function generatedParagraph(answer: unknown): Promise<DocumentModel> {
@@ -596,8 +710,6 @@ test("a generated paragraph's answer is trimmed and stripped of characters Word 
     ["Tab\there", "Tab\there"],
     ["Hello\u0001 world\u000b end", "Hello world end"],
     ["Hi\u0001\n", "Hi"],
-    ["\u0000\uffff \n", ""],
-    ["", ""],
   ];
 
   for (const [answer, expected] of cases) {
@@ -619,27 +731,41 @@ test("a generated paragraph that is not text names the node", async () => {
   }
 });
 
-test("a paragraph client that throws is not caught", async () => {
+test("a generated paragraph with nothing left once trimmed names the node", async () => {
+  for (const answer of ["", "  \n\t", "\u0000\uffff \n"]) {
+    await assertRejectsWith(
+      () => generatedParagraph(answer),
+      'Dynamic paragraph "note" got an empty answer.',
+    );
+  }
+});
+
+test("a paragraph client that rejects keeps the provider's error on cause", async () => {
   const state = engineState({});
+  const limited = Object.assign(new Error("Rate limit exceeded"), { status: 429 });
   state.aiClient = {
-    generateParagraph: () => {
-      throw new Error("model down");
-    },
+    generateParagraph: () => Promise.reject(limited),
   };
 
-  await assertRejectsWith(
-    () =>
-      resolveDocument(
-        published([{
-          id: "note",
-          kind: "paragraph",
-          mode: "dynamic",
-          prompts: [{ kind: "general", text: "Write it." }],
-        } as DocumentNode]),
-        state,
-      ),
-    "model down",
+  const error = await rejectionOf(() =>
+    resolveDocument(
+      published([{
+        id: "note",
+        kind: "paragraph",
+        mode: "dynamic",
+        prompts: [{ kind: "general", text: "Write it." }],
+      } as DocumentNode]),
+      state,
+    )
   );
+
+  assertEquals(error instanceof AiGenerationError, true);
+  const failed = error as AiGenerationError;
+  assertEquals(failed.nodeId, "note");
+  assertEquals(failed.kind, "paragraph");
+  assertEquals(failed.cause === limited, true);
+  assertEquals((failed.cause as { status: number }).status, 429);
+  assertEquals(failed.message, 'Dynamic paragraph "note" failed to generate: Rate limit exceeded');
 });
 
 test("a variant resolves per entry of a repeat", async () => {
@@ -755,6 +881,110 @@ const summary: DocumentNode = {
   prompts: [{ kind: "general", text: "Summarise." }],
 } as DocumentNode;
 
+test("an image client that throws a non-Error still fails as an AiGenerationError", async () => {
+  const state = engineState({});
+  state.aiClient = {
+    generateParagraph: () => "",
+    generateImage: () => {
+      throw "socket hang up";
+    },
+  };
+
+  const error = await rejectionOf(() =>
+    resolveDocument(
+      published([{
+        id: "portrait",
+        kind: "image",
+        mode: "dynamic",
+        prompts: [{ kind: "general", text: "Draw it." }],
+      } as DocumentNode]),
+      state,
+    )
+  );
+
+  assertEquals(error instanceof AiGenerationError, true);
+  const failed = error as AiGenerationError;
+  assertEquals(failed.nodeId, "portrait");
+  assertEquals(failed.kind, "image");
+  assertEquals(failed.cause, "socket hang up");
+  assertEquals(failed.message, 'Dynamic image "portrait" failed to generate: socket hang up');
+});
+
+test("a repeated node that fails names its suffixed id, and nothing after it is asked", async () => {
+  const asked: string[] = [];
+  const aiClient = {
+    generateParagraph: (request: { node: { id: string } }) => {
+      asked.push(request.node.id);
+      if (request.node.id === "note-1") throw new Error("boom");
+      return "ok";
+    },
+  };
+  const state = createRuntimeState({ data: { notes: [{}, {}, {}] }, aiClient });
+
+  const error = await rejectionOf(() =>
+    resolveDocument(
+      published([{
+        id: "notes",
+        kind: "repeat",
+        source: { scope: "data", path: "notes" },
+        as: "note",
+        indexAs: "index",
+        children: [{
+          id: "note",
+          kind: "paragraph",
+          mode: "dynamic",
+          prompts: [{ kind: "general", text: "Write note {{ctx.index}}." }],
+        }],
+      } as DocumentNode]),
+      state,
+    )
+  );
+
+  assertEquals(error instanceof AiGenerationError, true);
+  assertEquals((error as AiGenerationError).nodeId, "note-1");
+  assertEquals(asked, ["note-0", "note-1"]);
+});
+
+test("docxcelerate's own refusals are not AiGenerationErrors and keep their wording", async () => {
+  const cases: Array<[() => Promise<unknown>, string]> = [
+    [
+      () => resolveDocument(published([summary]), createRuntimeState({ data: {} })),
+      'Dynamic paragraph "summary" requires an aiClient.',
+    ],
+    [
+      () => generatedParagraph({ text: "hi" }),
+      'Dynamic paragraph "note" got an answer that is not text: it returned an object.',
+    ],
+    [
+      () => generatedChart({ graphType: "pyramid" }),
+      'graphType "pyramid" is not a chart type.',
+    ],
+    [
+      () => {
+        const state = engineState({});
+        state.aiClient = { generateParagraph: () => "" };
+        return resolveDocument(
+          published([{
+            id: "trend",
+            kind: "graph",
+            mode: "dynamic",
+            graphType: "bar",
+            prompts: [{ kind: "general", text: "Plot it." }],
+          } as DocumentNode]),
+          state,
+        );
+      },
+      'Dynamic graph "trend" requires an aiClient.generateGraph method.',
+    ],
+  ];
+
+  for (const [fn, includes] of cases) {
+    const error = await rejectionOf(fn);
+    assertEquals(error instanceof AiGenerationError, false);
+    assertStringIncludes((error as Error).message, includes);
+  }
+});
+
 test("createRuntimeState seeds ctx.availableTokens the way a build does", async () => {
   const doc = published([paragraph("budget", "{{data.name}} has {{ctx.availableTokens}} tokens.")]);
 
@@ -827,5 +1057,129 @@ test("createRuntimeState's locale is canonical and wins over the document's", as
     () => Promise.resolve().then(() => createRuntimeState({ data: {}, locale: "en_GB" })),
     Error,
     "BCP 47",
+  );
+});
+
+test("a published chart's title, caption and axis titles resolve against the request data, static and generated", async () => {
+  const state = engineState({ city: "Leeds", currency: "GBP" });
+  let seen: GraphNode | undefined;
+  state.aiClient = {
+    generateParagraph: () => "",
+    generateGraph: (request) => {
+      seen = request.node;
+      return { data: { series: [{ values: [1] }] } };
+    },
+  };
+  const words = {
+    title: "Visits in {{data.city}}",
+    caption: "For {{data.city}}",
+    categoryAxisTitle: "Month in {{data.city}}",
+    valueAxisTitle: "Spend ({{data.currency}})",
+  };
+  const doc = await resolveDocument(
+    published([
+      {
+        id: "static-spend",
+        kind: "graph",
+        mode: "static",
+        graphType: "bar",
+        ...words,
+        data: { series: [{ values: [1] }] },
+      } as DocumentNode,
+      {
+        id: "generated-spend",
+        kind: "graph",
+        mode: "dynamic",
+        graphType: "bar",
+        prompts: [{ kind: "general", text: "Plot it." }],
+        ...words,
+      } as DocumentNode,
+    ]),
+    state,
+  );
+
+  const resolved = [
+    "Visits in Leeds",
+    "For Leeds",
+    "Month in Leeds",
+    "Spend (GBP)",
+  ];
+  const [staticSpend, generatedSpend] = doc.nodes as GraphNode[];
+  assertEquals(
+    [staticSpend?.title, staticSpend?.caption, staticSpend?.categoryAxisTitle, staticSpend?.valueAxisTitle],
+    resolved,
+  );
+  assertEquals(
+    [generatedSpend?.title, generatedSpend?.caption, generatedSpend?.categoryAxisTitle, generatedSpend?.valueAxisTitle],
+    resolved,
+  );
+  assertEquals(
+    [seen?.title, seen?.caption, seen?.categoryAxisTitle, seen?.valueAxisTitle],
+    resolved,
+  );
+});
+
+test("a generated chart's caption from the model is printed as written", async () => {
+  const dynamicChart = (answer: AiGraphResult): Promise<DocumentModel> => {
+    const state = engineState({ secret: "s3cret", city: "Leeds" });
+    state.aiClient = {
+      generateParagraph: () => "",
+      generateGraph: () => answer,
+    };
+    return resolveDocument(
+      published([{
+        id: "trend",
+        kind: "graph",
+        mode: "dynamic",
+        graphType: "bar",
+        prompts: [{ kind: "general", text: "Plot it." }],
+        caption: "For {{data.city}}",
+        data: { series: [{ values: [1] }] },
+      } as DocumentNode]),
+      state,
+    );
+  };
+
+  assertEquals(graphOf(await dynamicChart({ caption: "Up {{data.secret}}" })).caption, "Up {{data.secret}}");
+  assertEquals(graphOf(await dynamicChart({})).caption, "For Leeds");
+});
+
+test("a dynamic paragraph's request.node carries its resolved prompts, as a build's does", async () => {
+  const state = engineState({ name: "Avery" });
+  let seen: string | undefined;
+  state.aiClient = {
+    generateParagraph: (request) => {
+      seen = request.node.prompts?.[0]?.text;
+      return "x";
+    },
+  };
+  await resolveDocument(
+    published([{
+      id: "summary",
+      kind: "paragraph",
+      mode: "dynamic",
+      prompts: [{ kind: "general", text: "Summarise for {{data.name}}." }],
+    } as DocumentNode]),
+    state,
+  );
+  assertEquals(seen, "Summarise for Avery.");
+});
+
+test("a chart with nothing to resolve comes back as it went in", async () => {
+  const node = {
+    id: "plain",
+    kind: "graph",
+    mode: "static",
+    graphType: "bar",
+    data: { series: [{ values: [1] }] },
+  } as DocumentNode;
+  const doc = await resolveDocument(published([node]), engineState({}));
+  assertEquals(graphOf(doc), node as GraphNode);
+
+  const generated = await generatedChart({ data: { series: [{ values: [2] }] } });
+  const chart = graphOf(generated);
+  assertEquals(
+    ["title", "alt", "categoryAxisTitle", "valueAxisTitle"].some((key) => key in chart),
+    false,
   );
 });
