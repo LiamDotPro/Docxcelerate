@@ -49,7 +49,7 @@ const run = (data: Obj, locale?: string): any => mod.run([data, locale] as never
 const viaEngine = (data: Obj) =>
   registry.run(
     { name: "invoiceChangeExplainer", output: "x", inputs: [dataRef("change"), literalValue("en-GB")] } as never,
-    { ctx: {}, derived: {}, dataProvider: new InMemoryDataProvider({ change: data }), aiClient: { generateParagraph: () => "" } },
+    { ctx: {}, derived: {}, dataProvider: new InMemoryDataProvider({ change: data }), aiClient: { generateParagraph: () => "Written." } },
   );
 
 const thrown = async (data: Obj, text: string) => {
@@ -271,7 +271,7 @@ test("publishing keeps one dynamic paragraph behind one branch", async () => {
     branchMode: "publish",
     deriverMode: "preserve",
     dynamicMode: "resolve",
-    aiClient: { generateParagraph: () => "" },
+    aiClient: { generateParagraph: () => "Written." },
   });
   const text = JSON.stringify(published);
   assertStringIncludes(text, '"invoice-change-explainer"');
@@ -290,7 +290,7 @@ async function resolveWith(data: Obj, captured: Obj[]) {
     branchMode: "publish",
     deriverMode: "preserve",
     dynamicMode: "resolve",
-    aiClient: { generateParagraph: () => "" },
+    aiClient: { generateParagraph: () => "Written." },
   });
   const state: RuntimeState = {
     ctx: { ...data },

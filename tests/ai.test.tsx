@@ -130,7 +130,7 @@ test("`voice` travels as the standing instruction", async () => {
     });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   assertEquals(
     promptOf(paragraphOf(built.nodes).prompts, "system"),
@@ -147,7 +147,7 @@ test("`avoid` travels as what the node must not say", async () => {
     });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   assertEquals(
     promptOf(paragraphOf(built.nodes).prompts, "negative"),
@@ -170,7 +170,7 @@ test("`from` takes the data itself rather than a sentence about it", async () =>
     });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   const facts = promptOf(paragraphOf(built.nodes).prompts, "info") ?? "";
 
@@ -187,7 +187,7 @@ test("`from` still accepts a sentence, for facts that are already prose", async 
     });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   assertEquals(
     promptOf(paragraphOf(built.nodes).prompts, "info"),
@@ -204,7 +204,7 @@ test("a fact nobody supplied is left out rather than written as null", async () 
     });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   const facts = promptOf(paragraphOf(built.nodes).prompts, "info") ?? "";
 
@@ -302,7 +302,7 @@ test("a local build writes `from` exactly as it did before publishing could", as
     });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   assertEquals(
     promptOf(paragraphOf(built.nodes).prompts, "info"),
@@ -339,7 +339,7 @@ test("`example` travels as the shape a good answer takes", async () => {
     });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   assertEquals(
     promptOf(paragraphOf(built.nodes).prompts, "example"),
@@ -354,7 +354,7 @@ test("a lone example travels as itself, with nothing wrapped around it", async (
     useAi({ ask: "Summarise.", placeholder: "A summary.", example: "One short line." });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   assertEquals(promptOf(paragraphOf(built.nodes).prompts, "example"), "One short line.");
 });
@@ -368,7 +368,7 @@ test("several examples are numbered, so two do not read as one long answer", asy
     });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   const shown = promptOf(paragraphOf(built.nodes).prompts, "example") ?? "";
 
@@ -381,7 +381,7 @@ test("a blank example is dropped rather than shown as the right answer", async (
     useAi({ ask: "Summarise.", placeholder: "A summary.", example: ["  ", ""] });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   assertEquals(promptOf(paragraphOf(built.nodes).prompts, "example"), undefined);
 });
@@ -400,7 +400,7 @@ test("the example reads last, after the request and the limits", async () => {
     });
 
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   assertEquals(
     paragraphOf(built.nodes).prompts?.map((prompt) => prompt.kind),
@@ -532,7 +532,7 @@ test("a shared hook can set the voice on a node it does not own", async () => {
   const built = await buildWith(() => {
     useHouseVoice();
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   assertStringIncludes(
     promptOf(paragraphOf(built.nodes).prompts, "system") ?? "",
@@ -749,7 +749,7 @@ test("a dynamic chart keeps its own caption when the model does not write one", 
     {
       dynamicMode: "resolve",
       aiClient: {
-        generateParagraph: () => "",
+        generateParagraph: () => "Written.",
         // The cast lets a string through GraphData, as a real client returns parsed JSON.
         generateGraph: () => ({ data: { series: [{ values: ["12"] }] } }) as never,
       },
@@ -778,6 +778,73 @@ test("a generated paragraph is trimmed and stripped of characters Word cannot op
     aiClient: { generateParagraph: () => "\n  Hello\u0001 world\u000b end\uffff \n" },
   });
   assertEquals(paragraphOf(built.nodes).text, "Hello world end");
+});
+
+test("a generated paragraph with nothing left once trimmed names the node", async () => {
+  await assertRejects(
+    () => buildWith(summary, { dynamicMode: "resolve", aiClient: { generateParagraph: () => " \n " } }),
+    Error,
+    'Dynamic paragraph "summary" got an empty answer.',
+  );
+});
+
+test("a generated chart with nothing to plot names the node", async () => {
+  const chart = () => <Graph id="trend" generalPrompt="Plot the balance." />;
+
+  for (const answer of [{}, { data: { series: [{ values: [null] }] } }]) {
+    await assertRejects(
+      () =>
+        buildWith(chart, {
+          dynamicMode: "resolve",
+          aiClient: { generateParagraph: () => "Written.", generateGraph: () => answer },
+        }),
+      Error,
+      'Dynamic graph "trend" got an answer it cannot plot:',
+    );
+  }
+});
+
+test("ScriptedAiClient's empty answer is refused like a model's", async () => {
+  await assertRejects(
+    () => buildWith(summary, { dynamicMode: "resolve", aiClient: new ScriptedAiClient({ summary: "" }) }),
+    Error,
+    'Dynamic paragraph "summary" got an empty answer.',
+  );
+});
+
+test("a preview never asks, so it shows the placeholder, not an empty answer", async () => {
+  const built = await buildWith(summary, {
+    dynamicMode: "placeholder",
+    aiClient: { generateParagraph: () => "" },
+  });
+
+  assertEquals(paragraphOf(built.nodes).text, "A short summary of the work this invoice covers.");
+});
+
+test("publishing a generated paragraph and chart writes neither text nor data", async () => {
+  const Summary = summary as () => never;
+  const published = await buildProjectEngineDocument(defineDocumentProject<InvoiceData>({
+    id: "invoice",
+    name: "Invoice",
+    template: template<InvoiceData>(
+      <Document id="invoice" title="Invoice">
+        <Section id="body" title="Body">
+          <Summary />
+          <Graph id="trend" generalPrompt="Plot the balance." />
+        </Section>
+      </Document>,
+    ),
+    previewData: invoice,
+  }));
+
+  const section = published.nodes[0];
+  if (section?.kind !== "section") throw new Error("expected the body section");
+  const [paragraph, graph] = section.children;
+
+  assertEquals(paragraph?.kind === "paragraph" && "text" in paragraph, false);
+  assertEquals(graph?.kind === "graph" && "data" in graph, false);
+  assertEquals(paragraph?.kind, "paragraph");
+  assertEquals(graph?.kind, "graph");
 });
 
 test("a generated paragraph that is not text names the node", async () => {

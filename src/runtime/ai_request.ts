@@ -48,7 +48,8 @@ export function formatPromptText(prompts: PromptSpec[]): string {
  * @param state Everything reachable while this document is being written.
  * @returns The paragraph text, trimmed and stripped of the characters XML
  * cannot hold.
- * @throws If there is no client, or it answers with something that is not text.
+ * @throws If there is no client, or it answers with something that is not
+ * text, or with text that is empty once trimmed.
  */
 export async function generateParagraph(
   client: AiClient | undefined,
@@ -80,8 +81,9 @@ const XML_INVALID = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g;
 
 /**
  * A model's paragraph as text the renderer can pack. An SDK response handed
- * back whole would otherwise pack as "[object Object]", and a trailing newline
- * as a line break nobody wrote.
+ * back whole would otherwise pack as "[object Object]", a trailing newline as
+ * a line break nobody wrote, and an empty answer as a blank where the document
+ * promised prose, with nothing having failed.
  */
 function writable(node: ParagraphNode, answer: unknown): string {
   if (typeof answer !== "string") {
@@ -90,7 +92,13 @@ function writable(node: ParagraphNode, answer: unknown): string {
     );
   }
 
-  return answer.replace(XML_INVALID, "").trim();
+  const text = answer.replace(XML_INVALID, "").trim();
+
+  if (text === "") {
+    throw new Error(`Dynamic paragraph "${node.id}" got an empty answer.`);
+  }
+
+  return text;
 }
 
 function kindOf(value: unknown): string {
@@ -137,7 +145,7 @@ export async function generateImage(
  * @returns The answer in the shape the renderer reads: numbers as numbers,
  * categories as text, and only the fields the client actually gave.
  * @throws If the client cannot illustrate, or answers with something that is
- * not a chart.
+ * not a chart, or leaves the chart with no value to plot.
  */
 export async function generateGraph(
   client: AiClient | undefined,
@@ -179,7 +187,9 @@ const GRAPH_TYPES: Record<GraphType, true> = {
  * A model's chart in the shape the renderer reads, or an error saying where it
  * is not. Model JSON writes numbers as text often enough that a chart packed
  * from it raw is empty in Word with nothing having failed, and it writes `null`
- * where it means "nothing to say", so `null` is read as absent.
+ * where it means "nothing to say", so `null` is read as absent. A chart left
+ * with no value to plot — no data of the answer's or the node's own, no series,
+ * or every value `null` — would pack as a note where the chart should be.
  */
 function plottable(node: GraphNode, answer: unknown): AiGraphResult {
   if (!isRecord(answer)) {
@@ -205,6 +215,16 @@ function plottable(node: GraphNode, answer: unknown): AiGraphResult {
       refuse(node, "caption is not text");
     }
     result.caption = caption;
+  }
+
+  const plotted = result.data ?? node.data;
+
+  if (!plotted) {
+    refuse(node, "it has no data");
+  }
+
+  if (!plotted.series.some((series) => series.values.some((value) => value !== null))) {
+    refuse(node, "no series has a value to plot");
   }
 
   return result;

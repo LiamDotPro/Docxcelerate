@@ -347,8 +347,9 @@ text, not the provider's response object: anything but a string fails with an
 error naming the node. The answer is trimmed, so a model's trailing newline does
 not become a line break, and characters XML cannot hold — control characters
 other than tab, line feed and carriage return — are removed, so the `.docx`
-still opens. A line break or tab inside the answer is kept. An empty answer is
-an empty paragraph, not an error.
+still opens. A line break or tab inside the answer is kept. An answer with
+nothing left once trimmed fails with an error naming the node, so a document is
+never sent with a blank where its prose should be.
 
 `from` takes request data as it is and survives publishing: write
 `from: { period: invoice.period, lines: invoice.lines }`, not a sentence built
@@ -577,10 +578,12 @@ write.
 What comes back is checked before it is packed:
 
 - **Paragraph:** a string, the text itself. Anything else rejects, naming the node.
-  `""` is an empty paragraph.
+  An answer that is empty once trimmed rejects too.
 - **Chart:** an `AiGraphResult`, read the way model JSON is written (see
   `Graph.data` above). Absent or `null` fields keep the node's own, and an
-  unplottable answer rejects, naming the node and the field.
+  unplottable answer rejects, naming the node and the field. So does an answer
+  that leaves nothing to plot: no `data` on a node with none of its own, no
+  series, or every value `null`.
 - **Image:** an `AiImageResult` whose `path` is a `data:` URI. Only that is packed
   into Word. A path or URL draws on screen and packs as `[image: <alt>]`. Absent
   `alt`, `width` or `height` keep the node's own.
@@ -615,7 +618,7 @@ catch, retry or time out:
 | --- | --- |
 | throws or rejects | rejects with that error |
 | never settles | never settles — bound the call with `AbortSignal.timeout` |
-| returns a non-string paragraph, or a chart it cannot plot | rejects, naming the node |
+| returns a non-string or empty paragraph, or a chart with nothing it can plot | rejects, naming the node |
 | lacks `generateGraph` / `generateImage` for a node that needs it | rejects, naming the node and the method |
 
 A dynamic node in an arm whose condition is false is never asked for. To show
