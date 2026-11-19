@@ -394,6 +394,17 @@ export interface TableProps extends CommonElementProps {
    * the column, and a `bleed` table spans the paper, so either ignores it.
    */
   align?: TableAlign;
+  /**
+   * Whether the whole table stays on one page rather than breaking between rows.
+   *
+   * For a short table that reads as one thing — a totals box, bank details, a
+   * signature block — where a page break between two of its rows leaves a
+   * subtotal on one page and the total it leads to on the next. Word moves the
+   * whole table over instead. Every row is also kept whole, as `keepTogether`
+   * on a `<Row>` does. A table taller than a page breaks anyway, having nowhere
+   * else to go; leave it off a long table, where a break between rows is fine.
+   */
+  keepTogether?: boolean;
   /** The rows, and any `.map()` producing them. */
   children?: Yield;
 }
