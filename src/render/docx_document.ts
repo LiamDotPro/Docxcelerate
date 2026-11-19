@@ -489,18 +489,7 @@ function renderNode(
         ...breakStyle(broken),
         numbering: item?.numbering,
         ...paragraphFrame(node, block),
-        indent: blockIndent(block, style) ?? item?.indent,
-        spacing: {
-          ...blockSpacingBefore(block),
-          // Items of one list stand together: the space a paragraph leaves
-          // under itself belongs after the list, not between its items. A
-          // block that names its own spacing still gets it.
-          after: ptToTwips(
-            block?.spacingAfterPt ?? (item?.tight ? 0 : style.paragraph.spacingAfterPt),
-          ),
-          ...blockLine(block, style),
-        },
-        ...blockKeeps(block),
+        ...blockLayout(block, style, item),
       }),
     ];
   }
@@ -545,7 +534,21 @@ function renderNode(
   // number that stops being true the moment an engine writes a longer
   // paragraph into a dynamic node.
   if (node.kind === "pageNumber") {
-    return [new Paragraph({ children: pageNumberRuns(node), ...breakStyle(broken), ...inCell(cell) })];
+    const block = blockOf(style, node.variant);
+
+    return [
+      new Paragraph({
+        children: pageNumberRuns(node, blockRun(block, style)),
+        ...breakStyle(broken),
+        ...paragraphFrame(node, block),
+        // Only when a block is named: an unstyled page number writes no
+        // spacing of its own, and its bytes stay what they were.
+        ...(block === undefined ? {} : blockLayout(block, style)),
+        // Last, so a cell's column alignment and spacing win, as they do for
+        // every paragraph in a cell.
+        ...inCell(cell),
+      }),
+    ];
   }
 
   // A built document has already walked its loops, so this is a published one
@@ -699,6 +702,9 @@ function listLevelOf(list: ParagraphList): number {
 /** Where each item stands, worked out once before the document is rendered. */
 const listPlaces = new WeakMap<ParagraphNode, { reference: string; tight: boolean }>();
 
+/** What a numbered list's level was told: its numerals, and where it counts from. */
+type ListLevelSettings = { style?: ListStyle; start?: number };
+
 /**
  * Works out which list each item counts in, and whether another follows it.
  *
@@ -707,12 +713,12 @@ const listPlaces = new WeakMap<ParagraphNode, { reference: string; tight: boolea
  * not stop the steps counting. Anything else ends the list, and the next
  * numbered item starts a numbering of its own.
  *
- * @returns How many items there are, and for each numbered list the style each
- * of its levels was given.
+ * @returns How many items there are, and for each numbered list the numerals
+ * and starting number each of its levels was given.
  */
-function placeLists(doc: DocumentModel): { items: number; numbered: (ListStyle | undefined)[][] } {
+function placeLists(doc: DocumentModel): { items: number; numbered: ListLevelSettings[][] } {
   let items = 0;
-  const numbered: (ListStyle | undefined)[][] = [];
+  const numbered: ListLevelSettings[][] = [];
 
   const walk = (nodes: readonly DocumentNode[]): void => {
     // The numbering the list being walked counts in, once it has a numbered item.
@@ -735,7 +741,10 @@ function placeLists(doc: DocumentModel): { items: number; numbered: (ListStyle |
       if (node.list.kind === "number") {
         // The levels belong to the list, and a later item that disagrees
         // cannot change numbers already printed.
-        numbered[numbered.length - 1][listLevelOf(node.list)] ??= node.list.style;
+        // The item that opens a level says where it counts from — a later one would
+        // renumber items already printed. Numerals are taken from the first that says.
+        const level = (numbered[numbered.length - 1][listLevelOf(node.list)] ??= { start: node.list.start });
+        level.style ??= node.list.style;
       }
 
       const next = nodes[index + 1];
@@ -777,9 +786,9 @@ function placeLists(doc: DocumentModel): { items: number; numbered: (ListStyle |
  * at all. This is the form both engines read, which is the same reason a
  * shape is packed as VML.
  */
-function listNumbering(numbered: (ListStyle | undefined)[][]) {
+function listNumbering(numbered: ListLevelSettings[][]) {
   const levels = (
-    marker: (level: number) => { format: (typeof LevelFormat)[keyof typeof LevelFormat]; text: string },
+    marker: (level: number) => { format: (typeof LevelFormat)[keyof typeof LevelFormat]; text: string; start?: number },
   ) =>
     Array.from({ length: LIST_LEVELS }, (_, level) => ({
       level,
@@ -797,9 +806,9 @@ function listNumbering(numbered: (ListStyle | undefined)[][]) {
           text: BULLETS[level % BULLETS.length],
         })),
       },
-      ...numbered.map((styles, index) => ({
+      ...numbered.map((settings, index) => ({
         reference: `${NUMBER_LIST}-${index + 1}`,
-        levels: levels((level) => numberMarker(styles[level], level)),
+        levels: levels((level) => ({ ...numberMarker(settings[level]?.style, level), start: settings[level]?.start })),
       })),
     ],
   };
@@ -905,9 +914,10 @@ function runsOf(node: ParagraphNode): ParagraphRun[] {
  * One run of the node's, as Word is handed it.
  *
  * The run's variant goes over the block, and its own settings over that, so a
- * word can be lightened in a bold block as well as stressed in a plain one. A link is drawn in the
- * theme's accent with a rule beneath: what a link looks like is the theme's
- * to say, and a link nobody can tell from the words around it is not one.
+ * word can be lightened in a bold block as well as stressed in a plain one. A
+ * link is drawn in the ink its block already gave the words, falling back to
+ * the theme's accent, always with a rule beneath. An accent link on a filled
+ * band or header cell is a link nobody can read.
  */
 function markedRun(
   run: ParagraphRun,
@@ -937,8 +947,10 @@ function markedRun(
     children: [
       textRun(run.text, {
         ...props,
+        // The ink the block gave the words, else the theme's accent. On a filled band
+        // or header cell the accent is the fill, and the link would vanish into it.
         // A style with no palette leaves the link in the ink around it.
-        ...(style.palette === undefined ? {} : { color: style.palette.accent }),
+        color: (props as { color?: string }).color ?? style.palette?.accent,
         underline: underline ?? {},
       }),
     ],
@@ -1282,7 +1294,7 @@ function blockInset(block: DocumentBlockStyle | undefined) {
  * a cell, a box. Alignment only when the node or its block said: a paragraph
  * that never said writes no `w:jc` and goes on inheriting.
  */
-function paragraphFrame(node: ParagraphNode, block: DocumentBlockStyle | undefined) {
+function paragraphFrame(node: { align?: TextAlign }, block: DocumentBlockStyle | undefined) {
   return {
     alignment: textAlignmentOf(node.align ?? block?.align),
     shading: block?.fill === undefined
@@ -1290,6 +1302,35 @@ function paragraphFrame(node: ParagraphNode, block: DocumentBlockStyle | undefin
       : { type: ShadingType.CLEAR, fill: block.fill },
     border: blockBorders(block, "paragraph"),
     ...blockTabStops(block),
+  };
+}
+
+/**
+ * What a block gives a paragraph it draws besides its frame: room, spacing and
+ * keeps.
+ *
+ * Shared, so that a page number in a variant is set exactly as a paragraph in
+ * that variant is. A list item's indent and tight spacing apply only where the
+ * block does not say otherwise.
+ */
+function blockLayout(
+  block: DocumentBlockStyle | undefined,
+  style: DocumentStyle,
+  item?: ReturnType<typeof listItem>,
+) {
+  return {
+    indent: blockIndent(block, style) ?? item?.indent,
+    spacing: {
+      ...blockSpacingBefore(block),
+      // Items of one list stand together: the space a paragraph leaves
+      // under itself belongs after the list, not between its items. A
+      // block that names its own spacing still gets it.
+      after: ptToTwips(
+        block?.spacingAfterPt ?? (item?.tight ? 0 : style.paragraph.spacingAfterPt),
+      ),
+      ...blockLine(block, style),
+    },
+    ...blockKeeps(block),
   };
 }
 
@@ -1450,23 +1491,18 @@ function ptToPx(points: number): number {
   return Math.round(points * (96 / 72));
 }
 
-/** The runs a page number becomes — Word's own fields, not a printed digit. */
-function pageNumberRuns(node: PageNumberNode): TextRun[] {
+/** The runs a page number becomes: Word's own fields, not a printed digit, all set in the block's type. */
+function pageNumberRuns(node: PageNumberNode, base: Record<string, unknown>): TextRun[] {
+  const field = (which: (typeof PageNumber)[keyof typeof PageNumber]) =>
+    new TextRun({ children: [which], ...base });
   const format = node.format ?? "currentOfTotal";
+  const numbers = format === "current"
+    ? [field(PageNumber.CURRENT)]
+    : format === "total"
+    ? [field(PageNumber.TOTAL_PAGES)]
+    : [field(PageNumber.CURRENT), textRun(node.separator ?? " / ", base), field(PageNumber.TOTAL_PAGES)];
 
-  if (format === "current") {
-    return [new TextRun({ children: [PageNumber.CURRENT] })];
-  }
-
-  if (format === "total") {
-    return [new TextRun({ children: [PageNumber.TOTAL_PAGES] })];
-  }
-
-  return [
-    new TextRun({ children: [PageNumber.CURRENT] }),
-    new TextRun(node.separator ?? " / "),
-    new TextRun({ children: [PageNumber.TOTAL_PAGES] }),
-  ];
+  return node.prefix ? [textRun(node.prefix, base), ...numbers] : numbers;
 }
 
 /**

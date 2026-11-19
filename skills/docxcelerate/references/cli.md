@@ -131,6 +131,8 @@ dxcl list components
 | `signature-block` | A closing, a signature image, and who signed it. |
 | `terms-notice` | Numbered small print, one paragraph and one stable id per clause. |
 | `invoice-document-type` | What an invoice may call itself, and the dates it has to carry. |
+| `commodity-code-summary` | Tariff codes kept as text and checked by length, and a summary by code and origin that adds up. |
+| `marketplace-payout-statement` | A period's marketplace activity reconciled row by row to the payout, with no negative payouts. |
 | `deposit-cancellation-outcome` | What a cancelled order refunds and keeps, and the VAT on each part. |
 | `tax-treatment-notice` | The mention an invoice's tax treatment requires, or a warning when its ID is missing. |
 | `payment-surcharge-line` | A payment-method surcharge only where it is lawful, capped, taxed with the supply, and disclosed. |
@@ -139,6 +141,11 @@ dxcl list components
 | `vat-place-of-supply` | Whose VAT applies and at what rate, decided before anything is printed. |
 | `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `royalty-reserve-and-recoupment` | The settlement from royalties earned to the amount paid: reserves against returns, advance recoupment and the minimum payment. |
+| `good-faith-estimate-comparison` | Each provider's bill against its own good faith estimate, and the dispute rights a $400 overrun gives a self-pay patient. |
+| `financial-assistance-notice` | The financial assistance notice a US tax-exempt hospital's bill must carry, and the dates collections may start and applications close. |
+| `preferential-origin-statement` | The statement on origin an agreement prescribes, or a warning when its exporter reference is missing. |
+| `dunning-reminder` | A payment reminder that escalates one level at a time, skips disputed or held invoices, and only threatens what you intend. |
 | `open-items-ageing` | Every invoice still open, aged by days past due, with unallocated credit kept out of the buckets. |
 | `statement-of-account` | Every transaction in a period with a running balance, and what the closing balance means. |
 | `bank-transfer-details` | The one way to pay that fits this payer, checked, with a reference their bank won't cut short. |
@@ -148,6 +155,7 @@ dxcl list components
 | `exemption-certificate-check` | Which lines of a US sale go out exempt under the buyer's certificates, and why the rest stay taxable. |
 | `japan-qualified-invoice` | The tax part of a Japanese qualified invoice: lines by rate, ※ marks, tax once per rate, and a checked T-number. |
 | `vat-in-local-currency` | A foreign-currency invoice's VAT bands in the currency the VAT is owed in, band by band. |
+| `patient-responsibility-breakdown` | What the patient owes on each claim line, from billed to allowed to deductible, copay and coinsurance. |
 | `voucher-redemption-lines` | Vouchers, coupons and gift cards placed where their tax treatment puts them. |
 | `prepaid-hours-drawdown` | Time entries drawn against prepaid hour blocks soonest-expiring first, with overage, rollover and lapsed hours in a ledger. |
 | `contingency-settlement-statement` | The closing statement for a contingent or damages-based fee: fee by band, statutory cap, liens, and the net. |
