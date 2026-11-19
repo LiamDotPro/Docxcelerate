@@ -2,12 +2,14 @@ import { test } from "node:test";
 import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
 import {
   buildDocument,
+  buildProjectEngineDocument,
+  defineDocumentProject,
   EchoAiClient,
   InMemoryDataProvider,
   resolveDocument,
   ScriptedAiClient,
 } from "docxcelerate";
-import type { DocumentModel, DocumentNode, ParagraphNode, PromptSpec } from "docxcelerate";
+import type { DocumentModel, DocumentNode, GraphNode, ParagraphNode, PromptSpec } from "docxcelerate";
 import { Document, Graph, Image, Paragraph, Section, template, useAi, useState } from "docxcelerate/template";
 
 /**
@@ -207,6 +209,121 @@ test("a fact nobody supplied is left out rather than written as null", async () 
   const facts = promptOf(paragraphOf(built.nodes).prompts, "info") ?? "";
 
   assertEquals(facts.includes("chaser"), false);
+});
+
+// ---------------------------------------------------------------------------
+// Facts, published
+// ---------------------------------------------------------------------------
+
+/** A one-node project whose `from` is whatever the caller builds from the data. */
+function publishedWith(facts: (data: InvoiceData) => Record<string, unknown>) {
+  const Summary = () => {
+    const [data] = useState((input: InvoiceData) => input);
+
+    useAi({
+      ask: "Summarise the invoice.",
+      placeholder: "A summary.",
+      from: facts(data) as never,
+    });
+
+    return <Paragraph id="summary" />;
+  };
+
+  return buildProjectEngineDocument(defineDocumentProject<InvoiceData>({
+    id: "invoice",
+    name: "Invoice",
+    template: template<InvoiceData>(
+      <Document id="invoice" title="Invoice">
+        <Section id="body" title="Body">
+          <Summary />
+        </Section>
+      </Document>,
+    ),
+    previewData: invoice,
+  }));
+}
+
+const facts = (data: InvoiceData) => ({
+  period: data.period,
+  lines: data.lines,
+  billing: { reference: data.reference },
+  currency: "GBP",
+});
+
+test("`from` with request data publishes each value as the token the engine fills", async () => {
+  const published = await publishedWith(facts);
+
+  assertEquals(
+    promptOf(paragraphOf(published.nodes).prompts, "info"),
+    '{\n  "period": {{data.period}},\n  "lines": {{data.lines}},\n  "billing": {\n    "reference": {{data.reference}}\n  },\n  "currency": "GBP"\n}',
+  );
+});
+
+test("a published `from` hands the model each recipient's own facts", async () => {
+  const asked: Array<string | undefined> = [];
+  const aiClient = {
+    generateParagraph: (request: { prompts: PromptSpec[] }) => {
+      asked.push(promptOf(request.prompts, "info"));
+      return "Written.";
+    },
+  };
+  const recipient = {
+    reference: "INV-2026-0199",
+    period: "September 2026",
+    lines: [{ desc: "Audit" }],
+  };
+
+  await resolveDocument(await publishedWith(facts), {
+    ctx: { ...recipient, availableTokens: 2_000 },
+    derived: {},
+    dataProvider: new InMemoryDataProvider(recipient),
+    aiClient,
+  } as never);
+
+  assertEquals(asked, [
+    '{\n  "period": September 2026,\n  "lines": [{"desc":"Audit"}],\n  "billing": {\n    "reference": INV-2026-0199\n  },\n  "currency": "GBP"\n}',
+  ]);
+});
+
+test("a value read from request data can be the whole of `from`", async () => {
+  const published = await publishedWith((data) => data.lines as never);
+
+  assertEquals(promptOf(paragraphOf(published.nodes).prompts, "info"), "{{data.lines}}");
+});
+
+test("a local build writes `from` exactly as it did before publishing could", async () => {
+  const built = await buildWith(() => {
+    const [data] = useState((input: InvoiceData) => input);
+
+    useAi({
+      ask: "Summarise the invoice.",
+      placeholder: "A summary.",
+      from: { period: data.period, lines: data.lines },
+    });
+
+    return <Paragraph id="summary" />;
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+
+  assertEquals(
+    promptOf(paragraphOf(built.nodes).prompts, "info"),
+    '{\n  "period": "August 2026",\n  "lines": [\n    {\n      "desc": "API build"\n    }\n  ]\n}',
+  );
+});
+
+test("`from` given the whole request data while publishing says to name the fields", async () => {
+  await assertRejects(
+    () => publishedWith((data) => ({ all: data })),
+    Error,
+    "whole request data",
+  );
+});
+
+test("`from` given a `.map()` while publishing says to pass the collection", async () => {
+  await assertRejects(
+    () => publishedWith((data) => ({ descs: data.lines.map((line) => line.desc) })),
+    Error,
+    "result of a `.map()`",
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -615,4 +732,42 @@ test("EchoAiClient fills a generated image with a sample picture at the node's s
     assertStringIncludes(image.alt ?? "", "Draw a portrait.");
     assertEquals([image.width, image.height], [200, 100]);
   }
+});
+
+function graphOf(nodes: DocumentNode[]): GraphNode {
+  const section = nodes[0];
+  const graph = section?.kind === "section" ? section.children[0] : undefined;
+  if (graph?.kind !== "graph") {
+    throw new Error("expected one graph in the body");
+  }
+  return graph;
+}
+
+test("a dynamic chart keeps its own caption when the model does not write one", async () => {
+  const built = await buildWith(
+    () => <Graph id="trend" generalPrompt="Plot the balance." caption="Own caption" />,
+    {
+      dynamicMode: "resolve",
+      aiClient: {
+        generateParagraph: () => "",
+        // The cast lets a string through GraphData, as a real client returns parsed JSON.
+        generateGraph: () => ({ data: { series: [{ values: ["12"] }] } }) as never,
+      },
+    },
+  );
+
+  assertEquals(graphOf(built.nodes).caption, "Own caption");
+  assertEquals(graphOf(built.nodes).data, { series: [{ values: [12] }] });
+});
+
+test("a preview of a dynamic chart carries its caption", async () => {
+  const built = await buildWith(
+    () => <Graph id="trend" generalPrompt="Plot the balance." caption="Own caption" />,
+    { dynamicMode: "placeholder" },
+  );
+
+  const graph = graphOf(built.nodes);
+  assertEquals(graph.caption, "Own caption");
+  assertEquals(graph.mode, "dynamic");
+  assertEquals("data" in graph, false);
 });
