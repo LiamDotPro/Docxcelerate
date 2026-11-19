@@ -138,6 +138,10 @@ test("reference is grouped even when the IBAN fails first", () => {
   assertEquals(run({ iban: "x" }, inv(10), { reference: "0086851625961 9897" }, undefined).reference, "86851 62596 19897");
 });
 
+test("a reference is grouped in fives from the right", () => {
+  assertEquals(run(I, inv(10, "2026-12-31"), { reference: "1234561" }, undefined).reference, "12 34561");
+});
+
 test("ERP cross-check", () => {
   const p = { reference: "86851 62596 19897" };
   const spaced = "4794 4052 0200 3608 2004 8831 5000 0000 0868 5162 5961 9897 1006 12";
