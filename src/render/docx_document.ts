@@ -57,7 +57,7 @@ import { cleanMinimalDocumentStyle } from "../project/style.ts";
 import { hasChartData } from "./chart_part.ts";
 import { columnWidthMm, pageWidthMm, paperMm } from "./page_size.ts";
 import { addChartsToPackage, chartRelationshipToken } from "./docx_charts.ts";
-import { imageSourceOf, isSvg, rasterTypeOf } from "./image_source.ts";
+import { type ImageSource, imageSourceOf, isSvg, pixelSizeOf, rasterTypeOf } from "./image_source.ts";
 
 /**
  * How far a running strip stands from the paper when a document says nothing.
@@ -972,7 +972,7 @@ function imageCard(
   picture: Paragraph,
 ): Table {
   const padding = block.paddingPt ?? 0;
-  const side = (node.width ?? 120) + padding * 2;
+  const side = pictureSizeOf(node, imageSourceOf(node.path)).width + padding * 2;
   const width = Math.round(side * 20);
 
   return new Table({
@@ -1290,10 +1290,8 @@ function imageRunOf(node: ImageNode): ImageRun | TextRun {
     return new TextRun(`[image: ${described}]`);
   }
 
-  const transformation = {
-    width: ptToPx(node.width ?? 120),
-    height: ptToPx(node.height ?? node.width ?? 120),
-  };
+  const size = pictureSizeOf(node, source);
+  const transformation = { width: ptToPx(size.width), height: ptToPx(size.height) };
   const altText = { name: node.id, description: described, title: described };
   const raster = rasterTypeOf(source.mediaType);
 
@@ -1320,6 +1318,27 @@ function imageRunOf(node: ImageNode): ImageRun | TextRun {
   }
 
   return new TextRun(`[image: ${described}]`);
+}
+
+/**
+ * The size a picture is drawn at, in points.
+ *
+ * A side the node leaves out follows the picture's own proportions, read from
+ * the bytes that are packed. For an SVG those are the bytes of the raster
+ * packed beside it, since that raster is what Word draws. Both sides stated
+ * are the author's call, even when that distorts the picture. With no bytes to
+ * read (a URL, a picture not produced yet, a header that says nothing) it is
+ * the square it always was.
+ */
+function pictureSizeOf(node: ImageNode, source: ImageSource): { width: number; height: number } {
+  const raster = source.kind === "data" && isSvg(source.mediaType)
+    ? imageSourceOf(node.fallbackPath)
+    : source;
+  const natural = raster.kind === "data" ? pixelSizeOf(raster.bytes) : undefined;
+  const ratio = natural ? natural.width / natural.height : 1;
+  const width = node.width ?? (node.height !== undefined ? node.height * ratio : 120);
+
+  return { width, height: node.height ?? width / ratio };
 }
 
 /** Points to pixels, the unit Word measures a picture in. */

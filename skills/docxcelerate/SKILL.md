@@ -136,7 +136,7 @@ Nothing leaves the machine, and the same build gives the same page every time.
 | `Section` | any nodes, including sections | the **only** container; `title` required and becomes a heading |
 | `Paragraph` | text children, or prompts | `text` prop says the same as children; a `\n` in the text is a line break; `list="bullet"` or `"number"` makes it a list item, counted by the renderer |
 | `Text` | words, inside a `Paragraph`, `Cell` or `Shape` | **not a node** — no `id`. `bold`, `italic`, `underline`, `strike`, `href`. Never a colour or a size |
-| `Image` | `src`, `alt`, `width`, `height`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below |
+| `Image` | `src`, `alt`, `width`, `height`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below; give one of `width`/`height` and the other keeps the picture's proportions |
 | `Graph` | `graphType`, `data`, `title`, `caption`, or prompts | packed as a real Word chart, never a picture of one — the numbers travel with it |
 | `Table` | `Row`s, and any `.map()` producing them | `columns` declared once, in mm or `"auto"`, with `align` |
 | `Row` | `Cell`s | `header` marks a heading row; only *leading* ones repeat across pages |
@@ -151,6 +151,11 @@ as a note rather than a picture — the packer never reaches for a file, because
 the engine writing the document is not on the machine the file was on. Word will
 not embed an SVG alone either, so give one a `fallbackSrc` raster: the screen
 draws the SVG and the Word file gets the raster.
+
+Give a picture one side and the other follows its own proportions —
+`<Image src={logo} width={160} />` is a 160pt-wide logo at its real shape, not a
+square. With neither side it is 120pt wide; with both it is exactly the box you
+gave, stretched if that box disagrees with the picture.
 
 Every element also takes **`variant`** — a name the theme looks up, never an
 appearance: `<Cell variant="badge">`, `<Paragraph variant="band">`. The colours
