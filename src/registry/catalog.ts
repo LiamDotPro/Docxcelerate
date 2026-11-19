@@ -1127,6 +1127,71 @@ export const COMPONENTS: RegistryComponent[] = [
   },
   {
     kind: "component",
+    id: "dunning-reminder",
+    title: "Dunning reminder",
+    summary: "A payment reminder that escalates one level at a time and never threatens what you won't do.",
+    detail:
+      "Chases only invoices past their grace period that are not disputed, on " +
+      "hold or paid down to zero, and prints nothing at all when none qualify. " +
+      "Each invoice moves up one level per reminder and only after the minimum " +
+      "interval, so a daily run never jumps from first reminder to final notice " +
+      "or re-sends the same one. The level sets the title and tone. The deadline " +
+      "is never shorter than the Dutch, Belgian or UK pre-action minimum you name " +
+      "and never falls on a weekend. A final reminder states only the " +
+      "consequences you mark as intended, and none if you mark none, because an " +
+      "empty threat is unlawful in the UK and the US. Every level says which " +
+      "date payments were checked up to. The opening can be generated per " +
+      "document. One deriver decides it all.",
+    category: "Body",
+    tags: ["reminder", "dunning", "invoice", "deriver", "branching", "section", "dynamic", "prompts", "ai"],
+    exports: ["DunningReminder"],
+    dataFields: [
+      { path: "reminder.sendDate", type: "string", summary: "ISO 8601 date the reminder is sent. Required." },
+      { path: "reminder.paymentsCheckedTo", type: "string", summary: "ISO 8601 date payments are reflected up to. Printed at every level. Required." },
+      { path: "reminder.currency", type: "string", summary: "ISO 4217 code for every amount. Required." },
+      { path: "reminder.graceDays", type: "number | undefined", summary: "Days past due before an invoice is chased. Missing means 7." },
+      { path: "reminder.minIntervalDays", type: "number | undefined", summary: "Days between reminders for one invoice. Missing means 14." },
+      { path: "reminder.deadlineDays", type: "{ first?: number; second?: number; final?: number } | undefined", summary: "Days to the deadline per level. Missing means 14, 10 and 7." },
+      { path: "reminder.legalFloor", type: '"NL-consumer" | "BE-consumer" | "UK-pre-action" | undefined', summary: "A statutory minimum the deadline is raised to. Missing means none." },
+      { path: "reminder.channel", type: '"post" | "email" | undefined', summary: "Delivery, read for the NL and BE floors only. Missing means post." },
+      { path: "reminder.intendedConsequences", type: '("agency" | "court" | "suspension")[] | undefined', summary: "What you will actually do after a final reminder. Missing prints no threat." },
+      { path: "reminder.customerSince", type: "string | undefined", summary: "ISO 8601 start of the relationship, told to the generated opening only." },
+      { path: "reminder.invoices", type: "Array<{ number; dueDate; openAmount; disputed?; onHold?; lastLevel?; lastReminderDate? }> | undefined", summary: "Every open invoice. The component picks which this reminder covers." },
+    ],
+    arrangements: [
+      { id: "table", title: "Table", summary: "Number, due date, days overdue and amount in columns, with a total row." },
+      { id: "stacked", title: "Stacked", summary: "One sentence per invoice down the text column, then the total." },
+    ],
+    files: node("dunning-reminder", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      reminder: {
+        sendDate: "2026-11-20",
+        paymentsCheckedTo: "2026-11-19",
+        currency: "GBP",
+        graceDays: 7,
+        minIntervalDays: 14,
+        legalFloor: "UK-pre-action",
+        channel: "post",
+        intendedConsequences: ["agency", "court"],
+        customerSince: "2019-03-01",
+        invoices: [
+          { number: "SI-2026-07-004817/REV-2", dueDate: "2026-07-31", openAmount: 184250.75, lastLevel: 2, lastReminderDate: "2026-11-02" },
+          { number: "SI-2026-08-005102-FACILITIES-NORTH", dueDate: "2026-08-31", openAmount: 96480.0, lastLevel: 2, lastReminderDate: "2026-11-02" },
+          { number: "SI-2026-09-005390", dueDate: "2026-09-30", openAmount: 12999.99, lastLevel: 1, lastReminderDate: "2026-10-30" },
+          { number: "SI-2026-09-005391", dueDate: "2026-09-30", openAmount: 7450.0, lastLevel: 1, lastReminderDate: "2026-11-12" },
+          { number: "SI-2026-10-005688", dueDate: "2026-10-31", openAmount: 48120.4, disputed: true },
+          { number: "SI-2026-10-005702", dueDate: "2026-10-31", openAmount: 23875.0 },
+          { number: "SI-2026-10-005703", dueDate: "2026-10-31", openAmount: 1250.0, onHold: true },
+          { number: "SI-2026-10-005750", dueDate: "2026-10-20", openAmount: 0 },
+          { number: "SI-2026-11-005940", dueDate: "2026-11-10", openAmount: 3600.0 },
+          { number: "SI-2026-11-006011", dueDate: "2026-11-15", openAmount: 9999.0 },
+        ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
     id: "open-items-ageing",
     title: "Open items and ageing",
     summary: "Every invoice still open, aged by days past due, with unallocated credit kept out of the buckets.",
