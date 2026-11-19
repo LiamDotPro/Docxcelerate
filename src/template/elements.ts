@@ -8,8 +8,10 @@
  */
 
 import type {
+  CellTextDirection,
   DocumentProperties,
   GraphData,
+  GraphDataLabels,
   GraphLegend,
   GraphStacking,
   GraphType,
@@ -256,8 +258,15 @@ export interface ImageProps extends CommonElementProps, PromptProps {
   fallbackSrc?: string;
   /** Alternative text describing the image. */
   alt?: string;
-  /** Rendered width, in points. Left out, it follows the picture's own proportions from `height`, or is 120pt when neither is given. */
-  width?: number;
+  /**
+   * Rendered width, in points, or `"full"` for the width of whatever it stands in:
+   * the text column of the page as turned, or the inside of its table cell or shape.
+   *
+   * Left out, it follows the picture's own proportions from `height`, or is 120pt
+   * when neither is given. With `"full"` the height follows the picture's
+   * proportions unless `height` is given too, which draws exactly that box.
+   */
+  width?: number | "full";
   /** Rendered height, in points. Left out, it follows the picture's own proportions from the width. */
   height?: number;
   /**
@@ -374,8 +383,13 @@ export interface GraphProps extends CommonElementProps, PromptProps {
    * picks it. Must be greater than zero.
    */
   valueAxisStep?: number;
-  /** Whether each point prints its own figure. Worth it on a pie, rarely elsewhere. */
-  dataLabels?: boolean;
+  /**
+   * Whether each point prints a label, and what it prints: `"value"`,
+   * `"percent"`, `"category"`, `"categoryAndValue"` or `"categoryAndPercent"`.
+   * `true` prints the share on a pie and the value elsewhere. A percentage
+   * exists only on a pie or a doughnut.
+   */
+  dataLabels?: boolean | GraphDataLabels;
 }
 
 /** Props for the `<Table>` element. */
@@ -390,10 +404,21 @@ export interface TableProps extends CommonElementProps {
   /**
    * Where the table sits across the text column. Left unless it is said.
    *
-   * Only a table narrower than the column can move: any `"auto"` column fills
+   * Only a table narrower than the column can move: any `"auto"` column, or shares adding up to 100%, fills
    * the column, and a `bleed` table spans the paper, so either ignores it.
    */
   align?: TableAlign;
+  /**
+   * Whether the whole table stays on one page rather than breaking between rows.
+   *
+   * For a short table that reads as one thing — a totals box, bank details, a
+   * signature block — where a page break between two of its rows leaves a
+   * subtotal on one page and the total it leads to on the next. Word moves the
+   * whole table over instead. Every row is also kept whole, as `keepTogether`
+   * on a `<Row>` does. A table taller than a page breaks anyway, having nowhere
+   * else to go; leave it off a long table, where a break between rows is fine.
+   */
+  keepTogether?: boolean;
   /** The rows, and any `.map()` producing them. */
   children?: Yield;
 }
@@ -436,6 +461,14 @@ export interface CellProps extends CommonElementProps {
   span?: number;
   /** Alignment, when this cell departs from its column's. */
   align?: TableAlign;
+  /**
+   * Turns the cell's words on their side. Horizontal unless it is said.
+   *
+   * For a heading over a column too narrow to hold it across — a day on a rota,
+   * a requirement in a compliance grid — or a label down the side of a form.
+   * The row grows to fit the turned words; give it a `height` for an even depth.
+   */
+  textDirection?: CellTextDirection;
   /**
    * What the cell holds.
    *

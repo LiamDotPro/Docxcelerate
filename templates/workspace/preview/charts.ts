@@ -415,13 +415,27 @@ function labelStyle(chart: PreviewChart) {
       // ECharts hands a label callback the whole data point, whose `value` is
       // anything a series may hold. Only a number can be formatted, and
       // anything else prints as it stands.
-      ...(format === undefined ? {} : {
-        formatter: (point: { value?: unknown }) =>
-          typeof point.value === "number" ? print(point.value, format) : String(point.value ?? ""),
-      }),
+      formatter: (point: { name?: string; value?: unknown }) => {
+        const figure = format !== undefined && typeof point.value === "number"
+          ? print(point.value, format)
+          : String(point.value ?? "");
+
+        if (chart.dataLabels === "category") return point.name ?? "";
+
+        return chart.dataLabels === "categoryAndValue" ? `${point.name}, ${figure}` : figure;
+      },
     },
   };
 }
+
+/** ECharts' own template for what a slice prints: `{b}` its name, `{c}` its value, `{d}` its share. */
+const PIE_LABEL: Record<Exclude<PreviewChart["dataLabels"], "none">, string> = {
+  value: "{c}",
+  percent: "{d}%",
+  category: "{b}",
+  categoryAndValue: "{b}, {c}",
+  categoryAndPercent: "{b}, {d}%",
+};
 
 /** A pie or a doughnut: one series, and a colour for every slice. */
 function pieSeries(chart: PreviewChart): echarts.SeriesOption {
@@ -438,7 +452,7 @@ function pieSeries(chart: PreviewChart): echarts.SeriesOption {
       ? { show: false }
       : {
         show: true,
-        formatter: chart.dataLabels === "percent" ? "{d}%" : "{c}",
+        formatter: PIE_LABEL[chart.dataLabels],
         color: hex(chart.textColor) ?? "#595959",
         fontSize: 11,
       },

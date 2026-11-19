@@ -216,6 +216,16 @@ test("data labels come back, and which figure they print", async () => {
     }),
   ]);
 
+  const pieData = { categories: quarters, series: [{ label: "Share", values: [4, 3, 2, 1] }] };
+  const [category] = await readBack([chart({ dataLabels: "category" })]);
+  const [both] = await readBack([chart({ dataLabels: "categoryAndValue" })]);
+  const [pieBoth] = await readBack([
+    chart({ graphType: "pie", dataLabels: "categoryAndPercent", data: pieData }),
+  ]);
+
+  assertEquals(category.dataLabels, "category");
+  assertEquals(both.dataLabels, "categoryAndValue");
+  assertEquals(pieBoth.dataLabels, "categoryAndPercent");
   assertEquals(off.dataLabels, "none");
   assertEquals(values.dataLabels, "value");
   assertEquals(percent.dataLabels, "percent");

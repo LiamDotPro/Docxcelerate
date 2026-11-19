@@ -192,7 +192,7 @@ export function createRuntimeState(options: RuntimeStateOptions): RuntimeState {
     ctx,
     derived: {},
     dataProvider: new InMemoryDataProvider(ctx),
-    aiClient: options.aiClient ?? missingAiClient,
+    ...(options.aiClient === undefined ? {} : { aiClient: options.aiClient }),
     ...(options.locale === undefined ? {} : { locale: canonicalLocale(options.locale) }),
   };
 }
@@ -251,11 +251,5 @@ function canonicalLocale(locale: string): string {
     throw new Error(`"${locale}" is not a BCP 47 locale tag, such as "en-GB" or "fr".`);
   }
 }
-
-const missingAiClient: AiClient = {
-  generateParagraph(): never {
-    throw new Error("Dynamic paragraph resolution requires an aiClient.");
-  },
-};
 
 export type { DocumentNode };

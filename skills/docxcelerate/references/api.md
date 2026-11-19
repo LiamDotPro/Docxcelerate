@@ -64,11 +64,11 @@ interface PromptProps {
 | `Section` | `title` (required), `showTitle?` (default `true`), `children?` |
 | `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0), `listStyle?` (`"decimal" \| "lowerLetter" \| "upperLetter" \| "lowerRoman" \| "upperRoman"`, or any of them with `Paren` appended: `"lowerLetterParen"` is (a); default by depth 1. a. i.), `listStart?` (a whole number from 1, default 1; numbered items only), `listMarker?` (`"dash" \| "tick" \| "cross" \| "square"`: –, ✓, ✗, ▪; default the bullet, • ◦ ▪ by depth; bulleted items only) |
 | `Text` | `bold?`, `italic?`, `underline?` (`true` single, `"double"` the accounting double rule; a link is always underlined), `strike?`, `script?` (`"superscript" \| "subscript"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`), `variant?` (a block name; only its character settings apply), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
-| `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` (points; give one and the other keeps the picture's proportions, neither is 120pt wide), `align?` (`"left" \| "center" \| "right"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`) |
-| `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `alt?`, `caption?`, `width?`, `height?` (points), `align?` (`"left" \| "center" \| "right"`), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `valueAxisMin?`, `valueAxisMax?`, `valueAxisStep?` (numbers; fix the value axis, Word picks any left out), `dataLabels?` |
-| `Table` | `columns` (required), `align?` (`"left" \| "center" \| "right"`, default left), `children?` |
+| `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?` (points, or `"full"` for the text column — or the inside of its `Cell` or `Shape` — at the picture's proportions), `height?` (points; give one and the other keeps the picture's proportions, neither is 120pt wide), `align?` (`"left" \| "center" \| "right"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`) |
+| `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `alt?`, `caption?`, `width?`, `height?` (points), `align?` (`"left" \| "center" \| "right"`), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `valueAxisMin?`, `valueAxisMax?`, `valueAxisStep?` (numbers; fix the value axis, Word picks any left out), `dataLabels?` (`true`, or `"value" \| "percent" \| "category" \| "categoryAndValue" \| "categoryAndPercent"`; `true` prints the share on a pie, the value elsewhere) |
+| `Table` | `columns` (required), `align?` (`"left" \| "center" \| "right"`, default left), `keepTogether?`, `children?` |
 | `Row` | `header?`, `keepTogether?`, `height?`, `heightRule?`, `children?` |
-| `Cell` | `span?`, `align?`, `children?` |
+| `Cell` | `span?`, `align?`, `textDirection?` (`"up" \| "down"`; horizontal when left out), `children?` |
 | `Shape` | `width?`, `height?` (points), `children?` |
 | `TableOfContents` | `title?` |
 | `PageBreak` | nothing beyond the common props |
@@ -103,7 +103,7 @@ Notes worth knowing:
   sections — but both shipped renderers print every section title at one level,
   so a three-deep document does not yet *look* three-deep. `Table`, `Row` and
   `Cell` hold nodes too; they just do not head anything.
-- **A table's columns are declared once, on the table**, in millimetres or
+- **A table's columns are declared once, on the table**, in millimetres, as a percentage or
   `"auto"`, each with an optional `align`. Rows and cells are ordinary nodes, so
   a `.map()` produces rows, a condition drops one, and every id names itself —
   none of it is a special case. `header` on a row draws it as a heading; only
@@ -112,21 +112,43 @@ Notes worth knowing:
   `keepTogether` on a row stops Word breaking it across a page — the whole row
   moves over instead. Put it on the row a `.map()` produces and every line of an
   invoice or schedule gets it; leave it off a long table's short rows, where a
-  break between them is fine. To number the rows, pass the map's index to
+  break between them is fine. `keepTogether` on the `<Table>` keeps the whole
+  table on one page — every row whole, and each kept with the one after it — so
+  a totals box, bank details or a signature block moves over as one rather than
+  leaving its last line overleaf. Use it on short tables only: a table taller
+  than a page breaks anyway, and on a long one it just pushes the whole thing to
+  a new page. To number the rows, pass the map's index to
   `position`: `lines.map((line, i) => <Row id="line"><Cell id="no">{position(i)}</Cell>…</Row>)`
   prints 1, 2, 3 in a preview and in every published document, counting only the
   rows a `.filter()` kept. The bare index counts from zero and, in a published
   filtered loop, counts the entries dropped too; `i + 1` throws while publishing.
+- **A column can be a share of the column**: `width: "30%"` is 30% of the text
+  column (of the paper for a `bleed` table), worked out for whatever page the
+  document is set on. A 50/30/20 table keeps its proportions on A4, Letter or
+  landscape, where millimetres would have to be redone. Mix freely: millimetre
+  and percentage columns are taken first and `"auto"` ones share what is left.
+  Shares are not rescaled, so make them add up to 100% (or less, with an
+  `"auto"` column) or the table runs past the margin. A share from 0 to 100% is
+  the only form, and anything else throws. In a table inside a cell, the share
+  is still of the page's text column, not of the cell.
 - **A row can be given a height**, in points: `<Row height={56}>` is a floor the
   row grows past if its cells need more, which is what a box to sign in wants.
   `heightRule="exact"` makes it a fixed depth instead — a label sheet, a form
   grid — and Word clips whatever does not fit, so keep an exact row's contents
   inside it (the preview grows the row rather than hiding the overflow). This
   is not a block's `heightPt`, which sets a paragraph's leading, not a row's depth.
+- **`textDirection` on a `<Cell>` turns its words on their side**: `"up"` reads
+  from the foot of the cell to its head, like a spine label; `"down"` from the
+  head to the foot. It is for a heading over a column too narrow to hold it —
+  days across a rota, requirements across a compliance grid — and for a label
+  down the side of a form. Word grows the row to fit the turned words, so give
+  the row a `height` when the headings should share one depth. The column's
+  `align` still applies, along the turned line. Never fake it by breaking a
+  word into one letter per line.
 - **`align` on a `<Table>` moves the whole table**, not its words: a totals
   block of fixed-width columns with `align="right"` sits against the right
   margin, with no empty spacer column to hold it there. It only moves a table
-  narrower than the text column — any `"auto"` column fills the column, and a
+  narrower than the text column — any `"auto"` column, or shares adding up to 100%, fills the column, and a
   `bleed` table spans the paper and ignores it. Column and cell `align` still
   set the text inside.
 - **`Cell` takes text directly** — `<Cell>{line.qty}</Cell>` is the common case.
@@ -202,14 +224,18 @@ Notes worth knowing:
 - `scatter` and `bubble` read the categories as their x values, so those are
   numbers written as text; anything that will not parse counts as its position.
   `sizes` is the third figure a `bubble` carries and no other type reads.
+- `dataLabels` chooses what each point prints. `"categoryAndPercent"` on a pie
+  labels each slice "Rent, 42%", which with `legend="none"` replaces the key.
+  The name and the figure are joined with ", ". A percentage exists only on a
+  `pie` or `doughnut`; a bar that wants shares uses `stacked="percent"`.
 - **A generated chart's answer is checked before it is drawn.** What
   `aiClient.generateGraph` returns is read the way model JSON is written: a
   number written as text (`"12"`, `" 3.5 "`) is a number, a numeric category
-  (`2024`) is its text, and `null` is the same as leaving a field out. An absent
+  (`2024`) is its text, and `null` is the same as leaving a field out, a series `label` included. An absent
   `graphType`, `data` or `caption` keeps the node's own, so a `caption` written
   on a prompted `<Graph>` survives a model that only sends numbers. Anything else
   that is not a chart — a `graphType` that is not one of the nine, a `series`
-  that is not an array, a series without a `values` array, a value such as
+  that is not an array, a series without a `values` array, a `label` that is not text, a value such as
   `"twelve"` — fails with an error naming the node and the field, rather than
   packing a chart that is empty in Word.
 - **A chart is packed as a real Word chart**, not as a picture of one: a
@@ -273,11 +299,13 @@ Each of these is an error naming the position, not a quiet reinterpretation:
 | Two nodes with the same `id` | Ids address a node for the engine, so they must be unique |
 | Text **and** a prompt on one node | A node is written or it is generated — supply one |
 | `<Image>` with neither `src` nor a prompt | Nothing says what it shows |
+| `<Graph>` that is not a pie or doughnut with `dataLabels="percent"` or `"categoryAndPercent"` | Only a pie's slices add up to a whole a share can be taken of |
 | `<Graph>` with neither `data` nor a prompt | Nothing says what it plots |
 | A dynamic node in a build with no `aiClient` | Only a preview build may resolve those to placeholders |
 | A prompted `<Image>` among a paragraph's words, published to an engine | An engine draws block nodes only — give the `<Image>` its own place beside the paragraph |
 | A generated chart whose answer is not a chart (`"twelve"` as a value, an unknown `graphType`) | Word would draw it empty; the error names the node and the field |
 | A generated paragraph whose answer is not a string (a provider's response object, `undefined`) | It would pack as `[object Object]` or nothing; the error names the node |
+| A client method that throws or rejects (`fetch failed`, a 429) | Rejects with `AiGenerationError`: `nodeId`, `kind`, and the client's error as `cause` |
 
 ## Component types
 
@@ -336,6 +364,7 @@ interface AiConfig {
   from?: JsonObject | string;   // the facts to write from, as data or as prose
   avoid?: string;               // what it must not say
   example?: string | string[];  // what a good answer looks like, written out
+  options?: JsonObject;         // settings for the engine's client, e.g. { model: "large", maxTokens: 400 }
 }
 ```
 
@@ -347,13 +376,23 @@ the per-document parts to be written. Give it as finished text, not a form with
 blanks in it. Pass an array when the shape legitimately varies by case — they
 travel numbered, and read as a pattern rather than a template.
 
+`aiProps(config: AiConfig) => PromptProps` is `useAi` for after an `await`. It
+is not a hook: it takes the same config, applies the same rules (`placeholder`
+and `ask` required), and returns `{ generalPrompt, placeholder, systemPrompt?,
+infoPrompt?, negativePrompt?, examplePrompt? }` to spread on the element. Use it
+when the ask or the facts read what `await useDeriver(...)` returned —
+interpolate the result, and publishing writes `{{derived.…}}` for you. Props on
+the element win over what a hook set around it. A deriver's whole result passed
+as `from` travels as one token and arrives as its JSON.
+
 What `aiClient.generateParagraph` returns is the paragraph itself, so return the
 text, not the provider's response object: anything but a string fails with an
 error naming the node. The answer is trimmed, so a model's trailing newline does
 not become a line break, and characters XML cannot hold — control characters
 other than tab, line feed and carriage return — are removed, so the `.docx`
-still opens. A line break or tab inside the answer is kept. An empty answer is
-an empty paragraph, not an error.
+still opens. A line break or tab inside the answer is kept. An answer with
+nothing left once trimmed fails with an error naming the node, so a document is
+never sent with a blank where its prose should be.
 
 `from` takes request data as it is and survives publishing: write
 `from: { period: invoice.period, lines: invoice.lines }`, not a sentence built
@@ -363,6 +402,8 @@ their lines. Once filled, a string arrives without quotes and a list or object a
 compact JSON; literals you write beside them stay as they are. Name the fields —
 handing over the whole request data, or the result of a `.map()`, is refused at
 publish.
+
+`options` is handed to the engine's `AiClient` untouched as `request.node.aiOptions`, for a paragraph, an image and a chart alike. Use it when one node needs a different model or a longer limit than the rest: `options: { model: "large", maxTokens: 1200 }`. docxcelerate reads none of it, so the keys are whatever your client understands. It is fixed at build time and published with the document, so it cannot be read from request data (that is refused at publish) and must never hold a key. Omitted or `{}`, the node carries no `aiOptions`. A shared hook can set it with `useSetPrompts({ aiOptions })`, and a later layer replaces it whole, without merging.
 
 The `useState` setter is not a re-render request — a build is a single pass. It
 updates the value this component reads later, and the value anything sharing it
@@ -441,6 +482,8 @@ export default defineDocumentProject<DocumentData>({
   previewData,                 // what the preview resolves against
   derivers,                    // values computed per document rather than per build
   style: documentStyle,        // applied when packing
+  locales: ["en-GB", "en-US"],  // default first; each other one gets its own preview and engine document
+  localeStyles: { "en-US": usLetterStyle }, // a whole style for one locale instead of `style`
   previewOptions: { availableTokens: 800 },
   buildOptions: {},            // runtime options for engine and final builds
   metadata: {},
@@ -450,6 +493,8 @@ export default defineDocumentProject<DocumentData>({
 `version` defaults to `"0.1.0"`. The preview app discovers projects by globbing
 for `document.project.ts` — a new document appears in the picker as soon as it
 exists, and nothing registers it.
+
+`localeStyles` keys must be among `locales` — `defineDocumentProject` throws otherwise. A key matches the build's locale exactly, ignoring case: `en-CA` does not fall back to `en-US`. The manifest's `style` is the default locale's, and an entry in `localizedDocuments` carries its own `style` only when it differs.
 
 ## Building
 
@@ -466,7 +511,7 @@ import {
 | Function | Builds |
 | --- | --- |
 | `buildDocument(template, data, options?)` | The raw model from a template and data you hold |
-| `buildProjectPreviewDocument(project, options?)` | What the preview app shows: dynamic nodes → placeholders, derivers resolved, project style applied |
+| `buildProjectPreviewDocument(project, options?)` | What the preview app shows: dynamic nodes → placeholders, derivers resolved, the style for its locale applied |
 | `buildProjectEngineDocument(project, options?)` | The upload artifact: values stay tokens, branches keep both arms, loops stay loops, and every generated paragraph, image and chart keeps its prompts for the engine's client to answer |
 | `buildProjectFinalDocument(project, { data, aiClient, … })` | A finished document at request time, dynamic nodes run through the AI client |
 | `createDocumentProjectArtifact(project, options?)` | The manifest, both documents and the deriver bundle together |
@@ -561,14 +606,14 @@ interface AiClient {
 
 // All three requests have this shape; `node` is a ParagraphNode, GraphNode or ImageNode.
 interface AiGenerationRequest {
-  node: ParagraphNode;    // the node being written, with its id
+  node: ParagraphNode;    // the node being written, with its id and any aiOptions from useAi
   prompt: string;         // the prompts joined, one "KIND: text" line each
   prompts: PromptSpec[];  // the same, kept apart: { kind, text }
   state: RuntimeState;    // the data and locale this document is written for
 }
 
 interface AiGraphResult { graphType?: GraphType; data?: GraphData; caption?: string }
-interface AiImageResult { path: string; alt?: string; width?: number; height?: number }
+interface AiImageResult { path: string; alt?: string; width?: number | "full"; height?: number }
 ```
 
 The prompts come from `useAi` in a fixed order: `voice` → `system`, `ask` →
@@ -582,10 +627,12 @@ write.
 What comes back is checked before it is packed:
 
 - **Paragraph:** a string, the text itself. Anything else rejects, naming the node.
-  `""` is an empty paragraph.
+  An answer that is empty once trimmed rejects too.
 - **Chart:** an `AiGraphResult`, read the way model JSON is written (see
   `Graph.data` above). Absent or `null` fields keep the node's own, and an
-  unplottable answer rejects, naming the node and the field.
+  unplottable answer rejects, naming the node and the field. So does an answer
+  that leaves nothing to plot: no `data` on a node with none of its own, no
+  series, or every value `null`.
 - **Image:** an `AiImageResult` whose `path` is a `data:` URI. Only that is packed
   into Word. A path or URL draws on screen and packs as `[image: <alt>]`. Absent
   `alt`, `width` or `height` keep the node's own.
@@ -608,6 +655,36 @@ const aiClient: AiClient = {
 };
 ```
 
+A chart client holds the model to `aiGraphResultSchema`, exported from
+`docxcelerate`: a plain JSON Schema object for exactly the answer
+`generateGraph` returns. Its chart types are the nine the check accepts, every
+field is required, and a field the model has nothing to say for is `null`,
+which keeps the node's own. Pass it to whatever structured output the provider
+has:
+
+```ts
+import { aiGraphResultSchema } from "docxcelerate";
+
+// OpenAI:    response_format: { type: "json_schema", json_schema: { name: "chart", strict: true, schema: aiGraphResultSchema } }
+// Anthropic: tools: [{ name: "chart", input_schema: aiGraphResultSchema }], tool_choice: { type: "tool", name: "chart" } — the answer is the tool_use block's `input`
+// Gemini:    generationConfig: { responseMimeType: "application/json", responseJsonSchema: aiGraphResultSchema }
+
+async generateGraph({ prompt }) {
+  const response = await fetch(MODEL_URL, {
+    method: "POST",
+    headers: { authorization: `Bearer ${MODEL_KEY}`, "content-type": "application/json" },
+    body: JSON.stringify({ input: prompt, schema: aiGraphResultSchema }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!response.ok) throw new Error(`Model answered ${response.status}`);
+  const { text } = await response.json();
+  return JSON.parse(text); // checked before it is drawn; a reply cut off mid-JSON rejects here
+},
+```
+
+The schema leaves out a series' `color` on purpose: a colour a model picks is
+one the theme can no longer change.
+
 Keep keys in the client, never in `data` or a prompt: a `{{data.…}}` token can
 print anything in `data`, and prompts are published with the document.
 
@@ -618,14 +695,40 @@ catch, retry or time out:
 
 | The client… | `resolveDocument` |
 | --- | --- |
-| throws or rejects | rejects with that error |
+| throws or rejects | rejects with an `AiGenerationError` naming the node, the client's error as `cause` |
 | never settles | never settles — bound the call with `AbortSignal.timeout` |
-| returns a non-string paragraph, or a chart it cannot plot | rejects, naming the node |
+| returns a non-string or empty paragraph, or a chart with nothing it can plot | rejects, naming the node |
 | lacks `generateGraph` / `generateImage` for a node that needs it | rejects, naming the node and the method |
 
 A dynamic node in an arm whose condition is false is never asked for. To show
 the placeholder, or a stock sentence, instead of failing the document, catch
 inside your client and return that text.
+
+### When the model call fails
+
+A client method that throws or rejects fails the build or resolve with an
+`AiGenerationError`. Nodes are written in order, so nothing after the failed
+node is asked.
+
+```ts
+import { AiGenerationError } from "docxcelerate";
+
+try {
+  await resolveDocument(artifact.engineDocument, createRuntimeState({ data, aiClient }));
+} catch (err) {
+  if (err instanceof AiGenerationError) {
+    err.nodeId; // "summary", or "note-1" inside a repeat
+    err.kind;   // "paragraph" | "image" | "graph"
+    err.cause;  // exactly what the client threw: read a status from it to retry
+  }
+  throw err;
+}
+```
+
+Only the client's failure is wrapped. No client, a missing `generateImage` or
+`generateGraph`, and an answer that is not text or not a chart fail with their
+own errors. The error carries nothing from the request — no prompts, no data.
+A preview (`dynamicMode: "placeholder"`) never calls the client.
 
 ### Stand-in AI clients
 
@@ -649,8 +752,8 @@ ai.requests; // ScriptedAiRequest[]: { id, kind, prompt, prompts }, in the order
 
 `ScriptedAiClient` matches an exact id first, then the id with each trailing
 `-<index>` a repeat added taken off in turn (`note-1-2` → `note-1` → `note`). An
-id with no answer, or an answer of the wrong shape for the node, throws and the
-build or resolve rejects. Previews (`dynamicMode: "placeholder"`) never call it.
+id with no answer, or an answer of the wrong shape for the node, throws, and the
+build or resolve rejects with an `AiGenerationError` whose `cause` is that error. Previews (`dynamicMode: "placeholder"`) never call it.
 
 ## The built document
 
@@ -699,13 +802,13 @@ export const documentStyle: DocumentStyle = {
 };
 ```
 
-`DocumentStyle` covers `preset`, `page` (size `A4`, `LETTER`, `LEGAL`, `A5`, `A3`, or `{ widthMm, heightMm }` for any other sheet given upright; `orientation` `portrait` or `landscape` turns either kind, and a table, shape or chart with no width fills the column of the page as turned,
+`DocumentStyle` covers `preset`, `page` (size `A4`, `LETTER`, `LEGAL`, `A5`, `A3`, or `{ widthMm, heightMm }` for any other sheet given upright; `orientation` `portrait` or `landscape` turns either kind, and a table, shape or chart with no width, and an `Image` with `width="full"`, fills the column of the page as turned,
 margins in mm, `headerMm` / `footerMm` — how far the running strips stand
 from the *paper's* edge rather than from the margin, 12.5mm unless said —
 `valign`, `"top"` unless said, `"center"` or `"bottom"`, which is where the body
 sits between the top and bottom margins: Word's own vertical alignment, for a
 certificate or cover sheet set mid-page; it applies to every page, so a short
-last page is centred too — and `firstPageNumber` / `numberStyle`: where page numbering starts, a whole number
+last page is centred too — `border` (with `borderWidthPt`, `borderStyle` as on a block, and `borderOffsetMm`, how far in from the paper's edge to the rule's outer edge, 8.5mm unless said, 0–11mm, anything else throws), a rule round all four edges of every page: Word's page border, for a certificate or a formal notice; it moves no text, so the margins must be wider than the offset; nothing is drawn without `border` — and `firstPageNumber` / `numberStyle`: where page numbering starts, a whole number
 from 0 (default 1), and how it is written, `"decimal"` (default),
 `"lowerRoman"`, `"upperRoman"`, `"lowerLetter"` or `"upperLetter"`, for an
 appendix that continues its parent's numbering or front matter numbered

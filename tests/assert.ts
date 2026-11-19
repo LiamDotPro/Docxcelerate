@@ -39,3 +39,12 @@ export function assertRejects(
     return true;
   });
 }
+
+export async function rejectionOf(fn: () => Promise<unknown>): Promise<unknown> {
+  try {
+    await fn();
+  } catch (error) {
+    return error;
+  }
+  throw new Error("Expected a rejection.");
+}

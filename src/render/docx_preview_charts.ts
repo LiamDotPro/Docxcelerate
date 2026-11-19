@@ -31,7 +31,7 @@
  * @module
  */
 
-import type { GraphLegend, GraphSeries, GraphType } from "../domain/types.ts";
+import type { GraphDataLabels, GraphLegend, GraphSeries, GraphType } from "../domain/types.ts";
 import { PRESET_DASH } from "./chart_part.ts";
 import { readPart } from "./docx_packed.ts";
 import { attribute, decodeEntities, element, elements, numberAttribute } from "./ooxml_read.ts";
@@ -79,8 +79,8 @@ export interface PreviewChart {
    * the word in front of every number on the axis.
    */
   readonly numberFormat?: string;
-  /** Whether each point prints its own figure, and which figure. */
-  readonly dataLabels: "none" | "value" | "percent";
+  /** Whether each point prints a label, and what it prints. */
+  readonly dataLabels: "none" | GraphDataLabels;
   /** What the category axis counts along. */
   readonly categoryAxisTitle?: string;
   /** What the value axis measures. */
@@ -403,12 +403,17 @@ function formatOf(format: string | undefined): string | undefined {
 }
 
 /** Whether each point prints its own figure, and which figure it prints. */
-function labelsOf(labels: string): "none" | "value" | "percent" {
+function labelsOf(labels: string): "none" | GraphDataLabels {
   const on = (name: string) => attribute(element(labels, name) ?? "", "val") === "1";
+  const figure = on("c:showPercent") ? "percent" : on("c:showVal") ? "value" : undefined;
 
-  if (on("c:showPercent")) return "percent";
+  if (!on("c:showCatName")) return figure ?? "none";
 
-  return on("c:showVal") ? "value" : "none";
+  return figure === undefined
+    ? "category"
+    : figure === "percent"
+    ? "categoryAndPercent"
+    : "categoryAndValue";
 }
 
 /** Where a key sits, as the model names it, or that the file declares none. */
