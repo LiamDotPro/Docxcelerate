@@ -1,5 +1,6 @@
 import type {
   Condition,
+  DocumentProperties,
   DeriverInvocation,
   DocumentNode,
   GraphData,
@@ -22,6 +23,7 @@ import type {
 } from "../domain/types.ts";
 import { evaluateCondition, invertCondition } from "../runtime/conditions.ts";
 import { runDerivers } from "../runtime/derivers.ts";
+import { renderProperties } from "../runtime/templates.ts";
 import type { BranchProps } from "./branch.ts";
 import {
   type RenderContext,
@@ -79,6 +81,23 @@ export async function renderDocumentChildren(
   context: RenderContext,
 ): Promise<DocumentNode[]> {
   return await renderYield(props.children, context, { path: "" });
+}
+
+/**
+ * The document's properties, settled against the build's data.
+ *
+ * A function is called once, like a `useState` initializer, and its strings go
+ * through `requiredText` so a published value becomes a token the engine fills.
+ */
+export async function renderDocumentProperties(
+  props: DocumentProps,
+  context: RenderContext,
+): Promise<DocumentProperties | undefined> {
+  if (props.properties === undefined) return undefined;
+  const properties = typeof props.properties === "function"
+    ? (props.properties as (data: unknown) => DocumentProperties)(context.data)
+    : props.properties;
+  return await renderProperties(properties, (value) => requiredText(value, context));
 }
 
 /**
@@ -323,7 +342,10 @@ async function renderHost(
   await runNodeDerivers(props, context);
 
   return withDerivers(
-    withVariant(await renderHostKind(kind, element, context, frame, id, when), props.variant),
+    withVariant(
+      await renderHostKind(kind, element, context, frame, id, when),
+      await text(props.variant, context),
+    ),
     [...(frame.derivers ?? []), ...(props.derivers ?? [])],
   );
 }
@@ -486,6 +508,7 @@ async function renderTable(
     id,
     kind: "table",
     columns: props.columns.map((column) => prune({ ...column })),
+    align: props.align,
     when,
     children: await renderYield(props.children, context, {
       path: `${frame.path}/${id}`,
@@ -507,6 +530,10 @@ async function renderRow(
     id,
     kind: "tableRow",
     header: props.header ? true : undefined,
+    keepTogether: props.keepTogether ? true : undefined,
+    height: props.height,
+    // Only `exact` is carried: absent is a floor, and a rule with no height says nothing.
+    heightRule: props.height !== undefined && props.heightRule === "exact" ? "exact" : undefined,
     when,
     children: await renderYield(props.children, context, {
       path: `${frame.path}/${id}`,
@@ -759,7 +786,12 @@ async function renderParagraph(
 function listOf(props: ParagraphProps): ParagraphList | undefined {
   return props.list === undefined
     ? undefined
-    : prune({ kind: props.list, level: props.listLevel || undefined });
+    : prune({
+      kind: props.list,
+      level: props.listLevel || undefined,
+      // Bullets count nothing, so a style on one would only be noise in the model.
+      style: props.list === "number" ? props.listStyle : undefined,
+    });
 }
 
 async function renderImage(
@@ -770,6 +802,13 @@ async function renderImage(
   when: Condition | undefined,
 ): Promise<ImageNode> {
   const prompts = settled(props.src, props, frame, id);
+  const drawn = {
+    alt: await text(props.alt, context),
+    href: await text(props.href, context),
+    width: props.width,
+    height: props.height,
+    align: props.align,
+  };
 
   if (!isDynamic(prompts)) {
     if (props.src === undefined) {
@@ -785,9 +824,7 @@ async function renderImage(
       when,
       path: await requiredText(props.src, context),
       fallbackPath: await text(props.fallbackSrc, context),
-      alt: await text(props.alt, context),
-      width: props.width,
-      height: props.height,
+      ...drawn,
     });
   }
 
@@ -800,9 +837,7 @@ async function renderImage(
       kind: "image",
       mode: "dynamic",
       when,
-      alt: await text(props.alt, context),
-      width: props.width,
-      height: props.height,
+      ...drawn,
       placeholder: await placeholderText(prompts, id, context),
     });
   }
@@ -813,9 +848,7 @@ async function renderImage(
     kind: "image",
     mode: "dynamic",
     when,
-    alt: await text(props.alt, context),
-    width: props.width,
-    height: props.height,
+    ...drawn,
     prompts: specs,
   };
 
@@ -838,6 +871,7 @@ async function renderGraph(
   // node this returns.
   const drawn = {
     title: await text(props.title, context),
+    alt: await text(props.alt, context),
     width: props.width,
     height: props.height,
     legend: props.legend,
@@ -845,7 +879,11 @@ async function renderGraph(
     numberFormat: props.numberFormat,
     categoryAxisTitle: props.categoryAxisTitle,
     valueAxisTitle: props.valueAxisTitle,
+    valueAxisMin: props.valueAxisMin,
+    valueAxisMax: props.valueAxisMax,
+    valueAxisStep: props.valueAxisStep,
     dataLabels: props.dataLabels,
+    align: props.align,
   };
 
   if (!isDynamic(prompts)) {

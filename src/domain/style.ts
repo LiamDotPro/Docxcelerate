@@ -11,8 +11,25 @@
 
 export type DocumentStylePreset = string;
 
-/** The paper a document is laid out for. */
-export type DocumentPageSize = "A4" | "LETTER";
+/**
+ * The paper a document is laid out for: a named size, or the sheet's own
+ * width and height in millimetres, given upright.
+ *
+ * `orientation` turns either kind, so a landscape A5 is `"A5"` turned rather
+ * than a 210 × 148 custom sheet.
+ */
+export type DocumentPageSize =
+  | "A3"
+  | "A4"
+  | "A5"
+  | "LETTER"
+  | "LEGAL"
+  | {
+    /** The sheet's width, upright, in millimetres. */
+    widthMm: number;
+    /** The sheet's height, upright, in millimetres. */
+    heightMm: number;
+  };
 
 /** Which way round the page is turned. */
 export type DocumentPageOrientation = "portrait" | "landscape";
@@ -96,7 +113,30 @@ export interface DocumentPageStyle {
   headerMm?: number;
   /** How far the running footer stands from the foot of the paper, in mm. */
   footerMm?: number;
+  /**
+   * The number the first page carries, counting on from there.
+   *
+   * For a document that continues another — an appendix whose pages run on
+   * from the report it belongs to. A whole number from 0; absent, the first
+   * page is 1. Only the page's own number moves: a `<PageNumber>` total is
+   * still the count of pages, which is what Word prints too.
+   */
+  firstPageNumber?: number;
+  /**
+   * How the page numbers are written — `"lowerRoman"` for front matter that
+   * runs i, ii, iii. Absent, they are decimal.
+   */
+  numberStyle?: PageNumberStyle;
 }
+
+/**
+ * How a page number is written: Word's own names for its number formats.
+ *
+ * `decimal` is 1, 2, 3; `lowerRoman` i, ii, iii; `upperRoman` I, II, III;
+ * `lowerLetter` a, b, c; `upperLetter` A, B, C — after Z, Word doubles the
+ * letter (AA, BB), and so does the preview.
+ */
+export type PageNumberStyle = "decimal" | "lowerRoman" | "upperRoman" | "lowerLetter" | "upperLetter";
 
 /** How body text is set. */
 export interface DocumentTypographyStyle {
@@ -140,6 +180,16 @@ export interface DocumentTextBlockStyle {
    * what a heading at 7pt has to be to read as one.
    */
   letterSpacingEm?: number;
+  /**
+   * Whether this heading refuses to be the last thing on a page.
+   *
+   * On unless set to `false`. A heading whose section starts overleaf is a
+   * heading in the wrong place, and nobody sees it in a preview of page one, so
+   * a document should not have to ask for the fix. Word draws the same
+   * distinction on its own Heading 1. A heading is also never split across a
+   * page, whatever this says, because half a heading is never what was meant.
+   */
+  keepWithNext?: boolean;
 }
 
 /**
@@ -207,6 +257,16 @@ export interface DocumentBlockStyle {
   borderWidthPt?: number;
   /** Which edges the border is drawn on. Defaults to all four. */
   borderSides?: Array<"top" | "right" | "bottom" | "left">;
+  /**
+   * How the border is drawn: one solid line, two lines, dashes or dots.
+   *
+   * A double rule under a grand total and a dashed tear-off line above a
+   * remittance slip are both real Word borders, so they are drawn by the
+   * border's own style rather than by stacking blocks. It applies to every
+   * edge the block draws; it draws nothing without `border`. Defaults to
+   * `"single"`. A shape's outline is always solid.
+   */
+  borderStyle?: "single" | "double" | "dashed" | "dotted";
   /** Space between the block's edge and its content, in points. */
   paddingPt?: number;
   /**
@@ -366,7 +426,7 @@ export interface DocumentBlockStyle {
  * `system` sets the standing instructions.
  */
 
-/** How a column's cells sit in the width they are given. */
+/** How a column's cells, a shape's words, or a table, picture or chart sit in the width they are given. */
 export type TableAlign = "left" | "center" | "right";
 
 /**

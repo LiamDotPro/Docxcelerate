@@ -2,21 +2,31 @@ import { test } from "node:test";
 import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
 import {
   buildDocument,
+  createDeriverBundle,
   createDeriverRegistry,
+  createDeriverRegistryFromBundle,
   EchoAiClient,
   InMemoryDataProvider,
   resolveDocument,
 } from "docxcelerate";
+import { documentXml } from "./docx.ts";
+import { cleanMinimalTheme, themeStyle } from "docxcelerate/themes";
 import type { DocumentNode, ParagraphNode, RepeatNode, RuntimeState } from "docxcelerate";
+import { partNames, partXml, textOf } from "./docx.ts";
 import {
   __compare,
   __test,
   branch,
   createPublishData,
+  Cell,
+  deriver,
   Document,
   Paragraph,
+  Row,
   Section,
+  Table,
   template,
+  useDeriver,
   useState,
 } from "docxcelerate/template";
 
@@ -37,6 +47,7 @@ interface Line {
   qty: number;
   taxable: boolean;
   archived: boolean;
+  status: string;
 }
 
 interface InvoiceData {
@@ -49,9 +60,9 @@ const invoice: InvoiceData = {
   reference: "INV-2026-0142",
   customer: { name: "Brackenfield Housing", city: "Leeds" },
   lines: [
-    { desc: "API build", qty: 8, taxable: true, archived: false },
-    { desc: "Disbursement", qty: 1, taxable: false, archived: false },
-    { desc: "Support retainer", qty: 1, taxable: true, archived: true },
+    { desc: "API build", qty: 8, taxable: true, archived: false, status: "paid" },
+    { desc: "Disbursement", qty: 1, taxable: false, archived: false, status: "overdue" },
+    { desc: "Support retainer", qty: 1, taxable: true, archived: true, status: "paid" },
   ],
 };
 
@@ -739,4 +750,192 @@ test("a decision inside a loop body is carried per entry, not per document", asy
     type: "truthy",
     ref: { scope: "ctx", path: "lines.taxable" },
   });
+});
+
+// ---------------------------------------------------------------------------
+// A variant read off the data
+// ---------------------------------------------------------------------------
+
+const statusParagraphs = () => {
+  const [lines] = useState((data: InvoiceData) => data.lines);
+  return lines.map((line) => <Paragraph id="line" variant={line.status}>{line.desc}</Paragraph>);
+};
+
+const statusCells = () => {
+  const [lines] = useState((data: InvoiceData) => data.lines);
+  return (
+    <Table id="lines" columns={[{ width: "auto" }]}>
+      {lines.map((line) => (
+        <Row id="line">
+          <Cell id="desc" variant={line.status}>{line.desc}</Cell>
+        </Row>
+      ))}
+    </Table>
+  );
+};
+
+const statusStyle = themeStyle(cleanMinimalTheme, {
+  blocks: { overdue: { fill: "FDECEA" }, paid: { fill: "E7F5EC" } },
+});
+
+/** Every cell's fill, in table order, null where none was drawn. */
+async function fillsOf(
+  published: Awaited<ReturnType<typeof publish>>,
+  data: InvoiceData,
+): Promise<Array<string | null>> {
+  const resolved = await resolveAgainst(published, data);
+  const xml = await documentXml({ ...resolved, style: statusStyle });
+
+  return (xml.match(/<w:tc>[\s\S]*?<\/w:tc>/g) ?? []).map((cell) =>
+    cell.match(/w:fill="([0-9A-Fa-f]{6})"/)?.[1] ?? null
+  );
+}
+
+test("a variant read off an entry publishes as its token", async () => {
+  const built = await publish(statusParagraphs);
+
+  assertEquals(loopOf(built.nodes).children[0].variant, "{{ctx.lines.status}}");
+});
+
+test("a published variant survives the trip to JSON", async () => {
+  const built = await publish(statusParagraphs);
+
+  // Stringifying is what threw; undefined keys drop out, so compare the nodes.
+  assertEquals(JSON.parse(JSON.stringify(built)).nodes, JSON.parse(JSON.stringify(built.nodes)));
+  assertStringIncludes(JSON.stringify(built), "{{ctx.lines.status}}");
+});
+
+test("a template literal keeps the token inside the name", async () => {
+  const built = await publish(() => {
+    const [lines] = useState((data: InvoiceData) => data.lines);
+    return lines.map((line) => (
+      <Paragraph id="line" variant={`status-${line.status}`}>{line.desc}</Paragraph>
+    ));
+  });
+
+  assertEquals(loopOf(built.nodes).children[0].variant, "status-{{ctx.lines.status}}");
+
+  const resolved = await resolveAgainst(built, invoice);
+
+  assertEquals(bodyOf(resolved.nodes).map((node) => node.variant), [
+    "status-paid",
+    "status-overdue",
+    "status-paid",
+  ]);
+});
+
+test("a Word file per recipient is coloured per row", async () => {
+  assertEquals(await fillsOf(await publish(statusCells), invoice), ["E7F5EC", "FDECEA", "E7F5EC"]);
+});
+
+test("a status the theme does not know, or a missing one, draws plain", async () => {
+  const built = await publish(statusCells);
+  const [first] = invoice.lines;
+
+  assertEquals(await fillsOf(built, { ...invoice, lines: [{ ...first, status: "disputed" }] }), [null]);
+
+  const { status: _status, ...bare } = first;
+  const resolved = await resolveAgainst(built, { ...invoice, lines: [bare as Line] });
+  const row = (bodyOf(resolved.nodes)[0] as { children: DocumentNode[] }).children[0];
+  const cell = (row as { children: DocumentNode[] }).children[0];
+
+  assertEquals(cell.variant, "");
+  assertEquals(await fillsOf(built, { ...invoice, lines: [bare as Line] }), [null]);
+});
+
+test("a local build with real data keeps its variants", async () => {
+  const built = await build(statusParagraphs);
+
+  assertEquals(bodyOf(built.nodes).map((node) => node.variant), ["paid", "overdue", "paid"]);
+});
+
+test("an even footer's token publishes, settles, and reaches the even footer part", async () => {
+  function Folio() {
+    const [reference] = useState((data: InvoiceData) => data.reference);
+    return <Paragraph id="ef">Ref {reference}</Paragraph>;
+  }
+
+  const built = await buildDocument(
+    template<InvoiceData>(
+      <Document
+        id="duplex"
+        title="Duplex"
+        footer={<Paragraph id="f">Recto</Paragraph>}
+        evenFooter={<Folio />}
+      >
+        <Paragraph id="b">Body</Paragraph>
+      </Document>,
+    ),
+    createPublishData() as InvoiceData,
+    {
+      branchMode: "publish",
+      deriverMode: "preserve",
+      dynamicMode: "resolve",
+      aiClient: { generateParagraph: () => "" },
+    },
+  );
+
+  assertEquals((built.evenFooter![0] as ParagraphNode).text, "Ref {{data.reference}}");
+
+  const resolved = await resolveAgainst(built, invoice);
+
+  assertEquals((resolved.evenFooter![0] as ParagraphNode).text, "Ref INV-2026-0142");
+
+  const names = (await partNames(resolved)).filter((name) => /^word\/footer\d+\.xml$/.test(name));
+  const footers = await Promise.all(names.map(async (name) => textOf(await partXml(resolved, name))));
+
+  assertEquals(footers.includes("Ref INV-2026-0142"), true);
+  assertEquals(footers.some((text) => text.includes("{{")), false);
+  assertStringIncludes(await partXml(resolved, "word/settings.xml"), "<w:evenAndOddHeaders/>");
+});
+
+// ---------------------------------------------------------------------------
+// Loops over a deriver's result and over an entry's own list
+// ---------------------------------------------------------------------------
+
+test("a map over a deriver's rows and a map inside a map are walked per document", async () => {
+  const overdue = deriver({
+    name: "overdueLines",
+    run: (lines: Line[]) => lines.filter((line) => line.status === "overdue"),
+  });
+
+  const published = await publish(async () => {
+    const [lines] = useState((input: InvoiceData) => input.lines);
+    const [data] = useState((input: InvoiceData) => input);
+    const rows = await useDeriver(overdue, [lines]);
+    const groups = data as unknown as { groups: Array<{ rows: Array<{ label: string }> }> };
+
+    return [
+      rows.map((line) => <Paragraph id="od">{line.desc}</Paragraph>),
+      groups.groups.map((group) => group.rows.map((row) => <Paragraph id="row">{row.label}</Paragraph>)),
+    ];
+  });
+
+  const resolve = async (data: Record<string, unknown>) => {
+    const state: RuntimeState = {
+      ctx: { ...data },
+      derived: {},
+      dataProvider: new InMemoryDataProvider(data),
+      aiClient: new EchoAiClient(),
+    };
+    // Through a bundle, because that is the form the engine receives.
+    const derivers = await createDeriverRegistryFromBundle(createDeriverBundle({ overdueLines: overdue.run }));
+    const resolved = await resolveDocument(published, state, { derivers });
+
+    return textsOf(resolved.nodes);
+  };
+
+  const line = (desc: string, status: string) => ({ desc, qty: 1, taxable: true, archived: false, status });
+
+  assertEquals(
+    await resolve({
+      lines: [line("A", "overdue"), line("B", "paid"), line("C", "overdue")],
+      groups: [{ rows: [{ label: "g1r1" }, { label: "g1r2" }] }, { rows: [{ label: "g2r1" }] }],
+    }),
+    ["A", "C", "g1r1", "g1r2", "g2r1"],
+  );
+  assertEquals(
+    await resolve({ lines: [line("Z", "overdue")], groups: [{ rows: [{ label: "only" }] }] }),
+    ["Z", "only"],
+  );
 });

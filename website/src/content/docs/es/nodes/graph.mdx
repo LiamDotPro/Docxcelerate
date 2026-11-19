@@ -1,6 +1,6 @@
 ---
 title: Graph
-description: Gráficos de Word de verdad — barras, líneas, áreas, sectores, anillo o dispersión — declarados como datos en lugar de dibujados como imagen.
+description: Gráficos de Word de verdad — barras, líneas, áreas, sectores, anillo, dispersión, radar o burbujas — declarados como datos en lugar de dibujados como imagen.
 group: Nodes
 subgroup: Node types
 order: 13
@@ -39,39 +39,152 @@ export const VisitsByMonth: Graph = () => {
 ```
 
 Lo que llega al `.docx` es un **gráfico de Word de verdad**: una parte DrawingML
-con todos los valores dentro, más el libro que abre «Editar datos». Quien lo
-recibe puede seleccionarlo, cambiar su estilo, cambiar su tipo y abrir sus
-números, y Word lo dibuja como vectores a cualquier tamaño. Nada de esto se
-rasteriza.
+de gráfico con todos los valores guardados dentro, más el libro que abre «Editar
+datos». Quien lo recibe puede seleccionarlo, cambiar su estilo, cambiar su tipo y
+abrir sus números, y Word lo dibuja como vectores al tamaño que necesiten la
+página y la impresora.
+
+Esa es toda la razón de que el nodo lleve cifras en lugar de una imagen. Un
+gráfico aplanado a píxeles en el momento de la compilación es un gráfico con el
+que nadie aguas abajo puede hacer nada: no se puede volver a tematizar, se imprime
+con la resolución que la compilación supuso, y es invisible para cualquier cosa
+que lea el documento. Aquí nada se rasteriza, y por eso mismo los gráficos no
+cuestan al paquete ninguna dependencia extra ni ningún módulo nativo.
 
 ## La forma de los datos
-
-`data` está tipado: categorías y series, cada serie con una etiqueta, sus
-valores y, opcionalmente, un color.
 
 ```ts
 interface GraphData {
   categories?: string[];
-  series: Array<{ label?: string; values: (number | null)[]; color?: string }>;
+  series: Array<{
+    label?: string;
+    values: (number | null)[];
+    color?: string;
+    /** A bubble's third figure, and read by no other form. */
+    sizes?: (number | null)[];
+  }>;
 }
 ```
 
-Un `null` es un hueco, no un cero. Un mes que aún no se ha leído no es un mes
-que midió nada, y Word omite el punto en lugar de hacer caer la línea.
+Un `null` es un **hueco, no un cero**. Un mes que nadie ha leído todavía no es un
+mes que midió nada, y dibujarlo como cero abre en la línea un precipicio que
+nunca ocurrió. A Word se le indica que omita el punto.
 
-Los colores vienen del tema (`palette.series`, una serie fija y validada para
-daltonismo), de modo que un documento se puede volver a tematizar sin que sus
-gráficos dejen de encajar.
+Una serie más corta que las categorías se rellena con huecos; una que no tiene
+categorías se cuenta por posición. Las cadenas dentro de la carga pasan por el
+renderizador de plantillas igual que el texto de un párrafo, así que una etiqueta
+que contenga `{{derived.total}}` se resuelve.
 
-Una cosa sí le ocurre a los datos: los valores de tipo cadena pasan por el
-renderizador de plantillas, igual que la prosa. Una etiqueta que contenga
-`{{derived.total}}` se resuelve.
+`scatter` y `bubble` leen las categorías como sus **valores x**, de modo que son
+números escritos como texto; lo que no se pueda interpretar cuenta como su
+posición.
+
+## Los colores pertenecen al tema
+
+Las series toman en orden el `palette.series` del tema — un conjunto fijo,
+validado y seguro para el daltonismo — de modo que un documento se puede volver a
+tematizar sin que sus gráficos dejen de encajar. Las líneas de cuadrícula toman
+`palette.rule` y el texto de los ejes y de la leyenda `palette.muted`, de modo que
+un gráfico se lee como parte del documento y no como algo pegado en él.
+
+Indica un `color` en una serie solo cuando el color es lo que la serie
+*significa* — una línea roja para el límite que no debe superar — y nunca para
+elegir un azul más bonito.
+
+## Formas
+
+| `graphType` | Para qué sirve |
+| --- | --- |
+| `bar` | Comparar categorías. El valor por defecto, y normalmente la respuesta correcta. |
+| `barHorizontal` | Lo mismo, para nombres de categoría demasiado largos para caber bajo una columna. |
+| `line` | Cambio a lo largo del tiempo. |
+| `area` | Cambio a lo largo del tiempo cuando lo que importa es la cantidad bajo la línea. |
+| `pie` | La parte de un todo, y solo con pocos sectores, los suficientes para distinguirlos. |
+| `doughnut` | Lo mismo, con el centro vaciado. |
+| `scatter` | Dos medidas enfrentadas, para mostrar si se mueven juntas. |
+| `bubble` | Lo mismo con una tercera cifra como tamaño del punto — `sizes` en la serie. |
+| `radar` | Varias medidas a la vez, leídas como una forma: fuerte dónde, no cuánto. |
+
+Empieza por `bar`. Pasados unos seis sectores, un gráfico de sectores es más
+difícil de leer que el gráfico de barras de los mismos números, y un radar
+responde a una pregunta distinta de todos los demás — compara perfiles, y un
+lector no puede comparar las áreas de dos anillos, así que no se lo pidas.
+
+Dos medidas de escalas distintas son dos gráficos. Un segundo eje hace que el
+punto de cruce parezca un hallazgo cuando es un artefacto de las escalas que
+elegiste.
+
+### Apilado
+
+El apilado es una propiedad y no una forma aparte, así que se aplica por igual a
+barras, líneas y áreas y no se puede pedir a un gráfico de sectores:
+
+```tsx
+<Graph graphType="bar" stacked data={…} />              // to a total
+<Graph graphType="bar" stacked="percent" data={…} />    // to a share
+```
+
+`stacked` hace que la parte superior de cada pila sea el total.
+`stacked="percent"` dibuja todas las columnas a la misma altura, de modo que lo
+que se lee es la cuota de cada serie en su columna y los totales se descartan
+deliberadamente — el gráfico que Word llama apilado al 100%. Pasa las cifras en
+bruto en ambos casos: Word calcula las cuotas por sí mismo y rotula el eje de 0% a
+100%, así que una carga que ya las hubiera dividido le daría cuotas de cuotas.
+
+### Fijar el eje de valores
+
+Word empieza el eje de valores donde le parece, normalmente en cero. Cuando lo que
+importa es el movimiento y el cero no — una disponibilidad entre el 99% y el 100%
+— eso aplana los datos en una sola línea. Fija los extremos y el paso de la
+cuadrícula:
+
+```tsx
+<Graph graphType="line" numberFormat="0.0%" valueAxisMin={0.99} valueAxisMax={1} valueAxisStep={0.002}
+  data={{ categories: state.months, series: [{ label: "Uptime", values: state.uptime }] }} />
+```
+
+Cada uno es opcional, y Word elige lo que se omita. Un valor fuera de los límites
+se recorta en el eje; en una pila porcentual el eje es una cuota, así que `0.5` es
+el 50%; un gráfico de sectores no tiene eje y los ignora. `valueAxisMin` por
+encima de `valueAxisMax`, o un paso de cero, hace fallar el empaquetado en lugar
+de dibujar un sinsentido.
 
 ## Derivar en el estado
 
-Los acumulados, los porcentajes y los rebasados van en la función `data`, no
-aguas arriba. Así el gráfico y el texto que lo acompaña se calculan desde una
-única fuente y no pueden contradecirse.
+Los acumulados, los porcentajes y los rebasados van en el inicializador de estado
+y no en los datos que pasas. Así el gráfico y el texto que lo acompaña se calculan
+desde una única fuente y no pueden contradecirse.
+
+## En la vista previa
+
+`docx-preview` no sabe leer en absoluto una parte de gráfico, así que deja un
+marco vacío exactamente del tamaño que el archivo dio al gráfico — que es lo que
+hace que la vista previa pagine como Word. Un workspace generado rellena ese marco
+con [ECharts](https://echarts.apache.org), dibujando a partir de los mismos bytes
+empaquetados; mira `preview/charts.ts` en tu workspace.
+
+El marco es exacto. El trazado de su interior es el dibujo que otro renderizador
+hace de los mismos datos, no una captura de Word — abre el `.docx` cuando el
+trazado en sí tenga que ser correcto. Un workspace generado antes de la 0.9.0
+tiene un `preview/charts.ts` que no lee los límites fijos de eje; el archivo sigue
+siendo correcto.
+
+## Qué lo dibuja
+
+Hay dos renderizadores, y conviene saber cuál es cuál:
+
+- **En el archivo** — [OOXML DrawingML](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/),
+  el formato de gráfico que escribe el propio Insertar → Gráfico de Word: una
+  parte `c:chartSpace` con todos los valores guardados dentro, más un pequeño
+  `.xlsx` incrustado para «Editar datos». Docxcelerate escribe esa parte
+  directamente, así que **Word hace el dibujo** — sin biblioteca de gráficos, sin
+  canvas, sin módulo nativo.
+- **En la vista previa** — [ECharts](https://echarts.apache.org), que lee de
+  vuelta los mismos bytes empaquetados. Dibuja el trazado en pantalla; el marco
+  que lo rodea sigue viniendo del archivo.
+
+Por eso los dos pueden diferir en un píxel y la página no: de lo que depende la
+maquetación es del marco, y el marco es el de Word.
 
 ## Variantes
 
@@ -79,6 +192,23 @@ aguas arriba. Así el gráfico y el texto que lo acompaña se calculan desde una
 
 ## Notas
 
-- `graphType` vale `bar` por defecto en ambos helpers.
+- `graphType` vale `bar` por defecto en ambos modos.
+- `title` se dibuja *en* el gráfico y viaja con él si el lector lo copia a otro
+  sitio; `caption` es un párrafo impreso debajo.
+- `alt` es la descripción del dibujo, lo que anuncia un lector de pantalla y lo
+  que busca el comprobador de accesibilidad de Word. Di lo que muestran los
+  números («Las visitas se duplicaron después de marzo»), no cómo se llama el
+  gráfico. Si se omite, lo sustituye el título, y luego el pie.
+- `align="center"` o `"right"` coloca un gráfico más estrecho que la columna, y su
+  pie lo sigue. Un gráfico sin `width` ya llena la columna.
+- `legend` es por defecto una leyenda bajo el trazado para más de una serie y
+  ninguna para una — una leyenda que nombra lo único que hay en un gráfico repite
+  su título. Un gráfico de sectores conserva siempre una, porque su leyenda nombra
+  los sectores.
+- `numberFormat` es un código de formato OOXML — `"#,##0"`, `"0.0%"`, `"£#,##0"` —
+  que se entrega tal cual al eje de valores y a las etiquetas de datos.
+- `barHorizontal` se lee de arriba abajo en el orden en que se escribieron las
+  categorías, en vez de de abajo arriba como hacen los gráficos de barras propios
+  de Word.
 - En un gráfico dinámico la forma se sigue fijando en local. El endpoint aporta
   las cifras y puede sobrescribir `graphType` y `caption` en su respuesta.

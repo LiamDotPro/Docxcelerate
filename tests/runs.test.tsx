@@ -2,12 +2,13 @@ import { test } from "node:test";
 import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
 import {
   buildDocument,
+  cleanMinimalDocumentStyle,
   createDeriverRegistry,
   EchoAiClient,
   InMemoryDataProvider,
   resolveDocument,
 } from "docxcelerate";
-import type { DocumentModel, ParagraphNode, RuntimeState, TableCellNode } from "docxcelerate";
+import type { DocumentModel, DocumentStyle, ParagraphNode, RuntimeState, TableCellNode } from "docxcelerate";
 import {
   Cell,
   createPublishData,
@@ -19,7 +20,7 @@ import {
   Text,
   useState,
 } from "docxcelerate/template";
-import { documentXml, partXml } from "./docx.ts";
+import { documentXml, partXml, textOf } from "./docx.ts";
 
 /**
  * Some of a paragraph's words set differently from the rest.
@@ -254,4 +255,335 @@ test("a <Text> standing beside the nodes says where it belongs", async () => {
     Error,
     "on its own it is a <Paragraph>",
   );
+});
+
+const SUP = '<w:vertAlign w:val="superscript"/>';
+const SUB = '<w:vertAlign w:val="subscript"/>';
+
+function count(xml: string, fragment: string): number {
+  return xml.split(fragment).length - 1;
+}
+
+test("a raised word is a run of its own", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        84 m<Text script="superscript">2</Text>.
+      </Paragraph>
+    </Document>,
+  );
+  const xml = await documentXml(doc);
+
+  assertEquals(paragraph(doc).runs, [
+    { text: "84 m" },
+    { text: "2", script: "superscript" },
+    { text: "." },
+  ]);
+  assertStringIncludes(xml, `${SUP}</w:rPr><w:t xml:space="preserve">2</w:t>`);
+  assertEquals(count(xml, "w:vertAlign"), 1);
+});
+
+test("a lowered word is a run of its own", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        CO<Text script="subscript">2</Text>
+      </Paragraph>
+    </Document>,
+  );
+
+  assertEquals(paragraph(doc).runs, [{ text: "CO" }, { text: "2", script: "subscript" }]);
+  assertStringIncludes(await documentXml(doc), `${SUB}</w:rPr><w:t xml:space="preserve">2</w:t>`);
+});
+
+test("nested <Text> takes both marks, and the inner script wins", async () => {
+  const bold = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        <Text bold>1<Text script="superscript">st</Text></Text>
+      </Paragraph>
+    </Document>,
+  );
+  assertEquals(paragraph(bold).runs, [
+    { text: "1", bold: true },
+    { text: "st", bold: true, script: "superscript" },
+  ]);
+
+  const both = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        <Text script="superscript">a<Text script="subscript">b</Text></Text>
+      </Paragraph>
+    </Document>,
+  );
+  const xml = await documentXml(both);
+  assertEquals(paragraph(both).runs, [
+    { text: "a", script: "superscript" },
+    { text: "b", script: "subscript" },
+  ]);
+  assertEquals(count(xml, SUP), 1);
+  assertEquals(count(xml, SUB), 1);
+});
+
+test("a paragraph without script has no vertical alignment", async () => {
+  const plain = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">Due soon.</Paragraph>
+    </Document>,
+  );
+  assertEquals(paragraph(plain).runs, undefined);
+  assertEquals((await documentXml(plain)).includes("w:vertAlign"), false);
+
+  const bold = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        Pay <Text bold>due</Text>
+      </Paragraph>
+    </Document>,
+  );
+  assertEquals(paragraph(bold).runs?.[1], { text: "due", bold: true });
+  assertEquals((await documentXml(bold)).includes("w:vertAlign"), false);
+});
+
+test("a raised word in a cell", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Table id="t" columns={[{}]}>
+        <Row id="r">
+          <Cell id="c">
+            Area m<Text script="superscript">2</Text>
+          </Cell>
+        </Row>
+      </Table>
+    </Document>,
+  );
+  const table = doc.nodes[0] as { children: Array<{ children: TableCellNode[] }> };
+  const words = table.children[0].children[0].children[0] as ParagraphNode;
+
+  assertEquals(words.runs, [{ text: "Area m" }, { text: "2", script: "superscript" }]);
+  assertStringIncludes(await documentXml(doc), SUP);
+});
+
+test("a raised link is the footnote-style marker", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        statute<Text script="superscript" href="https://example.com/act">[1]</Text>.
+      </Paragraph>
+    </Document>,
+  );
+
+  assertEquals(
+    /<w:hyperlink[^>]*>[\s\S]*?<w:vertAlign w:val="superscript"\/>[\s\S]*?>\[1\]<\/w:t><\/w:r><\/w:hyperlink>/
+      .test(await documentXml(doc)),
+    true,
+  );
+});
+
+test("a stored model with an unknown script prints plain", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        84 m<Text script="superscript">2</Text>.
+      </Paragraph>
+    </Document>,
+  );
+  paragraph(doc).runs![1].script = "middle" as never;
+  const xml = await documentXml(doc);
+
+  assertEquals(xml.includes("w:vertAlign"), false);
+  assertStringIncludes(textOf(xml), "84 m2.");
+});
+
+const variantStyle: DocumentStyle = {
+  ...cleanMinimalDocumentStyle,
+  blocks: {
+    ...cleanMinimalDocumentStyle.blocks,
+    amountDue: {
+      fill: "FFF3C4",
+      color: "92400E",
+      weight: "bold",
+      fontSizePt: 12,
+      font: "Menlo",
+      transform: "uppercase",
+      letterSpacingEm: 0.05,
+    },
+    tint: { fill: "FFF3C4" },
+    small: { fontSizePt: 8 },
+  },
+};
+
+const SHD = '<w:shd w:fill="FFF3C4" w:val="clear"/>';
+
+/** The packed run holding this anchor, whole, so a test can say what it has and lacks. */
+async function runXml(doc: DocumentModel, anchor: string): Promise<string> {
+  const xml = await documentXml({ ...doc, style: variantStyle });
+
+  return [...xml.matchAll(/<w:r>[\s\S]*?<\/w:r>/g)].map((m) => m[0]).find((r) => r.includes(anchor)) ?? "";
+}
+
+test("a variant on a phrase draws it from the theme's block, and the words around it plain", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="due">
+        The amount due is <Text variant="amountDue">£1,240.00</Text> by 30 November.
+      </Paragraph>
+    </Document>,
+  );
+
+  assertEquals(paragraph(doc).runs, [
+    { text: "The amount due is " },
+    { text: "£1,240.00", variant: "amountDue" },
+    { text: " by 30 November." },
+  ]);
+
+  const run = await runXml(doc, "£1,240.00");
+
+  for (
+    const part of [SHD, '<w:color w:val="92400E"/>', "<w:b/>", "<w:caps/>", '<w:spacing w:val="12"/>', '<w:sz w:val="24"/>', 'w:ascii="Menlo"']
+  ) {
+    assertStringIncludes(run, part);
+  }
+  for (const anchor of ["The amount due is", "by 30 November"]) {
+    const plain = await runXml(doc, anchor);
+
+    assertEquals(plain.includes("<w:shd") || plain.includes("<w:color"), false);
+  }
+});
+
+test("a run with no variant has no variant key", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        a <Text bold>b</Text>
+      </Paragraph>
+    </Document>,
+  );
+
+  assertEquals("variant" in (paragraph(doc).runs?.[1] ?? {}), false);
+});
+
+test("a mark said beside a variant wins over the block", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        <Text variant="amountDue" bold={false}>x</Text>
+      </Paragraph>
+    </Document>,
+  );
+  const run = await runXml(doc, ">x<");
+
+  assertStringIncludes(run, SHD);
+  assertEquals(run.includes("<w:b/>"), false);
+});
+
+test("a block with no opinion leaves the paragraph's own setting alone", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p" variant="small">
+        Due <Text variant="tint">today</Text>
+      </Paragraph>
+    </Document>,
+  );
+  const run = await runXml(doc, "today");
+
+  assertStringIncludes(run, '<w:sz w:val="16"/>');
+  assertStringIncludes(run, SHD);
+});
+
+test("a linked variant keeps the accent colour and the shading", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        <Text variant="amountDue" href="https://example.com/pay">pay</Text>
+      </Paragraph>
+    </Document>,
+  );
+  const xml = await documentXml({ ...doc, style: variantStyle });
+  const link = /<w:hyperlink[\s\S]*?<\/w:hyperlink>/.exec(xml)?.[0] ?? "";
+
+  assertStringIncludes(link, '<w:color w:val="2F5FBD"/>');
+  assertStringIncludes(link, SHD);
+});
+
+test("a variant reaches a cell's words", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Table id="t" columns={[{}]}>
+        <Row id="r">
+          <Cell id="c">
+            Total <Text variant="tint">due</Text>
+          </Cell>
+        </Row>
+      </Table>
+    </Document>,
+  );
+
+  assertStringIncludes(await runXml(doc, ">due<"), SHD);
+});
+
+test("an unknown variant stays in the model and draws plain", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        a <Text variant="nope">x</Text>
+      </Paragraph>
+    </Document>,
+  );
+  const run = await runXml(doc, ">x<");
+
+  assertEquals(paragraph(doc).runs?.[1], { text: "x", variant: "nope" });
+  assertEquals(run.includes("<w:shd") || run.includes("<w:color"), false);
+});
+
+test("an inner variant replaces the outer, and neighbours set alike merge", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        <Text variant="tint">
+          a <Text bold>b</Text>
+        </Text>
+      </Paragraph>
+      <Paragraph id="q">
+        <Text variant="tint">c</Text>
+        <Text variant="tint">d</Text>
+      </Paragraph>
+      <Paragraph id="r">
+        <Text variant="tint">e <Text variant="small">f</Text></Text>
+      </Paragraph>
+    </Document>,
+  );
+
+  assertEquals(paragraph(doc, 0).runs, [
+    { text: "a ", variant: "tint" },
+    { text: "b", variant: "tint", bold: true },
+  ]);
+  assertEquals(paragraph(doc, 1).runs, [{ text: "cd", variant: "tint" }]);
+  assertEquals(paragraph(doc, 2).runs?.[1], { text: "f", variant: "small" });
+});
+
+test("a published run keeps its variant when its token is settled", async () => {
+  const published: DocumentModel = {
+    schemaVersion: "docxcelerate.letter/v0",
+    id: "d",
+    title: "D",
+    nodes: [{
+      id: "p",
+      kind: "paragraph",
+      mode: "static",
+      text: "Due {{total}}",
+      runs: [{ text: "Due " }, { text: "{{total}}", variant: "amountDue" }],
+    }],
+  };
+  const data = { total: "£1,240.00" };
+  const state: RuntimeState = {
+    ctx: { ...data },
+    derived: {},
+    dataProvider: new InMemoryDataProvider(data),
+    aiClient: new EchoAiClient(),
+  };
+  const settled = paragraph(await resolveDocument(published, state, { derivers: createDeriverRegistry() }));
+
+  assertEquals(settled.runs?.[1].variant, "amountDue");
+  assertEquals(settled.runs?.map((run) => run.text).join(""), settled.text);
 });

@@ -37,6 +37,13 @@ it looks like. The appearance lives in the style's `blocks`, so a document
 restyles without a node changing, and a name the theme has not heard of draws as
 an ordinary block rather than failing. See **Block styles** below.
 
+`variant` is a published token like any text. `variant={line.status}` inside a
+`.map()` publishes as `"{{ctx.lines.status}}"`, and the engine settles it per
+entry. A template literal (`` `status-${line.status}` ``) keeps the token inside
+a fixed prefix. The resolved name is looked up in `blocks` like a written one.
+If the theme has no block of that name, or the field is missing, the node draws
+as an ordinary block.
+
 `Paragraph`, `Image` and `Graph` also accept the prompt slots, which are what
 make a node dynamic:
 
@@ -53,14 +60,14 @@ interface PromptProps {
 
 | Element | Own props |
 | --- | --- |
-| `Document` | `id` (required), `title` (required), `metadata?`, `header?`, `footer?`, `firstHeader?`, `firstFooter?`, `evenHeader?`, `evenFooter?`, `children?` |
-| `Section` | `title` (required), `children?` |
-| `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0) |
-| `Text` | `bold?`, `italic?`, `underline?`, `strike?`, `href?` (`https:`, `http:`, `mailto:` or `tel:`), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
-| `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` |
-| `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `caption?`, `width?`, `height?` (points), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `dataLabels?` |
-| `Table` | `columns` (required), `children?` |
-| `Row` | `header?`, `children?` |
+| `Document` | `id?`, `title` (required), `metadata?`, `properties?`, `header?`, `footer?`, `firstHeader?`, `firstFooter?`, `evenHeader?`, `evenFooter?`, `trackChanges?`, `children?` |
+| `Section` | `title` (required), `showTitle?` (default `true`), `children?` |
+| `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0), `listStyle?` (`"decimal" \| "lowerLetter" \| "upperLetter" \| "lowerRoman" \| "upperRoman"`, or any of them with `Paren` appended: `"lowerLetterParen"` is (a); default by depth 1. a. i.) |
+| `Text` | `bold?`, `italic?`, `underline?`, `strike?`, `script?` (`"superscript" \| "subscript"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`), `variant?` (a block name; only its character settings apply), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
+| `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` (points; give one and the other keeps the picture's proportions, neither is 120pt wide), `align?` (`"left" \| "center" \| "right"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`) |
+| `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `alt?`, `caption?`, `width?`, `height?` (points), `align?` (`"left" \| "center" \| "right"`), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `valueAxisMin?`, `valueAxisMax?`, `valueAxisStep?` (numbers; fix the value axis, Word picks any left out), `dataLabels?` |
+| `Table` | `columns` (required), `align?` (`"left" \| "center" \| "right"`, default left), `children?` |
+| `Row` | `header?`, `keepTogether?`, `height?`, `heightRule?`, `children?` |
 | `Cell` | `span?`, `align?`, `children?` |
 | `Shape` | `width?`, `height?` (points), `children?` |
 | `TableOfContents` | `title?` |
@@ -73,11 +80,18 @@ Notes worth knowing:
   one after another are one list and the renderer counts them; anything that is
   not an item ends it, and the next numbered list starts at one. Never type a
   bullet or a number into the text. `listLevel={1}` nests an item under the one
-  above. Not drawn on a `<Shape>`.
+  above. `listStyle` on a numbered item picks the numerals for that item's level in its list — `listStyle="lowerLetterParen"` on the first sub-clause makes every sub-clause (a), (b); the first item at a level to say decides it, so say it once. Without it a level counts 1., a., i. by depth. Ignored on bullets. Not drawn on a `<Shape>`.
 - `<Text>` sets some of a paragraph's words differently:
   `Due within <Text bold>thirty days</Text>.` One inside another takes both
-  settings. It carries no colour or size — a link is drawn in the theme's
-  accent. A line end (`\n`) in a paragraph's text is a line break, not a new
+  settings. m<Text script="superscript">2</Text>, CO<Text script="subscript">2</Text>
+  and 1<Text script="superscript">st</Text> are raised or lowered by Word — never
+  type `²` or `₂` in their place. It carries no colour or size — a link is drawn in the theme's
+  accent. To make a phrase stand out, name a theme block:
+  `The amount due is <Text variant="amountDue">£1,240.00</Text>.` The block's
+  `color`, `fill` (shading behind the words), `fontSizePt`, `weight`, `font`,
+  `transform` and `letterSpacingEm` apply. Borders, padding and spacing do not.
+  An unknown name prints plain, and an inner `variant` replaces an outer one.
+  A line end (`\n`) in a paragraph's text is a line break, not a new
   paragraph, so an address is one `<Paragraph>` with `{"Flat 2\n14 Example Road"}`.
 - `Section` is the only *titled* container. Depth of a document is depth of its
   sections — but both shipped renderers print every section title at one level,
@@ -89,6 +103,22 @@ Notes worth knowing:
   none of it is a special case. `header` on a row draws it as a heading; only
   the rows a table *opens* with repeat across pages, so a totals row marked
   `header` stays where it is rather than being lifted above its own figures.
+  `keepTogether` on a row stops Word breaking it across a page — the whole row
+  moves over instead. Put it on the row a `.map()` produces and every line of an
+  invoice or schedule gets it; leave it off a long table's short rows, where a
+  break between them is fine.
+- **A row can be given a height**, in points: `<Row height={56}>` is a floor the
+  row grows past if its cells need more, which is what a box to sign in wants.
+  `heightRule="exact"` makes it a fixed depth instead — a label sheet, a form
+  grid — and Word clips whatever does not fit, so keep an exact row's contents
+  inside it (the preview grows the row rather than hiding the overflow). This
+  is not a block's `heightPt`, which sets a paragraph's leading, not a row's depth.
+- **`align` on a `<Table>` moves the whole table**, not its words: a totals
+  block of fixed-width columns with `align="right"` sits against the right
+  margin, with no empty spacer column to hold it there. It only moves a table
+  narrower than the text column — any `"auto"` column fills the column, and a
+  `bleed` table spans the paper and ignores it. Column and cell `align` still
+  set the text inside.
 - **`Cell` takes text directly** — `<Cell>{line.qty}</Cell>` is the common case.
   Give it paragraphs when one line is not enough.
 - **`Shape` is a drawn box the words sit on top of**, and takes text directly
@@ -97,12 +127,24 @@ Notes worth knowing:
   box should grow with its text, that is a `Table` with one cell in it, not a
   shape. `width` defaults to the text column; `height` falls back to the block
   style's `heightPt`. What it looks like is the theme's, through `variant`.
+- **`align` on `Image` and `Graph` places the picture, not text around it.**
+  Centred or ranged right in the column, nothing floats or wraps. A chart with
+  no `width` already fills the column, so give it one. Inside a `Cell` or a
+  `Shape` a picture or chart takes the column's or the shape's alignment, not
+  its own — set it there.
 - `Image` takes `src` and resolves to a node holding `path`. **Only a `data:`
   URI travels**: it carries the bytes, so an engine writing the document
   elsewhere still has the picture. A path or URL draws on screen, where a
   browser can fetch it, but packs into Word as a note — nothing is ever fetched
   or read from disk while packing. Word will not embed an SVG alone, so give one
   a `fallbackSrc` raster: the screen draws the SVG, the `.docx` gets the raster.
+  A side left out follows the picture's own proportions, read from the PNG,
+  JPEG, GIF or BMP header (for an SVG, from its `fallbackSrc` raster); both
+  given is drawn as given. A picture with no bytes yet, such as a URL or an
+  unproduced prompt, reserves a square.
+  `href` links the picture — block, inline, in a cell or in the furniture — and
+  lands on the node as `href`, settled like a run's. A refused scheme or an
+  unsettled token draws the picture alone.
 - `PageBreak` is for a break that is part of what the document *is* — payment
   details on their own page. Nudging a paragraph off the bottom of a page is the
   margins' job.
@@ -111,6 +153,11 @@ Notes worth knowing:
   measured from the paper rather than the margin. A letterhead meant to appear
   once goes in the body. `PageNumber` belongs here; a build cannot know the
   count, so Word gets a field it recounts and the preview counts its own pages.
+- `PageNumber` counts in the page style's numbering: `page.firstPageNumber: 37`
+  makes the first page 37, `page.numberStyle: "lowerRoman"` writes i, ii, iii.
+  Only the current number moves — `total` is still the count of pages, as Word
+  prints it. The whole document shares one numbering; roman front matter then a
+  body from 1 is two documents.
 - `firstHeader` / `firstFooter` are page one's own, for a letter whose letterhead
   *is* the top of the first page. `false` means the first page shows nothing
   where the others show the strip; absent means it is like every other page.
@@ -118,6 +165,13 @@ Notes worth knowing:
   both sides and bound — the reference belongs at the *outside* edge of each, so
   a folio in the same place on every sheet sits in the gutter on half of them.
   Naming either makes `header` and `footer` the right-hand page's.
+  Like every strip, they publish: a `{{data.…}}` token or a deriver in one is settled per document by the engine.
+- `trackChanges` opens the document in Word with Track Changes on — for a
+  contract, NDA or agreement sent out to be negotiated, so every edit the
+  other side makes is recorded. It is a setting, not a lock: Word lets the
+  reviewer switch it off. It applies to the whole template, not per
+  recipient, and the preview looks the same because nothing has been edited
+  yet.
 - `Graph.data` is `{ categories?: string[], series: { label?, values: (number
   | null)[], color?, sizes? }[] }`. A `null` value is a gap in the plot, not a
   zero — a month nobody measured is not a month that measured nothing. A series
@@ -138,16 +192,28 @@ Notes worth knowing:
   chart reads as part of the document rather than as something pasted into it.
 - `numberFormat` is an OOXML format code — `"#,##0"`, `"0.0%"`, `"£#,##0"` —
   handed to the value axis and to the data labels verbatim.
+- `valueAxisMin` / `valueAxisMax` fix the ends of the value axis and
+  `valueAxisStep` the distance between its gridlines — for data whose movement
+  is the point, like uptime between 99% and 100%, which an axis starting at zero
+  flattens into one line. Each is optional and Word picks whatever is left out.
+  They set the y axis on `scatter`/`bubble`, the bottom axis on `barHorizontal`,
+  are ignored on a pie, and on a percent stack are shares (`0.5` is 50%). A
+  value outside the bounds is clipped. `min` must be below `max` and `step`
+  above zero, or packing throws. A workspace scaffolded before 0.9.0 has an
+  older `preview/charts.ts` that ignores the bounds — the `.docx` is right
+  regardless.
 - `legend` defaults to a key under the plot for more than one series and none
   for one, because a key naming the only thing on the chart repeats the title.
   A pie always keeps one: its key names the slices.
 - `barHorizontal` reads top-down, in the order the categories were written.
   OOXML's default is bottom-up — which is what Word's own bar charts do, and
   not what a document handing over an array means by it.
-- `barHorizontal` reads top-down in the order the categories were written,
-  rather than bottom-up the way Word.s own bar charts do.
 - `title` is drawn *on* the chart and travels with it; `caption` is a paragraph
   printed underneath, styled by a `chartCaption` block where the theme has one.
+- `alt` is the chart's description for screen readers and Word's
+  accessibility checker. Say what the numbers show — "Revenue rose 40% from
+  Q1 to Q4" — not what the chart is called. Left out, the title is read
+  instead, then the caption, then the id. Nothing prints it.
 - The local preview draws charts with ECharts, from the packed file — see
   `preview/charts.ts` in a scaffolded workspace. The frame comes from the file
   and is exact; the plot inside it is another renderer's drawing of the same
@@ -214,7 +280,7 @@ before any `return`.
 | `usePlaceholderData` | `() => PlaceholderData` | Stand-in values, seeded from where the component sits. |
 | `useFormat` | `(locale?: string) => Formatters` | Locale-aware formatting; defaults to the build locale (`en-GB`). |
 | `useAvailableTokens` | `() => number` | The token budget this build allotted — `2000` by default. |
-| `useDeriver` | `(name: string) => (output, ...inputs) => Promise<unknown>` | Runs a registered deriver **now**, during the build. |
+| `useDeriver` | `(deriver, inputs) => Promise<result>` | Runs a `deriver({ name, run })` module **now** when the data is in hand. While publishing it travels on the node and the engine runs it per document, and what comes back is a stand-in. |
 
 `arrange(arrangement, { name: () => … })` is not a hook, but it is how a
 component offers more than one placement of the same lines: it builds the named
@@ -285,11 +351,26 @@ export const documentTemplate = template<DocumentData>(
 );
 ```
 
-Takes exactly one `<Document>` element, which must have both `id` and `title`.
-Nothing is rendered — evaluating the JSX only builds elements, which is what
+Takes exactly one `<Document>` element, which must have a `title`; `id` is taken
+from it unless written. Nothing is rendered — evaluating the JSX only builds elements, which is what
 lets a component decide what it is later, with data in hand. A template lives at
 module scope where no data exists, so structure that depends on data belongs in
 a component.
+
+`properties` is what the file says about itself — never printed, read by Word's
+File > Info, Explorer, Finder and DMS indexes. The title is the document's own
+`title`. Give an object, or a function of the data when a value differs per
+document:
+
+```ts
+interface DocumentProperties {
+  author?: string;       // Author and Last Modified By; absent writes none
+  subject?: string;
+  keywords?: string;     // one string — Word shows it as Tags
+  description?: string;  // Word's Comments
+  custom?: Record<string, string>;  // text only; an empty value is left out
+}
+```
 
 ## `defineDocumentProject`
 
@@ -364,6 +445,8 @@ interface DocumentModel {
   title: string;
   style?: DocumentStyle;
   metadata?: JsonObject;
+  properties?: DocumentProperties;   // docProps; tokens settled by resolveDocument
+  trackChanges?: boolean;   // Word opens it with Track Changes on
   nodes: DocumentNode[];
   header?: DocumentNode[];   // running furniture, drawn on every page
   footer?: DocumentNode[];
@@ -400,12 +483,21 @@ export const documentStyle: DocumentStyle = {
 };
 ```
 
-`DocumentStyle` covers `preset`, `page` (size `A4` or `LETTER`, orientation,
-margins in mm, and `headerMm` / `footerMm` — how far the running strips stand
-from the *paper's* edge rather than from the margin, 12.5mm unless said),
+`DocumentStyle` covers `preset`, `page` (size `A4`, `LETTER`, `LEGAL`, `A5`, `A3`, or `{ widthMm, heightMm }` for any other sheet given upright; `orientation` `portrait` or `landscape` turns either kind, and a table, shape or chart with no width fills the column of the page as turned,
+margins in mm, `headerMm` / `footerMm` — how far the running strips stand
+from the *paper's* edge rather than from the margin, 12.5mm unless said — and
+`firstPageNumber` / `numberStyle`: where page numbering starts, a whole number
+from 0 (default 1), and how it is written, `"decimal"` (default),
+`"lowerRoman"`, `"upperRoman"`, `"lowerLetter"` or `"upperLetter"`, for an
+appendix that continues its parent's numbering or front matter numbered
+i, ii, iii),
 `typography` (body and heading font, body size in pt, line
 height, colour), `paragraph` (spacing after, in pt), and `title` and
-`sectionHeading` text blocks (font size, weight, spacing before and after).
+`sectionHeading` text blocks (font size, weight, spacing before and after, and
+`keepWithNext`). A heading is kept on the page with whatever follows it and never
+split across a page; that is on without asking, and
+`sectionHeading: { keepWithNext: false }` turns the first half off for a theme
+that wants headings to fall where they fall.
 `cleanMinimalDocumentStyle` is the one shipped preset — spread it and override
 what you need. `showTitle: false` stops a renderer printing the document's title
 above the body, for a document whose own letterhead already carries it; the
@@ -418,6 +510,7 @@ theme decides what that means.
 
 ```ts
 blocks: {
+  grandTotal: { border: "1C2340", borderSides: ["bottom"], borderStyle: "double", weight: "bold" },
   band:  { fill: "F4F6FD", bleed: true, border: "E3E7F5", borderSides: ["bottom"], paddingPt: 10 },
   badge: { fill: "FBF0DC", border: "E5C78A", color: "8A5A06", fontSizePt: 7,
            weight: "bold", transform: "uppercase", letterSpacingEm: 0.1, paddingPt: 5 },
@@ -431,18 +524,18 @@ blocks: {
 | --- | --- |
 | `fill` | background, hex without the `#` |
 | `color` | text colour |
-| `border`, `borderWidthPt`, `borderSides` | a border, on all four edges unless sides are named |
+| `border`, `borderWidthPt`, `borderSides`, `borderStyle` | a border, on all four edges unless sides are named. `borderStyle` is `"single"` (default) \| `"double"` \| `"dashed"` \| `"dotted"` and applies to every drawn edge — a double rule under a total, a dashed tear-off line. Paragraphs and cells only; a `<Shape>` outline is always solid |
 | `paddingPt` | the gap between a drawn border and the text. Word records it on the border, so a block with a fill and no border cannot be padded — see below |
-| `fontSizePt`, `weight`, `transform`, `letterSpacingEm`, `font`, `lineHeight` | how the text is set |
+| `fontSizePt`, `weight`, `transform`, `letterSpacingEm`, `font`, `lineHeight` | how the text is set. `transform: "none"` turns capitals off where a heading or header row would otherwise use them |
 | `align` | `"left" \| "center" \| "right" \| "justify"`. A node's own `align` wins |
 | `spacingBeforePt`, `spacingAfterPt` | space above and below, in points |
 | `indentMm`, `indentRightMm` | inset from the left and right margins |
 | `firstLineIndentMm` | the first line only, for a book's paragraph mark |
 | `hangingIndentMm` | the first line pulled back from the rest. Word writes one or the other, and a hang wins over a first-line indent |
 | `keepWithNext`, `keepLines` | refuse to be the last thing on a page, or to be split across one |
-| `tabStopsMm` | `[{ at, align?, leader? }]`, measured from the left margin. Put a `\t` in the text to reach one |
-| `bleed` | the block runs the full width of the page rather than the text |
-| `maxWidthMm` | a measure, narrowing the column from the right |
+| `tabStopsMm` | `[{ at, align?, leader? }]`, measured from the left margin — or, inside a `Cell` or `Shape`, from its inner left edge. Put a `\t` in the text to reach one |
+| `bleed` | the block runs the full width of the page rather than the text. Ignored inside a `Cell` or `Shape` |
+| `maxWidthMm` | a measure, narrowing the column from the right. Ignored inside a `Cell` or `Shape` |
 | `valign`, `heightPt`, `paddingSidesPt` | for a block that is a strip or a cell rather than prose |
 
 **Every one of these means the same thing on screen and in the `.docx`** — a
@@ -470,5 +563,16 @@ The paragraph properties above are held to Word by
 and compares the two against each other to the millimetre.
 
 A cell takes its block from its own `variant`, then its row's, then its table's
-— the narrower statement wins. A paragraph inside a cell is set by its own
-variant over the cell's, which is how a muted note sits inside a filled row.
+— the narrower statement wins. A paragraph inside a cell or shape is set by its
+own `align` and variant over the container's: its alignment, indents, tab stops,
+border and fill all apply, so a signature cell can carry a dotted leader and a
+card can hold a ruled quote. That is how a muted note sits inside a filled row.
+Only the paragraph's own variant draws a border or fill on it; the cell's stays
+on the cell. A tab leader inside a `Shape` draws in Word; the preview shows the
+gap without the dots.
+
+A section's `variant` styles its printed heading, not its children. The heading takes the block's `fontSizePt`, `weight`, `transform`, `letterSpacingEm`, `color`, `font`, `align`, `border`/`borderWidthPt`/`borderSides`/`paddingPt`, `spacingBeforePt`, `spacingAfterPt`, `keepWithNext` and `keepLines`. Anything the block leaves out comes from `sectionHeading`, and it stays a Heading 1, so the contents still lists it. Fill, indents, bleed, measure, leading and tab stops are not applied to a heading. With `showTitle={false}` there is no heading and the variant does nothing.
+
+```tsx
+<Section id="schedule-1" title="Schedule 1: Services" variant="schedule">…</Section>
+```

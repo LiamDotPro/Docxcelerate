@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
-import { cleanMinimalDocumentStyle, type DocumentModel } from "docxcelerate";
+import { cleanMinimalDocumentStyle, type DocumentModel, type DocumentPageSize } from "docxcelerate";
 import {
   boldBriefTheme,
   legalSerifTheme,
@@ -69,6 +69,15 @@ test("overriding one group leaves the rest of the style alone", () => {
   assertEquals(style.title.fontSizePt, boldBriefTheme.style.title.fontSizePt);
 });
 
+test("a heading's keep can be refused in one group without losing the rest of it", () => {
+  const style = themeStyle(boldBriefTheme, { sectionHeading: { keepWithNext: false } });
+
+  assertEquals(style.sectionHeading.keepWithNext, false);
+  assertEquals(style.sectionHeading.fontSizePt, boldBriefTheme.style.sectionHeading.fontSizePt);
+  // Shipped themes rely on the default.
+  assertEquals(boldBriefTheme.style.sectionHeading.keepWithNext, undefined);
+});
+
 test("the packed file is set from the document style", async () => {
   const doc = themedDocument(legalSerifTheme.id);
   const styles = await partXml(doc, "word/styles.xml");
@@ -98,6 +107,32 @@ test("US Letter and landscape change the page that is packed", async () => {
   assertStringIncludes(sideways, 'w:w="15840"');
   assertStringIncludes(sideways, 'w:h="12240"');
   assertStringIncludes(sideways, 'w:orient="landscape"');
+});
+
+test("named and custom paper sizes change the sheet that is packed", async () => {
+  const sheet = (size: DocumentPageSize, orientation?: "landscape") =>
+    documentXml({
+      ...themedDocument(boldBriefTheme.id),
+      style: themeStyle(boldBriefTheme, { page: { size, orientation } }),
+    });
+  const cases: [DocumentPageSize, string, string][] = [
+    ["LEGAL", "12240", "20160"],
+    ["A5", "8391", "11906"],
+    ["A3", "16838", "23811"],
+    [{ widthMm: 99, heightMm: 210 }, "5613", "11906"],
+  ];
+
+  for (const [size, w, h] of cases) {
+    const xml = await sheet(size);
+    assertStringIncludes(xml, `w:w="${w}"`);
+    assertStringIncludes(xml, `w:h="${h}"`);
+  }
+
+  // Turned, a custom sheet swaps its sides the way a named one does.
+  const turned = await sheet({ widthMm: 99, heightMm: 210 }, "landscape");
+  assertStringIncludes(turned, 'w:w="11906"');
+  assertStringIncludes(turned, 'w:h="5613"');
+  assertStringIncludes(turned, 'w:orient="landscape"');
 });
 
 test("a document with no style still packs, on the fallback", async () => {

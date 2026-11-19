@@ -105,7 +105,10 @@ const VARIANT: NodeOption = {
     "A block style the theme looks up — `\"band\"`, `\"badge\"`, `\"panel\"`. Names " +
     "what the node is, never what it looks like: the appearance lives in the " +
     "style's `blocks`, so a document restyles without a node changing. A name " +
-    "the theme has not heard of draws as an ordinary block rather than failing.",
+    "the theme has not heard of draws as an ordinary block rather than failing. " +
+    "It can be read off the data — `variant={line.status}` — and a published " +
+    "document settles it per recipient. Never choose one with a ternary: " +
+    "published, every recipient gets the true arm.",
 };
 
 const ID: NodeOption = {
@@ -185,7 +188,25 @@ export const NODE_TYPES: NodeTypeEntry[] = [
         name: "title",
         type: "string",
         required: true,
-        summary: "The heading printed above the children, and the outline entry.",
+        summary:
+          "The heading printed above the children, and the outline entry. " +
+          "Kept on the page with what follows it, and never split across a page.",
+      },
+      {
+        name: "showTitle",
+        type: "boolean",
+        summary:
+          "Defaults to `true`. `false` keeps the title as the section's name — " +
+          "its id, its outline entry — and prints nothing.",
+      },
+      {
+        name: "variant",
+        type: "string",
+        summary:
+          "A block style for the printed heading — size, weight, capitals, " +
+          "colour, alignment, a rule, spacing and keeps — over the theme's " +
+          "`sectionHeading`. It stays a Heading 1, so a contents list still " +
+          "finds it; the children are not restyled.",
       },
       {
         name: "children",
@@ -237,8 +258,8 @@ export const NODE_TYPES: NodeTypeEntry[] = [
         type: "string | <Text>",
         summary:
           "Static only. The text, interpolated the way any JSX children are. " +
-          "Wrap some of it in `<Text bold>`, `italic`, `underline`, `strike` " +
-          "or `href` to set those words apart, and write a line end where a " +
+          "Wrap some of it in `<Text bold>`, `italic`, `underline`, `strike`, " +
+          "`script`, `href` or `variant` to set those words apart, and write a line end where a " +
           "line should break without starting a new paragraph. A node given " +
           "its own text is static, whatever prompts a hook set around it.",
       },
@@ -258,7 +279,8 @@ export const NODE_TYPES: NodeTypeEntry[] = [
           "standfirst centred. Leave it out and let a `variant` carry it when " +
           "the alignment is what the theme thinks that kind of block looks " +
           "like. A node that states both wins over its block, the same way a " +
-          "cell wins over its column.",
+          "cell wins over its column. It holds inside a `<Cell>` or `<Shape>` " +
+          "too, over the container's alignment.",
       },
       {
         name: "list",
@@ -276,7 +298,17 @@ export const NODE_TYPES: NodeTypeEntry[] = [
         summary:
           "How far under another item this one stands: `1` for a point under " +
           "an item. A numbered list goes from figures to letters to roman " +
-          "numerals as it goes down.",
+          "numerals as it goes down, unless `listStyle` says otherwise.",
+      },
+      {
+        name: "listStyle",
+        type:
+          '"decimal" | "lowerLetter" | "upperLetter" | "lowerRoman" | ' +
+          '"upperRoman" | …Paren',
+        summary:
+          "The numerals a numbered list counts in at this item's level — " +
+          '`"lowerLetterParen"` for (a), `"upperRoman"` for I. Say it on the ' +
+          "first item at that level; the rest follow. Ignored on a bullet.",
       },
       ...PROMPT_OPTIONS.map((option) => ({
         ...option,
@@ -338,9 +370,8 @@ export const NODE_TYPES: NodeTypeEntry[] = [
     children: "None.",
     resolves: "Both",
     renderNote:
-      "Both shipped renderers print a labelled frame in place of the picture — " +
-      "`[image: <alt>]` in the DOCX, a dashed box in the browser. The node " +
-      "carries its path, alt and size through unchanged.",
+      "Only a `data:` URI is embedded in the DOCX; a path or URL packs as an " +
+      "`[image: <alt>]` note.",
     options: [
       ID,
       {
@@ -369,12 +400,30 @@ export const NODE_TYPES: NodeTypeEntry[] = [
       {
         name: "width",
         type: "number",
-        summary: "Static only. Rendered width in points, honoured by both renderers.",
+        summary:
+          "Rendered width in points. Give only this and the height follows the " +
+          "picture's own proportions; with neither side it is 120pt wide.",
       },
       {
         name: "height",
         type: "number",
-        summary: "Static only. Rendered height in points, on the same terms as `width`.",
+        summary: "Rendered height in points, on the same terms as `width`.",
+      },
+      {
+        name: "align",
+        type: '"left" | "center" | "right"',
+        summary:
+          "Where the picture sits across the text column, flush left unless " +
+          "said. Nothing floats or wraps around it; in a cell or shape the " +
+          "column's or shape's alignment governs.",
+      },
+      {
+        name: "href",
+        type: "string",
+        summary:
+          "An `https:`, `http:`, `mailto:` or `tel:` address the picture links " +
+          "to — a QR code, a Pay-now button. Anything else draws the picture " +
+          "unlinked. Give a linked picture `alt` that says where it goes.",
       },
       ...PROMPT_OPTIONS.map((option) => ({
         ...option,
@@ -447,6 +496,39 @@ export const NODE_TYPES: NodeTypeEntry[] = [
           "lines and areas take it; a pie is already a share of a whole.",
       },
       {
+        name: "alt",
+        type: "string",
+        summary:
+          "What the chart shows, for a screen reader and Word's accessibility " +
+          "checker — what the numbers mean, not what the chart is called. Left " +
+          "out, the title stands in, then the caption.",
+      },
+      {
+        name: "align",
+        type: '"left" | "center" | "right"',
+        summary:
+          "Where a chart narrower than the column sits; its caption follows. " +
+          "Give it a `width` — an unsized chart fills the column.",
+      },
+      {
+        name: "valueAxisMin",
+        type: "number",
+        summary:
+          "Fix the value axis's start, for data whose movement is the point. " +
+          "Word picks any bound left out; on a percent stack they are shares " +
+          "(`0.5` is 50%).",
+      },
+      {
+        name: "valueAxisMax",
+        type: "number",
+        summary: "Where the value axis ends, on the same terms as `valueAxisMin`.",
+      },
+      {
+        name: "valueAxisStep",
+        type: "number",
+        summary: "The gridline step on the value axis, on the same terms as `valueAxisMin`.",
+      },
+      {
         name: "caption",
         type: "string",
         summary:
@@ -512,7 +594,9 @@ export const NODE_TYPES: NodeTypeEntry[] = [
       "an ordinary node: a `.map()` produces rows, a condition drops one, and " +
       "each names itself. That is what lets a published invoice carry one loop " +
       "the engine walks rather than a table full of special cases.",
-    children: "`Row`s, and any `.map()` producing them. A `Row` holds `Cell`s.",
+    children:
+      "`Row`s, and any `.map()` producing them. A `Row` holds `Cell`s, and " +
+      "takes `header`, `keepTogether`, `height` and `heightRule`.",
     resolves: "Both",
     options: [
       ID,
@@ -524,6 +608,13 @@ export const NODE_TYPES: NodeTypeEntry[] = [
           "The columns, left to right. Each takes a `width` in millimetres or " +
           "`\"auto\"` to share what the fixed ones leave, and an `align` of " +
           "`left`, `center` or `right`.",
+      },
+      {
+        name: "align",
+        type: '"left" | "center" | "right"',
+        summary:
+          "Where the whole table sits across the column. Only a table narrower " +
+          "than the column moves: an `\"auto\"` column or a `bleed` fills it.",
       },
       VARIANT,
       DERIVERS,
