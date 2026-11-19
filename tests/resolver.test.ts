@@ -1,12 +1,12 @@
 import { test } from "node:test";
-import { assertEquals, assertStringIncludes } from "./assert.ts";
+import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
 import {
   type AiGraphResult,
   createDeriverRegistry,
+  createRuntimeState,
   type DocumentModel,
   type DocumentNode,
   type GraphNode,
-  InMemoryDataProvider,
   resolveDocument,
   type RuntimeState,
 } from "docxcelerate";
@@ -19,16 +19,14 @@ import {
  * loops — because that is the only thing an engine is ever handed.
  */
 function engineState(data: Record<string, unknown>): RuntimeState {
-  return {
-    ctx: { ...data },
-    derived: {},
-    dataProvider: new InMemoryDataProvider({ ...data }),
+  return createRuntimeState({
+    data,
     aiClient: {
       generateParagraph: (request) => `[generated ${request.node.id}]`,
       generateImage: () => ({ path: "generated.png", alt: "generated" }),
       generateGraph: () => ({ data: { series: [{ values: [1] }] }, caption: "generated" }),
     },
-  };
+  });
 }
 
 function published(nodes: DocumentNode[]): DocumentModel {
@@ -574,6 +572,76 @@ test("a chart client that throws is not caught", async () => {
   );
 });
 
+function generatedParagraph(answer: unknown): Promise<DocumentModel> {
+  const state = engineState({});
+  state.aiClient = { generateParagraph: () => answer as string };
+
+  return resolveDocument(
+    published([{
+      id: "note",
+      kind: "paragraph",
+      mode: "dynamic",
+      prompts: [{ kind: "general", text: "Write it." }],
+    } as DocumentNode]),
+    state,
+  );
+}
+
+test("a generated paragraph's answer is trimmed and stripped of characters Word cannot open", async () => {
+  const cases: Array<[string, string]> = [
+    ["Clean answer", "Clean answer"],
+    ["Hello\n", "Hello"],
+    ["  Hello world  ", "Hello world"],
+    ["Line one\nLine two\n", "Line one\nLine two"],
+    ["Tab\there", "Tab\there"],
+    ["Hello\u0001 world\u000b end", "Hello world end"],
+    ["Hi\u0001\n", "Hi"],
+    ["\u0000\uffff \n", ""],
+    ["", ""],
+  ];
+
+  for (const [answer, expected] of cases) {
+    assertEquals(texts((await generatedParagraph(answer)).nodes), [expected]);
+  }
+});
+
+test("a generated paragraph that is not text names the node", async () => {
+  const cases: Array<[unknown, string]> = [
+    [{ text: "hi" }, 'Dynamic paragraph "note" got an answer that is not text: it returned an object.'],
+    [undefined, "it returned undefined."],
+    [null, "it returned null."],
+    [42, "it returned a number."],
+    [["hi"], "it returned an array."],
+  ];
+
+  for (const [answer, expected] of cases) {
+    await assertRejectsWith(() => generatedParagraph(answer), expected);
+  }
+});
+
+test("a paragraph client that throws is not caught", async () => {
+  const state = engineState({});
+  state.aiClient = {
+    generateParagraph: () => {
+      throw new Error("model down");
+    },
+  };
+
+  await assertRejectsWith(
+    () =>
+      resolveDocument(
+        published([{
+          id: "note",
+          kind: "paragraph",
+          mode: "dynamic",
+          prompts: [{ kind: "general", text: "Write it." }],
+        } as DocumentNode]),
+        state,
+      ),
+    "model down",
+  );
+});
+
 test("a variant resolves per entry of a repeat", async () => {
   const doc = await resolveDocument(
     published([
@@ -678,4 +746,209 @@ test("a condition in even furniture is evaluated per document", async () => {
 
   assertEquals(clear.evenFooter, []);
   assertEquals(owing.evenFooter!.length, 1);
+});
+
+const summary: DocumentNode = {
+  id: "summary",
+  kind: "paragraph",
+  mode: "dynamic",
+  prompts: [{ kind: "general", text: "Summarise." }],
+} as DocumentNode;
+
+test("createRuntimeState seeds ctx.availableTokens the way a build does", async () => {
+  const doc = published([paragraph("budget", "{{data.name}} has {{ctx.availableTokens}} tokens.")]);
+
+  assertEquals(
+    texts((await resolveDocument(doc, createRuntimeState({ data: { name: "Avery" } }))).nodes),
+    ["Avery has 2000 tokens."],
+  );
+  assertEquals(
+    texts((await resolveDocument(doc, createRuntimeState({ data: { name: "Avery" }, availableTokens: 500 }))).nodes),
+    ["Avery has 500 tokens."],
+  );
+});
+
+test("createRuntimeState hands the client every dynamic node, with the request data in reach", async () => {
+  let seen: unknown;
+  const state = createRuntimeState({
+    data: { name: "Avery" },
+    aiClient: {
+      generateParagraph: (request) => {
+        seen = request.state.ctx.name;
+        return `[generated ${request.node.id}]`;
+      },
+    },
+  });
+
+  const doc = await resolveDocument(published([summary]), state);
+
+  assertEquals(texts(doc.nodes), ["[generated summary]"]);
+  assertEquals(seen, "Avery");
+});
+
+test("createRuntimeState without a client resolves a static document and refuses a dynamic one", async () => {
+  const state = createRuntimeState({ data: { name: "Avery" } });
+
+  assertEquals(
+    texts((await resolveDocument(published([paragraph("greeting", "Hello {{data.name}}.")]), state)).nodes),
+    ["Hello Avery."],
+  );
+  await assertRejects(() => resolveDocument(published([summary]), state), Error, "requires an aiClient");
+});
+
+test("createRuntimeState leaves the caller's data alone", async () => {
+  const data = { name: "Avery" };
+  const state = createRuntimeState({ data });
+
+  assertEquals(data, { name: "Avery" });
+  assertEquals(state.ctx, { name: "Avery", availableTokens: 2000 });
+  assertEquals(state.derived, {});
+  assertEquals(await state.dataProvider.get("name"), "Avery");
+  assertEquals("locale" in state, false);
+});
+
+test("createRuntimeState's locale is canonical and wins over the document's", async () => {
+  let locale: string | undefined;
+  const client = {
+    generateParagraph: (request: { state: RuntimeState }) => {
+      locale = request.state.locale;
+      return "x";
+    },
+  };
+  const doc = { ...published([summary]), locale: "fr-FR" };
+
+  await resolveDocument(doc, createRuntimeState({ data: {}, aiClient: client, locale: "de-de" }));
+  assertEquals(locale, "de-DE");
+
+  await resolveDocument(doc, createRuntimeState({ data: {}, aiClient: client }));
+  assertEquals(locale, "fr-FR");
+
+  await assertRejects(
+    () => Promise.resolve().then(() => createRuntimeState({ data: {}, locale: "en_GB" })),
+    Error,
+    "BCP 47",
+  );
+});
+
+test("a published chart's title, caption and axis titles resolve against the request data, static and generated", async () => {
+  const state = engineState({ city: "Leeds", currency: "GBP" });
+  let seen: GraphNode | undefined;
+  state.aiClient = {
+    generateParagraph: () => "",
+    generateGraph: (request) => {
+      seen = request.node;
+      return { data: { series: [{ values: [1] }] } };
+    },
+  };
+  const words = {
+    title: "Visits in {{data.city}}",
+    caption: "For {{data.city}}",
+    categoryAxisTitle: "Month in {{data.city}}",
+    valueAxisTitle: "Spend ({{data.currency}})",
+  };
+  const doc = await resolveDocument(
+    published([
+      {
+        id: "static-spend",
+        kind: "graph",
+        mode: "static",
+        graphType: "bar",
+        ...words,
+        data: { series: [{ values: [1] }] },
+      } as DocumentNode,
+      {
+        id: "generated-spend",
+        kind: "graph",
+        mode: "dynamic",
+        graphType: "bar",
+        prompts: [{ kind: "general", text: "Plot it." }],
+        ...words,
+      } as DocumentNode,
+    ]),
+    state,
+  );
+
+  const resolved = [
+    "Visits in Leeds",
+    "For Leeds",
+    "Month in Leeds",
+    "Spend (GBP)",
+  ];
+  const [staticSpend, generatedSpend] = doc.nodes as GraphNode[];
+  assertEquals(
+    [staticSpend?.title, staticSpend?.caption, staticSpend?.categoryAxisTitle, staticSpend?.valueAxisTitle],
+    resolved,
+  );
+  assertEquals(
+    [generatedSpend?.title, generatedSpend?.caption, generatedSpend?.categoryAxisTitle, generatedSpend?.valueAxisTitle],
+    resolved,
+  );
+  assertEquals(
+    [seen?.title, seen?.caption, seen?.categoryAxisTitle, seen?.valueAxisTitle],
+    resolved,
+  );
+});
+
+test("a generated chart's caption from the model is printed as written", async () => {
+  const dynamicChart = (answer: AiGraphResult): Promise<DocumentModel> => {
+    const state = engineState({ secret: "s3cret", city: "Leeds" });
+    state.aiClient = {
+      generateParagraph: () => "",
+      generateGraph: () => answer,
+    };
+    return resolveDocument(
+      published([{
+        id: "trend",
+        kind: "graph",
+        mode: "dynamic",
+        graphType: "bar",
+        prompts: [{ kind: "general", text: "Plot it." }],
+        caption: "For {{data.city}}",
+      } as DocumentNode]),
+      state,
+    );
+  };
+
+  assertEquals(graphOf(await dynamicChart({ caption: "Up {{data.secret}}" })).caption, "Up {{data.secret}}");
+  assertEquals(graphOf(await dynamicChart({})).caption, "For Leeds");
+});
+
+test("a dynamic paragraph's request.node carries its resolved prompts, as a build's does", async () => {
+  const state = engineState({ name: "Avery" });
+  let seen: string | undefined;
+  state.aiClient = {
+    generateParagraph: (request) => {
+      seen = request.node.prompts?.[0]?.text;
+      return "x";
+    },
+  };
+  await resolveDocument(
+    published([{
+      id: "summary",
+      kind: "paragraph",
+      mode: "dynamic",
+      prompts: [{ kind: "general", text: "Summarise for {{data.name}}." }],
+    } as DocumentNode]),
+    state,
+  );
+  assertEquals(seen, "Summarise for Avery.");
+});
+
+test("a chart with nothing to resolve comes back as it went in", async () => {
+  const node = {
+    id: "plain",
+    kind: "graph",
+    mode: "static",
+    graphType: "bar",
+    data: { series: [{ values: [1] }] },
+  } as DocumentNode;
+  const doc = await resolveDocument(published([node]), engineState({}));
+  assertEquals(graphOf(doc), node as GraphNode);
+
+  const generated = await generatedChart({ data: { series: [{ values: [2] }] } });
+  const chart = graphOf(generated);
+  assertEquals(
+    ["title", "alt", "categoryAxisTitle", "valueAxisTitle"].some((key) => key in chart),
+    false,
+  );
 });
