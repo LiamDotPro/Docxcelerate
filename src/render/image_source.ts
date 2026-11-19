@@ -108,3 +108,61 @@ export function rasterTypeOf(mediaType: string): RasterType | undefined {
 export function isSvg(mediaType: string): boolean {
   return mediaType.toLowerCase() === "image/svg+xml";
 }
+
+/**
+ * The size a raster says it is, in pixels, read from its own header.
+ *
+ * PNG, JPEG, GIF and BMP all state their pixel size in the first bytes, so the
+ * proportions a picture should keep can be known without decoding it or adding
+ * a dependency. The bytes are sniffed by their signature, not by the media
+ * type the URI claims, so a JPEG labelled `image/png` still reads.
+ *
+ * @param bytes The image's bytes, as {@linkcode imageSourceOf} decoded them.
+ * @returns The width and height in pixels, or `undefined` when the bytes are
+ * not one of those four formats, are cut short, or state a zero side.
+ */
+export function pixelSizeOf(bytes: Uint8Array): { width: number; height: number } | undefined {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const has = (end: number) => end <= bytes.byteLength;
+  const startsWith = (...signature: number[]) =>
+    has(signature.length) && signature.every((byte, at) => bytes[at] === byte);
+  let size: { width: number; height: number } | undefined;
+
+  if (startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a) && has(24)) {
+    size = { width: view.getUint32(16), height: view.getUint32(20) };
+  } else if (startsWith(0x47, 0x49, 0x46) && has(10)) {
+    size = { width: view.getUint16(6, true), height: view.getUint16(8, true) };
+  } else if (startsWith(0x42, 0x4d) && has(26)) {
+    // A negative height is rows stored top-down, not a negative size.
+    size = { width: view.getInt32(18, true), height: Math.abs(view.getInt32(22, true)) };
+  } else if (startsWith(0xff, 0xd8)) {
+    size = jpegSizeOf(view);
+  }
+
+  return size && size.width > 0 && size.height > 0 ? size : undefined;
+}
+
+/** Walks a JPEG's segments to its start-of-frame, which is where the size is. */
+function jpegSizeOf(view: DataView): { width: number; height: number } | undefined {
+  let at = 2;
+
+  while (at + 4 <= view.byteLength && view.getUint8(at) === 0xff) {
+    const marker = view.getUint8(at + 1);
+
+    if (marker === 0xff) {
+      at += 1; // fill byte
+    } else if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      at += 2; // no length
+    } else if (marker === 0xd9 || marker === 0xda) {
+      return undefined; // the frame header never came before the image data
+    } else if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      return at + 9 <= view.byteLength
+        ? { width: view.getUint16(at + 7), height: view.getUint16(at + 5) }
+        : undefined;
+    } else {
+      at += 2 + view.getUint16(at + 2);
+    }
+  }
+
+  return undefined;
+}

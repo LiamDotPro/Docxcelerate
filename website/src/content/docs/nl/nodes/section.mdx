@@ -50,7 +50,28 @@ op elke diepte hetzelfde op, en zijn id krijgt er geen voorvoegsel bij.
 
 `title` is verplicht, en het is geen versiering — het wordt de kop boven de
 kinderen en de regel waaruit een inhoudsopgave wordt opgebouwd. Een groep die
-geen kop wil, wil geen sectie; zet de nodes dan rechtstreeks in het document.
+geen kop wil, wil `showTitle={false}`, dat de titel als naam van de sectie
+bewaart en niets afdrukt.
+
+Een kop is nooit het laatste op een pagina en wordt nooit over twee pagina's
+gesplitst: Word verplaatst hem samen met wat hij aankondigt. Dat staat standaard
+aan, omdat een kop die onderaan een pagina strandt er een is die niemand opmerkt
+in een preview van pagina één; een thema dat koppen wil laten vallen waar ze
+vallen, zet `sectionHeading: { keepWithNext: false }`.
+
+`variant` op een sectie geeft zijn kop een andere stijl, niet zijn kinderen. De
+grootte, het gewicht, `transform`, de spatiëring, de kleur, `align`, de rand, de
+witruimte en de keeps van het blok worden over de `sectionHeading` van het thema
+heen gelegd, en het blijft een Kop 1, zodat een inhoudsopgave hem nog steeds
+vindt. Zo staat de kop van een bijlage in gecentreerde hoofdletters terwijl de
+artikelkoppen blijven zoals ze zijn:
+
+```tsx
+<Section title="Schedule 1: Services" variant="schedule">…</Section>
+```
+
+`transform: "none"` op het blok maakt hoofdletters ongedaan die de koppen van het
+thema vragen.
 
 ## Varianten
 
