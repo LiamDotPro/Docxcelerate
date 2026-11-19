@@ -11,7 +11,8 @@ export const table = (lines: BankTransferDetailsLines): Yield => (
     {lines.warning && <Paragraph id="bank-transfer-warning">{lines.warning}</Paragraph>}
     <Paragraph id="bank-transfer-method">{lines.method}</Paragraph>
     {/* 45mm holds the longest label, "Routing number (ACH and wire)", on one line. */}
-    <Table id="bank-transfer-details" columns={[{ width: 45 }, { width: "auto" }]}>
+    {/* On the none rail no row prints, and a row-less table is not valid DOCX. */}
+    {lines.accountName && <Table id="bank-transfer-details" columns={[{ width: 45 }, { width: "auto" }]}>
       {lines.accountName && (
         <Row id="bank-transfer-account-name">
           <Cell>Account name</Cell>
@@ -60,6 +61,6 @@ export const table = (lines: BankTransferDetailsLines): Yield => (
           <Cell>{lines.reference}</Cell>
         </Row>
       )}
-    </Table>
+    </Table>}
   </>
 );

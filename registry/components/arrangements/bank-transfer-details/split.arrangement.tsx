@@ -10,7 +10,8 @@ export const split = (lines: BankTransferDetailsLines): Yield => (
   <>
     {lines.warning && <Paragraph id="bank-transfer-warning">{lines.warning}</Paragraph>}
     <Paragraph id="bank-transfer-method">{lines.method}</Paragraph>
-    <Table id="bank-transfer-details" columns={[{ width: "auto" }, { width: 60, align: "right" }]}>
+    {/* On the none rail there is nothing to put in the band. */}
+    {lines.accountName && <Table id="bank-transfer-details" columns={[{ width: "auto" }, { width: 60, align: "right" }]}>
       <Row id="bank-transfer-details-row">
         <Cell>
           {lines.accountName && <Paragraph id="bank-transfer-account-name">Account name: {lines.accountName}</Paragraph>}
@@ -31,6 +32,6 @@ export const split = (lines: BankTransferDetailsLines): Yield => (
           )}
         </Cell>
       </Row>
-    </Table>
+    </Table>}
   </>
 );

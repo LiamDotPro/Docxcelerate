@@ -96,6 +96,8 @@ test("SEPA", async () => {
   const r = await run(sepa, { country: "IE" }, { currency: "EUR" });
   assertEquals([r.iban, r.bic, r.method], ["DE89 3704 0044 0532 0130 00", null, "Pay by SEPA credit transfer, in euros."]);
   assertEquals((await run({ ...sepa, bic: "cobadeffxxx" }, { country: "IE" }, { currency: "EUR" })).bic, "COBADEFFXXX");
+  const invalid = await run({ ...sepa, bic: "NWBK" }, { country: "IE" }, { currency: "EUR" });
+  assertEquals([invalid.iban, invalid.bic, invalid.method], ["DE89 3704 0044 0532 0130 00", null, "Pay by SEPA credit transfer, in euros."]);
 });
 
 test("the currency has to match the payer's rail", async () => {
@@ -267,3 +269,47 @@ test("published, the rail is decided by the engine, not at publish time", async 
   assertEquals(us.includes("bank-transfer-routing") && us.includes("bank-transfer-wire-routing"), true);
   assertEquals(us.includes("bank-transfer-sort-code") || us.includes("bank-transfer-iban"), false);
 });
+
+const publishCases: Record<string, Obj> = {
+  uk: nodeData,
+  us: { ...nodeData, payer: { country: "US" }, invoice: { currency: "USD", reference: "INV-1" } },
+  sepa: {
+    ...nodeData,
+    payee: { ...nodeData.payee, iban: "DE89370400440532013000" },
+    payer: { country: "IE" },
+    invoice: { currency: "EUR", reference: "INV-1" },
+  },
+  // ZZ with the IBAN and BIC left in would be the international rail; take them out.
+  none: { ...nodeData, payee: { ...nodeData.payee, iban: undefined, bic: undefined }, payer: { country: "ZZ" } },
+};
+
+for (const arrangement of ARRANGEMENTS) {
+  for (const [rail, data] of Object.entries(publishCases)) {
+    test(`${arrangement}: publishing then resolving matches building directly (${rail})`, async () => {
+      const published = await buildDocument(documentOf(arrangement), createPublishData() as typeof nodeData, {
+        branchMode: "publish",
+        deriverMode: "preserve",
+        dynamicMode: "resolve",
+        aiClient: { generateParagraph: () => "" },
+      });
+      const resolved = await resolveDocument(published, stateOf(data), { derivers: registry });
+      const direct = await buildDocument(documentOf(arrangement), data as typeof nodeData, { dynamicMode: "placeholder" });
+      // Generated cell ids count differently once branches are published, so compare what is printed.
+      assertEquals(textsOf(resolved.nodes), textsOf(direct.nodes));
+      assertEquals(idsOf(resolved.nodes), idsOf(direct.nodes));
+    });
+  }
+}
+
+for (const arrangement of ["table", "split"] as const) {
+  test(`${arrangement}: the none rail prints no empty table`, async () => {
+    const published = await buildDocument(documentOf(arrangement), createPublishData() as typeof nodeData, {
+      branchMode: "publish",
+      deriverMode: "preserve",
+      dynamicMode: "resolve",
+      aiClient: { generateParagraph: () => "" },
+    });
+    const resolved = await resolveDocument(published, stateOf(publishCases.none), { derivers: registry });
+    assertEquals(idsOf(resolved.nodes).includes("bank-transfer-details"), false);
+  });
+}
