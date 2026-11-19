@@ -125,6 +125,7 @@ dxcl list components
 | `invoice-document-type` | What an invoice may call itself, and the dates it has to carry. |
 | `tax-treatment-notice` | The mention an invoice's tax treatment requires, or a warning when its ID is missing. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `gst-inclusive-statement` | How GST shows on an AU or NZ tax invoice, and who it must name at each threshold. |
 
 ## `dxcl show <id>`
 

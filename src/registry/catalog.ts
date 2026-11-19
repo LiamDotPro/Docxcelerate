@@ -1022,6 +1022,58 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "gst-inclusive-statement",
+    title: "GST-inclusive statement (AU/NZ)",
+    summary: "How GST shows on an Australian or New Zealand tax invoice, and who it must name at each threshold.",
+    detail:
+      "Prints the items and totals of an AU or NZ invoice and decides how GST appears. \"Total price includes GST.\" " +
+      "replaces the GST figure only when every item is standard-rated, prices include GST and the GST is exactly 1/11 " +
+      "(AU) or 3/23 (NZ) of the total. Otherwise the figure is shown, and on a mixed invoice each taxable item is marked " +
+      "and a legend says so. GST is worked in cents under the ATO total-invoice rule, or the taxable-sale rule when " +
+      "chosen. Thresholds use the GST-inclusive total: the supplier's ABN always and the buyer's name or ABN from " +
+      "A$1,000 in Australia; in New Zealand, the GST number above NZ$200 and the buyer's name plus one identifier above " +
+      "NZ$1,000. ABNs, IRD numbers and NZBNs are checksummed, and a failure or a missing identity fails the build. An " +
+      "unregistered seller gets no GST wording. All of it is one deriver.",
+    category: "Body",
+    tags: ["invoice", "tax", "gst", "australia", "new-zealand", "deriver"],
+    exports: ["GstInclusiveStatement"],
+    dataFields: [
+      { path: "gst.country", type: '"AU" | "NZ"', summary: "Whose GST rules apply. Required." },
+      { path: "gst.sellerRegistered", type: "boolean", summary: "Missing means not registered: no GST wording at all." },
+      { path: "gst.sellerTaxId", type: "string | undefined", summary: "ABN (AU) or GST number (NZ). Checksummed; required on an AU tax invoice and on NZ invoices above NZ$200." },
+      { path: "gst.pricesIncludeGst", type: "boolean | undefined", summary: "Whether line amounts include GST. Required when any line is taxable." },
+      { path: "gst.rounding", type: '"total-invoice" | "taxable-sale" | undefined', summary: "ATO rounding rule. Defaults to total-invoice." },
+      { path: "gst.lines", type: 'Array<{ description: string; amountMinor: number; treatment: "taxable" | "gst-free" | "input-taxed" | "margin-scheme" | "zero-rated" | "exempt" }>', summary: "The items, amounts in integer cents. At least one." },
+      { path: "gst.buyer", type: '{ name?: string; abn?: string; identifier?: { kind: "address" | "phone" | "email" | "nzbn" | "url" | "trading-name"; value: string } } | undefined', summary: "Required from A$1,000 (name or ABN) and above NZ$1,000 (name and one identifier)." },
+    ],
+    arrangements: [
+      { id: "table", title: "Table", summary: "Items and totals in two columns, amounts right-aligned." },
+      { id: "stacked", title: "Stacked", summary: "One line per item and per total, for an invoice laid out as text." },
+    ],
+    files: node("gst-inclusive-statement", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      gst: {
+        country: "AU",
+        sellerRegistered: true,
+        sellerTaxId: "51 824 753 556",
+        pricesIncludeGst: true,
+        rounding: "total-invoice",
+        lines: [
+          { description: "Commercial kitchen fit-out, Level 3, 1 Macquarie Place, Sydney: stage 2 of 3, labour and materials", amountMinor: 12950000, treatment: "taxable" },
+          { description: "Fresh produce supplied to the staff canteen under the September 2026 catering agreement", amountMinor: 880000, treatment: "gst-free" },
+          { description: "Residential lease, Unit 14/220 Sussex Street, Sydney: October 2026 rent", amountMinor: 429000, treatment: "input-taxed" },
+          { description: "Early-payment rebate agreed 14 August 2026 on the fit-out contract", amountMinor: -259000, treatment: "taxable" },
+        ],
+        buyer: {
+          name: "Harbourside Hospitality Group Holdings Pty Ltd as trustee for the Harbourside Unit Trust",
+          abn: "98 765 432 122",
+        },
+      },
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
