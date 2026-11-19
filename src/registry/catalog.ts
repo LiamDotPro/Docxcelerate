@@ -1022,6 +1022,57 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "prepaid-hours-drawdown",
+    title: "Prepaid hours drawdown",
+    summary: "Time entries drawn against prepaid hour blocks soonest-expiring first, with overage, rollover and lapsed hours in a ledger.",
+    detail:
+      "Applies a period's time entries to prepaid retainer hour blocks in date order, drawing first on the block that expires soonest, not the oldest purchase. A block counts if the entry's date falls inside it, whatever the invoice date. Each entry is rounded up to the billing increment before it draws hours, and an entry that runs past the hours it may use is split at the exact minute: the covered part draws on the block and the rest is overage at the engagement's overage rate, or the timekeeper's standard rate if none is set. Blocks can be limited to roles, so partner time never draws on an associate-only block. When a block ends, unused hours roll into its successor up to a cap in hours or as a percentage of the block, keeping a shorter expiry when rolled hours do not extend. Rolled hours never roll twice. Anything above the cap is shown as forfeited with its value at the block rate, never credited, and VAT charged on the purchase is not reversed. Prints a block ledger, the overage, any split entry, and a warning when the balance is low or exhausted or hours are about to expire. All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "invoice", "time", "retainer", "hours", "professional-services", "table", "deriver", "branching", "section"],
+    exports: ["PrepaidHoursDrawdown"],
+    dataFields: [
+      { path: "retainer.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required." },
+      { path: "retainer.periodEnd", type: "string", summary: "ISO 8601 last day billed. Blocks ending on or before it are closed. Required." },
+      { path: "retainer.increment", type: "number", summary: "Billing increment in minutes; entries round up to it before drawing. Required." },
+      { path: "retainer.overageRate", type: "number | undefined", summary: "Overage rate per hour, minor units. Missing means each entry's standardRate." },
+      { path: "retainer.lowBalanceHours", type: "number | undefined", summary: "Warn when open hours fall to this. Missing means no low-balance warning." },
+      { path: "retainer.expiringDays", type: "number | undefined", summary: "Days after periodEnd an expiry is warned about. Missing means 30." },
+      { path: "retainer.vatOnPurchase", type: "boolean | undefined", summary: "VAT was charged on the blocks; says it is not adjusted on forfeiture." },
+      { path: "retainer.blocks", type: "Array<{ id: string; name?: string; hours: number; opening?: number; rate: number; start: string; expiry: string; rolloverCap?: { hours?: number; percent?: number }; rolledExpiry?: string; allowedRoles?: string[]; rolledInFrom?: string }>", summary: "Blocks not yet closed, any order. Rates in minor units per hour." },
+      { path: "retainer.entries", type: "Array<{ date: string; timekeeper: string; role?: string; minutes: number; standardRate?: number }>", summary: "Time entries, any order, minutes before rounding." },
+    ],
+    files: node("prepaid-hours-drawdown", { deriver: true }),
+    previewData: {
+      retainer: {
+        currency: "GBP",
+        periodEnd: "2026-03-31",
+        increment: 6,
+        overageRate: 145000,
+        lowBalanceHours: 40,
+        expiringDays: 61,
+        vatOnPurchase: true,
+        blocks: [
+          { id: "q4-carried", name: "Hours carried from the Q4 2025 commercial litigation retainer", hours: 30, opening: 12.5, rate: 62500, start: "2025-10-01", expiry: "2026-03-15" },
+          { id: "q1", name: "Q1 2026 retainer: commercial litigation and regulatory advisory", hours: 250, opening: 100.3, rate: 62500, start: "2026-01-01", expiry: "2026-03-31", rolloverCap: { percent: 10 }, rolledExpiry: "2026-04-30", allowedRoles: ["partner", "senior associate", "associate"] },
+          { id: "q2", name: "Q2 2026 retainer: commercial litigation and regulatory advisory", hours: 250, rate: 62500, start: "2026-04-01", expiry: "2026-06-30", rolloverCap: { percent: 10 }, rolledInFrom: "q1" },
+          { id: "paralegal-q1", name: "Q1 2026 document review and disclosure support (paralegal time only)", hours: 120, opening: 48, rate: 18500, start: "2026-01-01", expiry: "2026-05-31", allowedRoles: ["paralegal", "trainee solicitor"] },
+        ],
+        entries: [
+          { date: "2026-02-27", timekeeper: "Alexandra Montgomery-Fitzwilliam", role: "partner", minutes: 184, standardRate: 145000 },
+          { date: "2026-03-03", timekeeper: "Oluwaseun Adebayo-Richardson", role: "senior associate", minutes: 437, standardRate: 89500 },
+          { date: "2026-03-09", timekeeper: "Krystyna Wiśniewska-Hargreaves", role: "paralegal", minutes: 1250, standardRate: 24500 },
+          { date: "2026-03-12", timekeeper: "Alexandra Montgomery-Fitzwilliam", role: "partner", minutes: 611, standardRate: 145000 },
+          { date: "2026-03-18", timekeeper: "Oluwaseun Adebayo-Richardson", role: "senior associate", minutes: 1904, standardRate: 89500 },
+          { date: "2026-03-24", timekeeper: "Maximilian Featherstonehaugh", role: "associate", minutes: 1022, standardRate: 72500 },
+          { date: "2026-03-27", timekeeper: "Alexandra Montgomery-Fitzwilliam", role: "partner", minutes: 377, standardRate: 145000 },
+          { date: "2026-03-30", timekeeper: "Priyanka Venkataraman-Castellanos", role: "consultant", minutes: 248, standardRate: 115000 },
+        ],
+      },
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
