@@ -1,12 +1,12 @@
 import { test } from "node:test";
-import { assertEquals, assertStringIncludes } from "./assert.ts";
+import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
 import {
   type AiGraphResult,
   createDeriverRegistry,
+  createRuntimeState,
   type DocumentModel,
   type DocumentNode,
   type GraphNode,
-  InMemoryDataProvider,
   resolveDocument,
   type RuntimeState,
 } from "docxcelerate";
@@ -19,16 +19,14 @@ import {
  * loops — because that is the only thing an engine is ever handed.
  */
 function engineState(data: Record<string, unknown>): RuntimeState {
-  return {
-    ctx: { ...data },
-    derived: {},
-    dataProvider: new InMemoryDataProvider({ ...data }),
+  return createRuntimeState({
+    data,
     aiClient: {
       generateParagraph: (request) => `[generated ${request.node.id}]`,
       generateImage: () => ({ path: "generated.png", alt: "generated" }),
       generateGraph: () => ({ data: { series: [{ values: [1] }] }, caption: "generated" }),
     },
-  };
+  });
 }
 
 function published(nodes: DocumentNode[]): DocumentModel {
@@ -748,4 +746,86 @@ test("a condition in even furniture is evaluated per document", async () => {
 
   assertEquals(clear.evenFooter, []);
   assertEquals(owing.evenFooter!.length, 1);
+});
+
+const summary: DocumentNode = {
+  id: "summary",
+  kind: "paragraph",
+  mode: "dynamic",
+  prompts: [{ kind: "general", text: "Summarise." }],
+} as DocumentNode;
+
+test("createRuntimeState seeds ctx.availableTokens the way a build does", async () => {
+  const doc = published([paragraph("budget", "{{data.name}} has {{ctx.availableTokens}} tokens.")]);
+
+  assertEquals(
+    texts((await resolveDocument(doc, createRuntimeState({ data: { name: "Avery" } }))).nodes),
+    ["Avery has 2000 tokens."],
+  );
+  assertEquals(
+    texts((await resolveDocument(doc, createRuntimeState({ data: { name: "Avery" }, availableTokens: 500 }))).nodes),
+    ["Avery has 500 tokens."],
+  );
+});
+
+test("createRuntimeState hands the client every dynamic node, with the request data in reach", async () => {
+  let seen: unknown;
+  const state = createRuntimeState({
+    data: { name: "Avery" },
+    aiClient: {
+      generateParagraph: (request) => {
+        seen = request.state.ctx.name;
+        return `[generated ${request.node.id}]`;
+      },
+    },
+  });
+
+  const doc = await resolveDocument(published([summary]), state);
+
+  assertEquals(texts(doc.nodes), ["[generated summary]"]);
+  assertEquals(seen, "Avery");
+});
+
+test("createRuntimeState without a client resolves a static document and refuses a dynamic one", async () => {
+  const state = createRuntimeState({ data: { name: "Avery" } });
+
+  assertEquals(
+    texts((await resolveDocument(published([paragraph("greeting", "Hello {{data.name}}.")]), state)).nodes),
+    ["Hello Avery."],
+  );
+  await assertRejects(() => resolveDocument(published([summary]), state), Error, "requires an aiClient");
+});
+
+test("createRuntimeState leaves the caller's data alone", async () => {
+  const data = { name: "Avery" };
+  const state = createRuntimeState({ data });
+
+  assertEquals(data, { name: "Avery" });
+  assertEquals(state.ctx, { name: "Avery", availableTokens: 2000 });
+  assertEquals(state.derived, {});
+  assertEquals(await state.dataProvider.get("name"), "Avery");
+  assertEquals("locale" in state, false);
+});
+
+test("createRuntimeState's locale is canonical and wins over the document's", async () => {
+  let locale: string | undefined;
+  const client = {
+    generateParagraph: (request: { state: RuntimeState }) => {
+      locale = request.state.locale;
+      return "x";
+    },
+  };
+  const doc = { ...published([summary]), locale: "fr-FR" };
+
+  await resolveDocument(doc, createRuntimeState({ data: {}, aiClient: client, locale: "de-de" }));
+  assertEquals(locale, "de-DE");
+
+  await resolveDocument(doc, createRuntimeState({ data: {}, aiClient: client }));
+  assertEquals(locale, "fr-FR");
+
+  await assertRejects(
+    () => Promise.resolve().then(() => createRuntimeState({ data: {}, locale: "en_GB" })),
+    Error,
+    "BCP 47",
+  );
 });
