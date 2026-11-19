@@ -62,8 +62,8 @@ interface PromptProps {
 | --- | --- |
 | `Document` | `id?`, `title` (required), `metadata?`, `properties?`, `header?`, `footer?`, `firstHeader?`, `firstFooter?`, `evenHeader?`, `evenFooter?`, `trackChanges?`, `children?` |
 | `Section` | `title` (required), `showTitle?` (default `true`), `children?` |
-| `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0), `listStyle?` (`"decimal" \| "lowerLetter" \| "upperLetter" \| "lowerRoman" \| "upperRoman"`, or any of them with `Paren` appended: `"lowerLetterParen"` is (a); default by depth 1. a. i.), `listStart?` (a whole number from 1, default 1; numbered items only) |
-| `Text` | `bold?`, `italic?`, `underline?`, `strike?`, `script?` (`"superscript" \| "subscript"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`), `variant?` (a block name; only its character settings apply), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
+| `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0), `listStyle?` (`"decimal" \| "lowerLetter" \| "upperLetter" \| "lowerRoman" \| "upperRoman"`, or any of them with `Paren` appended: `"lowerLetterParen"` is (a); default by depth 1. a. i.), `listStart?` (a whole number from 1, default 1; numbered items only), `listMarker?` (`"dash" \| "tick" \| "cross" \| "square"`: –, ✓, ✗, ▪; default the bullet, • ◦ ▪ by depth; bulleted items only) |
+| `Text` | `bold?`, `italic?`, `underline?` (`true` single, `"double"` the accounting double rule; a link is always underlined), `strike?`, `script?` (`"superscript" \| "subscript"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`), `variant?` (a block name; only its character settings apply), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` (points; give one and the other keeps the picture's proportions, neither is 120pt wide), `align?` (`"left" \| "center" \| "right"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`) |
 | `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `alt?`, `caption?`, `width?`, `height?` (points), `align?` (`"left" \| "center" \| "right"`), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `valueAxisMin?`, `valueAxisMax?`, `valueAxisStep?` (numbers; fix the value axis, Word picks any left out), `dataLabels?` |
 | `Table` | `columns` (required), `align?` (`"left" \| "center" \| "right"`, default left), `children?` |
@@ -72,15 +72,19 @@ interface PromptProps {
 | `Shape` | `width?`, `height?` (points), `children?` |
 | `TableOfContents` | `title?` |
 | `PageBreak` | nothing beyond the common props |
-| `PageNumber` | `format?` (`"current" \| "total" \| "currentOfTotal"`, default the last), `separator?` (default `" / "`) |
+| `PageNumber` | `format?` (`"current" \| "total" \| "currentOfTotal"`, default the last), `prefix?` (printed before the number as written, e.g. `"Page "`; default none), `separator?` (default `" / "`), `align?` (`"left" \| "center" \| "right" \| "justify"`; default none, so it inherits) |
 
 Notes worth knowing:
 
+- A `variant` on `PageNumber` draws like the same variant on a `Paragraph`: the
+  block's type on every run, both numbers included, and its fill, rules and
+  spacing on the line. `align` beats the block's `align`. Inside a `Cell` the
+  column's alignment wins, as it does for a paragraph.
 - A list is paragraphs with `list="bullet"` or `list="number"`. Items written
   one after another are one list and the renderer counts them; anything that is
   not an item ends it, and the next numbered list starts at one. Never type a
   bullet or a number into the text. `listLevel={1}` nests an item under the one
-  above. `listStyle` on a numbered item picks the numerals for that item's level in its list — `listStyle="lowerLetterParen"` on the first sub-clause makes every sub-clause (a), (b); the first item at a level to say decides it, so say it once. Without it a level counts 1., a., i. by depth. Ignored on bullets. `listStart={4}` on the item that opens a numbered list (or a level of one) makes it count from 4: a list that resumes after a table or a quote is a new list, so say where it picks up. It is ignored on any later item and on bullets, and anything but a whole number from 1 is refused at build. Not drawn on a `<Shape>`.
+  above. `listStyle` on a numbered item picks the numerals for that item's level in its list — `listStyle="lowerLetterParen"` on the first sub-clause makes every sub-clause (a), (b); the first item at a level to say decides it, so say it once. Without it a level counts 1., a., i. by depth. Ignored on bullets. `listStart={4}` on the item that opens a numbered list (or a level of one) makes it count from 4: a list that resumes after a table or a quote is a new list, so say where it picks up. It is ignored on any later item and on bullets, and anything but a whole number from 1 is refused at build. `listMarker="tick"` on a bulleted item marks it ✓ instead of •; `"cross"` is ✗, `"dash"` an en dash, `"square"` ▪. Each item says its own, so a list of what is covered (`tick`) and what is not (`cross`) is one list. An item without it keeps the bullet. Ignored on numbered items. Never type a tick or a dash into the text. Not drawn on a `<Shape>`.
 - `<Text>` sets some of a paragraph's words differently:
   `Due within <Text bold>thirty days</Text>.` One inside another takes both
   settings. m<Text script="superscript">2</Text>, CO<Text script="subscript">2</Text>
@@ -184,6 +188,12 @@ Notes worth knowing:
   shorter than the categories is padded with gaps; one with no categories is
   counted by position. Strings inside the payload are run through the template
   renderer, so a label containing `{{derived.total}}` resolves.
+- A chart's `title`, `alt`, `caption`, `categoryAxisTitle` and `valueAxisTitle`
+  are text like any other: interpolated request data publishes as a token and is
+  filled per document, by a direct build and by `resolveDocument` alike. On a
+  generated chart they are filled before `aiClient.generateGraph` is called, so
+  `request.node` carries the recipient's words. A `caption` the model returns is
+  printed as written, never rendered, so a token in an answer stays text.
 - `scatter` and `bubble` read the categories as their x values, so those are
   numbers written as text; anything that will not parse counts as its position.
   `sizes` is the third figure a `bubble` carries and no other type reads.
@@ -295,7 +305,7 @@ before any `return`.
 | `useShared` | `(key: string, initial) => [TValue, setter]` | A value left for the components rendered *after* this one, in document order. |
 | `useAi` | `(config: AiConfig) => PromptDraft` | Everything a generated node needs, in one call. Calling it is what makes the node dynamic. |
 | `useSetPrompts` | `(prompts: PromptDraft) => PromptDraft` | The same prompts under their downstream names, for a hook adding house style to a node it does not own. |
-| `useSetPlaceholders` | `(placeholder: string \| { placeholder?: string })` | What previews show in place of generated content. |
+| `useSetPlaceholders` | `(placeholder: string \| { placeholder?: string })` | What previews show in place of generated content. `useAi` takes it as `placeholder`; this is for a shared hook. |
 | `usePlaceholderData` | `() => PlaceholderData` | Stand-in values, seeded from where the component sits. |
 | `useFormat` | `(locale?: string) => Formatters` | Locale-aware formatting; defaults to the build locale (`en-GB`). |
 | `useAvailableTokens` | `() => number` | The token budget this build allotted — `2000` by default. |
@@ -457,6 +467,11 @@ build with. A generated `<Graph>` needs the engine's client to implement
 method is missing fails, naming the node. A generated image keeps the `alt`,
 `width` and `height` the template gave it unless the client returns its own.
 
+A missing method is never filled in with the placeholder: the placeholder is
+only what a preview shows before anything is asked. Every request's `node`
+arrives with its prompts already resolved against the request data — a
+paragraph's included — and whatever the client returns is printed as written.
+
 For a project, prefer `buildProjectPreviewDocument` over `buildDocument` — it is
 exactly what the preview app calls, so what you build in code matches what you
 saw in the browser.
@@ -483,11 +498,12 @@ belongs to a request that has not happened yet.
 An engine holding the artifact fills its `engineDocument` at request time:
 
 ```ts
-import { createRuntimeState, resolveDocument } from "docxcelerate";
+import { createDeriverRegistryFromBundle, createRuntimeState, resolveDocument } from "docxcelerate";
 
 const doc = await resolveDocument(
   artifact.engineDocument,
   createRuntimeState({ data, aiClient }),
+  { derivers: await createDeriverRegistryFromBundle(artifact.derivers) },
 );
 ```
 
@@ -498,9 +514,108 @@ const doc = await resolveDocument(
 | `locale` | the document's | A BCP 47 tag; an invalid one throws |
 | `availableTokens` | `2000` | What `{{ctx.availableTokens}}` prints — what `useAvailableTokens()` returned in the build |
 
+A locale whose script is Chinese, Japanese or Korean is also written to Word's East Asian language slot, and an Arabic or Hebrew one to its complex-script slot, so Word proofs the text in that language.
+
+The third argument is `{ derivers?: DeriverRegistry }`. `artifact.derivers` is
+the bundle of the derivers the document references, and
+`createDeriverRegistryFromBundle` loads it over the built-in `sum`, `join` and
+`count`. Given `undefined`, it returns just those. A document invoking a deriver
+the registry does not hold rejects, naming the deriver.
+
 Build the state with `createRuntimeState`, not by hand. It is seeded exactly as
 `buildDocument` seeds its own, and a hand-built `ctx` without `availableTokens`
-silently prints nothing wherever a template read `useAvailableTokens()`.
+silently prints nothing wherever a template read `useAvailableTokens()`. What it
+returns:
+
+```ts
+interface RuntimeState {
+  ctx: JsonObject;            // the data, plus availableTokens
+  derived: JsonObject;        // what derivers have written so far
+  dataProvider: DataProvider; // reads ctx by dotted path
+  aiClient: AiClient;         // yours, or one that throws on the first dynamic paragraph
+  locale?: string;            // canonical BCP 47; the document's when you gave none
+}
+```
+
+### The `AiClient` contract
+
+Any model or provider plugs in behind one interface. Nothing here is
+provider-specific, and the client is the only thing that touches a network.
+
+```ts
+interface AiClient {
+  generateParagraph(request: AiGenerationRequest): Promise<string> | string;      // required
+  generateGraph?(request: AiGraphGenerationRequest): Promise<AiGraphResult> | AiGraphResult;
+  generateImage?(request: AiImageGenerationRequest): Promise<AiImageResult> | AiImageResult;
+}
+
+// All three requests have this shape; `node` is a ParagraphNode, GraphNode or ImageNode.
+interface AiGenerationRequest {
+  node: ParagraphNode;    // the node being written, with its id
+  prompt: string;         // the prompts joined, one "KIND: text" line each
+  prompts: PromptSpec[];  // the same, kept apart: { kind, text }
+  state: RuntimeState;    // the data and locale this document is written for
+}
+
+interface AiGraphResult { graphType?: GraphType; data?: GraphData; caption?: string }
+interface AiImageResult { path: string; alt?: string; width?: number; height?: number }
+```
+
+The prompts come from `useAi` in a fixed order: `voice` → `system`, `ask` →
+`general`, `from` → `info`, `avoid` → `negative`, `example` → `example`. Every
+`{{…}}` token in them is already filled with this recipient's values. The
+placeholder is never sent. When the document has a locale, a paragraph's and a
+chart's prompts start with one more `system` entry, `Write in French (France),
+the language of this document.` An image's do not, since it has no words to
+write.
+
+What comes back is checked before it is packed:
+
+- **Paragraph:** a string, the text itself. Anything else rejects, naming the node.
+  `""` is an empty paragraph.
+- **Chart:** an `AiGraphResult`, read the way model JSON is written (see
+  `Graph.data` above). Absent or `null` fields keep the node's own, and an
+  unplottable answer rejects, naming the node and the field.
+- **Image:** an `AiImageResult` whose `path` is a `data:` URI. Only that is packed
+  into Word. A path or URL draws on screen and packs as `[image: <alt>]`. Absent
+  `alt`, `width` or `height` keep the node's own.
+
+A client is a few lines of `fetch`. The key stays inside it:
+
+```ts
+const aiClient: AiClient = {
+  async generateParagraph({ prompt }) {
+    const response = await fetch(MODEL_URL, {
+      method: "POST",
+      headers: { authorization: `Bearer ${MODEL_KEY}`, "content-type": "application/json" },
+      body: JSON.stringify({ input: prompt }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) throw new Error(`Model answered ${response.status}`);
+    const { text } = await response.json();
+    return text; // the string, not the response object
+  },
+};
+```
+
+Keep keys in the client, never in `data` or a prompt: a `{{data.…}}` token can
+print anything in `data`, and prompts are published with the document.
+
+### When the client fails
+
+`resolveDocument` asks one node at a time, in document order, and does not
+catch, retry or time out:
+
+| The client… | `resolveDocument` |
+| --- | --- |
+| throws or rejects | rejects with that error |
+| never settles | never settles — bound the call with `AbortSignal.timeout` |
+| returns a non-string paragraph, or a chart it cannot plot | rejects, naming the node |
+| lacks `generateGraph` / `generateImage` for a node that needs it | rejects, naming the node and the method |
+
+A dynamic node in an arm whose condition is false is never asked for. To show
+the placeholder, or a stock sentence, instead of failing the document, catch
+inside your client and return that text.
 
 ### Stand-in AI clients
 
@@ -586,7 +701,10 @@ from 0 (default 1), and how it is written, `"decimal"` (default),
 appendix that continues its parent's numbering or front matter numbered
 i, ii, iii),
 `typography` (body and heading font, body size in pt, line
-height, colour), `paragraph` (spacing after, in pt), and `title` and
+height, colour, and optionally `eastAsiaFont` — the face for Chinese, Japanese
+and Korean characters — and `complexScriptFont` — the face for Arabic and
+Hebrew; omitted, those characters are asked for in the body or heading face,
+which a Latin font cannot draw. A block's `font` changes only the Latin face), `paragraph` (spacing after, in pt), and `title` and
 `sectionHeading` text blocks (font size, weight, `italic`, `transform` (`"uppercase"` \| `"smallCaps"` \| `"none"`), spacing before and after, and
 `keepWithNext`). A heading is kept on the page with whatever follows it and never
 split across a page; that is on without asking, and
@@ -611,7 +729,7 @@ blocks: {
   quote: { indentMm: 10, indentRightMm: 10 },
   epigraph: { italic: true, indentMm: 40, align: "right" },
   term: { transform: "smallCaps" },
-  heading: { keepWithNext: true, spacingBeforePt: 18, spacingAfterPt: 4 },
+  heading: { keepWithNext: true, outlineLevel: 1, spacingBeforePt: 18, spacingAfterPt: 4 },
   contentsLine: { tabStopsMm: [{ at: 170, align: "right", leader: "dot" }] },
 }
 ```
@@ -629,6 +747,7 @@ blocks: {
 | `firstLineIndentMm` | the first line only, for a book's paragraph mark |
 | `hangingIndentMm` | the first line pulled back from the rest. Word writes one or the other, and a hang wins over a first-line indent |
 | `keepWithNext`, `keepLines` | refuse to be the last thing on a page, or to be split across one |
+| `outlineLevel` | `1`–`9`: the block is a heading to Word — listed in the navigation pane, in a contents Word builds, and in an exported PDF's bookmarks — at that level. Changes nothing about how it looks, here or on screen. Paragraphs and section headings; ignored inside a `Cell` or `Shape` |
 | `tabStopsMm` | `[{ at, align?, leader? }]`, measured from the left margin — or, inside a `Cell` or `Shape`, from its inner left edge. Put a `\t` in the text to reach one |
 | `bleed` | the block runs the full width of the page rather than the text. Ignored inside a `Cell` or `Shape` |
 | `maxWidthMm` | a measure, narrowing the column from the right. Ignored inside a `Cell` or `Shape` |
@@ -667,7 +786,7 @@ Only the paragraph's own variant draws a border or fill on it; the cell's stays
 on the cell. A tab leader inside a `Shape` draws in Word; the preview shows the
 gap without the dots.
 
-A section's `variant` styles its printed heading, not its children. The heading takes the block's `fontSizePt`, `weight`, `italic`, `transform`, `letterSpacingEm`, `color`, `font`, `align`, `border`/`borderWidthPt`/`borderSides`/`paddingPt`, `spacingBeforePt`, `spacingAfterPt`, `keepWithNext` and `keepLines`. Anything the block leaves out comes from `sectionHeading`, and it stays a Heading 1, so the contents still lists it. Fill, indents, bleed, measure, leading and tab stops are not applied to a heading. A heading variant cannot undo the other casing the theme's `sectionHeading` sets; put that casing on `sectionHeading` itself. With `showTitle={false}` there is no heading and the variant does nothing.
+A section's `variant` styles its printed heading, not its children. The heading takes the block's `fontSizePt`, `weight`, `italic`, `transform`, `letterSpacingEm`, `color`, `font`, `align`, `border`/`borderWidthPt`/`borderSides`/`paddingPt`, `spacingBeforePt`, `spacingAfterPt`, `keepWithNext`, `keepLines` and `outlineLevel`. Anything the block leaves out comes from `sectionHeading`, and it stays a Heading 1, so the contents still lists it. A block's `outlineLevel` moves the heading in the outline — `2` lists an annex under the clauses — and it still looks like a Heading 1. Fill, indents, bleed, measure, leading and tab stops are not applied to a heading. A heading variant cannot undo the other casing the theme's `sectionHeading` sets; put that casing on `sectionHeading` itself. With `showTitle={false}` there is no heading and the variant does nothing.
 
 ```tsx
 <Section id="schedule-1" title="Schedule 1: Services" variant="schedule">…</Section>

@@ -230,6 +230,7 @@ function harnessHtml(bodyFont) {
           fontStyle: cs.fontStyle,
           verticalAlign: view.getComputedStyle(span.querySelector(":scope > sup, :scope > sub") || span).verticalAlign,
           textDecoration: cs.textDecorationLine,
+          textDecorationStyle: cs.textDecorationStyle,
           color: cs.color,
           background: cs.backgroundColor,
           href: link === null ? null : link.getAttribute("href")
@@ -845,7 +846,7 @@ export function previewView(measure) {
       const wanted = anchor.toLowerCase();
       return measure.paragraphs.flatMap((p) => p.runs ?? [])
         .find((run) => run.text.toLowerCase().includes(wanted)) ??
-        { missing: true, anchor, text: "", fontWeight: null, fontStyle: null, textDecoration: null, verticalAlign: null, color: null, background: null, href: null };
+        { missing: true, anchor, text: "", fontWeight: null, fontStyle: null, textDecoration: null, textDecorationStyle: null, verticalAlign: null, color: null, background: null, href: null };
     },
 
     /** Whether the named face resolved rather than falling back silently. */

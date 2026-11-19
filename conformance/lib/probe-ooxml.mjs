@@ -245,6 +245,7 @@ function readParagraph(xml, index) {
     /** The three-state keeps. */
     keepNext: toggle(pPr, "w:keepNext"),
     keepLines: toggle(pPr, "w:keepLines"),
+    outlineLvl: childNum(pPr, "w:outlineLvl", "w:val"),
     widowControl: toggle(pPr, "w:widowControl"),
     pageBreakBefore: toggle(pPr, "w:pageBreakBefore"),
 
@@ -270,6 +271,8 @@ function readParagraph(xml, index) {
 
     run: {
       font: childAttr(rPr, "w:rFonts", "w:ascii"),
+      eastAsiaFont: childAttr(rPr, "w:rFonts", "w:eastAsia"),
+      csFont: childAttr(rPr, "w:rFonts", "w:cs"),
       /** Half-points, as OOXML counts them. */
       szHalfPt: childNum(rPr, "w:sz", "w:val"),
       color: childAttr(rPr, "w:color", "w:val"),
@@ -1019,6 +1022,8 @@ function readDocDefaults(styles) {
       lineRule: attr(spacing, "w:lineRule"),
     },
     font: rPr === null ? null : childAttr(rPr, "w:rFonts", "w:ascii"),
+    eastAsiaFont: rPr === null ? null : childAttr(rPr, "w:rFonts", "w:eastAsia"),
+    csFont: rPr === null ? null : childAttr(rPr, "w:rFonts", "w:cs"),
     szHalfPt: rPr === null ? null : childNum(rPr, "w:sz", "w:val"),
     color: rPr === null ? null : childAttr(rPr, "w:color", "w:val"),
   };
@@ -1309,6 +1314,7 @@ function missingParagraph(anchor) {
     spacing: null,
     keepNext: null,
     keepLines: null,
+    outlineLvl: null,
     widowControl: null,
     pageBreakBefore: null,
     tabs: [],
@@ -1316,6 +1322,8 @@ function missingParagraph(anchor) {
     pBdr: null,
     run: {
       font: null,
+      eastAsiaFont: null,
+      csFont: null,
       szHalfPt: null,
       color: null,
       bold: null,
