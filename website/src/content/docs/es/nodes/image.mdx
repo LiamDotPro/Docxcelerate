@@ -13,7 +13,7 @@ import NodeVariants from "../../../../components/NodeVariants.astro";
 
 ## Cada campo es una prop
 
-`src`, `alt`, `width` y `height` son props simples, calculadas a partir del
+`src`, `alt`, `width`, `height`, `align` y `href` son props simples, calculadas a partir del
 estado antes de devolver el elemento. Una firma que cambia según la oficina, un
 logotipo por marca, una fotografía indexada por referencia — todo eso se queda
 dentro del componente en lugar de convertirse en una bifurcación en la plantilla:
@@ -35,6 +35,31 @@ export const Signature: Image = () => {
 
 La prop es `src`; el nodo resuelto la llama `path`. Despliega *En qué se
 resuelve* en la primera variante de abajo para verlo.
+
+## Tamaño y posición
+
+Da un solo lado y el otro sigue las proporciones propias de la imagen, leídas del
+PNG, JPEG, GIF o BMP que lleva (las de un SVG, de su `fallbackSrc`):
+`<Image src={logo} width={160} />` es un logotipo de 160pt con su forma real, no
+un cuadrado. Sin ninguno de los dos lados mide 120pt de ancho; con ambos es la
+caja que diste. Una imagen que todavía no tiene bytes — una URL, un prompt aún sin
+responder — reserva un cuadrado.
+
+`align="center"` o `"right"` desplaza la propia línea de la imagen por la
+columna. Nada flota y ningún texto la rodea. En una celda o en una forma manda la
+alineación de la columna o de la forma.
+
+## Una imagen que enlaza
+
+`href` hace que la imagen abra una dirección — un código QR, un botón de «Pagar
+ahora», un logotipo — con Ctrl+clic en Word, con un clic en la vista previa. Son
+los mismos cuatro esquemas que un [enlace de `<Text>`](/es/docs/nodes/paragraph/#palabras-compuestas-de-otro-modo);
+cualquier otro dibuja la imagen sin enlace, porque la dirección puede salir de tus
+datos. Su `alt` es lo que anuncia un lector de pantalla, así que di adónde lleva:
+
+```tsx
+<Image src={state.qr} alt="Pay invoice 1042 online" width={96} align="right" href={state.payUrl} />
+```
 
 ## Imágenes dinámicas
 

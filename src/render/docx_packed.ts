@@ -67,7 +67,7 @@ export interface PackedBorderSpace {
 
 /** One tab stop a paragraph declares, as the packed file records it. */
 export interface PackedTabStop {
-  /** Where the stop is, in points from the left margin. */
+  /** Where the stop is, in points from the paragraph's left edge: the margin, or a cell's inner edge. */
   positionPt: number;
   /** What the text does when it reaches it. */
   align: "left" | "center" | "right" | "decimal" | "bar";
@@ -75,7 +75,7 @@ export interface PackedTabStop {
   leader: "none" | "dot" | "hyphen" | "underscore" | "middleDot";
 }
 
-/** One body paragraph, as the packed file records it. */
+/** One paragraph, in the body or a cell, as the packed file records it. */
 export interface PackedParagraph {
   /** The words it prints, which is how it is matched to what was drawn. */
   text: string;
@@ -103,10 +103,10 @@ export interface PackedParagraph {
 }
 
 /**
- * What a packed document says about its own body paragraphs.
+ * What a packed document says about its own paragraphs.
  *
  * @param packed The `.docx` bytes — the same ones handed to `renderAsync`.
- * @returns One entry per body paragraph, in document order.
+ * @returns One entry per paragraph, in document order.
  *
  * @example
  * ```ts
@@ -243,33 +243,22 @@ export async function readPart(packed: Uint8Array, wanted: string): Promise<stri
 // asked to download.
 // ---------------------------------------------------------------------------
 
-/** The body's own paragraphs, with the ones inside tables left out. */
+/** Every paragraph in the body, cells' included, in document order. */
 function paragraphsOf(xml: string): string[] {
   const body = between(xml, "w:body") ?? xml;
   const found: string[] = [];
-  let depth = 0;
   let start = -1;
 
-  for (const match of body.matchAll(/<w:(p|tbl)(?:\s[^>]*)?(\/?)>|<\/w:(p|tbl)>/g)) {
-    const [whole, open, selfClose, close] = match;
+  for (const match of body.matchAll(/<w:p(?:\s[^>]*)?(\/?)>|<\/w:p>/g)) {
+    const [whole, selfClose] = match;
 
-    // A cell's paragraphs are the table's business, and counting them here
-    // would put every later paragraph against the wrong words.
-    if (open === "tbl" || close === "tbl") {
-      depth += close === "tbl" ? -1 : selfClose === "/" ? 0 : 1;
-      continue;
-    }
-    if (depth > 0) continue;
-
-    if (open === "p") {
-      if (selfClose === "/") {
-        found.push(whole);
-        continue;
-      }
-      if (start === -1) start = match.index;
-    } else if (close === "p" && start !== -1) {
-      found.push(body.slice(start, match.index + whole.length));
+    if (whole.startsWith("</")) {
+      if (start !== -1) found.push(body.slice(start, match.index + whole.length));
       start = -1;
+    } else if (selfClose === "/") {
+      found.push(whole);
+    } else if (start === -1) {
+      start = match.index;
     }
   }
 
