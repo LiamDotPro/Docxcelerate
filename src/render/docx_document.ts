@@ -486,14 +486,7 @@ function renderNode(
         children: paragraphRuns(node, block, style),
         ...breakStyle(broken),
         numbering: item?.numbering,
-        // The node's alignment, then the theme's, then nothing at all — a
-        // paragraph that never said should write no `w:jc`, so it goes on
-        // inheriting whatever the style around it decides.
-        alignment: textAlignmentOf(node.align ?? block?.align),
-        shading: block?.fill === undefined
-          ? undefined
-          : { type: ShadingType.CLEAR, fill: block.fill },
-        border: blockBorders(block, "paragraph"),
+        ...paragraphFrame(node, block),
         indent: blockIndent(block, style) ?? item?.indent,
         spacing: {
           ...blockSpacingBefore(block),
@@ -506,7 +499,6 @@ function renderNode(
           ...blockLine(block, style),
         },
         ...blockKeeps(block),
-        ...blockTabStops(block),
       }),
     ];
   }
@@ -1251,6 +1243,14 @@ function blockIndent(block: DocumentBlockStyle | undefined, style: DocumentStyle
     return spare > 0 ? { right: mmToTwips(spare) } : undefined;
   }
 
+  return blockInset(block);
+}
+
+/**
+ * The room a block asks for either side, and how its first line sits — the
+ * part of an indent that means the same inside a box as on the page.
+ */
+function blockInset(block: DocumentBlockStyle | undefined) {
   const indent: { left?: number; right?: number; firstLine?: number; hanging?: number } = {};
 
   if (block?.indentMm !== undefined) {
@@ -1271,6 +1271,22 @@ function blockIndent(block: DocumentBlockStyle | undefined, style: DocumentStyle
   }
 
   return Object.keys(indent).length === 0 ? undefined : indent;
+}
+
+/**
+ * What a paragraph says about its own layout, wherever it lands — the body,
+ * a cell, a box. Alignment only when the node or its block said: a paragraph
+ * that never said writes no `w:jc` and goes on inheriting.
+ */
+function paragraphFrame(node: ParagraphNode, block: DocumentBlockStyle | undefined) {
+  return {
+    alignment: textAlignmentOf(node.align ?? block?.align),
+    shading: block?.fill === undefined
+      ? undefined
+      : { type: ShadingType.CLEAR, fill: block.fill },
+    border: blockBorders(block, "paragraph"),
+    ...blockTabStops(block),
+  };
 }
 
 /**
@@ -1842,25 +1858,28 @@ function shapeContent(
     const inner = blockOf(style, child.variant);
     const run = { ...blockRun(block, style), ...blockRun(inner, style) };
 
+    const frame = paragraphFrame(child, inner);
+    const own = blockInset(inner);
+
     return [
       new Paragraph({
-        alignment: alignments[shapeAlign(inner ?? block)],
+        ...frame,
+        // The paragraph's own alignment, then the box's.
+        alignment: frame.alignment ?? alignments[shapeAlign(block)],
         // A paragraph that names its own variant is set by it — a muted note
         // under a heading on the same box. One that names none is centred on
         // the box, which is what a banner's single line wants.
         spacing: { after: 0, ...(inner ? blockLine(inner, style) : boxLine) },
-        indent,
-        children: withInlineImages(child, [
-          new TextRun({
-            text: child.text ?? "",
-            bold: run.bold,
-            color: run.color,
-            size: run.size,
-            font: run.font,
-            allCaps: run.allCaps,
-            characterSpacing: run.characterSpacing,
-          }),
-        ]),
+        // Its own indents sit inside the box's room, not in place of it.
+        indent: {
+          ...own,
+          left: indent.left + (own?.left ?? 0),
+          right: indent.right + (own?.right ?? 0),
+        },
+        children: withInlineImages(
+          child,
+          runsOf(child).map((words) => markedRun(words, run, style)),
+        ),
       }),
     ];
   });
@@ -2056,12 +2075,15 @@ function cellContent(
       : {};
     const size = run.size ?? heading.size;
     const item = listItem(child);
+    const frame = paragraphFrame(child, inner);
 
     return [
       new Paragraph({
-        alignment: alignments[align],
+        ...frame,
+        // The paragraph's own alignment, then the column's.
+        alignment: frame.alignment ?? alignments[align],
         numbering: item?.numbering,
-        indent: item?.indent,
+        indent: blockInset(inner) ?? item?.indent,
         // The paragraph's own variant decides the leading where it has one —
         // a muted note under a description is set tighter than the row it
         // sits in — and the cell's block decides it otherwise.

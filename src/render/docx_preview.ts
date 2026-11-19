@@ -358,9 +358,12 @@ function applyBorderPadding(element: HTMLElement, packed: PackedParagraph): void
 
     element.style[`padding${capitalised}`] = `${gap}pt`;
 
-    // Left and right: the border steps out, the text stays where it was.
+    // Left and right: the border steps out, the text stays where it was. The
+    // paragraph's own indent is already on the inline margin, and a physical
+    // `margin-left` would replace it rather than add to it.
     if (side === "left" || side === "right") {
-      element.style[`margin${capitalised}`] = `-${gap}pt`;
+      const indent = element.style[side === "left" ? "marginInlineStart" : "marginInlineEnd"] || "0pt";
+      element.style[`margin${capitalised}`] = `calc(${indent} - ${gap}pt)`;
     }
   }
 }

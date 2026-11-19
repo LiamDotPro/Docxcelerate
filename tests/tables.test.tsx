@@ -1,9 +1,16 @@
 import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
-import { buildDocument } from "docxcelerate";
-import { createDocxDocument } from "docxcelerate/docx";
-import { documentXml } from "./docx.ts";
-import type { DocumentModel, DocumentNode, TableNode, TableRowNode } from "docxcelerate";
+import { buildDocument, cleanMinimalDocumentStyle } from "docxcelerate";
+import { createDocxBlob, createDocxDocument } from "docxcelerate/docx";
+import { readPackedParagraphs } from "docxcelerate/preview";
+import { documentXml, paragraphOf } from "./docx.ts";
+import type {
+  DocumentModel,
+  DocumentNode,
+  DocumentStyle,
+  TableNode,
+  TableRowNode,
+} from "docxcelerate";
 import { Cell, Document, Paragraph, Row, Section, Table, template } from "docxcelerate/template";
 
 /**
@@ -441,4 +448,177 @@ test("a table ranged right writes w:jc right", async () => {
 
 test("a table with no align writes no w:jc", async () => {
   assertEquals((await tblPrOf()).includes("<w:jc"), false);
+});
+
+// ---------------------------------------------------------------------------
+// A paragraph keeps its own layout inside a cell
+// ---------------------------------------------------------------------------
+
+const inset = {
+  indentMm: 10,
+  indentRightMm: 10,
+  border: "2F5FBD",
+  borderSides: ["left"],
+  borderWidthPt: 2,
+  paddingPt: 6,
+  fill: "EEF2FF",
+} as const;
+
+const cellStyle: DocumentStyle = {
+  ...cleanMinimalDocumentStyle,
+  blocks: {
+    ...cleanMinimalDocumentStyle.blocks,
+    signLine: { tabStopsMm: [{ at: 60, align: "right", leader: "dot" }] },
+    inset: { ...inset, borderSides: ["left"] },
+    standfirst: { align: "center" },
+    bleeding: { bleed: true },
+    measured: { maxWidthMm: 40 },
+    badge: { fill: "1F2933", border: "2F5FBD" },
+  },
+};
+
+const signature = () => (
+  <Table id="sign" columns={[{ width: 80 }, { width: 80 }]}>
+    <Row>
+      <Cell id="supplier">
+        <Paragraph id="s-line" variant="signLine">{"Signed\t"}</Paragraph>
+        <Paragraph id="s-date" align="right">19 November 2026</Paragraph>
+      </Cell>
+      <Cell id="client">
+        <Paragraph id="c-quote" variant="inset">Accepted on the terms above.</Paragraph>
+      </Cell>
+    </Row>
+  </Table>
+);
+
+async function cellXml(body: () => unknown): Promise<string> {
+  return documentXml({ ...(await build(body)), style: cellStyle });
+}
+
+test("a paragraph's own align wins over its column", async () => {
+  const xml = await cellXml(() => (
+    <Table id="t" columns={[{ width: 80 }]}>
+      <Row>
+        <Cell>
+          <Paragraph align="right">Ranged right</Paragraph>
+        </Cell>
+      </Row>
+    </Table>
+  ));
+
+  assertStringIncludes(paragraphOf(xml, "Ranged right"), '<w:jc w:val="right"/>');
+});
+
+test("a variant's align beats the column, and the node's beats the variant", async () => {
+  const xml = await cellXml(() => (
+    <Table id="t" columns={[{ width: 80, align: "right" }]}>
+      <Row>
+        <Cell>
+          <Paragraph variant="standfirst">Centred</Paragraph>
+          <Paragraph variant="standfirst" align="left">Left again</Paragraph>
+        </Cell>
+      </Row>
+    </Table>
+  ));
+
+  assertStringIncludes(paragraphOf(xml, "Centred"), '<w:jc w:val="center"/>');
+  assertStringIncludes(paragraphOf(xml, "Left again"), '<w:jc w:val="left"/>');
+});
+
+test("a plain paragraph in a cell is set by the column alone", async () => {
+  const xml = await cellXml(() => (
+    <Table id="t" columns={[{ width: 80, align: "right" }]}>
+      <Row>
+        <Cell>Plain</Cell>
+      </Row>
+    </Table>
+  ));
+  const found = paragraphOf(xml, "Plain");
+
+  assertStringIncludes(found, '<w:jc w:val="right"/>');
+  for (const absent of ["<w:ind", "<w:tabs>", "<w:pBdr>", "<w:shd"]) {
+    assertEquals(found.includes(absent), false);
+  }
+});
+
+test("a variant's tab stops and a tab in the text reach a cell", async () => {
+  const found = paragraphOf(await cellXml(signature), "Signed");
+
+  assertStringIncludes(found, '<w:tab w:val="right" w:pos="3402" w:leader="dot"/>');
+  assertStringIncludes(found, "<w:tab/>");
+});
+
+test("a variant's indents, border and fill reach a cell paragraph", async () => {
+  const found = paragraphOf(await cellXml(signature), "Accepted");
+
+  assertStringIncludes(found, '<w:ind w:left="567" w:right="567"/>');
+  assertStringIncludes(found, "<w:pBdr>");
+  assertStringIncludes(found, 'w:color="2F5FBD"');
+  assertStringIncludes(found, 'w:sz="16"');
+  assertStringIncludes(found, 'w:space="6"');
+  assertStringIncludes(found, 'w:fill="EEF2FF"');
+});
+
+test("a cell's own block stays on the cell and does not shade its paragraphs", async () => {
+  const xml = await cellXml(() => (
+    <Table id="t" columns={[{ width: 80 }]}>
+      <Row>
+        <Cell variant="badge">
+          <Paragraph>Inside the badge</Paragraph>
+        </Cell>
+      </Row>
+    </Table>
+  ));
+  const found = paragraphOf(xml, "Inside the badge");
+
+  assertEquals(found.includes("<w:shd"), false);
+  assertEquals(found.includes("<w:pBdr>"), false);
+});
+
+test("bleed and a measure are page measures and do nothing in a cell", async () => {
+  const xml = await cellXml(() => (
+    <Table id="t" columns={[{ width: 80 }]}>
+      <Row>
+        <Cell>
+          <Paragraph variant="bleeding">Bleeds</Paragraph>
+          <Paragraph variant="measured">Measured</Paragraph>
+        </Cell>
+      </Row>
+    </Table>
+  ));
+
+  assertEquals(paragraphOf(xml, "Bleeds").includes("<w:ind"), false);
+  assertEquals(paragraphOf(xml, "Measured").includes("<w:ind"), false);
+});
+
+test("a list item in a cell keeps the indent its list gives it", async () => {
+  const xml = await cellXml(() => (
+    <Table id="t" columns={[{ width: 80 }]}>
+      <Row>
+        <Cell>
+          <Paragraph list="bullet">An item</Paragraph>
+        </Cell>
+      </Row>
+    </Table>
+  ));
+
+  assertStringIncludes(paragraphOf(xml, "An item"), '<w:ind w:left="360" w:hanging="360"/>');
+});
+
+test("the preview reader finds a cell's tab stops, and the body after the table", async () => {
+  const doc = await build(() => (
+    <>
+      {signature()}
+      <Paragraph id="after">After the table</Paragraph>
+    </>
+  ));
+  const blob = await createDocxBlob({ ...doc, style: cellStyle });
+  const read = await readPackedParagraphs(new Uint8Array(await blob.arrayBuffer()));
+  const signed = read.find((entry) => entry.text.includes("Signed"));
+  const stop = signed?.tabStops[0];
+
+  assertEquals(stop?.align, "right");
+  assertEquals(stop?.leader, "dot");
+  assertEquals(Math.abs((stop?.positionPt ?? 0) - 60 * 72 / 25.4) < 0.1, true);
+  assertEquals(read.at(-1)?.text.includes("After the table"), true);
 });
