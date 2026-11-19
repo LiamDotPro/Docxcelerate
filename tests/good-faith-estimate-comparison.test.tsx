@@ -233,6 +233,16 @@ test("the preview resolves to three rows and the federal contact", async () => {
   assertStringIncludes(text, "March 2, 2027");
 });
 
+test("building locally with the catalog preview data yields the same nodes", async () => {
+  const built = await buildDocument(templateOf(), entry.previewData as Obj, { dynamicMode: "placeholder" });
+  const ids = collect(built.nodes).map((n) => n.id);
+  for (const id of ["gfe-comparison", "gfe-comparison-provider-1", "gfe-comparison-provider-2", "gfe-comparison-provider-3", "gfe-dispute", "gfe-dispute-how-federal"]) {
+    assertEquals(ids.includes(id), true);
+  }
+  assertEquals(ids.includes("gfe-comparison-provider-4"), false);
+  assertStringIncludes(JSON.stringify(built.nodes), "March 2, 2027");
+});
+
 test("insured resolves to nothing; within, over and state variants pick their arms", async () => {
   assertEquals((await resolved({ ...preview, coverage: "insured" })).ids.some((id) => id.startsWith("gfe-")), false);
   const within = await resolved(bill([prov("X", 100000, 100000)]));
