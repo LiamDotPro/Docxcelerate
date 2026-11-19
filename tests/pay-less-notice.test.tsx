@@ -229,7 +229,7 @@ const publish = () =>
     branchMode: "publish",
     deriverMode: "preserve",
     dynamicMode: "resolve",
-    aiClient: { generateParagraph: () => "" },
+    aiClient: { generateParagraph: () => "Written." },
   });
 
 function collect(nodes: DocumentNode[], into: DocumentNode[] = []): DocumentNode[] {
