@@ -572,6 +572,76 @@ test("a chart client that throws is not caught", async () => {
   );
 });
 
+function generatedParagraph(answer: unknown): Promise<DocumentModel> {
+  const state = engineState({});
+  state.aiClient = { generateParagraph: () => answer as string };
+
+  return resolveDocument(
+    published([{
+      id: "note",
+      kind: "paragraph",
+      mode: "dynamic",
+      prompts: [{ kind: "general", text: "Write it." }],
+    } as DocumentNode]),
+    state,
+  );
+}
+
+test("a generated paragraph's answer is trimmed and stripped of characters Word cannot open", async () => {
+  const cases: Array<[string, string]> = [
+    ["Clean answer", "Clean answer"],
+    ["Hello\n", "Hello"],
+    ["  Hello world  ", "Hello world"],
+    ["Line one\nLine two\n", "Line one\nLine two"],
+    ["Tab\there", "Tab\there"],
+    ["Hello\u0001 world\u000b end", "Hello world end"],
+    ["Hi\u0001\n", "Hi"],
+    ["\u0000\uffff \n", ""],
+    ["", ""],
+  ];
+
+  for (const [answer, expected] of cases) {
+    assertEquals(texts((await generatedParagraph(answer)).nodes), [expected]);
+  }
+});
+
+test("a generated paragraph that is not text names the node", async () => {
+  const cases: Array<[unknown, string]> = [
+    [{ text: "hi" }, 'Dynamic paragraph "note" got an answer that is not text: it returned an object.'],
+    [undefined, "it returned undefined."],
+    [null, "it returned null."],
+    [42, "it returned a number."],
+    [["hi"], "it returned an array."],
+  ];
+
+  for (const [answer, expected] of cases) {
+    await assertRejectsWith(() => generatedParagraph(answer), expected);
+  }
+});
+
+test("a paragraph client that throws is not caught", async () => {
+  const state = engineState({});
+  state.aiClient = {
+    generateParagraph: () => {
+      throw new Error("model down");
+    },
+  };
+
+  await assertRejectsWith(
+    () =>
+      resolveDocument(
+        published([{
+          id: "note",
+          kind: "paragraph",
+          mode: "dynamic",
+          prompts: [{ kind: "general", text: "Write it." }],
+        } as DocumentNode]),
+        state,
+      ),
+    "model down",
+  );
+});
+
 test("a variant resolves per entry of a repeat", async () => {
   const doc = await resolveDocument(
     published([

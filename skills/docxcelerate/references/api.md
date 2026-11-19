@@ -62,7 +62,7 @@ interface PromptProps {
 | --- | --- |
 | `Document` | `id?`, `title` (required), `metadata?`, `properties?`, `header?`, `footer?`, `firstHeader?`, `firstFooter?`, `evenHeader?`, `evenFooter?`, `trackChanges?`, `children?` |
 | `Section` | `title` (required), `showTitle?` (default `true`), `children?` |
-| `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0), `listStyle?` (`"decimal" \| "lowerLetter" \| "upperLetter" \| "lowerRoman" \| "upperRoman"`, or any of them with `Paren` appended: `"lowerLetterParen"` is (a); default by depth 1. a. i.) |
+| `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0), `listStyle?` (`"decimal" \| "lowerLetter" \| "upperLetter" \| "lowerRoman" \| "upperRoman"`, or any of them with `Paren` appended: `"lowerLetterParen"` is (a); default by depth 1. a. i.), `listStart?` (a whole number from 1, default 1; numbered items only) |
 | `Text` | `bold?`, `italic?`, `underline?`, `strike?`, `script?` (`"superscript" \| "subscript"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`), `variant?` (a block name; only its character settings apply), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` (points; give one and the other keeps the picture's proportions, neither is 120pt wide), `align?` (`"left" \| "center" \| "right"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`) |
 | `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `alt?`, `caption?`, `width?`, `height?` (points), `align?` (`"left" \| "center" \| "right"`), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `valueAxisMin?`, `valueAxisMax?`, `valueAxisStep?` (numbers; fix the value axis, Word picks any left out), `dataLabels?` |
@@ -80,13 +80,15 @@ Notes worth knowing:
   one after another are one list and the renderer counts them; anything that is
   not an item ends it, and the next numbered list starts at one. Never type a
   bullet or a number into the text. `listLevel={1}` nests an item under the one
-  above. `listStyle` on a numbered item picks the numerals for that item's level in its list — `listStyle="lowerLetterParen"` on the first sub-clause makes every sub-clause (a), (b); the first item at a level to say decides it, so say it once. Without it a level counts 1., a., i. by depth. Ignored on bullets. Not drawn on a `<Shape>`.
+  above. `listStyle` on a numbered item picks the numerals for that item's level in its list — `listStyle="lowerLetterParen"` on the first sub-clause makes every sub-clause (a), (b); the first item at a level to say decides it, so say it once. Without it a level counts 1., a., i. by depth. Ignored on bullets. `listStart={4}` on the item that opens a numbered list (or a level of one) makes it count from 4: a list that resumes after a table or a quote is a new list, so say where it picks up. It is ignored on any later item and on bullets, and anything but a whole number from 1 is refused at build. Not drawn on a `<Shape>`.
 - `<Text>` sets some of a paragraph's words differently:
   `Due within <Text bold>thirty days</Text>.` One inside another takes both
   settings. m<Text script="superscript">2</Text>, CO<Text script="subscript">2</Text>
   and 1<Text script="superscript">st</Text> are raised or lowered by Word — never
-  type `²` or `₂` in their place. It carries no colour or size — a link is drawn in the theme's
-  accent. To make a phrase stand out, name a theme block:
+  type `²` or `₂` in their place. It carries no colour or size. A link is drawn in its block's `color` when the
+  paragraph's or cell's variant sets one, and in a header cell's ink. Otherwise it
+  is drawn in the theme's accent. Either way it is underlined, so a link on a
+  dark band stays readable. To make a phrase stand out, name a theme block:
   `The amount due is <Text variant="amountDue">£1,240.00</Text>.` The block's
   `color`, `fill` (shading behind the words), `fontSizePt`, `weight`, `font`,
   `transform` and `letterSpacingEm` apply. Borders, padding and spacing do not.
@@ -255,6 +257,7 @@ Each of these is an error naming the position, not a quiet reinterpretation:
 | A dynamic node in a build with no `aiClient` | Only a preview build may resolve those to placeholders |
 | A prompted `<Image>` among a paragraph's words, published to an engine | An engine draws block nodes only — give the `<Image>` its own place beside the paragraph |
 | A generated chart whose answer is not a chart (`"twelve"` as a value, an unknown `graphType`) | Word would draw it empty; the error names the node and the field |
+| A generated paragraph whose answer is not a string (a provider's response object, `undefined`) | It would pack as `[object Object]` or nothing; the error names the node |
 
 ## Component types
 
@@ -323,6 +326,23 @@ holds still the opening, the order, the length and the register and leaves only
 the per-document parts to be written. Give it as finished text, not a form with
 blanks in it. Pass an array when the shape legitimately varies by case — they
 travel numbered, and read as a pattern rather than a template.
+
+What `aiClient.generateParagraph` returns is the paragraph itself, so return the
+text, not the provider's response object: anything but a string fails with an
+error naming the node. The answer is trimmed, so a model's trailing newline does
+not become a line break, and characters XML cannot hold — control characters
+other than tab, line feed and carriage return — are removed, so the `.docx`
+still opens. A line break or tab inside the answer is kept. An empty answer is
+an empty paragraph, not an error.
+
+`from` takes request data as it is and survives publishing: write
+`from: { period: invoice.period, lines: invoice.lines }`, not a sentence built
+from them. Each value read from the data publishes as the token the engine fills
+per document, so the model is sent that recipient's period and every one of
+their lines. Once filled, a string arrives without quotes and a list or object as
+compact JSON; literals you write beside them stay as they are. Name the fields —
+handing over the whole request data, or the result of a `.map()`, is refused at
+publish.
 
 The `useState` setter is not a re-render request — a build is a single pass. It
 updates the value this component reads later, and the value anything sharing it
@@ -482,6 +502,31 @@ Build the state with `createRuntimeState`, not by hand. It is seeded exactly as
 `buildDocument` seeds its own, and a hand-built `ctx` without `availableTokens`
 silently prints nothing wherever a template read `useAvailableTokens()`.
 
+### Stand-in AI clients
+
+Both come from `docxcelerate` and need no network. Use them in tests and offline previews.
+
+```ts
+import { EchoAiClient, ScriptedAiClient } from "docxcelerate";
+
+new EchoAiClient();
+// paragraph → "[AI draft for <id>] <prompt>"
+// graph     → three sample points, captioned with the echoed prompt; the node keeps its graphType
+// image     → a one-pixel grey PNG at the node's width/height, alt = the echoed prompt
+
+const ai = new ScriptedAiClient({
+  "tutor-note": "A warm note.",                                   // paragraph: a string
+  revenue: { data: { series: [{ values: [1, 2] }] }, caption: "" }, // graph: AiGraphResult
+  portrait: { path: "data:image/png;base64,…" },                  // image: AiImageResult
+});
+ai.requests; // ScriptedAiRequest[]: { id, kind, prompt, prompts }, in the order asked
+```
+
+`ScriptedAiClient` matches an exact id first, then the id with each trailing
+`-<index>` a repeat added taken off in turn (`note-1-2` → `note-1` → `note`). An
+id with no answer, or an answer of the wrong shape for the node, throws and the
+build or resolve rejects. Previews (`dynamicMode: "placeholder"`) never call it.
+
 ## The built document
 
 ```ts
@@ -572,7 +617,7 @@ blocks: {
 | Field | Means |
 | --- | --- |
 | `fill` | background, hex without the `#` |
-| `color` | text colour |
+| `color` | text colour, and the colour of any link in the block |
 | `border`, `borderWidthPt`, `borderSides`, `borderStyle` | a border, on all four edges unless sides are named. `borderStyle` is `"single"` (default) \| `"double"` \| `"dashed"` \| `"dotted"` and applies to every drawn edge — a double rule under a total, a dashed tear-off line. Paragraphs and cells only; a `<Shape>` outline is always solid |
 | `paddingPt` | the gap between a drawn border and the text. Word records it on the border, so a block with a fill and no border cannot be padded — see below |
 | `fontSizePt`, `weight`, `transform`, `letterSpacingEm`, `font`, `lineHeight` | how the text is set. `transform: "none"` turns capitals off where a heading or header row would otherwise use them |

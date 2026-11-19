@@ -17,6 +17,8 @@
 
 import type { JsonObject } from "../domain/types.ts";
 import { type PromptDraft, requireInstance } from "./context.ts";
+import { isTemplateElement } from "./element.ts";
+import { isPublishValue, publishRefOf } from "./publish.ts";
 
 /**
  * What to tell the engine writing a node, and what to show until it has.
@@ -43,6 +45,13 @@ export interface AiConfig {
    * Takes the data itself rather than a sentence about it, so the values a
    * component already holds can be handed straight over instead of being
    * formatted into prose first and read back out of it by a model.
+   *
+   * Request data survives publishing. Each value read from it is written as the
+   * token the engine fills per document, so a name, a number or a whole list
+   * reaches the model as that recipient's. A filled-in string arrives without
+   * quotes, and a list or object as compact JSON. Name the fields, as in
+   * `{ period: data.period }`: the whole request data is refused, and so is the
+   * result of a `.map()`, which publishes a loop rather than a fact.
    */
   from?: JsonObject | string;
   /** What the node must not say. */
@@ -199,7 +208,58 @@ function collectExamples(example: string | string[] | undefined): string | undef
  * data into a sentence so that a model can parse the sentence back into data.
  * Undefined entries are dropped rather than written as null, since a fact nobody
  * supplied is not a fact worth stating.
+ *
+ * A publish build hands over stand-ins rather than values, and `JSON.stringify`
+ * would call the `toJSON` every stand-in answers. So each one is swapped for its
+ * token before the serialiser reaches it, and the token is written unquoted, so
+ * whatever the engine substitutes — a name, a number, a whole list — lands as
+ * itself rather than as a string with JSON inside it.
  */
 function describeFacts(facts: JsonObject): string {
-  return JSON.stringify(facts, (_key, value) => (value === undefined ? undefined : value), 2);
+  const tokens = new Set<string>();
+
+  const swap = (value: unknown): unknown => {
+    if (isTemplateElement(value)) {
+      throw new Error(
+        "`from` was handed the result of a `.map()` while publishing. A `.map()` over request " +
+          "data publishes a loop, which is a run of nodes rather than a fact. Hand over the " +
+          "collection itself — `from: { lines: data.lines }` — and the model is sent every entry.",
+      );
+    }
+
+    if (!isPublishValue(value)) {
+      return value;
+    }
+
+    if (publishRefOf(value)?.path === "") {
+      throw new Error(
+        "`from` was handed the whole request data while publishing. The engine fills in a " +
+          "named field, not the request itself, so name the facts the node writes from: " +
+          "`from: { period: data.period, lines: data.lines }`.",
+      );
+    }
+
+    // String() rather than the ref, so a filtered collection refuses with its own message.
+    const token = String(value);
+    tokens.add(token);
+    return token;
+  };
+
+  const written = JSON.stringify(swap(facts), (_key, value: unknown) => {
+    if (value === null || typeof value !== "object") {
+      return value;
+    }
+
+    return Array.isArray(value)
+      ? value.map(swap)
+      : Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, swap(entry)]));
+  }, 2);
+
+  let unquoted = written;
+
+  for (const token of tokens) {
+    unquoted = unquoted.replaceAll(JSON.stringify(token), token);
+  }
+
+  return unquoted;
 }

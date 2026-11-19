@@ -210,7 +210,7 @@ export const Steps: Nodes = () => {
 
 `list="bullet"` for a marked list, `listLevel={1}` for a point under an item.
 Anything between two items ends the list, and a numbered list after it starts
-again at one. Published, the `.map()` is a loop the engine walks, and the steps
+again at one — unless its first item says `listStart`. Published, the `.map()` is a loop the engine walks, and the steps
 it writes are one list however many there are. An item on a `<Shape>` is drawn
 as a plain paragraph.
 

@@ -260,7 +260,7 @@ export interface DocumentStyle {
 export interface DocumentBlockStyle {
   /** Background, as a hex string without the `#`. */
   fill?: string;
-  /** Text colour, for a block whose fill is dark enough to need one. */
+  /** Text colour, for a block whose fill is dark enough to need one. A link in the block is drawn in it too, rather than in the palette's accent. */
   color?: string;
   /** Border colour. Drawn only when this is set. */
   border?: string;
