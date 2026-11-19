@@ -36,6 +36,11 @@ const BARE_GUTTER = { left: 4, right: 4, top: 4, bottom: 4 };
 /** How much room the axis labels are given, in pixels. */
 const GUTTER = { left: 56, right: 18, top: 16, bottom: 18 };
 
+/** The preview letters at the file's own point size, falling back to what a theme with no `chart` block gets. */
+const textPx = (chart: PreviewChart) => (chart.textSizePt ?? 9) * PX_PER_PT;
+/** The title's size in pixels, with the same fallback as {@linkcode textPx}. */
+const titlePx = (chart: PreviewChart) => (chart.titleSizePt ?? 12) * PX_PER_PT;
+
 /** The height of one row of the data table, in pixels. */
 const TABLE_ROW_PX = 18;
 
@@ -108,7 +113,7 @@ function optionFor(chart: PreviewChart): echarts.EChartsOption {
     ? chart.categories.length > 0
     : chart.series.some((series) => series.label !== undefined);
 
-  const text = { color: ink, fontFamily: font, fontSize: 11 };
+  const text = { color: ink, fontFamily: font, fontSize: textPx(chart) };
   // Deleted in the file: Word draws neither the line nor the labels.
   const bare = chart.axes ? {} : { axisLine: { show: false }, axisLabel: { show: false } };
   const gutter = chart.axes ? GUTTER : BARE_GUTTER;
@@ -138,7 +143,7 @@ function optionFor(chart: PreviewChart): echarts.EChartsOption {
         text: chart.title,
         left: "center",
         top: 4,
-        textStyle: { ...text, fontSize: 13, fontWeight: "normal" as const },
+        textStyle: { ...text, fontSize: titlePx(chart), fontWeight: "normal" as const },
       },
     }),
     ...(chart.legend === "none" || !named ? {} : { legend: legendFor(chart, text) }),
@@ -148,8 +153,8 @@ function optionFor(chart: PreviewChart): echarts.EChartsOption {
         left: (horizontal && chart.axes ? gutter.left + 20 : gutter.left) +
           (chart.valueAxisTitle === undefined && chart.categoryAxisTitle === undefined ? 0 : 16),
         right: gutter.right,
-        top: gutter.top + (chart.title === undefined ? 0 : 22),
-        bottom: gutter.bottom + (chart.legend === "none" || !named ? 0 : 22) +
+        top: gutter.top + (chart.title === undefined ? 0 : Math.round(titlePx(chart)) + 9),
+        bottom: gutter.bottom + (chart.legend === "none" || !named ? 0 : Math.round(textPx(chart)) + 11) +
           (chart.categoryAxisTitle === undefined && chart.valueAxisTitle === undefined ? 0 : 18),
         containLabel: true,
       },
@@ -332,7 +337,7 @@ function legendFor(
   text: { color: string; fontFamily: string; fontSize: number },
 ): echarts.LegendComponentOption {
   const place = {
-    top: { top: chart.title === undefined ? 4 : 26, left: "center" as const },
+    top: { top: chart.title === undefined ? 4 : Math.round(titlePx(chart)) + 13, left: "center" as const },
     bottom: { bottom: 4, left: "center" as const },
     left: { left: 4, top: "middle" as const, orient: "vertical" as const },
     right: { right: 4, top: "middle" as const, orient: "vertical" as const },
@@ -507,7 +512,7 @@ function labelStyle(chart: PreviewChart) {
       show: true,
       position: "top" as const,
       color: hex(chart.textColor) ?? "#595959",
-      fontSize: 10,
+      fontSize: textPx(chart),
       // ECharts hands a label callback the whole data point, whose `value` is
       // anything a series may hold. Only a number can be formatted, and
       // anything else prints as it stands.
@@ -550,7 +555,7 @@ function pieSeries(chart: PreviewChart): echarts.SeriesOption {
         show: true,
         formatter: PIE_LABEL[chart.dataLabels],
         color: hex(chart.textColor) ?? "#595959",
-        fontSize: 11,
+        fontSize: textPx(chart),
       },
     data: chart.categories.map((name, index) => ({
       name,

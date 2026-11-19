@@ -65,10 +65,10 @@ const DEFAULT_TEXT_COLOR = "595959";
 const DEFAULT_RULE_COLOR = "D9D9D9";
 /** How heavy a gridline is drawn, in EMU. Three quarters of a point. */
 const GRIDLINE_WIDTH_EMU = 9525;
-/** The size a chart's axis and key text is set at, in hundredths of a point. */
-const CHART_TEXT_SIZE = 900;
-/** The size a chart's title is set at, in hundredths of a point. */
-const CHART_TITLE_SIZE = 1200;
+/** The size a chart's text is set at, in points, when the theme's `chart` block names none. */
+const DEFAULT_TEXT_SIZE_PT = 9;
+/** How much larger a chart's title is set than the rest of its text, in points. */
+const TITLE_STEP_PT = 3;
 /** The id of the category axis, referenced by the plot and by the value axis. */
 const CATEGORY_AXIS_ID = 111111111;
 /** The id of the value axis. */
@@ -117,11 +117,14 @@ export function hasChartData(node: GraphNode): boolean {
 export function chartPartOf(node: GraphNode, style: DocumentStyle): ChartPart {
   const data = normalised(node.data);
   const colors = seriesColors(style);
+  const sizePt = chartTextSizePt(style);
   const palette = {
     text: style.palette?.muted ?? DEFAULT_TEXT_COLOR,
     heading: style.palette?.heading ?? DEFAULT_TEXT_COLOR,
     rule: style.palette?.rule ?? DEFAULT_RULE_COLOR,
     font: style.typography.bodyFont,
+    textSize: hundredths(sizePt),
+    titleSize: hundredths(sizePt + TITLE_STEP_PT),
   };
 
   return {
@@ -137,12 +140,29 @@ function seriesColors(style: DocumentStyle): readonly string[] {
   return named !== undefined && named.length > 0 ? named : DEFAULT_SERIES_COLORS;
 }
 
+/** The size a document sets its charts' text at: its theme's `chart` block, or the default. */
+function chartTextSizePt(style: DocumentStyle): number {
+  const named = style.blocks?.chart?.fontSizePt;
+
+  return named !== undefined && Number.isFinite(named) && named > 0 ? named : DEFAULT_TEXT_SIZE_PT;
+}
+
+/** A size in points as DrawingML counts it, held inside the range its schema allows. */
+function hundredths(pt: number): number {
+  // ST_TextFontSize is 100..400000; Word refuses a chart part outside it rather than drawing it.
+  return Math.min(Math.max(Math.round(pt * 100), 100), 400000);
+}
+
 /** How a chart's text is set, once, so every part of it agrees. */
 interface ChartPalette {
   readonly text: string;
   readonly heading: string;
   readonly rule: string;
   readonly font: string;
+  /** Hundredths of a point. */
+  readonly textSize: number;
+  /** Hundredths of a point. */
+  readonly titleSize: number;
 }
 
 /**
@@ -212,7 +232,7 @@ function chartSpaceXml(
     `<c:dispBlanksAs val="gap"/>`,
     `</c:chart>`,
     `<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>`,
-    textPropertiesXml(palette, CHART_TEXT_SIZE),
+    textPropertiesXml(palette),
     // The workbook is related from the chart's own rels, always under this id,
     // because the chart part has exactly one relationship of its own.
     `<c:externalData r:id="rId1"><c:autoUpdate val="0"/></c:externalData>`,
@@ -232,7 +252,7 @@ function titleXml(title: string | undefined, palette: ChartPalette): string {
     return "";
   }
 
-  return `<c:title><c:tx><c:rich><a:bodyPr rot="0" spcFirstLastPara="1" vertOverflow="ellipsis" vert="horz" wrap="square" anchor="ctr" anchorCtr="1"/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="${CHART_TITLE_SIZE}" b="0"><a:solidFill><a:srgbClr val="${palette.heading}"/></a:solidFill><a:latin typeface="${
+  return `<c:title><c:tx><c:rich><a:bodyPr rot="0" spcFirstLastPara="1" vertOverflow="ellipsis" vert="horz" wrap="square" anchor="ctr" anchorCtr="1"/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="${palette.titleSize}" b="0"><a:solidFill><a:srgbClr val="${palette.heading}"/></a:solidFill><a:latin typeface="${
     escapeXml(palette.font)
   }"/></a:defRPr></a:pPr><a:r><a:t>${
     escapeXml(title)
@@ -259,7 +279,7 @@ function dataTableXml(node: GraphNode, palette: ChartPalette): string {
 
   return `<c:dTable><c:showHorzBorder val="1"/><c:showVertBorder val="1"/><c:showOutline val="1"/><c:showKeys val="1"/>` +
     axisLineXml(palette) +
-    textPropertiesXml(palette, CHART_TEXT_SIZE) +
+    textPropertiesXml(palette) +
     `</c:dTable>`;
 }
 
@@ -291,7 +311,7 @@ function legendXml(legend: GraphLegend, palette: ChartPalette): string {
 
   return `<c:legend><c:legendPos val="${position}"/><c:overlay val="0"/>` +
     `<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>` +
-    textPropertiesXml(palette, CHART_TEXT_SIZE) +
+    textPropertiesXml(palette) +
     `</c:legend>`;
 }
 
@@ -302,8 +322,8 @@ function legendXml(legend: GraphLegend, palette: ChartPalette): string {
  * the document rather than as something pasted into it — and so that re-theming
  * moves the chart's type with everything else's.
  */
-function textPropertiesXml(palette: ChartPalette, size: number): string {
-  return `<c:txPr><a:bodyPr rot="0" spcFirstLastPara="1" vertOverflow="ellipsis" vert="horz" wrap="square" anchor="ctr" anchorCtr="1"/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="${size}" b="0" i="0" u="none" strike="noStrike" kern="1200" baseline="0"><a:solidFill><a:srgbClr val="${palette.text}"/></a:solidFill><a:latin typeface="${
+function textPropertiesXml(palette: ChartPalette): string {
+  return `<c:txPr><a:bodyPr rot="0" spcFirstLastPara="1" vertOverflow="ellipsis" vert="horz" wrap="square" anchor="ctr" anchorCtr="1"/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="${palette.textSize}" b="0" i="0" u="none" strike="noStrike" kern="1200" baseline="0"><a:solidFill><a:srgbClr val="${palette.text}"/></a:solidFill><a:latin typeface="${
     escapeXml(palette.font)
   }"/></a:defRPr></a:pPr><a:endParaRPr lang="en-GB"/></a:p></c:txPr>`;
 }
@@ -776,7 +796,7 @@ function categoryAxisXml(
     axisTitleXml(node.categoryAxisTitle, palette, position === "l") +
     `<c:numFmt formatCode="General" sourceLinked="1"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>` +
     axisLineXml(palette) +
-    textPropertiesXml(palette, CHART_TEXT_SIZE) +
+    textPropertiesXml(palette) +
     `<c:crossAx val="${VALUE_AXIS_ID}"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/><c:noMultiLvlLbl val="0"/></c:catAx>`;
 }
 
@@ -790,7 +810,7 @@ function scatterCategoryAxisXml(
     axisTitleXml(node.categoryAxisTitle, palette, position === "l") +
     `<c:numFmt formatCode="General" sourceLinked="1"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>` +
     axisLineXml(palette) +
-    textPropertiesXml(palette, CHART_TEXT_SIZE) +
+    textPropertiesXml(palette) +
     `<c:crossAx val="${VALUE_AXIS_ID}"/><c:crosses val="autoZero"/><c:crossBetween val="midCat"/></c:valAx>`;
 }
 
@@ -823,7 +843,7 @@ function valueAxisXml(
     // scale across the plot, and a rule under them is a second one saying the
     // same thing.
     `<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>` +
-    textPropertiesXml(palette, CHART_TEXT_SIZE) +
+    textPropertiesXml(palette) +
     `<c:crossAx val="${CATEGORY_AXIS_ID}"/><c:crosses val="${
       crossesAtEnd ? "max" : "autoZero"
     }"/><c:crossBetween val="between"/>${
@@ -916,7 +936,7 @@ function axisTitleXml(
   // rotation of -60° in sixtieths of a degree.
   const rotation = vertical ? ` rot="-5400000" vert="horz"` : ` rot="0" vert="horz"`;
 
-  return `<c:title><c:tx><c:rich><a:bodyPr${rotation}/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="${CHART_TEXT_SIZE}" b="0"><a:solidFill><a:srgbClr val="${palette.text}"/></a:solidFill><a:latin typeface="${
+  return `<c:title><c:tx><c:rich><a:bodyPr${rotation}/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="${palette.textSize}" b="0"><a:solidFill><a:srgbClr val="${palette.text}"/></a:solidFill><a:latin typeface="${
     escapeXml(palette.font)
   }"/></a:defRPr></a:pPr><a:r><a:t>${
     escapeXml(title)
