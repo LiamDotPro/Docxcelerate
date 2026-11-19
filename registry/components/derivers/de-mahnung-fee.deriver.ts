@@ -31,7 +31,9 @@ export default deriver({
     // UTC day indexes, so a day does not shift with the engine's time zone.
     const isoDay = (value: unknown, field: string): string => {
       const text = typeof value === "string" ? value.slice(0, 10) : "";
-      const ok = /^\d{4}-\d{2}-\d{2}$/.test(text) && new Date(text + "T00:00:00Z").toISOString().slice(0, 10) === text;
+      const d = new Date(text + "T00:00:00Z");
+      // getTime() first: toISOString throws a bare RangeError on "2026-13-01".
+      const ok = /^\d{4}-\d{2}-\d{2}$/.test(text) && !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === text;
       if (!ok) throw new Error(field + " must be an ISO 8601 date");
       return text;
     };

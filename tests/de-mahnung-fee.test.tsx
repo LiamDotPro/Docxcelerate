@@ -228,6 +228,7 @@ test("18. what throws", async () => {
   await bad(letter({ amount: NaN }), "amount");
   await bad(letter({ number: "  " }), "number");
   await bad(letter({ dueDate: "19.11.2026" }), "mahnung.invoices[0].dueDate must be an ISO 8601 date");
+  await bad(letter({ dueDate: "2026-13-01" }), "mahnung.invoices[0].dueDate must be an ISO 8601 date");
   await bad(letter({ contractPaymentDate: "2026-10-01" }), "contractPaymentDate");
   await bad(letter({ mahnungen: [{ date: "2026-11-19" }] }), "mahnungen[0].date");
   await bad(letter({ mahnungen: [{ date: "2026-10-20", feeCharged: -1 }] }), "feeCharged");

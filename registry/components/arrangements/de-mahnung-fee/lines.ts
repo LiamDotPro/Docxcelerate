@@ -12,9 +12,13 @@ export interface DeMahnungFeeLines {
   proofLine: string;
   /** One entry per invoice, oldest due date first. */
   invoices: Array<{
+    /** The invoice number as given. */
     number: string;
+    /** "Rechnung … über …, fällig am …", with the due date as given, not shifted. */
     heading: string;
+    /** Since when the invoice is in default, and why. */
     verzugLine: string;
+    /** What this letter charges for this invoice. */
     feeLine: string;
     /** "" for a consumer. */
     pauschaleLine: string;
