@@ -4,6 +4,7 @@ import {
   createDeriverRegistry,
   type DocumentModel,
   type DocumentNode,
+  type GraphNode,
   InMemoryDataProvider,
   resolveDocument,
   type RuntimeState,
@@ -62,6 +63,22 @@ test("tokens resolve against the request data", async () => {
   );
 
   assertEquals(texts(doc.nodes), ["Hello Avery, of Leeds."]);
+});
+
+test("a chart's alt resolves its tokens against the request data", async () => {
+  const doc = await resolveDocument(
+    published([{
+      id: "revenue",
+      kind: "graph",
+      mode: "static",
+      graphType: "bar",
+      alt: "Revenue rose {{data.growth}}%",
+      data: { series: [{ values: [1] }] },
+    } as DocumentNode]),
+    engineState({ growth: 40 }),
+  );
+
+  assertEquals((doc.nodes[0] as GraphNode).alt, "Revenue rose 40%");
 });
 
 test("only the arm whose condition holds survives", async () => {

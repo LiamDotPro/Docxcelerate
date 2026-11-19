@@ -364,6 +364,13 @@ export interface GraphNode extends BaseNode {
   data?: GraphData;
   /** A caption printed beneath the chart. */
   caption?: string;
+  /**
+   * What the chart shows, for a reader who cannot see it.
+   *
+   * Absent means the drawing is described by its title, then its caption, then
+   * its id — what every chart was described by before this existed.
+   */
+  alt?: string;
   /** What to show while the chart has no data yet. */
   placeholder?: string;
   /** How wide the chart is drawn, in points. The text column unless it is said. */

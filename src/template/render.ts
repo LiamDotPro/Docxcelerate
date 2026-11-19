@@ -862,6 +862,7 @@ async function renderGraph(
   // node this returns.
   const drawn = {
     title: await text(props.title, context),
+    alt: await text(props.alt, context),
     width: props.width,
     height: props.height,
     legend: props.legend,

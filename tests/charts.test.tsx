@@ -596,6 +596,26 @@ test("a chart says what it is for a reader who cannot see it", async () => {
   assertStringIncludes(body, `descr="Revenue by quarter"`);
 });
 
+test("the alt outranks the title in the drawing's description, and the title stays on the chart", async () => {
+  const doc = documentOf([chart({ title: "Revenue by quarter", alt: "Revenue rose 40% from Q1 to Q4" })]);
+  const body = await documentXml(doc);
+
+  assertStringIncludes(body, `descr="Revenue rose 40% from Q1 to Q4"`);
+  assertEquals(body.includes(`descr="Revenue by quarter"`), false);
+  assertStringIncludes(await chartXml(doc), "Revenue by quarter");
+});
+
+test("without an alt the description falls back to the caption, then the id", async () => {
+  assertStringIncludes(await documentXml(documentOf([chart({ caption: "Figure 1" })])), `descr="Figure 1"`);
+  assertStringIncludes(await documentXml(documentOf([chart()])), `descr="revenue"`);
+});
+
+test("an alt is escaped in the attribute", async () => {
+  const body = await documentXml(documentOf([chart({ alt: "R&D spend <doubled>" })]));
+
+  assertStringIncludes(body, `descr="R&amp;D spend &lt;doubled&gt;"`);
+});
+
 test("a caption is a paragraph under the chart, not text drawn into it", async () => {
   const body = await documentXml(documentOf([chart({ caption: "Figure 1: revenue." })]));
 
@@ -637,6 +657,7 @@ test("a chart written as JSX carries every drawing decision into the node", asyn
           <Graph
             id="revenue"
             title="Revenue by quarter"
+            alt="Revenue rose 40%"
             graphType="line"
             stacked
             legend="right"
@@ -661,6 +682,7 @@ test("a chart written as JSX carries every drawing decision into the node", asyn
 
   assertEquals(node?.kind, "graph");
   assertEquals(node?.title, "Revenue by quarter");
+  assertEquals(node?.alt, "Revenue rose 40%");
   assertEquals(node?.graphType, "line");
   assertEquals(node?.stacked, true);
   assertEquals(node?.legend, "right");
