@@ -156,6 +156,16 @@ test("the GST/HST number is checked before it is printed", () => {
   }
 });
 
+test("a small supplier's number is ignored, not checked", () => {
+  const r = run({ supplyProvince: "ON" }, { gstRegistered: false, bn: "123456789RT0001" });
+  assertEquals([r.warning, r.bn], [null, null]);
+});
+
+test("a missing QST number is named from $100 up, not below", () => {
+  assertEquals(run({}, { qst: undefined }).warning?.includes("QST registration number"), true);
+  assertEquals(run({ lines: [line(50)] }, { qst: undefined }).warning, null);
+});
+
 test("the QST number is checked for format", () => {
   const r = run({}, { qst: "12345TQ0001" });
   assertEquals(r.qst, null);
@@ -213,8 +223,8 @@ test("bad rates throw, naming the tax, province and date", async () => {
   const qst = { tax: "QST", province: "QC", rate: 9.975, from: "2013-01-01" };
   await throws(() => run({ rates: [gst, { ...qst, to: "2020-01-01" }] }), Error, "No QST rate for QC on 2026-11-30");
   await throws(() => run({ rates: [gst, qst, { ...qst, from: "2026-01-01" }] }), Error, "Overlapping QST rows for QC");
-  await throws(() => run({ rates: [gst, { ...qst, rate: 9.9751 }] }), Error, "salesTax.rates");
-  await throws(() => run({ rates: [gst, { ...qst, rate: -1 }] }), Error, "salesTax.rates");
+  await throws(() => run({ rates: [gst, { ...qst, rate: 9.9751 }] }), Error, "QST QC rate 9.9751 from 2013-01-01");
+  await throws(() => run({ rates: [gst, { ...qst, rate: -1 }] }), Error, "QST QC rate -1 from 2013-01-01");
   await throws(() => run({ supplyProvince: "NB", taxPointDate: "2016-06-30" }), Error, "No HST rate for NB");
 });
 
@@ -276,10 +286,16 @@ for (const arrangement of ARRANGEMENTS) {
       const resolved = await resolveDocument(published, state, { derivers: registry });
       const direct = await buildDocument(documentOf(arrangement), data as typeof qcData, { dynamicMode: "placeholder" });
       assertEquals(texts(resolved.nodes), texts(direct.nodes));
-      assertEquals(
-        texts(resolved.nodes).some((t) => t.includes("$1,149.75") || t.includes("small supplier")),
-        true,
-      );
+      const all = texts(resolved.nodes);
+      const has = (s: string) => all.some((t) => t.includes(s));
+      if (name === "QC baseline") {
+        assertEquals([has("$1,149.75"), has("843219767RT0001")], [true, true]);
+      } else {
+        assertEquals(
+          [has("Not registered for GST/HST (small supplier), so no HST is charged."), has("HST 13%"), has("No HST on")],
+          [true, false, false],
+        );
+      }
     });
   }
 }

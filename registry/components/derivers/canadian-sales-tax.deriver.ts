@@ -64,7 +64,7 @@ export default deriver({
         Math.abs(row.rate * 1000 - Math.round(row.rate * 1000)) > 1e-6
       ) {
         throw new Error(
-          "salesTax.rates: " + row?.tax + " " + (row?.province ?? "") + " rate " + row?.rate +
+          "salesTax.rates: " + row?.tax + " " + (row?.province ?? "") + " rate " + row?.rate + " from " + row?.from +
             " must be a non-negative number with at most three decimal places",
         );
       }
