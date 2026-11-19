@@ -3412,6 +3412,77 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+
+  {
+    kind: "component",
+    id: "marketplace-payout-statement",
+    title: "Marketplace payout statement",
+    summary: "A period's sales, refunds, fees, chargebacks and reserve, reconciled row by row to what reaches the seller's bank.",
+    detail:
+      "One reconciled row per step, in a fixed order, closing on a balance proved " +
+      "against the opening one. Sales tax the marketplace collected as facilitator " +
+      "is shown and taken straight back out, never counted as sales. A refund " +
+      "returns the commission less the platform's administration fee, and never " +
+      "the fulfilment fee. VAT on fees is rounded once per fee line, or replaced by " +
+      "a reverse-charge note. A won chargeback is the reversal of a deduction, not " +
+      "income, and its dispute fee stays deducted. New reserve holds come off, and " +
+      "matured ones come back. The outcome is a payout to an account shown by its " +
+      "last four digits only, nothing to pay, a negative balance carried forward, " +
+      "or a debit to the card on file, never a negative payout. Give it the " +
+      "platform's closing figure and it refuses a statement that does not tie. " +
+      "All of it is one deriver over integer minor units.",
+    category: "Body",
+    tags: ["money", "marketplace", "payout", "statement", "reconciliation", "vat", "table", "deriver", "branching", "section"],
+    exports: ["MarketplacePayoutStatement"],
+    dataFields: [
+      { path: "payout.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required." },
+      { path: "payout.openingBalance", type: "number", summary: "Last statement's unpaid balance in minor units; negative is owed. Required, 0 for a first statement." },
+      { path: "payout.orders", type: "Array<{ id: string; itemTotal: number; shipping?: number; facilitatorTax?: number }> | undefined", summary: "Orders settled in the period, minor units, tax excluded from the item total. Missing means no sales." },
+      { path: "payout.refunds", type: "Array<{ orderId: string; amount: number; commissionRefunded: number; adminFee: number }> | undefined", summary: "Refunds; the admin fee is required (0 if none) and cannot exceed the commission returned." },
+      { path: "payout.fees", type: "Array<{ label: string; amount: number; vatPercent?: number; reverseCharge?: boolean }> | undefined", summary: "Commission and fees before VAT. VAT is rounded per line; reverse-charged fees get a note instead." },
+      { path: "payout.chargebacks", type: 'Array<{ orderId: string; amount: number; disputeFee?: number; outcome: "open" | "won" | "lost"; raisedEarlier?: boolean }> | undefined', summary: "Deducted with their fee when raised this period; a win adds the amount back." },
+      { path: "payout.reserve", type: "{ held?: number; released?: number; days?: number } | undefined", summary: "New holds come off, matured holds come back. Missing means no reserve." },
+      { path: "payout.accountLast4", type: "string | undefined", summary: "Only its last four digits are printed. Missing prints 'your bank account'." },
+      { path: "payout.negativeBalanceMethod", type: '"carry" | "debit" | undefined', summary: "What a negative closing balance becomes. Missing means carry." },
+      { path: "payout.closingBalance", type: "number | undefined", summary: "The platform's own closing figure; the document fails when the rows do not sum to it." },
+    ],
+    arrangements: [
+      { id: "signed", title: "Signed", summary: "One amount column, every row signed, closing balance at the foot." },
+      { id: "columns", title: "In and out", summary: "Money in and money out in two unsigned columns, the way a bank statement reads." },
+    ],
+    files: node("marketplace-payout-statement", { deriver: true, arrangements: ["signed", "columns"] }),
+    previewData: {
+      payout: {
+        currency: "GBP",
+        openingBalance: -184250,
+        orders: [
+          { id: "206-4817725-9930714", itemTotal: 12849900, shipping: 245000, facilitatorTax: 2618980 },
+          { id: "206-9102384-5521036", itemTotal: 8734550, shipping: 189900, facilitatorTax: 1784890 },
+          { id: "206-3345120-0087412", itemTotal: 4412075, shipping: 0, facilitatorTax: 882415 },
+        ],
+        refunds: [
+          { orderId: "206-9102384-5521036", amount: 1249900, commissionRefunded: 187485, adminFee: 500 },
+          { orderId: "206-3345120-0087412", amount: 18990, commissionRefunded: 2849, adminFee: 570 },
+        ],
+        fees: [
+          { label: "Referral fees (Home & Kitchen, 15% up to £100 and 8% above)", amount: 2304617, vatPercent: 20 },
+          { label: "Fulfilment fees, oversize and standard-parcel tiers", amount: 1187340, vatPercent: 20 },
+          { label: "Monthly storage fees including aged-inventory surcharge", amount: 96215, vatPercent: 20 },
+          { label: "Sponsored Products advertising, invoiced from Luxembourg", amount: 845000, reverseCharge: true },
+        ],
+        chargebacks: [
+          { orderId: "206-4817725-9930714", amount: 349900, disputeFee: 1500, outcome: "lost" },
+          { orderId: "206-1188234-7765102", amount: 128450, disputeFee: 1500, outcome: "open" },
+          { orderId: "206-5520918-3349876", amount: 89999, disputeFee: 1500, outcome: "won", raisedEarlier: true },
+        ],
+        reserve: { held: 2570253, released: 1984120, days: 90 },
+        accountLast4: "4417",
+        negativeBalanceMethod: "carry",
+        closingBalance: 19039259,
+      },
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
