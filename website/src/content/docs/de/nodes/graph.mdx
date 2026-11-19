@@ -1,6 +1,6 @@
 ---
 title: Graph
-description: Echte Word-Diagramme — Balken, Linie, Fläche, Kreis, Ring oder Punkt — als Daten deklariert statt als Bild gezeichnet.
+description: Echte Word-Diagramme — Balken, Linie, Fläche, Kreis, Ring, Punkt, Netz oder Blase — als Daten deklariert statt als Bild gezeichnet.
 group: Nodes
 subgroup: Node types
 order: 13
@@ -41,38 +41,153 @@ export const VisitsByMonth: Graph = () => {
 Was in der `.docx` landet, ist ein **echtes Word-Diagramm** — ein
 DrawingML-Chart-Part mit allen Werten darin, samt der Arbeitsmappe, die „Daten
 bearbeiten“ öffnet. Der Leser kann es auswählen, umgestalten, seinen Typ ändern
-und seine Zahlen öffnen, und Word zeichnet es als Vektoren in jeder Größe.
-Nichts davon wird gerastert.
+und seine Zahlen öffnen, und Word zeichnet es als Vektoren in jeder Größe, die
+die Seite und der Drucker brauchen.
+
+Das ist der ganze Grund, warum der Node Zahlen statt eines Bildes trägt. Ein
+Diagramm, das beim Build zu Pixeln plattgedrückt wird, ist ein Diagramm, mit dem
+danach niemand mehr etwas anfangen kann: Es lässt sich nicht neu gestalten, es
+druckt in der Auflösung, die der Build geraten hat, und es ist für alles
+unsichtbar, was das Dokument liest. Nichts davon wird gerastert, weshalb
+Diagramme das Paket auch keine zusätzliche Abhängigkeit und kein natives Modul
+kosten.
 
 ## Die Form der Daten
-
-`data` ist typisiert: Kategorien und Serien, jede Serie mit einem Label, ihren
-Werten und optional einer Farbe.
 
 ```ts
 interface GraphData {
   categories?: string[];
-  series: Array<{ label?: string; values: (number | null)[]; color?: string }>;
+  series: Array<{
+    label?: string;
+    values: (number | null)[];
+    color?: string;
+    /** A bubble's third figure, and read by no other form. */
+    sizes?: (number | null)[];
+  }>;
 }
 ```
 
-`null` ist eine Lücke, keine Null. Ein Monat, der noch nicht abgelesen wurde,
-ist kein Monat, in dem nichts gemessen wurde — Word lässt den Punkt aus, statt
-die Linie abstürzen zu lassen.
+`null` ist eine **Lücke, keine Null**. Ein Monat, der noch nicht abgelesen wurde,
+ist kein Monat, in dem nichts gemessen wurde, und ihn als Null zu zeichnen setzt
+einen Abgrund in die Linie, den es nie gab. Word wird angewiesen, den Punkt
+auszulassen.
 
-Farben kommen aus dem Theme (`palette.series`, eine feste, auf
-Farbfehlsichtigkeit geprüfte Reihe), damit ein Dokument neu gestaltet werden
-kann, ohne dass seine Diagramme dazu nicht mehr passen.
+Eine Serie, die kürzer ist als die Kategorien, wird mit Lücken aufgefüllt; werden
+gar keine Kategorien angegeben, wird nach Position gezählt. Strings in der
+Nutzlast laufen durch den Template-Renderer, genau wie Absatztext, ein Label mit
+`{{derived.total}}` wird also aufgelöst.
 
-Eines geschieht mit den Daten doch: String-Werte laufen durch den
-Template-Renderer, genau wie Prosa. Ein Label mit `{{derived.total}}` wird
-aufgelöst.
+`scatter` und `bubble` lesen die Kategorien als ihre **x-Werte**, das sind also
+als Text geschriebene Zahlen; alles, was sich nicht parsen lässt, zählt als seine
+Position.
+
+## Farben gehören dem Theme
+
+Serien nehmen der Reihe nach `palette.series` des Themes — eine feste, geprüfte,
+auf Farbfehlsichtigkeit ausgelegte Reihe —, damit ein Dokument neu gestaltet
+werden kann, ohne dass seine Diagramme dazu nicht mehr passen. Gitternetzlinien
+nehmen `palette.rule`, Achsen- und Legendentext `palette.muted`, sodass ein
+Diagramm als Teil des Dokuments wirkt und nicht als etwas, das hineingeklebt
+wurde.
+
+Geben Sie einer Serie nur dann eine `color`, wenn die Farbe das ist, was die Serie
+*bedeutet* — eine rote Linie für die Grenze, unter der sie bleiben muss —, und
+nie, um ein hübscheres Blau zu wählen.
+
+## Formen
+
+| `graphType` | Wofür es gedacht ist |
+| --- | --- |
+| `bar` | Kategorien vergleichen. Der Standard und meist die richtige Antwort. |
+| `barHorizontal` | Dasselbe, für Kategorienamen, die zu lang sind, um unter einer Säule zu stehen. |
+| `line` | Veränderung über die Zeit. |
+| `area` | Veränderung über die Zeit, wo die Menge unter der Linie der Punkt ist. |
+| `pie` | Der Anteil an einem Ganzen, und nur mit so wenigen Segmenten, dass man sie unterscheiden kann. |
+| `doughnut` | Dasselbe, mit herausgenommener Mitte. |
+| `scatter` | Zwei Messgrößen gegeneinander, um zu zeigen, ob sie sich gemeinsam bewegen. |
+| `bubble` | Dasselbe mit einer dritten Zahl als Größe des Punkts — `sizes` an der Serie. |
+| `radar` | Mehrere Messgrößen auf einmal, als Form gelesen: wo stark, nicht wie viel. |
+
+Greifen Sie zuerst zu `bar`. Ab etwa sechs Segmenten ist ein Kreisdiagramm
+schwerer zu lesen als das Balkendiagramm derselben Zahlen, und ein Netzdiagramm
+beantwortet eine andere Frage als alle anderen — es vergleicht Profile, und ein
+Leser kann die Flächen zweier Ringe nicht vergleichen, also muten Sie ihm das
+nicht zu.
+
+Zwei Messgrößen mit verschiedenen Skalen sind zwei Diagramme. Eine zweite Achse
+lässt den Schnittpunkt wie einen Befund aussehen, obwohl er ein Artefakt der von
+Ihnen gewählten Skalen ist.
+
+### Stapeln
+
+Stapeln ist eine Eigenschaft und keine eigene Form, gilt also für Balken, Linien
+und Flächen gleichermaßen und lässt sich von einem Kreisdiagramm nicht verlangen:
+
+```tsx
+<Graph graphType="bar" stacked data={…} />              // to a total
+<Graph graphType="bar" stacked="percent" data={…} />    // to a share
+```
+
+`stacked` macht die Oberkante jedes Stapels zur Summe. `stacked="percent"` zeichnet
+jede Säule gleich hoch, sodass man den Anteil jeder Serie an ihrer Säule abliest
+und die Summen bewusst verworfen werden — das Diagramm, das Word „100 % gestapelt“
+nennt. Übergeben Sie in beiden Fällen die Rohwerte: Word rechnet die Anteile
+selbst aus und beschriftet die Achse mit 0 % bis 100 %, eine vorab geteilte
+Nutzlast würde ihm also Anteile von Anteilen liefern.
+
+### Die Wertachse festlegen
+
+Word beginnt die Wertachse, wo es will, meist bei null. Ist die Bewegung der
+Punkt und null nicht — Verfügbarkeit zwischen 99 % und 100 % —, flacht das die
+Daten zu einer Linie ab. Legen Sie die Enden und die Schrittweite der
+Gitternetzlinien fest:
+
+```tsx
+<Graph graphType="line" numberFormat="0.0%" valueAxisMin={0.99} valueAxisMax={1} valueAxisStep={0.002}
+  data={{ categories: state.months, series: [{ label: "Uptime", values: state.uptime }] }} />
+```
+
+Jede Angabe ist optional, und Word wählt, was fehlt. Ein Wert außerhalb der
+Grenzen wird an der Achse abgeschnitten; bei einem Prozentstapel ist die Achse ein
+Anteil, `0.5` also 50 %; ein Kreisdiagramm hat keine Achse und ignoriert sie. Ein
+`valueAxisMin` über `valueAxisMax` oder eine Schrittweite von null lässt das
+Packen scheitern, statt Unsinn zu zeichnen.
 
 ## Ableiten im State
 
-Laufende Summen, Prozentwerte und Umbasierungen gehören in die `data`-Funktion,
-nicht weiter stromaufwärts. Diagramm und der Text daneben werden dann aus einer
-Quelle berechnet und können sich nicht widersprechen.
+Laufende Summen, Prozentwerte und Umbasierungen gehören in den State-Initializer
+und nicht in die Daten, die Sie hineingeben. Diagramm und der Text daneben werden
+dann aus einer Quelle berechnet und können sich nicht widersprechen.
+
+## In der Vorschau
+
+`docx-preview` liest einen Chart-Part gar nicht und lässt deshalb einen leeren
+Rahmen in genau der Größe, die die Datei dem Diagramm gab — was die Vorschau so
+paginieren lässt wie Word. Ein angelegter Workspace füllt diesen Rahmen mit
+[ECharts](https://echarts.apache.org) und zeichnet aus denselben gepackten Bytes;
+siehe `preview/charts.ts` in Ihrem Workspace.
+
+Der Rahmen ist exakt. Das Diagramm darin ist die Zeichnung eines anderen Renderers
+derselben Daten, kein Screenshot von Word — öffnen Sie die `.docx`, wenn das
+Diagramm selbst stimmen muss. Ein vor 0.9.0 angelegter Workspace hat eine
+`preview/charts.ts`, die feste Achsengrenzen nicht liest; die Datei ist trotzdem
+richtig.
+
+## Was es zeichnet
+
+Zwei Renderer, und es lohnt sich zu wissen, welcher welcher ist:
+
+- **In der Datei** — [OOXML DrawingML](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/),
+  das Diagrammformat, das Words eigenes Einfügen → Diagramm schreibt: ein
+  `c:chartSpace`-Part mit allen Werten darin, dazu eine kleine eingebettete
+  `.xlsx` für „Daten bearbeiten“. Docxcelerate schreibt diesen Part direkt, also
+  **zeichnet Word** — keine Diagrammbibliothek, kein Canvas, kein natives Modul.
+- **In der Vorschau** — [ECharts](https://echarts.apache.org), das dieselben
+  gepackten Bytes zurückliest. Es zeichnet das Diagramm am Bildschirm; der Rahmen
+  darum kommt weiterhin aus der Datei.
+
+Deshalb können sich beide um einen Pixel unterscheiden, die Seite aber nicht: Das
+Layout hängt vom Rahmen ab, und der Rahmen ist der von Word.
 
 ## Varianten
 
@@ -80,7 +195,25 @@ Quelle berechnet und können sich nicht widersprechen.
 
 ## Anmerkungen
 
-- `graphType` steht bei beiden Helpern standardmäßig auf `bar`.
+- `graphType` steht in beiden Modi standardmäßig auf `bar`.
+- `title` wird *auf* das Diagramm gezeichnet und reist mit, wenn der Leser es
+  anderswohin kopiert; `caption` ist ein Absatz, der darunter gedruckt wird.
+- `alt` ist die Beschreibung der Zeichnung, das, was ein Screenreader ansagt und
+  Words Barrierefreiheitsprüfung sucht. Sagen Sie, was die Zahlen zeigen („Die
+  Besuche haben sich nach März verdoppelt“), nicht, wie das Diagramm heißt. Fehlt
+  es, steht der Titel stellvertretend, dann die Beschriftung.
+- `align="center"` oder `"right"` platziert ein Diagramm, das schmaler als die
+  Spalte ist, und seine Beschriftung folgt ihm. Ein Diagramm ohne `width` füllt
+  die Spalte ohnehin.
+- `legend` ist standardmäßig eine Legende unter dem Diagramm bei mehr als einer
+  Serie und keine bei einer — eine Legende, die das Einzige auf einem Diagramm
+  benennt, wiederholt dessen Titel. Ein Kreisdiagramm behält immer eine, weil
+  seine Legende die Segmente benennt.
+- `numberFormat` ist ein OOXML-Formatcode — `"#,##0"`, `"0.0%"`, `"£#,##0"` —, der
+  unverändert an die Wertachse und die Datenbeschriftungen gereicht wird.
+- `barHorizontal` liest sich von oben nach unten in der Reihenfolge, in der die
+  Kategorien geschrieben wurden, statt von unten nach oben wie Words eigene
+  Balkendiagramme.
 - Bei einem dynamischen Graph liegt die Form weiterhin lokal fest. Der Endpoint
   liefert die Zahlen und darf `graphType` und `caption` in seiner Antwort
   überschreiben.
