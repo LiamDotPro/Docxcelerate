@@ -2587,6 +2587,97 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "patient-responsibility-breakdown",
+    title: "Patient responsibility breakdown",
+    summary: "What the patient owes on each claim line, from billed to allowed to deductible, copay and coinsurance.",
+    detail:
+      "Each claim line goes from billed charge to allowed amount, and the gap is printed as the " +
+      "provider's write-off, never as owed, unless the line is out of network and not protected by " +
+      "the No Surprises Act, when it is a balance bill. Copay, deductible and coinsurance are taken " +
+      "in the plan's own order: copay before or after the deductible, counting toward it or not. " +
+      "Coinsurance is on what is left after both, not on the allowed amount. The deductible and " +
+      "out-of-pocket balances carry from line to line in date order, cost share stops at the " +
+      "out-of-pocket maximum, and later covered lines say the plan pays 100%. Non-covered charges " +
+      "and balance bills come after the cap because they never count toward it. Everything is in " +
+      "integer cents, with coinsurance rounded once per line, so the totals are the sum of the " +
+      "printed rows. A denied line is not billed. All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "healthcare", "statement", "insurance", "table", "deriver", "branching", "section"],
+    exports: ["PatientResponsibilityBreakdown"],
+    arrangements: [
+      {
+        id: "table",
+        title: "Table",
+        summary: "One row per claim line, with billed, allowed, deductible, copay, coinsurance and what you owe in columns.",
+      },
+      { id: "stacked", title: "Stacked", summary: "One labelled block per claim line, down the text column." },
+    ],
+    dataFields: [
+      { path: "patientResponsibility.currency", type: "string | undefined", summary: "ISO 4217 code. Missing means USD." },
+      {
+        path: "patientResponsibility.plan",
+        type:
+          "{ deductibleRemainingMinor: number; oopRemainingMinor: number; coinsuranceRate: number; copayAppliesBeforeDeductible?: boolean; copayCountsTowardDeductible?: boolean }",
+        summary:
+          "Accumulators before the first line, in integer minor units, and the plan's order of operations. Copay first and not counting toward the deductible when missing.",
+      },
+      {
+        path: "patientResponsibility.lines",
+        type:
+          'Array<{ serviceDate: string; description: string; code?: string; billedMinor: number; allowedMinor?: number; copayMinor?: number; copayOnly?: boolean; covered?: boolean; network?: "in" | "out"; nsaProtected?: boolean }>',
+        summary: "Claim lines in any order, amounts in integer minor units. Missing or empty prints nothing.",
+      },
+    ],
+    files: node("patient-responsibility-breakdown", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      patientResponsibility: {
+        currency: "USD",
+        plan: {
+          deductibleRemainingMinor: 285000,
+          oopRemainingMinor: 912500,
+          coinsuranceRate: 0.3,
+          copayAppliesBeforeDeductible: true,
+          copayCountsTowardDeductible: false,
+        },
+        lines: [
+          {
+            serviceDate: "2026-09-02", code: "99215",
+            description: "Office visit, established patient, high complexity, with extended review of outside imaging",
+            billedMinor: 48500, allowedMinor: 21437, copayMinor: 6500, copayOnly: true, network: "in", covered: true,
+          },
+          {
+            serviceDate: "2026-09-14", code: "27447",
+            description: "Total knee arthroplasty, right knee, including surgeon's intraoperative and post-operative care",
+            billedMinor: 7845000, allowedMinor: 3196428, network: "in", covered: true,
+          },
+          {
+            serviceDate: "2026-09-14", code: "0120",
+            description: "Inpatient surgical admission, semi-private room and board, four days, with operating and recovery room",
+            billedMinor: 24875000, allowedMinor: 9641237, network: "in", covered: true,
+          },
+          {
+            serviceDate: "2026-09-15", code: "01402",
+            description: "Anesthesia for knee arthroplasty by an out-of-network anesthesiologist at an in-network hospital",
+            billedMinor: 1265000, allowedMinor: 412850, network: "out", nsaProtected: true, covered: true,
+          },
+          {
+            serviceDate: "2026-10-06", code: "97110",
+            description: "Therapeutic exercise, eight 15-minute units, outpatient physical therapy at an out-of-network clinic",
+            billedMinor: 192000, allowedMinor: 84000, network: "out", nsaProtected: false, covered: true,
+          },
+          {
+            serviceDate: "2026-10-20", code: "S9451",
+            description: "Exercise classes by a non-physician provider, not a covered benefit under this plan",
+            billedMinor: 36000, covered: false,
+          },
+        ],
+      },
+    },
+    requires: [],
+  },
+
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
