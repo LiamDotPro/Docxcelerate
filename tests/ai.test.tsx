@@ -1035,7 +1035,7 @@ test("omitted or empty options leave no aiOptions on the node", async () => {
   for (const component of [summary, withOptions({})]) {
     const built = await buildWith(component, {
       dynamicMode: "resolve",
-      aiClient: { generateParagraph: () => "" },
+      aiClient: { generateParagraph: () => "Written." },
     });
 
     assertEquals("aiOptions" in paragraphOf(built.nodes), false);
@@ -1067,7 +1067,7 @@ test("a later layer replaces options whole", async () => {
     useSetPrompts({ aiOptions: { model: "small", temperature: 0 } });
     useAi({ ask: "Summarise.", placeholder: "A summary.", options: { model: "large" } });
     return <Paragraph id="summary" />;
-  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
 
   assertEquals(paragraphOf(built.nodes).aiOptions, { model: "large" });
 });
