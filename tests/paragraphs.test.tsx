@@ -477,7 +477,7 @@ test("a section's variant restyles its heading, which stays a Heading 1", async 
       </Document>,
     ),
   );
-  const heading = paragraphOf(xml, "Schedule 1");
+  const heading = elementOf(xml, "w:p", "Schedule 1");
 
   for (
     const part of [
@@ -505,8 +505,8 @@ test("a heading with no variant, or one the theme lacks, is written as it always
     ),
   );
 
-  assertEquals(paragraphOf(xml, "Definitions"), PLAIN_HEADING.replace("%", "Definitions"));
-  assertEquals(paragraphOf(xml, "Unknown"), PLAIN_HEADING.replace("%", "Unknown"));
+  assertEquals(elementOf(xml, "w:p", "Definitions"), PLAIN_HEADING.replace("%", "Definitions"));
+  assertEquals(elementOf(xml, "w:p", "Unknown"), PLAIN_HEADING.replace("%", "Unknown"));
 });
 
 test("a clause heading and a schedule heading sit side by side", async () => {
@@ -518,8 +518,8 @@ test("a clause heading and a schedule heading sit side by side", async () => {
       </Document>,
     ),
   );
-  const clause = paragraphOf(xml, "Clause");
-  const schedule = paragraphOf(xml, "Schedule");
+  const clause = elementOf(xml, "w:p", "Clause");
+  const schedule = elementOf(xml, "w:p", "Schedule");
 
   for (const part of ["<w:jc", "<w:caps", "keepNext"]) {
     assertEquals(clause.includes(part), false);
@@ -537,7 +537,7 @@ test("a heading's tracking is measured against the heading's size", async () => 
   );
 
   // 0.1 x 12pt x 20; the 11pt body would have given 22.
-  assertStringIncludes(paragraphOf(xml, "Tracked"), '<w:spacing w:val="24"/>');
+  assertStringIncludes(elementOf(xml, "w:p", "Tracked"), '<w:spacing w:val="24"/>');
 });
 
 test("transform none turns off the capitals a theme's headings ask for", async () => {
@@ -551,7 +551,7 @@ test("transform none turns off the capitals a theme's headings ask for", async (
     style: { ...style, sectionHeading: { ...style.sectionHeading, transform: "uppercase" } },
   });
 
-  assertStringIncludes(paragraphOf(xml, "Annex"), '<w:caps w:val="false"/>');
+  assertStringIncludes(elementOf(xml, "w:p", "Annex"), '<w:caps w:val="false"/>');
 });
 
 test("a heading held at a page break keeps its variant's formatting", async () => {
@@ -566,7 +566,7 @@ test("a heading held at a page break keeps its variant's formatting", async () =
       </Document>,
     ),
   );
-  const heading = paragraphOf(xml, "Schedule 1");
+  const heading = elementOf(xml, "w:p", "Schedule 1");
 
   assertStringIncludes(heading, '<w:pStyle w:val="PageBreakBeforeHeading1"/>');
   assertStringIncludes(heading, '<w:jc w:val="center"/>');
