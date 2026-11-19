@@ -56,7 +56,7 @@ export {
   truthy,
 } from "./template/branch.ts";
 export type { BranchMode, DeriverMode, DynamicMode } from "./template/context.ts";
-export { createPublishData, expr, isPublishValue, publishRefOf } from "./template/publish.ts";
+export { createPublishData, expr, isPublishValue, position, publishRefOf } from "./template/publish.ts";
 // The helpers compiled control flow calls into. Exported because the transform
 // emits imports of them, not because anybody writes one.
 export { __and, __compare, __not, __or, __test } from "./template/compiled.ts";
