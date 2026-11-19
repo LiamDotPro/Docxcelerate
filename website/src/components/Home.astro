@@ -92,11 +92,40 @@ const DOCUMENT_CODE = `export const documentTemplate = template<ReviewData>(
   </Document>,
 );`;
 
-const DIFF = [
-  { file: "nodes/arrears.node.tsx", removed: "within 14 days of this notice", added: "within 30 days of this notice" },
-  { file: "nodes/contact.node.tsx", removed: "call us to discuss", added: "call us to agree a payment plan" },
+// A pull request as a review tool shows it: per file, a hunk header, old and
+// new line numbers, context either side, and the words that changed picked
+// out within the line. A segment in [brackets] is the part that changed.
+type DiffLine = { kind: " " | "-" | "+"; old?: number; new?: number; text: string };
+const DIFF: { file: string; hunk: string; lines: DiffLine[] }[] = [
+  {
+    file: "nodes/arrears.node.tsx",
+    hunk: "@@ -12,5 +12,5 @@ export const Arrears: Paragraph = () => {",
+    lines: [
+      { kind: " ", old: 12, new: 12, text: "  return (" },
+      { kind: " ", old: 13, new: 13, text: '    <Paragraph id="arrears">' },
+      { kind: "-", old: 14, text: "      Pay within [14] days of this notice." },
+      { kind: "+", new: 14, text: "      Pay within [30] days of this notice." },
+      { kind: " ", old: 15, new: 15, text: "    </Paragraph>" },
+      { kind: " ", old: 16, new: 16, text: "  );" },
+    ],
+  },
+  {
+    file: "nodes/contact.node.tsx",
+    hunk: "@@ -8,3 +8,3 @@ export const Contact: Paragraph = () => (",
+    lines: [
+      { kind: " ", old: 8, new: 8, text: '  <Paragraph id="contact">' },
+      { kind: "-", old: 9, text: "    Call us [to discuss]." },
+      { kind: "+", new: 9, text: "    Call us [to agree a payment plan]." },
+      { kind: " ", old: 10, new: 10, text: "  </Paragraph>" },
+    ],
+  },
 ];
 const CHECKS = ["arrears-notice renders as expected", "no other document changed"];
+/** A line's text split into runs, each marked as changed or not. */
+const runs = (text: string) =>
+  text.split(/(\[[^\]]*\])/).filter(Boolean).map((run) =>
+    run.startsWith("[") ? { text: run.slice(1, -1), changed: true } : { text: run, changed: false }
+  );
 
 // Five reviews out of one template: the figures and the decision differ per
 // client, and the only generated line is the one on the wash.
@@ -252,7 +281,7 @@ const codeThemes = { light: "github-light", dark: "github-dark-dimmed" } as cons
         >
           <div class="stage">
             <div class="stage-bar"><span>01 · nodes/quarter-in-brief.node.tsx</span><span>{t.home.source.sourceLabel}</span></div>
-            <div class="stage-body code-figure bg-paper"><Code code={BRIEF_CODE} lang="tsx" themes={codeThemes} /></div>
+            <div class="code-figure"><Code code={BRIEF_CODE} lang="tsx" themes={codeThemes} /></div>
             <p class="stage-note">{t.home.source.sourceNote}</p>
           </div>
           <div class="stage">
@@ -292,8 +321,8 @@ const codeThemes = { light: "github-light", dark: "github-dark-dimmed" } as cons
           <h2 class="m-0 text-[2.4rem] leading-[1.1] font-semibold">{t.home.points.authoring.title}</h2>
           <p class="m-0 leading-[1.75] text-pretty text-muted">{t.home.points.authoring.body}</p>
         </div>
-        <div class="min-w-0 rounded-md border border-default bg-paper px-6 py-5">
-          <div class="mb-3 font-mono text-[0.7rem] text-muted">documents/portfolio-review/document.tsx</div>
+        <div class="flex min-w-0 flex-col overflow-hidden rounded-md border border-default">
+          <div class="stage-bar"><span>documents/portfolio-review/document.tsx</span></div>
           <div class="code-figure"><Code code={DOCUMENT_CODE} lang="tsx" themes={codeThemes} /></div>
         </div>
       </div>
@@ -304,18 +333,39 @@ const codeThemes = { light: "github-light", dark: "github-dark-dimmed" } as cons
           <h2 class="m-0 text-[2.4rem] leading-[1.1] font-semibold">{t.home.points.changeControl.title}</h2>
           <p class="m-0 leading-[1.75] text-pretty text-muted">{t.home.points.changeControl.body}</p>
         </div>
-        <div class="min-w-0 rounded-md border border-default bg-paper px-6 py-5">
-          <div class="diff">
-            {
-              DIFF.map((hunk) => (
-                <div class="diff-hunk">
-                  <div>{hunk.file}</div>
-                  <div class="diff-row diff-remove">− {hunk.removed}</div>
-                  <div class="diff-row diff-add">+ {hunk.added}</div>
+        <div class="diff min-w-0 overflow-hidden rounded-md border border-default">
+          <div class="stage-bar">
+            <span>arrears-wording → main</span><span>2 files changed</span>
+          </div>
+          {
+            DIFF.map((file) => (
+              <div class="diff-file">
+                <div class="diff-file-bar">
+                  <span class="diff-badge" aria-hidden="true">M</span>
+                  <span class="min-w-0 truncate text-ink">{file.file}</span>
+                  <span class="ml-auto shrink-0">
+                    <span class="text-accent">+{file.lines.filter((line) => line.kind === "+").length}</span>{" "}
+                    <span class="text-rubric">−{file.lines.filter((line) => line.kind === "-").length}</span>
+                  </span>
                 </div>
-              ))
-            }
-            <div class="diff-hunk">{CHECKS.map((check) => <div>✓ {check}</div>)}</div>
+                <div class="diff-body">
+                  <div class="diff-hunk">{file.hunk}</div>
+                  {file.lines.map((line) => (
+                    <div class:list={["diff-line", line.kind === "-" && "diff-del", line.kind === "+" && "diff-ins"]}>
+                      <span class="diff-no">{line.old ?? ""}</span>
+                      <span class="diff-no">{line.new ?? ""}</span>
+                      <span class="diff-sign">{line.kind === " " ? "" : line.kind === "-" ? "−" : "+"}</span>
+                      <span class="diff-text">
+                        {runs(line.text).map((run) => (run.changed ? <mark>{run.text}</mark> : run.text))}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          }
+          <div class="diff-checks">
+            {CHECKS.map((check) => <div><span class="diff-pass" aria-hidden="true">✓</span> {check}</div>)}
           </div>
         </div>
       </div>
@@ -663,35 +713,124 @@ const codeThemes = { light: "github-light", dark: "github-dark-dimmed" } as cons
     background: linear-gradient(180deg, transparent 52%, #e4efe7 52%);
   }
 
+  /* The code fills its panel edge to edge: Shiki paints its own ground on the
+     <pre> in each theme, so the pre carries the padding and the height rather
+     than sitting as a block inside a padded box of a different colour. */
+  .code-figure {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+  }
   .code-figure :global(pre) {
+    flex: 1;
     margin: 0;
+    padding: 1.25rem 1.125rem;
     overflow-x: auto;
-    background: transparent !important;
     font-size: 0.72rem;
     line-height: 1.6;
   }
 
+  /* A review tool's diff: two number gutters, a sign column, and the line.
+     Removed and added rows take the two tints the palette keeps for exactly
+     this, and the words that changed sit on a stronger wash of the same. */
   .diff {
-    overflow-x: auto;
+    display: flex;
+    flex-direction: column;
+    background: var(--paper);
     font-family: var(--font-mono);
     font-size: 0.72rem;
     line-height: 1.75;
+    color: var(--ink);
+  }
+  .diff-file + .diff-file {
+    border-top: 1px solid var(--border);
+  }
+  .diff-file-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1.125rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
     color: var(--muted);
   }
-  .diff-hunk + .diff-hunk {
-    margin-top: 1.25rem;
+  .diff-badge {
+    display: grid;
+    place-items: center;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 3px;
+    background: var(--accent-tint);
+    color: var(--accent);
+    font-size: 0.6rem;
+    font-weight: 600;
   }
-  .diff-row {
-    margin: 0 -0.375rem;
-    padding: 0 0.375rem;
+  .diff-body {
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+  }
+  .diff-hunk {
+    padding: 0.25rem 1.125rem;
+    background: var(--surface-2);
+    color: var(--muted);
     white-space: pre;
   }
-  .diff-remove {
+  .diff-line {
+    display: grid;
+    grid-template-columns: 2.25rem 2.25rem 1.25rem max-content;
+    min-width: 100%;
+    width: max-content;
+    white-space: pre;
+  }
+  .diff-no {
+    padding-right: 0.5rem;
+    text-align: right;
+    color: var(--muted);
+    opacity: 0.7;
+    user-select: none;
+  }
+  .diff-sign {
+    text-align: center;
+    color: var(--muted);
+    user-select: none;
+  }
+  .diff-text {
+    padding-right: 1.125rem;
+  }
+  .diff-text mark {
+    border-radius: 2px;
+    color: inherit;
+    background: transparent;
+  }
+  .diff-del {
     background: var(--rubric-tint);
+  }
+  .diff-del .diff-sign,
+  .diff-del .diff-text {
     color: var(--rubric);
   }
-  .diff-add {
+  .diff-del mark {
+    background: color-mix(in srgb, var(--rubric) 22%, transparent);
+  }
+  .diff-ins {
     background: var(--accent-tint);
+  }
+  .diff-ins .diff-sign,
+  .diff-ins .diff-text {
+    color: var(--accent);
+  }
+  .diff-ins mark {
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  .diff-checks {
+    margin-top: auto;
+    padding: 0.625rem 1.125rem;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+  }
+  .diff-pass {
     color: var(--accent);
   }
 
