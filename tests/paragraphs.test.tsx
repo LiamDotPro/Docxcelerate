@@ -3,7 +3,7 @@ import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { buildDocument } from "docxcelerate";
 import { documentXml, elementOf, partXml } from "./docx.ts";
 import type { DocumentModel, DocumentStyle } from "docxcelerate";
-import { Document, PageBreak, Paragraph, Section, template } from "docxcelerate/template";
+import { Cell, Document, PageBreak, Paragraph, Row, Section, Table, template } from "docxcelerate/template";
 
 /**
  * What a paragraph can be told to do, and what Word is handed when it is.
@@ -48,6 +48,14 @@ const style: DocumentStyle = {
     trackedHeading: { letterSpacingEm: 0.1 },
     /** An annex in sentence case, under a theme whose headings are capitals. */
     sentenceCase: { transform: "none" },
+    /** A clause heading drawn from a component, listed in the navigation pane. */
+    clauseHeading: { weight: "bold", outlineLevel: 1 },
+    /** One level down. */
+    subClause: { outlineLevel: 2 },
+    /** The bottom of Word's outline. */
+    deepest: { outlineLevel: 9 },
+    /** A stored model can carry what the type refuses. */
+    outOfRange: { outlineLevel: 12 as never },
     /** A theme deciding what one of its named blocks looks like. */
     standfirst: { align: "center" },
     /** Inset from both margins, the way a pulled quotation sits. */
@@ -377,6 +385,117 @@ test("a paragraph with no opinion about breaks writes neither keep", async () =>
   // statement, and it would override a style that had asked for one.
   assertEquals(paragraph.includes("keepNext"), false);
   assertEquals(paragraph.includes("keepLines"), false);
+});
+
+// ---------------------------------------------------------------------------
+// Outline
+// ---------------------------------------------------------------------------
+
+test("a paragraph variant puts it in Word's outline, counted from zero", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a" variant="clauseHeading">1. Definitions</Paragraph>
+        <Paragraph id="b" variant="subClause">1.1 Interpretation</Paragraph>
+        <Paragraph id="c" variant="deepest">Deepest.</Paragraph>
+      </Document>,
+    ),
+  );
+
+  assertStringIncludes(elementOf(xml, "w:p", "1. Definitions"), '<w:outlineLvl w:val="0"/>');
+  assertStringIncludes(elementOf(xml, "w:p", "1.1 Interpretation"), '<w:outlineLvl w:val="1"/>');
+  assertStringIncludes(elementOf(xml, "w:p", "Deepest."), '<w:outlineLvl w:val="8"/>');
+});
+
+test("a paragraph that says nothing about the outline writes nothing", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a">Plain.</Paragraph>
+        <Paragraph id="b" variant="stayWithNext">Kept.</Paragraph>
+      </Document>,
+    ),
+  );
+
+  assertEquals(elementOf(xml, "w:p", "Plain.").includes("outlineLvl"), false);
+  assertEquals(elementOf(xml, "w:p", "Kept.").includes("outlineLvl"), false);
+});
+
+test("a section heading's block moves it in the outline and keeps Heading 1", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Section id="a" variant="subClause" title="Annex A.">
+          <Paragraph id="p">Body.</Paragraph>
+        </Section>
+        <Section id="b" title="Clause.">
+          <Paragraph id="q">Body.</Paragraph>
+        </Section>
+      </Document>,
+    ),
+  );
+  const annex = elementOf(xml, "w:p", "Annex A.");
+
+  assertStringIncludes(annex, '<w:pStyle w:val="Heading1"/>');
+  assertStringIncludes(annex, '<w:outlineLvl w:val="1"/>');
+  assertEquals(elementOf(xml, "w:p", "Clause.").includes("outlineLvl"), false);
+});
+
+test("a heading carrying a page break takes the outline level too", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <PageBreak id="b" />
+        <Section id="s" variant="subClause" title="Annex A.">
+          <Paragraph id="p">Body.</Paragraph>
+        </Section>
+      </Document>,
+    ),
+  );
+  const heading = elementOf(xml, "w:p", "Annex A.");
+
+  assertStringIncludes(heading, '<w:pStyle w:val="PageBreakBeforeHeading1"/>');
+  assertStringIncludes(heading, '<w:outlineLvl w:val="1"/>');
+});
+
+test("a level the type would refuse is dropped, not written", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a" variant="outOfRange">Out of range.</Paragraph>
+      </Document>,
+    ),
+  );
+
+  assertEquals(elementOf(xml, "w:p", "Out of range.").includes("outlineLvl"), false);
+});
+
+test("a paragraph in a cell is not given an outline level", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }]}>
+          <Row id="r">
+            <Cell id="c">
+              <Paragraph id="p" variant="clauseHeading">In a cell.</Paragraph>
+            </Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  assertEquals(elementOf(xml, "w:p", "In a cell.").includes("outlineLvl"), false);
+});
+
+test("the outline level is carried in the model unchanged", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="a" variant="clauseHeading">1. Definitions</Paragraph>
+    </Document>,
+  );
+
+  assertEquals(doc.style?.blocks?.clauseHeading.outlineLevel, 1);
 });
 
 // ---------------------------------------------------------------------------

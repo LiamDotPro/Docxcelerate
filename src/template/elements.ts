@@ -210,8 +210,11 @@ export interface TextProps {
   bold?: boolean;
   /** Set in italics. */
   italic?: boolean;
-  /** Set with a rule beneath. */
-  underline?: boolean;
+  /**
+   * Set with a rule beneath: `true` for a single rule, `"double"` for the
+   * accounting double rule under a grand total. Left out or `false`, no rule.
+   */
+  underline?: boolean | "double";
   /** Set struck through. */
   strike?: boolean;
   /**
@@ -482,6 +485,13 @@ export interface PageNumberProps extends CommonElementProps {
   format?: PageNumberFormat;
   /** What sits between the two numbers. Defaults to ` / `. */
   separator?: string;
+  /** Words printed before the number, such as `"Page "`. Nothing when it is left out. */
+  prefix?: string;
+  /**
+   * How the line sits across the column. Left out, it inherits. A `variant`
+   * can carry it instead, and this wins when both say.
+   */
+  align?: TextAlign;
 }
 
 // The types below are written out rather than inferred from `host`. Both

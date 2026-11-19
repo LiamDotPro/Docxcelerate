@@ -429,7 +429,9 @@ async function renderHostKind(
       id,
       kind: "pageNumber",
       format: pageProps.format,
+      prefix: pageProps.prefix,
       separator: pageProps.separator,
+      align: pageProps.align,
       when,
     });
   }
@@ -885,8 +887,8 @@ async function renderGraph(
     legend: props.legend,
     stacked: props.stacked,
     numberFormat: props.numberFormat,
-    categoryAxisTitle: props.categoryAxisTitle,
-    valueAxisTitle: props.valueAxisTitle,
+    categoryAxisTitle: await text(props.categoryAxisTitle, context),
+    valueAxisTitle: await text(props.valueAxisTitle, context),
     valueAxisMin: props.valueAxisMin,
     valueAxisMax: props.valueAxisMax,
     valueAxisStep: props.valueAxisStep,
