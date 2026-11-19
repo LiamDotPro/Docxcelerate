@@ -135,6 +135,7 @@ dxcl list components
 | `vat-place-of-supply` | Whose VAT applies and at what rate, decided before anything is printed. |
 | `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `construction-payment-timetable` | The Construction Act payment dates for one interim payment, counted the way section 116 counts them. |
 | `cis-invoice-deduction` | What a subcontractor is paid on an invoice, after CIS and VAT. |
 | `us-sales-tax-breakdown` | Sales tax by state, county, city and district, in rows that add up to the tax charged. |
 | `india-gst-split` | CGST and SGST or IGST from the place of supply, with the summary, round-off and total in words. |
