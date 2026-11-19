@@ -206,6 +206,87 @@ test("the heading a table opens with is the one that repeats across pages", asyn
   assertStringIncludes(rows[2], '<w:tblHeader w:val="false"/>');
 });
 
+test("the model carries an exact height", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }]}>
+      <Row height={40} heightRule="exact">
+        <Cell>x</Cell>
+      </Row>
+    </Table>
+  ));
+  const row = rowsOf(tableOf(doc as DocumentModel))[0];
+
+  assertEquals(row.height, 40);
+  assertEquals(row.heightRule, "exact");
+});
+
+test("the default rule is not carried", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }]}>
+      <Row height={40}>
+        <Cell>x</Cell>
+      </Row>
+    </Table>
+  ));
+  const row = rowsOf(tableOf(doc as DocumentModel))[0];
+
+  assertEquals(row.height, 40);
+  assertEquals("heightRule" in row, false);
+});
+
+test("a rule with no height, and a plain row, carry nothing", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }]}>
+      <Row heightRule="exact">
+        <Cell>x</Cell>
+      </Row>
+      <Row>
+        <Cell>y</Cell>
+      </Row>
+    </Table>
+  ));
+
+  for (const row of rowsOf(tableOf(doc as DocumentModel))) {
+    assertEquals("height" in row, false);
+    assertEquals("heightRule" in row, false);
+  }
+});
+
+test("a row's height is written in twips, with its rule", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }]}>
+      <Row height={40} heightRule="exact">
+        <Cell>a</Cell>
+      </Row>
+      <Row height={56.7}>
+        <Cell>b</Cell>
+      </Row>
+      <Row>
+        <Cell>c</Cell>
+      </Row>
+    </Table>
+  ));
+  const rows = (await documentXml(doc as DocumentModel)).split("<w:tr>");
+
+  assertStringIncludes(rows[1], '<w:trHeight w:val="800" w:hRule="exact"/>');
+  assertStringIncludes(rows[2], '<w:trHeight w:val="1134" w:hRule="atLeast"/>');
+  assertEquals(rows[3].includes("w:trHeight"), false);
+});
+
+test("a header row keeps both its repeat and its height", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }]}>
+      <Row header height={30}>
+        <Cell>h</Cell>
+      </Row>
+    </Table>
+  ));
+  const rows = (await documentXml(doc as DocumentModel)).split("<w:tr>");
+
+  assertStringIncludes(rows[1], "<w:tblHeader/>");
+  assertStringIncludes(rows[1], '<w:trHeight w:val="600" w:hRule="atLeast"/>');
+});
+
 // ---------------------------------------------------------------------------
 // Rows that stay whole
 // ---------------------------------------------------------------------------

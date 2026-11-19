@@ -248,6 +248,12 @@ export interface ParagraphNode extends BaseNode {
   list?: ParagraphList;
 }
 
+/**
+ * How a row's stated height binds: `"atLeast"` is a floor the row grows past
+ * when its contents need more, `"exact"` is a fixed depth that clips them.
+ */
+export type RowHeightRule = "atLeast" | "exact";
+
 /** Which kind of list a paragraph is an item of: marked with a bullet, or counted. */
 export type ListKind = "bullet" | "number";
 
@@ -454,6 +460,13 @@ export interface TableRowNode extends BaseNode {
    * Left out, Word may break the row wherever the page ends.
    */
   keepTogether?: boolean;
+  /** The row's stated height, in points. Absent, the row is as tall as its contents. */
+  height?: number;
+  /**
+   * How `height` binds. Absent means `"atLeast"`; only `"exact"` is carried,
+   * so the model says only what departs from the default.
+   */
+  heightRule?: RowHeightRule;
   /** The cells, left to right. */
   children: DocumentNode[];
 }

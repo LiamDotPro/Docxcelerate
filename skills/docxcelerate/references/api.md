@@ -60,7 +60,7 @@ interface PromptProps {
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` (points; give one and the other keeps the picture's proportions, neither is 120pt wide) |
 | `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `caption?`, `width?`, `height?` (points), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `dataLabels?` |
 | `Table` | `columns` (required), `children?` |
-| `Row` | `header?`, `keepTogether?`, `children?` |
+| `Row` | `header?`, `keepTogether?`, `height?`, `heightRule?`, `children?` |
 | `Cell` | `span?`, `align?`, `children?` |
 | `Shape` | `width?`, `height?` (points), `children?` |
 | `TableOfContents` | `title?` |
@@ -95,6 +95,12 @@ Notes worth knowing:
   moves over instead. Put it on the row a `.map()` produces and every line of an
   invoice or schedule gets it; leave it off a long table's short rows, where a
   break between them is fine.
+- **A row can be given a height**, in points: `<Row height={56}>` is a floor the
+  row grows past if its cells need more, which is what a box to sign in wants.
+  `heightRule="exact"` makes it a fixed depth instead — a label sheet, a form
+  grid — and Word clips whatever does not fit, so keep an exact row's contents
+  inside it (the preview grows the row rather than hiding the overflow). This
+  is not a block's `heightPt`, which sets a paragraph's leading, not a row's depth.
 - **`Cell` takes text directly** — `<Cell>{line.qty}</Cell>` is the common case.
   Give it paragraphs when one line is not enough.
 - **`Shape` is a drawn box the words sit on top of**, and takes text directly

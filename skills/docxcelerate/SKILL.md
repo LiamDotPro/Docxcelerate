@@ -139,7 +139,7 @@ Nothing leaves the machine, and the same build gives the same page every time.
 | `Image` | `src`, `alt`, `width`, `height`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below; give one of `width`/`height` and the other keeps the picture's proportions |
 | `Graph` | `graphType`, `data`, `title`, `caption`, or prompts | packed as a real Word chart, never a picture of one — the numbers travel with it |
 | `Table` | `Row`s, and any `.map()` producing them | `columns` declared once, in mm or `"auto"`, with `align` |
-| `Row` | `Cell`s | `header` marks a heading row; only *leading* ones repeat across pages. `keepTogether` keeps a multi-line row whole on one page |
+| `Row` | `Cell`s | `header` marks a heading row; only *leading* ones repeat across pages. `keepTogether` keeps a multi-line row whole on one page. `height` (pt) is a floor; `heightRule="exact"` fixes it and clips what overflows |
 | `Cell` | text, or paragraphs when a line is not enough | `span`, and `align` when it departs from its column |
 | `TableOfContents` | nothing | a marker; renderers print the title and stop |
 | `PageBreak` | nothing | for a break that is part of what the document *is* |

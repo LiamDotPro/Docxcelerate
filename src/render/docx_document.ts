@@ -1921,6 +1921,9 @@ function renderRow(
   return new TableRow({
     tableHeader: repeats,
     cantSplit: row.keepTogether === true ? true : undefined,
+    height: row.height === undefined
+      ? undefined
+      : { value: ptToTwips(row.height), rule: row.heightRule ?? "atLeast" },
     children: cells,
   });
 }
