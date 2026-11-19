@@ -4,9 +4,11 @@ import Base from "./Base.astro";
 import Sidebar from "../components/Sidebar.astro";
 import Toc from "../components/Toc.astro";
 import { DOC_GROUPS, GITHUB_URL, SITE } from "../site";
-import { asLocale, localizePath, ui } from "../i18n";
+import { asLocale, fill, localizePath, ui } from "../i18n";
 import { localesForDocsSlug } from "../seo";
 import { markdownPath } from "../markdown";
+import { docsFor, inReadingOrder } from "../docs";
+import release from "../generated/release.json";
 
 interface Props {
   title: string;
@@ -39,6 +41,31 @@ const markdownUrl = localizePath(markdownPath(slug), locale);
 // Where English is standing in, the page serves but stays out of the index —
 // otherwise the same English prose competes with itself at five addresses.
 const hreflangLocales = await localesForDocsSlug(slug);
+
+// The whole docs set in sidebar order, so previous and next run across group
+// boundaries the way a reader working down the sidebar would.
+const allPages = await docsFor(locale);
+const ordered = DOC_GROUPS.flatMap((name) =>
+  inReadingOrder(allPages.filter((page) => page.entry.data.group === name)),
+);
+const here = ordered.findIndex((page) => page.slug === slug);
+const neighbour = (offset: number) => {
+  const page = ordered[here + offset];
+  if (here < 0 || !page) return undefined;
+  return {
+    title: page.entry.data.title,
+    href: localizePath(`/docs/${page.slug}/`, locale),
+    number: groupNumber(page.slug, page.entry.data.group),
+  };
+};
+// A page's number is its place in its own group, as the breadcrumb prints it.
+function groupNumber(pageSlug: string, pageGroup: string) {
+  const inGroup = inReadingOrder(allPages.filter((page) => page.entry.data.group === pageGroup));
+  return String(inGroup.findIndex((page) => page.slug === pageSlug) + 1).padStart(2, "0");
+}
+const number = groupNumber(slug, group);
+const previous = neighbour(-1);
+const next = neighbour(1);
 const url = (path: string) => new URL(localizePath(path, locale), Astro.site).href;
 
 const structuredData = [
@@ -70,33 +97,37 @@ const structuredData = [
   noindex={!translated}
   structuredData={structuredData}
 >
-  <div
-    class="mx-auto flex w-full max-w-6xl gap-10 px-5 py-10 sm:px-8 lg:gap-12"
-  >
+  <div class="mx-auto flex w-full max-w-7xl gap-10 px-5 sm:px-8 lg:gap-14">
     <!-- Left rail -->
-    <aside
-      class="hidden w-52 shrink-0 lg:block"
-    >
-      <div class="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pb-8">
+    <aside class="hidden w-60 shrink-0 border-r border-default pr-6 lg:block">
+      <div class="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto py-12">
         <Sidebar currentSlug={slug} />
       </div>
     </aside>
 
     <!-- Article -->
-    <article class="doc-prose min-w-0 flex-1">
+    <article class="doc-prose min-w-0 flex-1 pt-14 pb-24">
       <p
-        class="m-0 mb-2 font-mono text-[0.65rem] uppercase tracking-[0.14em] text-muted"
+        class="m-0 flex flex-wrap items-center gap-2.5 font-mono text-[0.68rem] tracking-[0.12em] text-muted uppercase"
       >
-        {t.docs.groups[group]}
+        <span>{t.nav.docs}</span><span aria-hidden="true">/</span><span>{t.docs.groups[group]}</span><span
+          aria-hidden="true">/</span
+        ><span class="text-accent">{number}</span>
       </p>
-      <h1 class="mt-0 mb-3 text-4xl font-semibold">{title}</h1>
+      <h1 class="doc-title">{title}</h1>
+      <p class="mt-0 mb-7 text-[1.25rem] leading-[1.6] text-pretty text-muted">{description}</p>
+
       <p
         class:list={[
-          "mt-0 text-lg leading-relaxed text-muted",
+          "m-0 flex flex-wrap gap-x-4 gap-y-1 border-y border-default py-3 font-mono text-[0.7rem] text-muted",
           translated ? "mb-10" : "mb-6",
         ]}
       >
-        {description}
+        <span>{fill(t.docs.renderedAgainst, { version: `v${release.version}` })}</span>
+        <span aria-hidden="true">·</span>
+        <a href={markdownUrl} class="meta-link">{t.docs.viewAsMarkdown}</a>
+        <span aria-hidden="true">·</span>
+        <a href={editUrl} target="_blank" rel="noopener noreferrer" class="meta-link">{t.docs.editOnGithub}</a>
       </p>
 
       {
@@ -109,21 +140,31 @@ const structuredData = [
 
       <slot />
 
-      <hr class="my-12 border-0 border-t border-border" />
-      <p class="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted">
-        <a
-          href={editUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="text-accent">{t.docs.editOnGithub}</a
-        >
-        <a href={markdownUrl} class="text-accent">{t.docs.viewAsMarkdown}</a>
-      </p>
+      {
+        (previous || next) && (
+          <nav class="mt-16 grid gap-4 sm:grid-cols-2" aria-label={t.docs.pagination}>
+            {previous ? (
+              <a href={previous.href} class="pager">
+                <span class="pager-label">← {t.docs.previous} · {previous.number}</span>
+                <span class="pager-title">{previous.title}</span>
+              </a>
+            ) : (
+              <span />
+            )}
+            {next && (
+              <a href={next.href} class="pager sm:text-right">
+                <span class="pager-label">{t.docs.next} · {next.number} →</span>
+                <span class="pager-title">{next.title}</span>
+              </a>
+            )}
+          </nav>
+        )
+      }
     </article>
 
     <!-- Right rail -->
-    <aside class="hidden w-48 shrink-0 xl:block">
-      <div class="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pb-8">
+    <aside class="hidden w-56 shrink-0 xl:block">
+      <div class="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pt-14 pb-8">
         <Toc headings={headings} />
       </div>
     </aside>
@@ -138,9 +179,52 @@ const structuredData = [
     line-height: 1.7;
   }
 
+  .doc-title {
+    margin: 1.25rem 0 1rem;
+    font-size: clamp(2.4rem, 5vw, 3.6rem);
+    line-height: 1;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+  }
+
+  .doc-prose .meta-link,
+  .doc-prose .pager {
+    text-decoration: none;
+  }
+
+  .pager {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1.375rem 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+  .doc-prose a.pager {
+    color: var(--ink);
+  }
+  .pager:hover {
+    border-color: var(--accent);
+    background: var(--accent-tint);
+  }
+  .pager-label {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .pager-title {
+    font-family: var(--font-serif);
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
   .doc-prose h2 {
-    margin: 2.75rem 0 0.75rem;
-    font-size: 1.6rem;
+    margin: 3rem 0 0.875rem;
+    font-size: 1.9rem;
     font-weight: 600;
     scroll-margin-top: 5rem;
   }
@@ -154,6 +238,13 @@ const structuredData = [
 
   .doc-prose p {
     margin: 0 0 1.1rem;
+  }
+
+  .doc-prose > p:not([class]),
+  .doc-prose > ul:not([class]),
+  .doc-prose > ol:not([class]) {
+    font-size: 1.02rem;
+    line-height: 1.75;
   }
 
   .doc-prose a {

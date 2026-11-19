@@ -74,3 +74,17 @@ export function byOrder(a: LocalisedDoc, b: LocalisedDoc): number {
     a.entry.data.title.localeCompare(b.entry.data.title)
   );
 }
+
+/**
+ * The pages of one group in the order the sidebar lists them: its own pages
+ * first, then each subgroup's, subgroups in the order their first page gives
+ * them. What previous and next walk through, so they agree with the sidebar.
+ */
+export function inReadingOrder(pages: LocalisedDoc[]): LocalisedDoc[] {
+  const sorted = [...pages].sort(byOrder);
+  const subgroups = [...new Set(sorted.map((page) => page.entry.data.subgroup).filter(Boolean))];
+  return [
+    ...sorted.filter((page) => !page.entry.data.subgroup),
+    ...subgroups.flatMap((title) => sorted.filter((page) => page.entry.data.subgroup === title)),
+  ];
+}
