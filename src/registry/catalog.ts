@@ -3599,6 +3599,50 @@ export const COMPONENTS: RegistryComponent[] = [
 
   {
     kind: "component",
+    id: "boleto-linha-digitavel",
+    title: "Boleto typeable line (Brazil)",
+    summary: "A boleto's 47-digit typeable line, built from the invoice or checked against the bank's.",
+    detail:
+      "Builds the linha digitável from the bank code, the due date, the amount " +
+      "and the bank's 25-digit free field, or checks the line the bank returned " +
+      "digit for digit. If that line disagrees with the invoice's due date or " +
+      "amount, the document fails, because the bank collects what its line " +
+      "says. The due-date factor handles the 2025 rollover: it reached 9999 on " +
+      "2025-02-21 and restarted at 1000. The general check digit is modulus 11 " +
+      "over the barcode order and the field checks are modulus 10 over the line " +
+      "order. A line it cannot build is withheld with the reason: an invoice " +
+      "not in reais, a free field of the wrong length, a due date before " +
+      "2000-07-03, or nothing to pay. It does not draw the ITF barcode. It is " +
+      "one deriver, so it publishes.",
+    category: "Closing",
+    tags: ["boleto", "brazil", "payment", "invoice", "checksum", "deriver", "section"],
+    exports: ["BoletoLinhaDigitavel"],
+    dataFields: [
+      { path: "boleto.bankCode", type: "string", summary: "Three-digit FEBRABAN bank code. Anything else withholds the line." },
+      { path: "boleto.freeField", type: "string", summary: "The bank's 25-digit free field, carrying the nosso número. Any other length withholds the line." },
+      { path: "boleto.line", type: "string | undefined", summary: "The line the bank returned. Checked digit for digit; any difference fails the document." },
+      { path: "invoice.total", type: "number", summary: "Amount in reais, rounded half up to centavos. Zero, negative or over R$ 99.999.999,99 withholds the line." },
+      { path: "invoice.dueDate", type: "string | undefined", summary: "ISO 8601 due date. Missing prints 'Contra apresentação'; before 2000-07-03 withholds; not a date fails." },
+      { path: "invoice.currency", type: '"BRL"', summary: "Must be BRL. Anything else withholds the line." },
+    ],
+    arrangements: [
+      { id: "stacked", title: "Stacked", summary: "Due date and amount as labelled lines, the typeable line on its own line beneath." },
+      { id: "table", title: "Table", summary: "Due date and amount in a label/value table, the typeable line full width beneath it." },
+    ],
+    files: node("boleto-linha-digitavel", { deriver: true, arrangements: ["stacked", "table"] }),
+    previewData: {
+      boleto: {
+        bankCode: "341",
+        freeField: "1090000012345678901234561",
+        line: "34191.09008 00012.345674 89012.345610 4 16610875043219",
+      },
+      invoice: { total: 8750432.19, dueDate: "2026-12-15", currency: "BRL" },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
     id: "royalty-earnings-by-format",
     title: "Royalty earnings by format",
     summary: "Royalty lines per format and price band, split where the period crosses an escalator.",
