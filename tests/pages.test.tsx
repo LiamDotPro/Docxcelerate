@@ -3,7 +3,7 @@ import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
 import { buildDocument } from "docxcelerate";
 import { createDocxDocument } from "docxcelerate/docx";
 import { JSDOM } from "jsdom";
-import { fillPageFields } from "docxcelerate/preview";
+import { fillPageFields, settleDocxPreview } from "docxcelerate/preview";
 import { documentXml, partNames, partXml } from "./docx.ts";
 import type { DocumentModel, DocumentStyle } from "docxcelerate";
 import {
@@ -630,4 +630,48 @@ test("a cell's variant reaches the cell, not the row it happens to sit in", asyn
   );
 
   assertEquals((xml.match(/w:fill="FBF0DC"/g) ?? []).length, 1);
+});
+
+/** The body's section properties, so a cell's own `w:vAlign` cannot answer for the page's. */
+function sectPrOf(xml: string): string {
+  return xml.match(/<w:sectPr[\s\S]*<\/w:sectPr>/)?.[0] ?? "";
+}
+
+const certificate = <Document id="d" title="D"><Paragraph id="a">Certificate.</Paragraph></Document>;
+const valigned = (valign?: "center" | "bottom") =>
+  valign ? { ...styleWithBlocks, page: { ...styleWithBlocks.page, valign } } : styleWithBlocks;
+
+test("a page that centres its body says so in the section, the way Word does", async () => {
+  const xml = await documentXml(await build(certificate, valigned("center")));
+  assertStringIncludes(sectPrOf(xml), '<w:vAlign w:val="center"/>');
+});
+
+test("bottom sets the body down on the bottom margin", async () => {
+  const xml = await documentXml(await build(certificate, valigned("bottom")));
+  assertStringIncludes(sectPrOf(xml), '<w:vAlign w:val="bottom"/>');
+});
+
+test("a page that says nothing starts at the top and writes nothing", async () => {
+  const xml = await documentXml(await build(certificate, valigned()));
+  assertEquals(sectPrOf(xml) !== "", true);
+  assertEquals(sectPrOf(xml).includes("<w:vAlign"), false);
+});
+
+test("the preview takes up the slack above the body, which is all centring is", async () => {
+  const article = async (valign?: "center" | "bottom") => {
+    const dom = new JSDOM(
+      '<div id="page"><section class="docx"><article><p>Certificate.</p></article></section></div>',
+    );
+    const page = dom.window.document.getElementById("page") as Element;
+    settleDocxPreview(page, await build(certificate, valigned(valign)));
+    return page.querySelector("article") as HTMLElement;
+  };
+
+  const centred = await article("center");
+  assertEquals(centred.style.marginTop, "auto");
+  assertEquals(centred.style.marginBottom, "");
+  const bottom = await article("bottom");
+  assertEquals(bottom.style.marginTop, "auto");
+  assertEquals(bottom.style.marginBottom, "0px");
+  assertEquals((await article()).getAttribute("style"), null);
 });

@@ -197,6 +197,13 @@ negative indent past the margin. If a property cannot be expressed in Word it
 does not exist here, because a style that quietly did nothing in the format the
 framework produces is worse than one that was never offered.
 
+The page takes one setting of the same kind: `page.valign: "center"` in
+`document-style.ts` sets a one-page certificate or cover sheet mid-page, and
+`"bottom"` rests it on the bottom margin. Never push text down with empty
+paragraphs — they stop being right the moment the text changes length. It
+applies to every page, so a short last page moves too; keep it for one-page
+documents.
+
 A paragraph keeps its own `align`, and its variant's indents, tab stops, border
 and fill, inside a `<Cell>` or `<Shape>` — a dotted `{"Signed\t"}` leader in a
 signature cell, a ruled quote inset inside a card. There, tab stops measure from
