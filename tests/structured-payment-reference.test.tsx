@@ -58,6 +58,9 @@ test("Norwegian KID", async () => {
   assertEquals(await gen("no-kid-mod11", "0006"), UNISSUABLE);
   assertEquals(await val("no-kid-mod11", "00006-"), UNISSUABLE);
   assertEquals(await val("no-kid-mod11", "00061"), INVALID);
+  assertEquals(await val("no-kid-mod11", "1234567-"), INVALID);
+  assertEquals(await val("no-kid-mod10", "12345674"), issued("KID: 12345674"));
+  assertEquals(await val("no-kid-mod10", "12345675"), INVALID);
   assertEquals((await gen("no-kid-mod10", "1".repeat(24))).issued?.length, "KID: ".length + 25);
   assertEquals(await gen("no-kid-mod10", "1".repeat(25)), INVALID);
 });
@@ -99,6 +102,8 @@ test("Swiss QRR", async () => {
   assertEquals(await gen("ch-qrr", "1".repeat(27)), INVALID);
   assertEquals(await val("ch-qrr", "21 00000 00003 13947 14300 09017"), issued("QR reference: 21 00000 00003 13947 14300 09017"));
   assertEquals(await val("ch-qrr", "2100000000031394714300090"), INVALID);
+  assertEquals(await val("ch-qrr", "21000000000313947143000901"), INVALID);
+  assertEquals(await val("ch-qrr", "210000000003139471430009018"), INVALID);
 });
 
 test("Swedish OCR", async () => {
@@ -109,6 +114,9 @@ test("Swedish OCR", async () => {
   assertEquals(await gen("se-ocr-length", "12345678"), issued("OCR number: 1234567806"));
   assertEquals(await val("se-ocr-length", "123456790"), issued("OCR number: 123456790"));
   assertEquals(await val("se-ocr-length", "123456780"), INVALID);
+  assertEquals(await val("se-ocr-length", "123456782"), INVALID);
+  assertEquals(await val("se-ocr", "12345674"), issued("OCR number: 12345674"));
+  assertEquals(await val("se-ocr", "12345675"), INVALID);
 });
 
 test("missing data, precedence and throws", async () => {
