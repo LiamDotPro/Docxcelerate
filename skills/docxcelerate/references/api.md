@@ -72,10 +72,14 @@ interface PromptProps {
 | `Shape` | `width?`, `height?` (points), `children?` |
 | `TableOfContents` | `title?` |
 | `PageBreak` | nothing beyond the common props |
-| `PageNumber` | `format?` (`"current" \| "total" \| "currentOfTotal"`, default the last), `separator?` (default `" / "`) |
+| `PageNumber` | `format?` (`"current" \| "total" \| "currentOfTotal"`, default the last), `prefix?` (printed before the number as written, e.g. `"Page "`; default none), `separator?` (default `" / "`), `align?` (`"left" \| "center" \| "right" \| "justify"`; default none, so it inherits) |
 
 Notes worth knowing:
 
+- A `variant` on `PageNumber` draws like the same variant on a `Paragraph`: the
+  block's type on every run, both numbers included, and its fill, rules and
+  spacing on the line. `align` beats the block's `align`. Inside a `Cell` the
+  column's alignment wins, as it does for a paragraph.
 - A list is paragraphs with `list="bullet"` or `list="number"`. Items written
   one after another are one list and the renderer counts them; anything that is
   not an item ends it, and the next numbered list starts at one. Never type a

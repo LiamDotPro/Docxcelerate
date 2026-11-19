@@ -182,7 +182,8 @@ export const documentTemplate = template<InvoiceData>(
 );
 ```
 
-`<PageNumber />` goes in the footer and prints `1 / 2` by default. A build cannot
+`<PageNumber />` goes in the footer and prints `1 / 2` by default;
+`<PageNumber prefix="Page " separator=" of " align="right" />` prints "Page 1 of 2" ranged right. A build cannot
 know the count — an engine writing a longer paragraph changes it — so Word gets
 a field it recounts and the preview counts its own pages. Reach for `<PageBreak>`
 only when the break is part of what the document *is*; nudging a paragraph off
