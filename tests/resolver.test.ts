@@ -8,6 +8,8 @@ import {
   type DocumentModel,
   type DocumentNode,
   type GraphNode,
+  type ImageNode,
+  imageSourceOf,
   resolveDocument,
   type RuntimeState,
 } from "docxcelerate";
@@ -796,6 +798,62 @@ test("an image client that throws a non-Error still fails as an AiGenerationErro
   assertEquals(failed.kind, "image");
   assertEquals(failed.cause, "socket hang up");
   assertEquals(failed.message, 'Dynamic image "portrait" failed to generate: socket hang up');
+});
+
+const pngSignature = Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10);
+
+function generatedImage(answer: unknown, own: Partial<ImageNode> = {}): Promise<DocumentModel> {
+  const state = engineState({});
+  state.aiClient = { generateParagraph: () => "", generateImage: () => answer as never };
+
+  return resolveDocument(
+    published([{
+      id: "portrait",
+      kind: "image",
+      mode: "dynamic",
+      prompts: [{ kind: "general", text: "Draw it." }],
+      ...own,
+    } as DocumentNode]),
+    state,
+  );
+}
+
+function imageOf(doc: DocumentModel): ImageNode {
+  const node = doc.nodes[0];
+  if (node?.kind !== "image") throw new Error("expected one image");
+  return node;
+}
+
+test("a generated image returned as bytes resolves to a data: URI, keeping the node's alt and size", async () => {
+  const image = imageOf(
+    await generatedImage({ bytes: pngSignature, mediaType: "image/png" }, { alt: "Own alt", width: 200, height: 100 }),
+  );
+
+  assertEquals(image.path, "data:image/png;base64,iVBORw0KGgo=");
+  assertEquals([image.alt, image.width, image.height], ["Own alt", 200, 100]);
+  assertEquals("bytes" in image || "mediaType" in image, false);
+});
+
+test("a large generated image's bytes survive the data: URI whole", async () => {
+  const bytes = Uint8Array.from({ length: 1_000_000 }, (_, at) => at % 256);
+  const source = imageSourceOf(imageOf(await generatedImage({ bytes, mediaType: "image/png" })).path);
+
+  assertEquals(source.kind, "data");
+  if (source.kind === "data") {
+    assertEquals(source.mediaType, "image/png");
+    assertEquals(source.bytes.length, 1_000_000);
+    assertEquals(source.bytes.every((byte, at) => byte === bytes[at]), true);
+  }
+});
+
+test("a generated image the packer cannot draw fails the resolve naming the node, without repeating its path", async () => {
+  const error = await rejectionOf(() => generatedImage({ path: "https://img.example/a.png?X-Amz-Signature=secret" }));
+
+  assertEquals(
+    (error as Error).message,
+    'Dynamic image "portrait" got an answer it cannot draw: its path is not a data: URI; return the picture\'s bytes instead.',
+  );
+  assertEquals(error instanceof AiGenerationError, false);
 });
 
 test("a repeated node that fails names its suffixed id, and nothing after it is asked", async () => {

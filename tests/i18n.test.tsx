@@ -238,7 +238,7 @@ test("a chart is told the document's language and an image is not", async () => 
     },
     generateImage({ node, prompt }: { node: { id: string }; prompt: string }) {
       asked[node.id] = prompt;
-      return { path: "data:image/png;base64," };
+      return { path: "data:image/png;base64,iVBORw0KGgo=" };
     },
   };
   const Trend: Graph = () => {

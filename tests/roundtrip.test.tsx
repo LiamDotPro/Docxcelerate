@@ -395,15 +395,22 @@ test("a project with a generated chart builds an artifact whose preview shows th
   assertEquals(previewTrend !== undefined && "data" in previewTrend, false);
 });
 
-test("a model that answers a chart and image with nothing leaves them undrawn on both paths", async () => {
-  const resolved = await resolveDocument(
-    await buildProjectEngineDocument(reportProject),
-    reportState(leeds, silentClient),
-  );
-  const direct = await buildProjectFinalDocument(reportProject, { data: leeds, aiClient: silentClient });
+test("a model that answers a chart with nothing leaves it undrawn on both paths, and an image with nothing fails both", async () => {
+  const published = await buildProjectEngineDocument(reportProject);
+  const chartSilent: AiClient = { ...silentClient, generateImage: drawingClient.generateImage };
+  const resolved = await resolveDocument(published, reportState(leeds, chartSilent));
+  const direct = await buildProjectFinalDocument(reportProject, { data: leeds, aiClient: chartSilent });
 
   assertEquals(json(resolved.nodes), json(direct.nodes));
   assertEquals("data" in json(findNode(resolved.nodes, "trend")), false);
+
+  const undrawable = 'Dynamic image "cover" got an answer it cannot draw: it has neither a data: path nor bytes.';
+  await assertRejects(() => resolveDocument(published, reportState(leeds, silentClient)), Error, undrawable);
+  await assertRejects(
+    () => buildProjectFinalDocument(reportProject, { data: leeds, aiClient: silentClient }),
+    Error,
+    undrawable,
+  );
 });
 
 test("an engine whose client cannot draw, or throws, fails the resolve naming why", async () => {

@@ -595,7 +595,9 @@ interface AiGenerationRequest {
 }
 
 interface AiGraphResult { graphType?: GraphType; data?: GraphData; caption?: string }
-interface AiImageResult { path: string; alt?: string; width?: number; height?: number }
+interface AiImageResult {  // the picture: bytes + mediaType, or a data: URI on path — one of the two
+  path?: string; bytes?: Uint8Array; mediaType?: string; alt?: string; width?: number; height?: number;
+}
 ```
 
 The prompts come from `useAi` in a fixed order: `voice` → `system`, `ask` →
@@ -613,9 +615,7 @@ What comes back is checked before it is packed:
 - **Chart:** an `AiGraphResult`, read the way model JSON is written (see
   `Graph.data` above). Absent or `null` fields keep the node's own, and an
   unplottable answer rejects, naming the node and the field.
-- **Image:** an `AiImageResult` whose `path` is a `data:` URI. Only that is packed
-  into Word. A path or URL draws on screen and packs as `[image: <alt>]`. Absent
-  `alt`, `width` or `height` keep the node's own.
+- **Image:** an `AiImageResult` carrying the picture as `bytes` (a `Uint8Array`) with its `mediaType`, or as a `data:` URI on `path`. Word embeds `image/png`, `image/jpeg`, `image/gif` and `image/bmp`. A URL or file path, an empty picture, SVG, WebP, both forms or neither rejects, naming the node; the path is not repeated in the error. Bytes become a `data:` URI and are never kept on the node. Absent or `null` `alt`, `width` or `height` keep the node's own.
 
 A client is a few lines of `fetch`. The key stays inside it:
 
@@ -632,6 +632,17 @@ const aiClient: AiClient = {
     const { text } = await response.json();
     return text; // the string, not the response object
   },
+  async generateImage({ prompt }) {
+    const response = await fetch(IMAGE_URL, {
+      method: "POST",
+      headers: { authorization: `Bearer ${MODEL_KEY}`, "content-type": "application/json" },
+      body: JSON.stringify({ prompt }),
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (!response.ok) throw new Error(`Image model answered ${response.status}`);
+    return { bytes: new Uint8Array(await response.arrayBuffer()), mediaType: "image/png" };
+    // an API answering base64 JSON: return { path: `data:image/png;base64,${b64}` };
+  },
 };
 ```
 
@@ -647,7 +658,7 @@ catch, retry or time out:
 | --- | --- |
 | throws or rejects | rejects with an `AiGenerationError` naming the node, the client's error as `cause` |
 | never settles | never settles — bound the call with `AbortSignal.timeout` |
-| returns a non-string paragraph, or a chart it cannot plot | rejects, naming the node |
+| returns a non-string paragraph, a chart it cannot plot, or a picture Word cannot embed | rejects, naming the node |
 | lacks `generateGraph` / `generateImage` for a node that needs it | rejects, naming the node and the method |
 
 A dynamic node in an arm whose condition is false is never asked for. To show
@@ -676,7 +687,7 @@ try {
 ```
 
 Only the client's failure is wrapped. No client, a missing `generateImage` or
-`generateGraph`, and an answer that is not text or not a chart fail with their
+`generateGraph`, and an answer that is not text, not a chart or not a picture Word embeds fail with their
 own errors. The error carries nothing from the request — no prompts, no data.
 A preview (`dynamicMode: "placeholder"`) never calls the client.
 
@@ -695,7 +706,7 @@ new EchoAiClient();
 const ai = new ScriptedAiClient({
   "tutor-note": "A warm note.",                                   // paragraph: a string
   revenue: { data: { series: [{ values: [1, 2] }] }, caption: "" }, // graph: AiGraphResult
-  portrait: { path: "data:image/png;base64,…" },                  // image: AiImageResult
+  portrait: { path: "data:image/png;base64,…" },                  // image: AiImageResult, or { bytes, mediaType }
 });
 ai.requests; // ScriptedAiRequest[]: { id, kind, prompt, prompts }, in the order asked
 ```
