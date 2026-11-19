@@ -90,6 +90,11 @@ export interface StructuredPaymentReferenceData {
   };
 }
 
+/**
+ * Prints one line: the payment reference in its scheme's grouping, or the
+ * quote-the-invoice-number fallback. It has no heading, so it can sit inside
+ * the host's payment block.
+ */
 export const StructuredPaymentReference: Nodes = async () => {
   const [payment] = useState((data: StructuredPaymentReferenceData) => data.payment);
   const [invoice] = useState((data: StructuredPaymentReferenceData) => data.invoice);
