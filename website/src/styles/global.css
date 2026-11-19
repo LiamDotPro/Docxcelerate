@@ -106,6 +106,24 @@
   --wash: #1d4a39;
 }
 
+/* A fixed-green band — the homepage hero, the registry's install tray — is the
+   same ground in both themes, so everything on it takes the dark values
+   whichever theme the page is in. */
+.band-dark {
+  --paper: #0f1a15;
+  --surface: #16211c;
+  --surface-2: #1c2a24;
+  --border: #253530;
+  --border-firm: #33453d;
+  --ink: #d7e0da;
+  --muted: #93a29a;
+  --accent: #8ac5ae;
+  --accent-deep: #b9ddce;
+  --accent-solid: #1d7357;
+  --accent-tint: #16281f;
+  --on-accent: #f0f7f4;
+}
+
 /* Expose the semantic tokens to Tailwind utilities (bg-paper, text-accent, …). */
 @theme inline {
   --color-paper: var(--paper);

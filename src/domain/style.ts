@@ -437,6 +437,17 @@ export interface DocumentBlockStyle {
    */
   keepLines?: boolean;
   /**
+   * Where the block sits in Word's outline, from 1 (top) to 9.
+   *
+   * A heading drawn from a component instead of a `<Section>` is otherwise body
+   * text to Word: it looks like a heading and is missing from the navigation
+   * pane, from a table of contents Word builds from outline levels and from the
+   * bookmarks of an exported PDF. This is the paragraph's own outline level, so
+   * it changes nothing about how the block looks. Applies to a paragraph and to
+   * a section's heading; ignored inside a `Cell` or `Shape`.
+   */
+  outlineLevel?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+  /**
    * The tab stops this block's text aligns to.
    *
    * A contents line, a signature block, a price beside a description: all of
