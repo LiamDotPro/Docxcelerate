@@ -210,6 +210,15 @@ export interface ImageProps extends CommonElementProps, PromptProps {
   width?: number;
   /** Rendered height, in points. Left out, it follows the picture's own proportions from the width. */
   height?: number;
+  /**
+   * Where the picture sits across the text column. Flush left unless it is said.
+   *
+   * Only the picture's own line moves; it is not floated, and text does not
+   * wrap around it. Inside a table cell or a shape, the cell's or the shape's
+   * alignment governs, as it does for a paragraph there. A picture set in a
+   * line of text sits where the text puts it, and this is ignored.
+   */
+  align?: TableAlign;
 }
 
 /**
@@ -251,6 +260,15 @@ export interface GraphProps extends CommonElementProps, PromptProps {
   width?: number;
   /** How deep it is drawn, in points. Seven twelfths of its width unless it is said. */
   height?: number;
+  /**
+   * Where the chart sits across the text column. Flush left unless it is said.
+   *
+   * Only matters for a chart narrower than the column: a chart with no `width`
+   * fills the column already. The caption follows the chart, so a chart ranged
+   * right has its caption ranged right under it. Inside a table cell or a shape,
+   * the cell's or the shape's alignment governs.
+   */
+  align?: TableAlign;
   /**
    * Where the key sits.
    *

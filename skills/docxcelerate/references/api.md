@@ -57,8 +57,8 @@ interface PromptProps {
 | `Section` | `title` (required), `children?` |
 | `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0) |
 | `Text` | `bold?`, `italic?`, `underline?`, `strike?`, `script?` (`"superscript" \| "subscript"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
-| `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` (points; give one and the other keeps the picture's proportions, neither is 120pt wide) |
-| `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `caption?`, `width?`, `height?` (points), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `dataLabels?` |
+| `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` (points; give one and the other keeps the picture's proportions, neither is 120pt wide), `align?` (`"left" \| "center" \| "right"`) |
+| `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `caption?`, `width?`, `height?` (points), `align?` (`"left" \| "center" \| "right"`), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `dataLabels?` |
 | `Table` | `columns` (required), `children?` |
 | `Row` | `header?`, `keepTogether?`, `height?`, `heightRule?`, `children?` |
 | `Cell` | `span?`, `align?`, `children?` |
@@ -109,6 +109,11 @@ Notes worth knowing:
   box should grow with its text, that is a `Table` with one cell in it, not a
   shape. `width` defaults to the text column; `height` falls back to the block
   style's `heightPt`. What it looks like is the theme's, through `variant`.
+- **`align` on `Image` and `Graph` places the picture, not text around it.**
+  Centred or ranged right in the column, nothing floats or wraps. A chart with
+  no `width` already fills the column, so give it one. Inside a `Cell` or a
+  `Shape` the container decides, exactly as for a paragraph — set the column's
+  or cell's `align` instead.
 - `Image` takes `src` and resolves to a node holding `path`. **Only a `data:`
   URI travels**: it carries the bytes, so an engine writing the document
   elsewhere still has the picture. A path or URL draws on screen, where a

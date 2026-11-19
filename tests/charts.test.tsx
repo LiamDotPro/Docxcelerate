@@ -2,7 +2,7 @@ import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { buildDocument } from "docxcelerate";
 import { cleanMinimalDocumentStyle } from "docxcelerate";
-import { documentXml, entryOf, partNames, partXml } from "./docx.ts";
+import { documentXml, elementOf, entryOf, partNames, partXml } from "./docx.ts";
 import { createDocxBlob } from "docxcelerate/docx";
 import type { DocumentModel, DocumentStyle, GraphNode } from "docxcelerate";
 import { Cell, Document, Graph, Row, Section, Table, template } from "docxcelerate/template";
@@ -646,6 +646,7 @@ test("a chart written as JSX carries every drawing decision into the node", asyn
             dataLabels
             width={320}
             height={200}
+            align="right"
             data={{ categories: quarters, series: twoSeries }}
           />
         </Section>
@@ -669,5 +670,32 @@ test("a chart written as JSX carries every drawing decision into the node", asyn
   assertEquals(node?.dataLabels, true);
   assertEquals(node?.width, 320);
   assertEquals(node?.height, 200);
+  assertEquals(node?.align, "right");
   assertEquals(node?.data?.series[1].values[3], 27);
+});
+
+// ---------------------------------------------------------------------------
+// Where the chart sits
+// ---------------------------------------------------------------------------
+
+test("a chart ranged right takes its caption with it", async () => {
+  const xml = await documentXml(documentOf([chart({ width: 240, align: "right", caption: "Figure 1: revenue." })]));
+
+  assertStringIncludes(elementOf(xml, "w:p", "<c:chart"), '<w:jc w:val="right"/>');
+  assertStringIncludes(elementOf(xml, "w:p", ">Figure 1: revenue.</w:t>"), '<w:jc w:val="right"/>');
+});
+
+test("a chart with no align writes none, and its caption stays centred", async () => {
+  const xml = await documentXml(documentOf([chart({ caption: "Figure 1: revenue." })]));
+
+  assertEquals(elementOf(xml, "w:p", "<c:chart").includes("<w:jc"), false);
+  assertStringIncludes(elementOf(xml, "w:p", ">Figure 1: revenue.</w:t>"), '<w:jc w:val="center"/>');
+});
+
+test("a chart's placeholder sits where the chart will", async () => {
+  const xml = await documentXml(documentOf([
+    { id: "trend", kind: "graph", mode: "dynamic", graphType: "line", placeholder: "Balance over the term", align: "center" },
+  ]));
+
+  assertStringIncludes(elementOf(xml, "w:p", "[line chart: Balance over the term]"), '<w:jc w:val="center"/>');
 });
