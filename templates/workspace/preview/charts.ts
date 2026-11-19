@@ -143,7 +143,7 @@ function optionFor(chart: PreviewChart): echarts.EChartsOption {
       ? [pieSeries(chart)]
       : radar
       ? [radarSeries(chart)]
-      : chart.series.map((series) => plotSeries(chart, series)),
+      : chart.series.flatMap((series) => [plotSeries(chart, series), ...trendSeries(chart, series)]),
   };
 }
 
@@ -323,6 +323,55 @@ function legendFor(
   };
 }
 
+/** Where a point sits along x: its position + 1, or the number a scatter or bubble names. */
+function xOf(chart: PreviewChart, index: number): number {
+  return chart.graphType === "scatter" || chart.graphType === "bubble"
+    ? Number(chart.categories[index] ?? index + 1)
+    : index + 1;
+}
+
+/**
+ * The line of best fit a series carries, drawn from the file's own figures
+ * because ECharts has no regression of its own.
+ *
+ * It has no `name`, so the preview's key leaves it out; Word keys each
+ * trendline by itself. That difference is deliberate.
+ */
+function trendSeries(chart: PreviewChart, series: PreviewChartSeries): echarts.SeriesOption[] {
+  const kind = series.trendline;
+  if (kind === undefined) return [];
+
+  const xy = chart.graphType === "scatter" || chart.graphType === "bubble";
+  const xs = series.values.map((_, index) => xOf(chart, index));
+  let fitted: (number | null)[];
+
+  if (kind === "linear") {
+    const known = xs.flatMap((x, i) => (series.values[i] == null ? [] : [[x, series.values[i] as number]]));
+    const meanX = known.reduce((sum, [x]) => sum + x, 0) / known.length;
+    const meanY = known.reduce((sum, [, y]) => sum + y, 0) / known.length;
+    const spread = known.reduce((sum, [x]) => sum + (x - meanX) ** 2, 0);
+    if (known.length < 2 || spread === 0) return [];
+    const slope = known.reduce((sum, [x, y]) => sum + (x - meanX) * (y - meanY), 0) / spread;
+    fitted = xs.map((x) => meanY + slope * (x - meanX));
+  } else {
+    // Approximation: a window holding a gap is left blank rather than averaged over what is there.
+    fitted = series.values.map((_, i) => {
+      const window = series.values.slice(Math.max(0, i - kind.movingAverage + 1), i + 1);
+      return i < kind.movingAverage - 1 || window.some((v) => v == null)
+        ? null
+        : (window as number[]).reduce((sum, v) => sum + v, 0) / window.length;
+    });
+  }
+
+  return [{
+    type: "line",
+    data: xy ? fitted.map((y, i) => [xs[i], y]) : fitted,
+    symbol: "none",
+    silent: true,
+    lineStyle: { color: hex(series.color), width: 1.5, type: "dashed" },
+  }];
+}
+
 /** One plotted series, whichever kind of plot it belongs to. */
 function plotSeries(chart: PreviewChart, series: PreviewChartSeries): echarts.SeriesOption {
   const color = hex(series.color);
@@ -335,7 +384,7 @@ function plotSeries(chart: PreviewChart, series: PreviewChartSeries): echarts.Se
       type: "scatter",
       symbolSize: 8,
       itemStyle: { color },
-      data: data.map((value, index) => [Number(chart.categories[index] ?? index + 1), value]),
+      data: data.map((value, index) => [xOf(chart, index), value]),
     };
   }
 
@@ -359,7 +408,7 @@ function plotSeries(chart: PreviewChart, series: PreviewChartSeries): echarts.Se
       // it — which is the comparison the chart exists to show.
       itemStyle: { color, opacity: 0.75 },
       data: series.values.map((value, index) => [
-        Number(chart.categories[index] ?? index + 1),
+        xOf(chart, index),
         value,
         series.sizes[index] ?? 0,
       ]),

@@ -417,11 +417,13 @@ function seriesXml(
       .join("")
     : "";
 
+  // Schema order: dPt*, dLbls?, trendline*, errBars?, cat. Labels are written per group, so the points come right before it.
+  const trend = trendlineXml(node, series, fill, rows);
   const categories = categoriesXml(data.categories, rows);
   const values = valuesXml(series.values, column, rows, node.numberFormat);
 
   if (type === "scatter") {
-    return `<c:ser>${head}${paint}${points}${
+    return `<c:ser>${head}${paint}${points}${trend}${
       xValuesXml(data.categories, rows)
     }${asYValues(values)}<c:smooth val="0"/></c:ser>`;
   }
@@ -430,7 +432,7 @@ function seriesXml(
     // `invertIfNegative` before the values, and `bubble3D` after them: a
     // bubble series is the one place the schema puts a flag on either side of
     // the numbers, and Word will not open a file that has them the other way.
-    return `<c:ser>${head}${paint}<c:invertIfNegative val="0"/>${points}${
+    return `<c:ser>${head}${paint}<c:invertIfNegative val="0"/>${points}${trend}${
       xValuesXml(data.categories, rows)
     }${asYValues(values)}${
       bubbleSizesXml(series.sizes ?? [], sizeColumn, rows)
@@ -438,7 +440,7 @@ function seriesXml(
   }
 
   if (type === "line" || type === "radar") {
-    return `<c:ser>${head}${paint}${points}${categories}${values}` +
+    return `<c:ser>${head}${paint}${points}${trend}${categories}${values}` +
       // A radar's ring is already closed, so it has no line to smooth and the
       // schema gives it nowhere to say so.
       (type === "line" ? `<c:smooth val="0"/>` : "") +
@@ -449,7 +451,34 @@ function seriesXml(
     return `<c:ser>${head}${paint}${points}${categories}${values}</c:ser>`;
   }
 
-  return `<c:ser>${head}${paint}<c:invertIfNegative val="0"/>${points}${categories}${values}</c:ser>`;
+  return `<c:ser>${head}${paint}<c:invertIfNegative val="0"/>${points}${trend}${categories}${values}</c:ser>`;
+}
+
+/**
+ * A series' line of best fit, or nothing where the chart cannot carry one.
+ *
+ * Word refuses a trendline on a pie, a doughnut, a radar or a stacked chart,
+ * and the first three have no slot for one in their series at all: writing
+ * one there is a file Word will not open, not a line it leaves out.
+ */
+function trendlineXml(node: GraphNode, series: GraphSeries, fill: string, rows: number): string {
+  const kind = series.trendline;
+  if (kind === undefined || isStacked(node) || ["pie", "doughnut", "radar"].includes(node.graphType)) return "";
+
+  let type: string;
+  if (kind === "linear") {
+    type = `<c:trendlineType val="linear"/>`;
+  } else if (typeof kind === "object" && kind !== null && Number.isFinite(kind.movingAverage)) {
+    // `ST_Period` is 2 to 255, and a window as long as the series has nothing to draw.
+    const period = Math.min(255, Math.max(2, Math.round(kind.movingAverage)));
+    if (period >= rows) return "";
+    type = `<c:trendlineType val="movingAvg"/><c:period val="${period}"/>`;
+  } else {
+    return "";
+  }
+
+  // Thinner and dashed in the series' own colour, so it re-themes with the series without reading as a second one.
+  return `<c:trendline><c:spPr><a:ln w="19050" cap="rnd"><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:prstDash val="sysDash"/></a:ln></c:spPr>${type}<c:dispRSqr val="0"/><c:dispEq val="0"/></c:trendline>`;
 }
 
 /**

@@ -188,7 +188,7 @@ Notes worth knowing:
   recipient, and the preview looks the same because nothing has been edited
   yet.
 - `Graph.data` is `{ categories?: string[], series: { label?, values: (number
-  | null)[], color?, sizes? }[] }`. A `null` value is a gap in the plot, not a
+  | null)[], color?, sizes?, trendline? }[] }`. A `null` value is a gap in the plot, not a
   zero — a month nobody measured is not a month that measured nothing. A series
   shorter than the categories is padded with gaps; one with no categories is
   counted by position. Strings inside the payload are run through the template
@@ -202,6 +202,7 @@ Notes worth knowing:
 - `scatter` and `bubble` read the categories as their x values, so those are
   numbers written as text; anything that will not parse counts as its position.
   `sizes` is the third figure a `bubble` carries and no other type reads.
+- A series' `trendline` is `"linear"` (the least-squares line, for direction over time) or `{ movingAverage: n }` (the mean of each n readings in a row, n ≥ 2 and fewer than the categories). It is packed as a native Word trendline, so Word recalculates it when the data is edited. Word allows one only on unstacked `bar`, `barHorizontal`, `line`, `area`, `scatter` and `bubble`. On a pie, doughnut, radar or stacked chart the field is ignored. Word keys each trendline in the legend by itself.
 - **A generated chart's answer is checked before it is drawn.** What
   `aiClient.generateGraph` returns is read the way model JSON is written: a
   number written as text (`"12"`, `" 3.5 "`) is a number, a numeric category

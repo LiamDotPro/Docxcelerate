@@ -31,7 +31,7 @@
  * @module
  */
 
-import type { GraphLegend, GraphType } from "../domain/types.ts";
+import type { GraphLegend, GraphTrendline, GraphType } from "../domain/types.ts";
 import { readPart } from "./docx_packed.ts";
 import { attribute, decodeEntities, element, elements, numberAttribute } from "./ooxml_read.ts";
 
@@ -43,6 +43,8 @@ export interface PreviewChartSeries {
   readonly values: readonly (number | null)[];
   /** The colour the file draws it in, as RGB hex without the `#`. */
   readonly color?: string;
+  /** The line of best fit the file draws over this series, where it has one. */
+  readonly trendline?: GraphTrendline;
   /**
    * How big each point is drawn, on a bubble chart and nowhere else.
    *
@@ -320,6 +322,14 @@ function graphTypeOf(xml: string): GraphType {
   return attribute(element(xml, "c:barDir") ?? "", "val") === "bar" ? "barHorizontal" : "bar";
 }
 
+/** The trendline a `c:trendline` states, read from the file rather than the model. */
+function trendlineOf(xml: string): GraphTrendline | undefined {
+  const type = attribute(element(xml, "c:trendlineType") ?? "", "val");
+  if (type === "linear") return "linear";
+  if (type === "movingAvg") return { movingAverage: numberAttribute(element(xml, "c:period") ?? "", "val") ?? 2 };
+  return undefined;
+}
+
 /** Whether a chart group stacks its series, and to a total or to a share. */
 function stackingOf(xml: string): boolean | "percent" {
   const grouping = attribute(element(xml, "c:grouping") ?? "", "val");
@@ -371,6 +381,7 @@ function readChart(xml: string): Omit<PreviewChart, "widthPt" | "heightPt"> {
       // The series' own paint, not a data point's: on a pie the two differ,
       // and `c:spPr` is where the series states the one colour it has.
       color: colorOf(element(entry, "c:spPr") ?? ""),
+      trendline: trendlineOf(element(entry, "c:trendline") ?? ""),
       sizes: cachedNumbers(element(entry, "c:bubbleSize") ?? ""),
     })),
     // The slice colours, which a pie keeps on its data points rather than on

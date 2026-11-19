@@ -646,6 +646,102 @@ test("a chart whose series came back empty is a chart with nothing to plot", asy
 });
 
 // ---------------------------------------------------------------------------
+// Trendlines
+// ---------------------------------------------------------------------------
+
+const LINEAR =
+  '<c:trendline><c:spPr><a:ln w="19050" cap="rnd"><a:solidFill><a:srgbClr val="123456"/></a:solidFill><a:prstDash val="sysDash"/></a:ln></c:spPr><c:trendlineType val="linear"/><c:dispRSqr val="0"/><c:dispEq val="0"/></c:trendline>';
+
+/** A one-series chart whose series asks for `trendline`. */
+function trended(trendline: unknown, over: Partial<GraphNode> = {}): GraphNode {
+  return chart({
+    graphType: "line",
+    data: { categories: quarters, series: [{ label: "A", values: [12, 18, 9, 22], color: "123456", trendline } as never] },
+    ...over,
+  });
+}
+
+test("a linear trendline is packed on a line series, after its points and before its categories", async () => {
+  const xml = await chartXml(documentOf([trended("linear")]));
+
+  assertStringIncludes(xml, LINEAR);
+  assertEquals(xml.indexOf("</c:marker>") < xml.indexOf("<c:trendline>"), true);
+  assertEquals(xml.indexOf("<c:trendline>") < xml.indexOf("<c:cat>"), true);
+});
+
+test("a moving average is packed with its period, on a bar", async () => {
+  const xml = await chartXml(documentOf([trended({ movingAverage: 3 }, { graphType: "bar" })]));
+
+  assertStringIncludes(xml, '<c:trendlineType val="movingAvg"/><c:period val="3"/>');
+  assertEquals(xml.indexOf('<c:invertIfNegative val="0"/>') < xml.indexOf("<c:trendline>"), true);
+  assertEquals(xml.indexOf("<c:trendline>") < xml.indexOf("<c:cat>"), true);
+});
+
+test("a series with no trendline writes none", async () => {
+  assertEquals((await chartXml(documentOf([chart()]))).includes("<c:trendline"), false);
+});
+
+test("only the series that asks gets a trendline", async () => {
+  const xml = await chartXml(documentOf([chart({
+    graphType: "line",
+    data: { categories: quarters, series: [twoSeries[0], { ...twoSeries[1], trendline: "linear" }] },
+  })]));
+
+  assertEquals([...xml.matchAll(/<c:trendline>/g)].length, 1);
+  assertEquals(xml.indexOf("<c:trendline>") > xml.lastIndexOf("<c:ser>"), true);
+});
+
+test("a chart Word gives no trendline is written without one", async () => {
+  for (
+    const over of [
+      { graphType: "pie" },
+      { graphType: "doughnut" },
+      { graphType: "radar" },
+      { graphType: "bar", stacked: true },
+      { graphType: "line", stacked: "percent" },
+    ] as Partial<GraphNode>[]
+  ) {
+    assertEquals((await chartXml(documentOf([trended("linear", over)]))).includes("<c:trendline"), false);
+  }
+});
+
+test("a trendline sits before the x values on a scatter and a bubble", async () => {
+  const categories = ["1", "2", "3"];
+  for (const graphType of ["scatter", "bubble"] as const) {
+    const xml = await chartXml(documentOf([chart({
+      graphType,
+      data: { categories, series: [{ label: "A", values: [3, 1, 2], sizes: [1, 2, 3], trendline: "linear" }] },
+    })]));
+
+    assertEquals(xml.indexOf("<c:trendline>") < xml.indexOf("<c:xVal>"), true);
+    if (graphType === "bubble") {
+      assertStringIncludes(xml, "<c:bubbleSize>");
+      assertStringIncludes(xml, '<c:bubble3D val="0"/></c:ser>');
+    }
+  }
+});
+
+test("a moving average's period is rounded, floored at 2, and dropped when it fills the series", async () => {
+  const period = (movingAverage: number) => chartXml(documentOf([trended({ movingAverage })]));
+
+  assertStringIncludes(await period(2.6), '<c:period val="3"/>');
+  assertStringIncludes(await period(1), '<c:period val="2"/>');
+  assertEquals((await period(4)).includes("<c:trendline"), false);
+  assertEquals((await period(Number.NaN)).includes("<c:trendline"), false);
+});
+
+test("a trendline kind the toolkit does not know writes nothing", async () => {
+  assertEquals((await chartXml(documentOf([trended("exp" as never)]))).includes("<c:trendline"), false);
+});
+
+test("a trendline adds nothing to the workbook", async () => {
+  assertEquals(
+    await embeddedSheet(documentOf([trended("linear")])),
+    await embeddedSheet(documentOf([trended(undefined)])),
+  );
+});
+
+// ---------------------------------------------------------------------------
 // Through the template
 // ---------------------------------------------------------------------------
 
@@ -671,7 +767,13 @@ test("a chart written as JSX carries every drawing decision into the node", asyn
             width={320}
             height={200}
             align="right"
-            data={{ categories: quarters, series: twoSeries }}
+            data={{
+              categories: quarters,
+              series: [
+                { ...twoSeries[0], trendline: "linear" },
+                { ...twoSeries[1], trendline: { movingAverage: 3 } },
+              ],
+            }}
           />
         </Section>
       </Document>,
@@ -700,6 +802,8 @@ test("a chart written as JSX carries every drawing decision into the node", asyn
   assertEquals(node?.height, 200);
   assertEquals(node?.align, "right");
   assertEquals(node?.data?.series[1].values[3], 27);
+  assertEquals(node?.data?.series[0].trendline, "linear");
+  assertEquals(node?.data?.series[1].trendline, { movingAverage: 3 });
 });
 
 // ---------------------------------------------------------------------------
