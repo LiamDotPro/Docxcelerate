@@ -1125,6 +1125,67 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+
+  {
+    kind: "component",
+    id: "direct-debit-collection-notice",
+    title: "Direct debit collection notice",
+    summary: "The advance notice a direct debit needs, dated no earlier than its scheme allows.",
+    detail:
+      "Replaces the how-to-pay block on an invoice collected by direct debit, and " +
+      "words the advance notice for SEPA Core, UK Bacs or US ACH. The notice " +
+      "period is counted the way each scheme counts it: 14 calendar days under " +
+      "SEPA unless a shorter one was agreed, 10 working days under Bacs (never " +
+      "fewer than 3) skipping the bank holidays you supply, and 10 days under ACH " +
+      "only when the amount differs from the last debit. A notice issued too late " +
+      "says 'on or after' the earliest lawful date instead of the date asked for, " +
+      "and the date moves to the next day the scheme settles on, with TARGET2's " +
+      "Easter closing days worked out for the year. The SEPA creditor identifier's " +
+      "check digits are verified without the business code, and a bad one stops " +
+      "the document. The IBAN is shown by its last four characters only. SEPA " +
+      "states the 8-week refund right. Bacs prints the Direct Debit Guarantee only " +
+      "from the approved text you supply, and warns when it is missing. A zero or " +
+      "negative amount says nothing will be collected. All of it is one deriver.",
+    category: "Legal",
+    tags: ["direct-debit", "sepa", "bacs", "ach", "payment", "invoice", "legal", "deriver", "branching", "section"],
+    exports: ["DirectDebitCollectionNotice"],
+    dataFields: [
+      { path: "debit.scheme", type: '"sepa-core" | "bacs" | "ach"', summary: "Which scheme collects. Sets the currency, lead time and wording. Required." },
+      { path: "debit.creditorName", type: "string", summary: "Who collects, as the payer's statement shows it. Required." },
+      { path: "debit.creditorId", type: "string | undefined", summary: "SEPA creditor identifier. Required for SEPA; a failed check digit fails the document." },
+      { path: "debit.sun", type: "string | undefined", summary: "Bacs six-digit Service User Number. Required for Bacs." },
+      { path: "debit.mandateReference", type: "string", summary: "Mandate or Direct Debit reference. At most 35 characters (SEPA) or 18 (Bacs). Required." },
+      { path: "debit.payerIban", type: "string | undefined", summary: "Payer's IBAN. Only the last four characters are printed." },
+      { path: "debit.payerAccountLast4", type: "string | undefined", summary: "Last four of the payer's account, when no IBAN is given. Neither omits the line." },
+      { path: "debit.requestedDate", type: "string", summary: "ISO 8601 date asked for. Moved later when the notice is short or the day is closed. Required." },
+      { path: "debit.amount", type: "number", summary: "Amount in the scheme's currency. Zero or negative collects nothing. Required." },
+      { path: "debit.previousAmount", type: "number | undefined", summary: "ACH only: the last debit. A different amount triggers the 10-day notice." },
+      { path: "debit.first", type: "boolean | undefined", summary: "First collection under the mandate. Missing means recurring." },
+      { path: "debit.agreedNoticeDays", type: "number | undefined", summary: "Agreed notice period: calendar days (SEPA), working days of at least 3 (Bacs). Missing means the default." },
+      { path: "debit.bankHolidays", type: "string[] | undefined", summary: "ISO dates the payer's banks are closed. Required for Bacs; optional for ACH." },
+      { path: "debit.guaranteeText", type: "string[] | undefined", summary: "Bacs only: the approved Direct Debit Guarantee, one entry per paragraph. Missing prints a warning." },
+      { path: "document.issuedAt", type: "string", summary: "ISO 8601 date the notice is issued. The notice period counts from here. Required." },
+    ],
+    arrangements: [
+      { id: "stacked", title: "Stacked", summary: "One labelled mandate detail under another, down the text column." },
+      { id: "table", title: "Table", summary: "Labels in a narrow column with the mandate details beside them." },
+    ],
+    files: node("direct-debit-collection-notice", { deriver: true, arrangements: ["stacked", "table"] }),
+    previewData: {
+      debit: {
+        scheme: "sepa-core",
+        creditorName: "Northwind Facilities & Estates Management Services GmbH",
+        creditorId: "IT58ZZZ0000012345678901",
+        mandateReference: "MNDT-2026-NORTHFACILITIES-000048172",
+        payerIban: "IT60 X054 2811 1010 0000 0123 456",
+        requestedDate: "2027-03-26",
+        amount: 1284750.0,
+        first: true,
+      },
+      document: { issuedAt: "2027-03-08" },
+    },
+    requires: [],
+  },
   {
     kind: "component",
     id: "structured-payment-reference",

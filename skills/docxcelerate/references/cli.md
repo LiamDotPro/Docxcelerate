@@ -139,6 +139,7 @@ dxcl list components
 | `vat-place-of-supply` | Whose VAT applies and at what rate, decided before anything is printed. |
 | `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `direct-debit-collection-notice` | The advance notice a direct debit needs, dated no earlier than its scheme allows. |
 | `structured-payment-reference` | A bank payment reference with its check digits worked out, or the invoice number when none can be issued. |
 | `gst-inclusive-statement` | How GST shows on an AU or NZ tax invoice, and who it must name at each threshold. |
 | `exemption-certificate-check` | Which lines of a US sale go out exempt under the buyer's certificates, and why the rest stay taxable. |
