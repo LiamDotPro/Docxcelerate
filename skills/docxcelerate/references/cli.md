@@ -140,6 +140,7 @@ dxcl list components
 | `vat-place-of-supply` | Whose VAT applies and at what rate, decided before anything is printed. |
 | `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `financial-assistance-notice` | The financial assistance notice a US tax-exempt hospital's bill must carry, and the dates collections may start and applications close. |
 | `preferential-origin-statement` | The statement on origin an agreement prescribes, or a warning when its exporter reference is missing. |
 | `dunning-reminder` | A payment reminder that escalates one level at a time, skips disputed or held invoices, and only threatens what you intend. |
 | `open-items-ageing` | Every invoice still open, aged by days past due, with unallocated credit kept out of the buckets. |
