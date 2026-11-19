@@ -245,13 +245,27 @@ the paragraph can vary. Everything in this block is a single design decision
 
 | Feature | State | Seed case |
 | --- | --- | --- |
-| Bold / italic / underline / strike in a sentence | no | `runs/bold-span` |
+| Bold / italic / underline / strike in a sentence | **yes — added**; file and preview, Word not yet run | `runs/bold-span` |
 | A coloured or differently-sized span | no | `runs/coloured-span` |
 | Superscript / subscript | no | `runs/superscript` |
-| Hyperlink (internal and external) | no | `runs/external-hyperlink` |
-| Line break within a paragraph | no | `runs/soft-break` |
+| Hyperlink, external | **yes — added**; file and preview, no Word tier yet | `runs/external-hyperlink` |
+| Hyperlink, internal | no — needs bookmarks | `runs/internal-hyperlink` |
+| Line break within a paragraph | **yes — added**; file and preview, Word not yet run | `runs/soft-break` |
 | Non-breaking space, symbol runs | no | `runs/nbsp` |
 | Inline image among words | yes | `runs/inline-image` |
+
+The run model is `ParagraphNode.runs`: each run carries its own words, and
+`text` stays their join. `<Text>` is the authoring surface. The three cases
+were written red and are green on tiers A and B. **None has met Word**: they
+were written on a machine without it, so their Word tiers are unrun, and
+`runs/external-hyperlink` has none until the Word probe can read a link. Until
+they have run, "yes" in the rows above means the file and the preview.
+
+`runs/soft-break` found something before it fixed anything. A newline in a
+paragraph's text was packed as a newline inside `<w:t>`, with no `<w:br/>`, and
+the preview drew it as a break anyway — docx-preview sets every run
+`white-space: pre-wrap`. Its preview tier was green over a file that did not
+say what the screen showed. The packer writes the break now.
 
 ### Headings, lists, references
 
@@ -260,8 +274,8 @@ the paragraph can vary. Everything in this block is a single design decision
 | Heading 1 (from `Section`) | yes | `HeadingLevel.HEADING_1` | `headings/section-heading` |
 | Heading 2–6 / nesting | no — every section is H1 | `renderNode` section branch | `headings/nested-levels` |
 | Named Word styles | no | — | `headings/named-style` |
-| Bulleted list | no — no numbering part emitted | — | `lists/bulleted` |
-| Numbered list, nested | no | — | `lists/ordered-numbering` |
+| Bulleted list | **yes — added**; file and preview, Word not yet run | `ParagraphNode.list` | `lists/bulleted` |
+| Numbered list, nested | **yes — added**; file and preview, Word not yet run | one abstract numbering per list, see the case | `lists/ordered-numbering` |
 | **Table of contents** | **no — the node exists and packs as a plain line of text** | `renderNode` fallback, `src/render/docx_document.ts:437` | `fields/toc` |
 | Bookmarks, cross-references | no | — | `fields/bookmark-crossref` |
 | Footnotes / endnotes | no | — | `fields/footnote` |

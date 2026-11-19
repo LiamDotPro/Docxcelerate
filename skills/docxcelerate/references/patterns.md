@@ -187,6 +187,63 @@ a field it recounts and the preview counts its own pages. Reach for `<PageBreak>
 only when the break is part of what the document *is*; nudging a paragraph off
 the bottom of a page is the margins' job.
 
+## A list
+
+Items are paragraphs that say so. Write them one after another and the renderer
+counts — never type a bullet or a number:
+
+```tsx
+export const Steps: Nodes = () => {
+  const [state] = useState((data: DocumentData) => ({ steps: data.steps }));
+
+  return (
+    <>
+      <Paragraph id="steps-intro">What to do next:</Paragraph>
+      {state.steps.map((step) => (
+        <Paragraph id="step" list="number">{step.text}</Paragraph>
+      ))}
+    </>
+  );
+};
+```
+
+`list="bullet"` for a marked list, `listLevel={1}` for a point under an item.
+Anything between two items ends the list, and a numbered list after it starts
+again at one. Published, the `.map()` is a loop the engine walks, and the steps
+it writes are one list however many there are. An item on a `<Shape>` is drawn
+as a plain paragraph.
+
+## Stress a word, or link a phrase
+
+`<Text>` goes among a paragraph's words. It is not a node, so it takes no `id`:
+
+```tsx
+<Paragraph id="terms">
+  Payment is due within <Text bold>{state.termDays} days</Text>. You can{" "}
+  <Text href={state.payUrl}>pay online</Text>.
+</Paragraph>
+```
+
+`bold`, `italic`, `underline`, `strike` and `href`; one inside another takes
+both. An interpolated value inside it publishes as a token and is settled per
+document like any other. `href` must be `https:`, `http:`, `mailto:` or `tel:`
+— anything else prints as plain words. There is no colour or size: a link is
+drawn in the theme's accent, and a whole paragraph is restyled with `variant`.
+
+The same works in a cell: `<Cell>Total <Text bold>due</Text></Cell>`.
+
+## Several lines in one paragraph
+
+A line end in the text is a line break, not a new paragraph — one node, one id,
+and none of the space a paragraph leaves under itself:
+
+```tsx
+<Paragraph id="address">{`${state.line1}\n${state.line2}\n${state.postcode}`}</Paragraph>
+```
+
+It has to be a string expression: JSX collapses a line end written between
+tags into a space. Do not write three `<Paragraph>`s for one address.
+
 ## Interpolate an engine value into prose
 
 Braces are JSX expressions, so a literal token is written as a string:
@@ -240,6 +297,74 @@ export const Letterhead: Section<{ children?: Yield }> = ({ children }) => (
   </Section>
 );
 ```
+
+## The same lines, placed differently
+
+Where something sits is a separate choice from what it says. A component that
+can be placed more than one way takes an `arrangement` prop and picks with
+`arrange`, which builds only the arrangement asked for and treats the first one
+written as the default.
+
+Keep each arrangement in its own file, and let the node decide every line and
+hand them over. A registry component installs this way:
+
+```
+nodes/reference.node.tsx
+arrangements/reference/lines.ts              // what the node hands each arrangement
+arrangements/reference/stacked.arrangement.tsx
+arrangements/reference/table.arrangement.tsx
+```
+
+```tsx
+// arrangements/reference/table.arrangement.tsx
+import { Cell, Row, Table, type Yield } from "docxcelerate/template";
+import type { ReferenceLines } from "./lines.ts";
+
+export const table = (lines: ReferenceLines): Yield => (
+  <Table id="reference-table" columns={[{ width: 45 }, { width: "auto" }]}>
+    <Row id="reference-number">
+      <Cell>Invoice number</Cell>
+      <Cell>{lines.number}</Cell>
+    </Row>
+    {lines.purchaseOrder && (
+      <Row id="reference-purchase-order">
+        <Cell>Purchase order</Cell>
+        <Cell>{lines.purchaseOrder}</Cell>
+      </Row>
+    )}
+  </Table>
+);
+```
+
+```tsx
+// nodes/reference.node.tsx
+import { arrange, Section, useState } from "docxcelerate/template";
+import type { ReferenceLines } from "../arrangements/reference/lines.ts";
+import { stacked } from "../arrangements/reference/stacked.arrangement.tsx";
+import { table } from "../arrangements/reference/table.arrangement.tsx";
+
+export const Reference: Section<{ arrangement?: "stacked" | "table" }> = ({ arrangement }) => {
+  const [invoice] = useState((data: Data) => data.invoice);
+  const lines: ReferenceLines = { number: invoice.number, purchaseOrder: invoice.purchaseOrder };
+
+  return (
+    <Section id="reference" title="Reference">
+      {arrange(arrangement, { stacked: () => stacked(lines), table: () => table(lines) })}
+    </Section>
+  );
+};
+
+<Reference arrangement="table" />;
+```
+
+Do not write `arrangement === "table" ? … : …`. The compiler publishes a
+comparison even of two literals, so every arrangement would ship to the engine
+as a branch and count against the branch limit. An unknown name throws, so a
+typo fails the build instead of printing the default. Test an optional line
+inside the arrangement's JSX (`{lines.purchaseOrder && …}`), never in a
+variable above it: outside JSX a publish stand-in is always truthy. Keep a
+line's id the same in every arrangement. Registry components that offer
+arrangements list them under "Arrangements" in `dxcl show`.
 
 ## Carry a value forward through the document
 
@@ -364,6 +489,32 @@ export const Example: Paragraph = () => {
 ```
 
 Seeded from where the component sits, so the values do not move between builds.
+
+## A component in more than one language
+
+```tsx
+const messages = defineMessages("en", {
+  due: (amount: string) => `The balance is ${amount}.`,
+}, {
+  fr: { due: (amount) => `Le solde s’élève à ${amount}.` },
+});
+
+export const Due: Paragraph = () => {
+  const t = useMessages(messages);
+  const format = useFormat();
+  const [amount] = useState((data: { amount: number }) => data.amount);
+
+  return <Paragraph id="due">{t.due(format.currency(amount))}</Paragraph>;
+};
+```
+
+The build's `locale` picks the messages (`fr-CA`, then `fr`, then any `fr-…`,
+then the source language), and `useFormat` follows it. A project lists its
+languages as `locales: ["en-GB", "fr-FR"]`, default first.
+
+A deriver only sees its inputs, so pass it the locale as one:
+`useDeriver(money, [amount, useLocale()])`. Keep the text in the component.
+Don't hard-code `"en-GB"` in an `Intl` call.
 
 ## An async component
 

@@ -13,6 +13,7 @@ import type {
   GraphStacking,
   GraphType,
   JsonObject,
+  ListKind,
   PageNumberFormat,
   TableAlign,
   TableColumn,
@@ -129,8 +130,49 @@ export interface ParagraphProps extends CommonElementProps, PromptProps {
    * of block looks like. Saying both is allowed, and this wins.
    */
   align?: TextAlign;
+  /**
+   * Makes the paragraph an item of a list: `"bullet"` marks it, `"number"`
+   * counts it.
+   *
+   * Items written one after another are one list, and the renderer does the
+   * counting — so a step dropped for one recipient leaves no gap in the
+   * numbers. Anything between two items ends the list, and a numbered list
+   * after it starts again at one.
+   *
+   * On a `<Shape>` an item is drawn as a plain paragraph: the box holds its
+   * words off its edge with the same indent a hang needs.
+   */
+  list?: ListKind;
+  /** How far under another item this one stands: `1` for a point under an item. */
+  listLevel?: number;
   /** The paragraph's text, as children. */
   children?: Yield<"paragraph">;
+}
+
+/**
+ * Props for the `<Text>` element.
+ *
+ * Every prop says what the words *are* — stressed, struck out, a way to
+ * somewhere — and none says what that looks like. There is no colour and no
+ * size here for the reason there is none on a node: a linked phrase is drawn
+ * in the theme's accent, and re-themes with the document around it.
+ */
+export interface TextProps {
+  /** Set heavier than the words around it. `false` lightens a word in a bold block. */
+  bold?: boolean;
+  /** Set in italics. */
+  italic?: boolean;
+  /** Set with a rule beneath. */
+  underline?: boolean;
+  /** Set struck through. */
+  strike?: boolean;
+  /**
+   * An address the words link to: `https:`, `http:`, `mailto:` or `tel:`.
+   * Anything else prints as the words alone.
+   */
+  href?: string;
+  /** The words, and any `<Text>` set differently again inside them. */
+  children?: Yield;
 }
 
 /** Props for the `<Image>` element. */
@@ -323,6 +365,22 @@ export const Paragraph: HostElementType<ParagraphProps, "paragraph"> = host(
   "paragraph",
   "Paragraph",
 );
+/**
+ * Some of a paragraph's words, set differently from the rest of it.
+ *
+ * Written among the words of a `<Paragraph>`, a `<Cell>` or a `<Shape>`, and
+ * nowhere else: it is not a node, has no id, and nothing can address it. One
+ * inside another takes both settings.
+ *
+ * @example A term in bold, and a phrase that links somewhere
+ * ```tsx
+ * <Paragraph id="terms">
+ *   Payment is due within <Text bold>thirty days</Text>. You can{" "}
+ *   <Text href="https://example.com/pay">pay online</Text>.
+ * </Paragraph>
+ * ```
+ */
+export const Text: HostElementType<TextProps, "text"> = host("text", "Text");
 /** A picture, either pointed at a file or left for the engine to produce. */
 export const Image: HostElementType<ImageProps, "image"> = host("image", "Image");
 /** A chart, either given its data or left for the engine to produce one. */

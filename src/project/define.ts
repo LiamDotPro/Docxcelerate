@@ -31,6 +31,13 @@ export interface DocumentProject<TData = unknown> {
   derivers?: DeriverDefinitions;
   /** How the document looks. */
   style?: DocumentStyle;
+  /**
+   * The locales the document is written in, as BCP 47 tags. The first is the
+   * default: the preview opens in it and the artifact's main documents are
+   * built in it. Each other one gets a preview and an engine document of its
+   * own, so an engine picks the document by the reader's language.
+   */
+  locales?: string[];
   /** Runtime overrides applied when building the preview. */
   previewOptions?: ComponentRuntimeOptions;
   /** Runtime overrides applied when building for an engine. */
@@ -61,6 +68,13 @@ export interface DefineDocumentProjectOptions<TData> {
   derivers?: DeriverDefinitions;
   /** How the document looks. */
   style?: DocumentStyle;
+  /**
+   * The locales the document is written in, as BCP 47 tags. The first is the
+   * default: the preview opens in it and the artifact's main documents are
+   * built in it. Each other one gets a preview and an engine document of its
+   * own, so an engine picks the document by the reader's language.
+   */
+  locales?: string[];
   /** Runtime overrides applied when building the preview. */
   previewOptions?: ComponentRuntimeOptions;
   /** Runtime overrides applied when building for an engine. */
@@ -99,6 +113,7 @@ export function defineDocumentProject<TData>(
     previewData: options.previewData,
     derivers: options.derivers,
     style: options.style,
+    locales: options.locales,
     previewOptions: options.previewOptions,
     buildOptions: options.buildOptions,
     metadata: options.metadata,

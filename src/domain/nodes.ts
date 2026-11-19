@@ -214,6 +214,80 @@ export interface ParagraphNode extends BaseNode {
    * still reads all of them, in order.
    */
   inlineImages?: InlineImage[];
+  /**
+   * The same words as `text`, cut where the setting changes.
+   *
+   * Present only when some of the words are set differently from the rest — a
+   * term in bold, a phrase that links somewhere. `text` is still all of them,
+   * joined, so everything that reads a paragraph's words goes on reading one
+   * string.
+   *
+   * Each run carries its own words rather than a range over `text`, and that
+   * is the decision the field rests on. A published paragraph still has
+   * `{{tokens}}` in it, and whatever settles them changes its length: a range
+   * counted at build time would be pointing at different words by the time a
+   * document was written. A run's words are settled in place and joined again.
+   *
+   * A renderer honours the runs only while they still spell `text`. Something
+   * that rewrote the one without the other has made the runs stale, and stale
+   * words set in bold are worse than the right words set plain.
+   */
+  runs?: ParagraphRun[];
+  /**
+   * The paragraph's place in a list, when it is an item of one.
+   *
+   * On the paragraph rather than on a node around the items, so that an item
+   * is everything a paragraph already is: it has an id, a condition can drop
+   * it, a loop produces one per entry, an engine can write it. A list is its
+   * items standing next to one another — which is also what it is in Word —
+   * and a renderer counts them, the way it counts pages.
+   *
+   * Items that stand together are one list. Anything that is not an item
+   * ends it, and a numbered list after that starts again at one.
+   */
+  list?: ParagraphList;
+}
+
+/** Which kind of list a paragraph is an item of: marked with a bullet, or counted. */
+export type ListKind = "bullet" | "number";
+
+/** A paragraph's place in a list. */
+export interface ParagraphList {
+  /** Whether the item is marked or counted. */
+  kind: ListKind;
+  /**
+   * How far under another item this one stands. Absent means not at all;
+   * `1` is a point under an item, and a renderer goes as deep as nine.
+   */
+  level?: number;
+}
+
+/**
+ * A stretch of a paragraph's words, and how it is set.
+ *
+ * What a run says is emphasis and destination, never appearance: there is no
+ * colour and no size here, for the reason there is none on a node. A linked
+ * phrase is drawn in the theme's accent because the theme says what a link
+ * looks like.
+ */
+export interface ParagraphRun {
+  /** The words. */
+  text: string;
+  /** Set heavier than the words around it — or, `false`, lighter than a bold block's. */
+  bold?: boolean;
+  /** Set in italics. */
+  italic?: boolean;
+  /** Set with a rule beneath. */
+  underline?: boolean;
+  /** Set struck through. */
+  strike?: boolean;
+  /**
+   * An address the words link to: `https:`, `http:`, `mailto:` or `tel:`.
+   *
+   * Anything else prints as the words alone. The address may come out of a
+   * request, and a preview draws a link as something a reader can click.
+   */
+  href?: string;
 }
 
 /** A picture set in a paragraph's line, and where along the text it sits. */
@@ -537,6 +611,14 @@ export interface DocumentModel {
   title: string;
   /** How the document looks; a renderer default applies when absent. */
   style?: DocumentStyle;
+  /**
+   * The language the document is written in, as a BCP 47 tag such as `fr-FR`.
+   *
+   * Absent on a document that never said, which renders as it always has. When
+   * present, Word proofs the text in this language, derivers are told it, and
+   * dynamic nodes are asked to be written in it.
+   */
+  locale?: string;
   /** Anything the caller wants to carry alongside the document. */
   metadata?: JsonObject;
   /** The body of the document, in order. */

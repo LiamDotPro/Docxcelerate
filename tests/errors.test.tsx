@@ -107,7 +107,7 @@ test("an element inside a paragraph is rejected rather than flattened", async ()
       {"before "}
       {<Paragraph id="inner">inner</Paragraph> as never}
     </Paragraph>,
-    "put a picture inside it, and anything else beside it",
+    "put a picture or a <Text> inside it, and anything else beside it",
   );
 });
 

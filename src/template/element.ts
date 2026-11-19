@@ -53,6 +53,7 @@ export type HostKind =
   | "document"
   | "section"
   | "paragraph"
+  | "text"
   | "image"
   | "graph"
   | "table"

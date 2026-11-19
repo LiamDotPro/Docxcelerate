@@ -125,6 +125,103 @@ the millimetre. Two limits fall out of Word's own format and are worth knowing �
 padding needs a border to hang on, and a left border pushes the *rule* outward
 rather than the text inward.
 
+## Lists
+
+A list is paragraphs that say they are items. `list="bullet"` marks one,
+`list="number"` counts it:
+
+```tsx
+<Paragraph id="intro">To renew:</Paragraph>
+<Paragraph id="check" list="number">Check the plan and the price.</Paragraph>
+<Paragraph id="pay" list="number">Pay online, or at the desk.</Paragraph>
+<Paragraph id="pay-note" list="bullet" listLevel={1}>Card and direct debit are both accepted.</Paragraph>
+<Paragraph id="collect" list="number">Collect your new card.</Paragraph>
+```
+
+Items written one after another are one list, and the renderer does the
+counting — the way it counts pages. That is the whole reason not to type the
+numbers: a step dropped for one recipient leaves no gap, and a list built
+from your data is a `.map()` like any other.
+
+```tsx
+{state.steps.map((step) => <Paragraph id="step" list="number">{step.text}</Paragraph>)}
+```
+
+Anything that is not an item ends the list, and a numbered list after it starts
+again at one. `listLevel` puts an item under the one above it: `1` for a point
+under an item, down to nine deep. Numbers go from figures to letters to roman
+numerals as they go down, bullets from a filled dot to an open one to a square.
+A bulleted point under a numbered step does not stop the steps counting.
+
+An item is still a paragraph. It has an id, a condition can drop it, it takes a
+`variant`, and one an engine writes can be an item like any other. Items stand
+together, with the space a paragraph leaves under itself going after the list
+rather than between its items — unless the item's own `variant` names a
+spacing, which wins.
+
+Two limits. The marker and the hang are the renderer's, not the theme's, so
+there is no choosing the glyph yet. And an item on a `<Shape>` is drawn as a
+plain paragraph: the box holds its words off its edge with the same indent a
+hang needs.
+
+## Words set differently
+
+`<Text>` sets some of a paragraph's words apart from the rest — the term a
+notice turns on, a phrase that leads somewhere:
+
+```tsx
+import { Paragraph, Text } from "docxcelerate/template";
+
+<Paragraph id="terms">
+  Payment is due within <Text bold>thirty days</Text>. You can{" "}
+  <Text href="https://example.com/pay">pay online</Text>.
+</Paragraph>
+```
+
+`bold`, `italic`, `underline` and `strike` say how the words are stressed, and
+`href` says where they lead: an `https:`, `http:`, `mailto:` or `tel:` address.
+One `<Text>` inside another takes both settings. It works the same among the
+words of a `<Cell>` or a `<Shape>`.
+
+It is not a node. It has no id, nothing addresses it, and it carries no colour
+or size — a link is drawn in the theme's accent, so it re-themes with the
+document around it. An address that is none of the four kinds prints as its
+words alone, because the address may come out of your data and a preview draws
+a link as something a reader can click.
+
+A line end in the text is a line break rather than a new paragraph, which is
+what an address wants — one node, three lines, and none of the space a
+paragraph leaves under itself:
+
+```tsx
+<Paragraph id="address">{"Flat 2\n14 Example Road\nLeeds LS1 4AB"}</Paragraph>
+```
+
+Only a static paragraph has runs. One an engine writes is written as plain
+words.
+
+### What it publishes
+
+The paragraph keeps its `text` whole, so everything that reads a paragraph's
+words still reads one string. The settings travel beside it as `runs`, each
+carrying its own words:
+
+```json
+{ "kind": "paragraph", "mode": "static", "id": "terms",
+  "text": "Payment is due within thirty days.",
+  "runs": [
+    { "text": "Payment is due within " },
+    { "text": "thirty days", "bold": true },
+    { "text": "." }
+  ] }
+```
+
+A paragraph with nothing set apart has no `runs` at all, and publishes exactly
+what it did before. Interpolated values work inside a `<Text>` the way they do
+anywhere else: a published run holds the token, and the engine settles it in
+place, so `<Text bold>{state.name}</Text>` is bold for every recipient
+whatever the length of their name.
+
 ## Dynamic paragraphs
 
 A dynamic paragraph has no text of its own; it carries prompts and a
@@ -145,5 +242,5 @@ below shows what the other three are for.
   it. Supplying both on one element is an error.
 - An empty string returns an empty paragraph, not no node. To drop the node,
   return nothing — `false`, `null` and `undefined` are all skipped.
-- Renderers escape the text. A paragraph cannot smuggle markup into the page,
-  and is not the place for formatting.
+- Renderers escape the text. A paragraph cannot smuggle markup into the page:
+  `<Text>` is the only formatting there is, and it is an element, not a string.

@@ -16,6 +16,8 @@ import { Greeting } from "./paragraph/static.node.tsx";
 import { PriceChange } from "./paragraph/conditional.node.tsx";
 import { NextSteps } from "./paragraph/dynamic.node.tsx";
 import { Apology } from "./paragraph/prompted.node.tsx";
+import { RenewalTerms } from "./paragraph/marked.node.tsx";
+import { RenewalSteps } from "./paragraph/list.node.tsx";
 import { Opening } from "./section/basic.node.tsx";
 import { YourYear } from "./section/nested.node.tsx";
 import { Signature } from "./image/static.node.tsx";
@@ -216,7 +218,7 @@ export const NODE_TYPES: NodeTypeEntry[] = [
     kind: "paragraph",
     category: "Text",
     status: "stable",
-    helpers: ["Paragraph", "useSetPrompts", "useSetPlaceholders"],
+    helpers: ["Paragraph", "Text", "useSetPrompts", "useSetPlaceholders"],
     summary: "A block of prose, written from your data or generated from prompts.",
     detail:
       "The workhorse. A static paragraph holds the text as its children; a " +
@@ -224,17 +226,21 @@ export const NODE_TYPES: NodeTypeEntry[] = [
       "time. Both land as the same node kind, differing only by `mode` — which " +
       "is inferred from what you supply, never declared. Supplying both text " +
       "and a prompt on one element is an error rather than a precedence rule.",
-    children: "None. Paragraphs are leaves.",
+    children:
+      "No nodes — a paragraph is a leaf. A `<Text>` among its words sets some " +
+      "of them differently, and a picture may sit in the line.",
     resolves: "Both",
     options: [
       ID,
       {
         name: "children",
-        type: "string",
+        type: "string | <Text>",
         summary:
           "Static only. The text, interpolated the way any JSX children are. " +
-          "A node given its own text is static, whatever prompts a hook set " +
-          "around it.",
+          "Wrap some of it in `<Text bold>`, `italic`, `underline`, `strike` " +
+          "or `href` to set those words apart, and write a line end where a " +
+          "line should break without starting a new paragraph. A node given " +
+          "its own text is static, whatever prompts a hook set around it.",
       },
       {
         name: "text",
@@ -254,6 +260,24 @@ export const NODE_TYPES: NodeTypeEntry[] = [
           "like. A node that states both wins over its block, the same way a " +
           "cell wins over its column.",
       },
+      {
+        name: "list",
+        type: `"bullet" | "number"`,
+        summary:
+          "Makes the paragraph an item of a list. Items written one after " +
+          "another are one list and the renderer counts them, so a step " +
+          "dropped for one recipient leaves no gap in the numbers. Anything " +
+          "between two items ends the list, and a numbered list after it " +
+          "starts again at one.",
+      },
+      {
+        name: "listLevel",
+        type: "number",
+        summary:
+          "How far under another item this one stands: `1` for a point under " +
+          "an item. A numbered list goes from figures to letters to roman " +
+          "numerals as it goes down.",
+      },
       ...PROMPT_OPTIONS.map((option) => ({
         ...option,
         summary: `Dynamic only. ${option.summary}`,
@@ -272,6 +296,18 @@ export const NODE_TYPES: NodeTypeEntry[] = [
         title: "Static, with branching",
         summary: "One node, several outcomes — and the id stays put.",
         component: PriceChange,
+      },
+      {
+        id: "marked",
+        title: "Static, with words set apart",
+        summary: "A date in bold and a phrase that links, in one sentence.",
+        component: RenewalTerms,
+      },
+      {
+        id: "list",
+        title: "Static, as a list",
+        summary: "Numbered steps with a point under one, and no number typed.",
+        component: RenewalSteps,
       },
       {
         id: "dynamic",

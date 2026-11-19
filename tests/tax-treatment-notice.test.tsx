@@ -203,12 +203,12 @@ test("the deriver formats sterling, rounding half away from zero", () => {
   assertEquals(run(184250.75), "£184,250.75");
   assertEquals(run(-2450.5), "-£2,450.50");
   assertEquals(run(0.005), "£0.01");
-  assertEquals(run("1200"), "£1,200.00");
 
   assertEquals(run(undefined), "");
   assertEquals(run(null), "");
 
-  for (const bad of [Number.NaN, "abc"]) {
+  // A number in a string is still malformed data: the field is typed number.
+  for (const bad of [Number.NaN, "abc", "1200"]) {
     try {
       run(bad);
     } catch (error) {

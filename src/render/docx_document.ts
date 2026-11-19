@@ -8,11 +8,13 @@ import {
   AlignmentType,
   BorderStyle,
   Document,
+  ExternalHyperlink,
   Footer,
   Header,
   HeadingLevel,
   ImageRun,
   LeaderType,
+  LevelFormat,
   LineRuleType,
   Packer,
   PageBreak,
@@ -42,6 +44,7 @@ import type {
   ImageNode,
   PageNumberNode,
   ParagraphNode,
+  ParagraphRun,
   ShapeNode,
   TableAlign,
   TableCellNode,
@@ -82,9 +85,15 @@ export function createDocxDocument(doc: DocumentModel): Document {
   // page. It is a document setting rather than a section one, which is why it
   // sits out here beside the styles rather than in the section below.
   const evenAndOdd = doc.evenHeader !== undefined || doc.evenFooter !== undefined;
+  // Before anything is rendered: an item cannot know which list it counts in,
+  // or whether another follows it, without looking at what stands beside it.
+  const lists = placeLists(doc);
 
   return new Document({
-    styles: createDocxStyles(style),
+    styles: createDocxStyles(style, doc.locale),
+    // Only for a document with a list in it, so one without is packed with
+    // exactly the numbering part it always had.
+    numbering: lists.items === 0 ? undefined : listNumbering(lists.numbered),
     evenAndOddHeaderAndFooters: evenAndOdd || undefined,
     sections: [
       {
@@ -432,11 +441,13 @@ function renderNode(
 
   if (node.kind === "paragraph") {
     const block = blockOf(style, node.variant);
+    const item = listItem(node);
 
     return [
       new Paragraph({
         children: paragraphRuns(node, block, style),
         ...breakStyle(broken),
+        numbering: item?.numbering,
         // The node's alignment, then the theme's, then nothing at all — a
         // paragraph that never said should write no `w:jc`, so it goes on
         // inheriting whatever the style around it decides.
@@ -445,10 +456,15 @@ function renderNode(
           ? undefined
           : { type: ShadingType.CLEAR, fill: block.fill },
         border: blockBorders(block, "paragraph"),
-        indent: blockIndent(block, style),
+        indent: blockIndent(block, style) ?? item?.indent,
         spacing: {
           ...blockSpacingBefore(block),
-          after: ptToTwips(block?.spacingAfterPt ?? style.paragraph.spacingAfterPt),
+          // Items of one list stand together: the space a paragraph leaves
+          // under itself belongs after the list, not between its items. A
+          // block that names its own spacing still gets it.
+          after: ptToTwips(
+            block?.spacingAfterPt ?? (item?.tight ? 0 : style.paragraph.spacingAfterPt),
+          ),
           ...blockLine(block, style),
         },
         ...blockKeeps(block),
@@ -607,47 +623,278 @@ function blockRun(
   };
 }
 
+/** The numbering every bulleted item counts in. Bullets do not count, so one serves them all. */
+const BULLET_LIST = "dxcl-bullet";
+
+/** The stem of a numbered list's numbering; each list gets one of its own. */
+const NUMBER_LIST = "dxcl-number";
+
+/**
+ * How far an item's words stand in from its marker, and each level from the
+ * one above, in points. A quarter of an inch, which is Word's own.
+ */
+const LIST_HANG_PT = 18;
+
+/** As deep as Word's numbering goes. */
+const LIST_LEVELS = 9;
+
+/** Plain glyphs in the paragraph's own face: no symbol font for a preview to be missing. */
+const BULLETS = ["\u2022", "\u25E6", "\u25AA"];
+
+/** Figures, then letters, then roman numerals, and round again. */
+const NUMBER_FORMATS = [LevelFormat.DECIMAL, LevelFormat.LOWER_LETTER, LevelFormat.LOWER_ROMAN];
+
+/** Where each item stands, worked out once before the document is rendered. */
+const listPlaces = new WeakMap<ParagraphNode, { reference: string; tight: boolean }>();
+
+/**
+ * Works out which list each item counts in, and whether another follows it.
+ *
+ * Items standing next to one another are one list, whatever mixture of
+ * bullets and numbers they are — a bulleted point under a numbered step does
+ * not stop the steps counting. Anything else ends the list, and the next
+ * numbered item starts a numbering of its own.
+ *
+ * @returns How many items there are, and how many numbered lists.
+ */
+function placeLists(doc: DocumentModel): { items: number; numbered: number } {
+  let items = 0;
+  let numbered = 0;
+
+  const walk = (nodes: readonly DocumentNode[]): void => {
+    // The numbering the list being walked counts in, once it has a numbered item.
+    let reference: string | undefined;
+
+    nodes.forEach((node, index) => {
+      if (node.kind !== "paragraph" || node.list === undefined) {
+        reference = undefined;
+        if ("children" in node) {
+          walk(node.children);
+        }
+        return;
+      }
+
+      if (node.list.kind === "number" && reference === undefined) {
+        numbered += 1;
+        reference = `${NUMBER_LIST}-${numbered}`;
+      }
+
+      const next = nodes[index + 1];
+      items += 1;
+      listPlaces.set(node, {
+        reference: node.list.kind === "number" && reference !== undefined ? reference : BULLET_LIST,
+        tight: next?.kind === "paragraph" && next.list !== undefined,
+      });
+    });
+  };
+
+  for (
+    const nodes of [
+      doc.nodes,
+      doc.header,
+      doc.footer,
+      doc.firstHeader,
+      doc.firstFooter,
+      doc.evenHeader,
+      doc.evenFooter,
+    ]
+  ) {
+    if (Array.isArray(nodes)) {
+      walk(nodes);
+    }
+  }
+
+  return { items, numbered };
+}
+
+/**
+ * The numberings a document's lists count in.
+ *
+ * One abstract numbering per numbered list, not one shared by all of them.
+ * Word would take the shared form — a `w:num` per list over one
+ * `w:abstractNum`, each restarting — and it is what Word writes itself. But
+ * docx-preview keys its counters by the abstract numbering and keeps only the
+ * last `w:num` naming it, so every list but the last is drawn with no numbers
+ * at all. This is the form both engines read, which is the same reason a
+ * shape is packed as VML.
+ */
+function listNumbering(numbered: number) {
+  const levels = (
+    marker: (level: number) => { format: (typeof LevelFormat)[keyof typeof LevelFormat]; text: string },
+  ) =>
+    Array.from({ length: LIST_LEVELS }, (_, level) => ({
+      level,
+      ...marker(level),
+      alignment: AlignmentType.LEFT,
+      style: { paragraph: { indent: listIndent(level) } },
+    }));
+
+  return {
+    config: [
+      {
+        reference: BULLET_LIST,
+        levels: levels((level) => ({
+          format: LevelFormat.BULLET,
+          text: BULLETS[level % BULLETS.length],
+        })),
+      },
+      ...Array.from({ length: numbered }, (_, index) => ({
+        reference: `${NUMBER_LIST}-${index + 1}`,
+        levels: levels((level) => ({
+          format: NUMBER_FORMATS[level % NUMBER_FORMATS.length],
+          text: `%${level + 1}.`,
+        })),
+      })),
+    ],
+  };
+}
+
+/** Where an item's words and its marker stand, by how deep it is. */
+function listIndent(level: number): { left: number; hanging: number } {
+  return { left: ptToTwips(LIST_HANG_PT * (level + 1)), hanging: ptToTwips(LIST_HANG_PT) };
+}
+
+/**
+ * What makes a paragraph an item, as Word is handed it.
+ *
+ * The indent is said on the paragraph as well as on the numbering's level.
+ * Word reads either; the preview's finishing step reads the paragraph's, since
+ * that is the one docx-preview writes where a later step can find it — it is
+ * how the marker comes to stand a hang clear of the words on screen.
+ */
+function listItem(node: ParagraphNode):
+  | { numbering: { reference: string; level: number }; indent: { left: number; hanging: number }; tight: boolean }
+  | undefined {
+  const place = listPlaces.get(node);
+
+  if (node.list === undefined || place === undefined) {
+    return undefined;
+  }
+
+  const level = Math.min(LIST_LEVELS - 1, Math.max(0, Math.trunc(node.list.level ?? 0)));
+
+  return {
+    numbering: { reference: place.reference, level },
+    indent: listIndent(level),
+    tight: place.tight,
+  };
+}
+
+/** What a paragraph hands Word to set in a line: words, pictures, and words that link. */
+type InlineRun = TextRun | ImageRun | ExternalHyperlink;
+
 /**
  * The runs one paragraph prints: its words, with any pictures set among them.
  *
- * The text is cut at each picture's offset so the two arrive in the order they
- * were written. A paragraph with no pictures is the single text run it always
- * was — including the empty one, which Word needs to keep the line.
+ * The words are cut at each picture's offset so the two arrive in the order
+ * they were written, whichever run the offset falls in. A paragraph with no
+ * pictures and one setting is the single text run it always was — including
+ * the empty one, which Word needs to keep the line.
  */
 function paragraphRuns(
   node: ParagraphNode,
   block: DocumentBlockStyle | undefined,
   style: DocumentStyle,
-): (TextRun | ImageRun)[] {
-  const text = node.text ?? "";
+): InlineRun[] {
+  const base = blockRun(block, style);
   const inline = [...(node.inlineImages ?? [])].sort((a, b) => a.at - b.at);
+  const runs: InlineRun[] = [];
+  // How far into the text the runs so far reach, and the next picture due.
+  let offset = 0;
+  let next = 0;
 
-  if (inline.length === 0) {
-    return [textRun(text, blockRun(block, style))];
-  }
+  for (const run of runsOf(node)) {
+    let rest = run.text;
 
-  const runs: (TextRun | ImageRun)[] = [];
-  let cut = 0;
-
-  for (const { at, image } of inline) {
-    const before = text.slice(cut, Math.max(cut, Math.min(at, text.length)));
-    if (before.length > 0) {
-      runs.push(textRun(before, blockRun(block, style)));
+    while (next < inline.length && inline[next].at <= offset + rest.length) {
+      const cut = Math.max(0, inline[next].at - offset);
+      if (cut > 0) {
+        runs.push(markedRun({ ...run, text: rest.slice(0, cut) }, base, style));
+      }
+      runs.push(imageRunOf(inline[next].image));
+      rest = rest.slice(cut);
+      offset += cut;
+      next += 1;
     }
-    runs.push(imageRunOf(image));
-    cut = Math.max(cut, Math.min(at, text.length));
+
+    if (rest.length > 0) {
+      runs.push(markedRun({ ...run, text: rest }, base, style));
+    }
+    offset += rest.length;
   }
 
-  const rest = text.slice(cut);
-  if (rest.length > 0 || runs.length === 0) {
-    runs.push(textRun(rest, blockRun(block, style)));
-  }
+  // A picture placed past the end of the words follows them.
+  runs.push(...inline.slice(next).map((entry) => imageRunOf(entry.image)));
 
-  return runs;
+  return runs.length === 0 ? [textRun("", base)] : runs;
 }
 
 /**
- * One run of text, with any tabs in it written as tabs.
+ * A paragraph's words as the runs they are set in.
+ *
+ * The node's runs are taken only while they still spell its text. Whatever
+ * rewrote `text` without them — an engine settling tokens with a resolver
+ * older than runs — has left them saying something the paragraph no longer
+ * does, and the right words set plain beat the stale ones set in bold.
+ */
+function runsOf(node: ParagraphNode): ParagraphRun[] {
+  const text = node.text ?? "";
+
+  return node.runs !== undefined && node.runs.map((run) => run.text).join("") === text
+    ? node.runs
+    : [{ text }];
+}
+
+/**
+ * One run of the node's, as Word is handed it.
+ *
+ * The run's own settings go over the block's, so a word can be lightened in a
+ * bold block as well as stressed in a plain one. A link is drawn in the
+ * theme's accent with a rule beneath: what a link looks like is the theme's
+ * to say, and a link nobody can tell from the words around it is not one.
+ */
+function markedRun(
+  run: ParagraphRun,
+  base: Record<string, unknown>,
+  style: DocumentStyle,
+): TextRun | ExternalHyperlink {
+  const props = {
+    ...base,
+    ...(run.bold === undefined ? {} : { bold: run.bold }),
+    ...(run.italic === undefined ? {} : { italics: run.italic }),
+    ...(run.underline ? { underline: {} } : {}),
+    ...(run.strike === undefined ? {} : { strike: run.strike }),
+  };
+  const link = linkOf(run.href);
+
+  return link === undefined ? textRun(run.text, props) : new ExternalHyperlink({
+    link,
+    children: [
+      textRun(run.text, {
+        ...props,
+        // A style with no palette leaves the link in the ink around it.
+        ...(style.palette === undefined ? {} : { color: style.palette.accent }),
+        underline: {},
+      }),
+    ],
+  });
+}
+
+/**
+ * The address a run links to, when it is one a reader can safely be sent to.
+ *
+ * A run's `href` may have come out of a request, and the preview draws the
+ * result as a live `<a>` — so a `javascript:` address is not written, and nor
+ * is a `{{token}}` nothing has settled yet. Both print as their words alone.
+ */
+function linkOf(href: string | undefined): string | undefined {
+  const address = href?.trim();
+
+  return address !== undefined && /^(https?:\/\/|mailto:|tel:)/i.test(address) ? address : undefined;
+}
+
+/**
+ * One run of text, with any tabs and line ends in it written as elements.
  *
  * A tab character left inside `<w:t>` is not a tab: it is whitespace, and what
  * a tab stop aligns to is the `<w:tab/>` element. Word is forgiving enough to
@@ -655,25 +902,30 @@ function paragraphRuns(
  * looks right in Word and collapses to a single space everywhere else,
  * including in the preview.
  *
- * So the text is cut at every tab and the element goes in between. A string
- * with no tab in it is the single run it always was.
+ * A line end is the same mistake seen from the other side. Left inside
+ * `<w:t>` it is whitespace too, and the preview — which sets every run
+ * `white-space: pre-wrap` — breaks the line there with nothing in the file
+ * saying to. `<w:br/>` is what says it, to both.
+ *
+ * So the text is cut at each and the element goes in between. A string with
+ * neither in it is the single run it always was.
  */
 function textRun(text: string, props: Record<string, unknown>): TextRun {
-  if (!text.includes("\t")) {
+  if (!/[\t\n]/.test(text)) {
     return new TextRun({ text, ...props });
   }
 
-  const pieces = text.split("\t");
-  const children: (string | Tab)[] = [];
+  const children: (string | Tab | ImportedXmlComponent)[] = [];
 
-  pieces.forEach((piece, index) => {
-    if (index > 0) {
+  for (const piece of text.split(/(\t|\r?\n)/)) {
+    if (piece === "\t") {
       children.push(new Tab());
-    }
-    if (piece.length > 0) {
+    } else if (piece.endsWith("\n")) {
+      children.push(new ImportedXmlComponent("w:br"));
+    } else if (piece.length > 0) {
       children.push(piece);
     }
-  });
+  }
 
   return new TextRun({ children, ...props });
 }
@@ -685,7 +937,7 @@ function textRun(text: string, props: Record<string, unknown>): TextRun {
  * the cell's own block to fold in first — so the pictures are placed around
  * that finished run rather than rebuilt from the node.
  */
-function withInlineImages(node: ParagraphNode, textRuns: TextRun[]): (TextRun | ImageRun)[] {
+function withInlineImages(node: ParagraphNode, textRuns: InlineRun[]): InlineRun[] {
   const inline = [...(node.inlineImages ?? [])].sort((a, b) => a.at - b.at);
   if (inline.length === 0) return textRuns;
 
@@ -1692,28 +1944,33 @@ function cellContent(
       ? headingRun(block, style)
       : {};
     const size = run.size ?? heading.size;
+    const item = listItem(child);
 
     return [
       new Paragraph({
         alignment: alignments[align],
+        numbering: item?.numbering,
+        indent: item?.indent,
         // The paragraph's own variant decides the leading where it has one —
         // a muted note under a description is set tighter than the row it
         // sits in — and the cell's block decides it otherwise.
         spacing: { after: 0, ...blockLine(inner ?? block, style) },
-        children: withInlineImages(child, [
-          new TextRun({
-            text: child.text ?? "",
-            bold: run.bold ?? heading.bold,
-            color: run.color ?? heading.color,
-            size,
-            font: run.font,
-            allCaps: run.allCaps ?? heading.allCaps,
-            characterSpacing: run.characterSpacing ??
-              (heading.trackedEm === undefined
-                ? undefined
-                : trackingOf(heading.trackedEm, size, style)),
-          }),
-        ]),
+        children: withInlineImages(
+          child,
+          runsOf(child).map((words) =>
+            markedRun(words, {
+              bold: run.bold ?? heading.bold,
+              color: run.color ?? heading.color,
+              size,
+              font: run.font,
+              allCaps: run.allCaps ?? heading.allCaps,
+              characterSpacing: run.characterSpacing ??
+                (heading.trackedEm === undefined
+                  ? undefined
+                  : trackingOf(heading.trackedEm, size, style)),
+            }, style)
+          ),
+        ),
       }),
     ];
   });
@@ -1791,7 +2048,7 @@ function columnWidths(
   return fixed.map((width) => (width === 0 ? each : width));
 }
 
-function createDocxStyles(style: DocumentStyle) {
+function createDocxStyles(style: DocumentStyle, locale: string | undefined) {
   return {
     default: {
       document: {
@@ -1799,6 +2056,9 @@ function createDocxStyles(style: DocumentStyle) {
           font: style.typography.bodyFont,
           size: ptToHalfPoints(style.typography.bodySizePt),
           color: style.typography.color,
+          // What Word spell-checks and hyphenates against. Left off when the
+          // document never said, so Word keeps using the reader's own default.
+          language: locale === undefined ? undefined : { value: locale },
         },
         paragraph: {
           spacing: {

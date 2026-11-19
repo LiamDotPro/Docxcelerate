@@ -125,10 +125,12 @@ dxcl list components
 | `invoice-document-type` | What an invoice may call itself, and the dates it has to carry. |
 | `tax-treatment-notice` | The mention an invoice's tax treatment requires, or a warning when its ID is missing. |
 | `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
+| `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
 
 ## `dxcl show <id>`
 
-Prints one entry in full: what it is, the data fields it reads, and where its
+Prints one entry in full: what it is, the data fields it reads, the
+arrangements it can be placed in where it has more than one, and where its
 files land. Read this before `dxcl add` — the data fields are what you will be
 adding to `types.ts` afterwards.
 

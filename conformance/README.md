@@ -107,6 +107,42 @@ p.wordCellX("1,250.00")        // and in Word
 cell's version of the paragraph lookups above, and read line rectangles for the
 same reason.
 
+**A run is found by its words, and a sentence packed whole answers for all of
+them.** `para(…).run` is the first run only, which is all a paragraph set in
+one style needs. For a word inside a sentence, ask for the run that prints it
+— and assert its `text` as well as its marks, or a paragraph bold from end to
+end passes for one with a bold word in it:
+
+```tsx
+a.run("thirty days").text       // "thirty days" only once it is a run of its own
+a.run("thirty days").bold       // w:b on that run; also italics, underline, strike
+a.link("pay online").target     // the address, followed through the relationship
+a.link("pay online").external   // and that the relationship is marked External
+b.run("thirty days").fontWeight // the same run, as the preview drew it
+b.run("pay online").href        // the link it stands in, or null
+```
+
+Word has no reading of a run. `c.para(…).bold` over a range that is bold in
+part is `null` — Word's "undefined" — which is the fact to assert there.
+
+**A list is three hops in the file, and one lookup here.** The paragraph names
+a numbering, the numbering names an abstract one, and the abstract one holds
+the level the marker is on. `a.list(…)` follows all three, so a paragraph whose
+`w:numPr` points at nothing reads as no list at all:
+
+```tsx
+a.list("Photo identification").format // "bullet", "decimal", "lowerLetter" …
+a.list("Photo identification").text   // the glyph, or a pattern such as "%1."
+a.list("A second list").numId         // a different one, if it counts for itself
+b.para("Photo identification").marker // the ::before the preview draws in front
+```
+
+The preview's marker is a CSS rule rather than a figure: a counter's value is
+not in the DOM, and Chrome reports `counter(name)` with no style named when the
+style is the default one, figures. Where an item's words start is
+`lines[0].x`, which leaves the marker out — a range has no reading of a
+`::before`.
+
 **A chart is a part, not an element, and all three tiers say so.** What
 `document.xml` holds is a frame and a relationship id; the plot and every
 cached value are in `word/charts/chartN.xml`, and the numbers a reader would

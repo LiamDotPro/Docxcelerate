@@ -90,6 +90,35 @@ export const Balance: Paragraph = () => {
 };
 ```
 
+## Words set differently
+
+`<Text>` sets some of a paragraph's words apart — a term in bold, a phrase that
+links somewhere — and a line end in the text is a line break rather than a new
+paragraph.
+
+```tsx
+<Paragraph id="terms">
+  Payment is due within <Text bold>thirty days</Text>. You can{" "}
+  <Text href="https://example.com/pay">pay online</Text>.
+</Paragraph>
+```
+
+It says what the words are, never what they look like: there is no colour and
+no size on it, and a link is drawn in the theme's accent, so it re-themes with
+the document around it.
+
+## Lists that count themselves
+
+A list is paragraphs that say they are items. Written one after another they
+are one list, and the renderer does the counting — so a step dropped for one
+recipient leaves no gap in the numbers.
+
+```tsx
+<Paragraph id="check" list="number">Check the plan and the price.</Paragraph>
+<Paragraph id="pay" list="number">Pay online, or at the desk.</Paragraph>
+<Paragraph id="pay-note" list="bullet" listLevel={1}>Card and direct debit are both accepted.</Paragraph>
+```
+
 ## Charts are charts, not pictures of charts
 
 A `<Graph>` is packed as a real Word chart — a DrawingML chart part with every
@@ -168,6 +197,25 @@ it, and pass an array of them when the shape legitimately varies by case.
 
 Jump into our documentation to understand how you can structure documents with AI
 and create more complex documents for your own needs.
+
+## One template, every language
+
+A component writes its words once per language with `defineMessages`, and a
+project names the languages it ships in. The build's locale picks the words,
+formats the figures, tells Word what language to proofread in, and asks a
+generated node to write in it.
+
+```tsx
+const messages = defineMessages("en", { clear: "There is nothing to pay." }, {
+  fr: { clear: "Vous n’avez rien à payer." },
+});
+
+export const Clear: Paragraph = () => <Paragraph id="clear">{useMessages(messages).clear}</Paragraph>;
+```
+
+```ts
+defineDocumentProject({ /* … */ locales: ["en-GB", "fr-FR"] });
+```
 
 ## Components you can install
 

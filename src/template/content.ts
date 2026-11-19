@@ -1,8 +1,8 @@
-import type { PromptKind, PromptSpec } from "../domain/types.ts";
+import type { ParagraphRun, PromptKind, PromptSpec } from "../domain/types.ts";
 import { renderTemplate } from "../runtime/templates.ts";
 import { type PromptDraft, promptPropByKind, type RenderContext } from "./context.ts";
 import { hostKindOf, isTemplateElement, type TemplateElement, type Yield } from "./element.ts";
-import type { PromptProps } from "./elements.ts";
+import type { PromptProps, TextProps } from "./elements.ts";
 import { describe, type Frame } from "./frame.ts";
 
 /**
@@ -104,56 +104,108 @@ export async function placeholderText(
     : `[Dynamic placeholder: ${id}]`;
 }
 
-export function formatPromptText(prompts: PromptSpec[]): string {
-  return prompts.map((entry) => `${entry.kind.toUpperCase()}: ${entry.text}`).join("\n");
-}
-
 /** A picture found among a paragraph's children, and where it was found. */
 export type InlineImageElement = { at: number; element: TemplateElement };
 
+/** How a run is set: everything a {@linkcode ParagraphRun} says except its words. */
+type RunMarks = Omit<ParagraphRun, "text">;
+
+const MARKS = ["bold", "italic", "underline", "strike", "href"] as const;
+
 /**
- * The words a paragraph's children spell, and any pictures set among them.
+ * The words a paragraph's children spell, any pictures set among them, and
+ * how each stretch of the words is set.
  *
- * Passing `inlineAt` opts into collecting pictures; without it an element
- * child is still the error it always was.
+ * Passing `inlineAt` opts into collecting pictures; without it a picture is
+ * still the error any other element is. `runs` receives one entry per piece of
+ * text, in order, each carrying the settings of every `<Text>` around it —
+ * {@linkcode markedRuns} is what makes a paragraph's runs of them.
  */
-export function joinText(children: Yield, frame: Frame, inlineAt?: InlineImageElement[]): string {
+export function joinText(
+  children: Yield,
+  frame: Frame,
+  inlineAt?: InlineImageElement[],
+  runs?: ParagraphRun[],
+): string {
   const parts: string[] = [];
 
-  const walk = (value: Yield): void => {
+  const walk = (value: Yield, marks: RunMarks): void => {
     if (value === false || value === null || value === undefined) {
       return;
     }
 
     if (Array.isArray(value)) {
-      value.forEach(walk);
+      value.forEach((item) => walk(item, marks));
       return;
     }
 
     if (isTemplateElement(value)) {
-      // A picture is the one element that belongs inside a line rather than
+      const kind = hostKindOf(value.type);
+
+      // A picture is the one node that belongs inside a line rather than
       // beside it. Where it sits is remembered as an offset into the text
       // built so far, so the words stay one string and the order survives.
-      if (hostKindOf(value.type) === "image") {
-        inlineAt?.push({ at: parts.join("").length, element: value });
+      if (kind === "image" && inlineAt !== undefined) {
+        inlineAt.push({ at: parts.join("").length, element: value });
+        return;
+      }
+
+      // `<Text>` is not a node at all: it says how its words are set and then
+      // gets out of the way, so what is inside it is walked as if it were here.
+      if (kind === "text") {
+        const props = value.props as TextProps;
+        const own = Object.fromEntries(
+          MARKS.filter((mark) => props[mark] !== undefined).map((mark) => [mark, props[mark]]),
+        );
+        walk(props.children, { ...marks, ...own });
         return;
       }
 
       throw new Error(
         `A <Paragraph> at ${describe(frame)} was given an element as a child. ` +
-          "A paragraph holds text; put a picture inside it, and anything else beside it.",
+          "A paragraph holds text; put a picture or a <Text> inside it, and anything else beside it.",
       );
     }
 
     // Anything else is a value being interpolated. Stringifying rather than
     // testing for `string` is what lets a published build interpolate a
     // stand-in, which is not a string but knows what it is called.
-    parts.push(String(value));
+    const piece = String(value);
+    parts.push(piece);
+    runs?.push({ text: piece, ...marks });
   };
 
-  walk(children);
+  walk(children, {});
 
   return parts.join("");
+}
+
+/**
+ * A paragraph's runs, or nothing when it is set one way from end to end.
+ *
+ * Neighbours set alike are one run — `Dear {name},` arrives as three pieces
+ * and is one stretch of words — and a paragraph with no setting anywhere in it
+ * has no runs at all, which is what keeps every document written before runs
+ * existed publishing byte for byte what it did.
+ */
+export function markedRuns(pieces: readonly ParagraphRun[]): ParagraphRun[] | undefined {
+  const runs: ParagraphRun[] = [];
+
+  for (const piece of pieces) {
+    const last = runs.at(-1);
+
+    if (piece.text === "") {
+      continue;
+    }
+
+    if (last !== undefined && MARKS.every((mark) => last[mark] === piece[mark])) {
+      last.text += piece.text;
+    } else {
+      runs.push({ ...piece });
+    }
+  }
+
+  return runs.some((run) => MARKS.some((mark) => run[mark] !== undefined)) ? runs : undefined;
 }
 
 export async function text(

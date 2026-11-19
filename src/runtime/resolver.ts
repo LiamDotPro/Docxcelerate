@@ -13,7 +13,7 @@ import type {
 import { generateGraph, generateImage, generateParagraph } from "./ai_request.ts";
 import { evaluateCondition } from "./conditions.ts";
 import { createDefaultDeriverRegistry, type DeriverRegistry, runDerivers } from "./derivers.ts";
-import { renderTemplate } from "./templates.ts";
+import { renderTemplate, resolveReference } from "./templates.ts";
 
 /**
  * Settling a published document against real data.
@@ -47,6 +47,12 @@ export async function resolveDocument(
   options: ResolveOptions = {},
 ): Promise<DocumentModel> {
   const derivers = options.derivers ?? createDefaultDeriverRegistry();
+  // The document knows its language; the engine that built `state` may not.
+  // A locale the engine set on purpose wins, and the caller's state is not
+  // written to.
+  if (doc.locale !== undefined && state.locale === undefined) {
+    state = { ...state, locale: doc.locale };
+  }
   const nodes = await resolveNodes(doc.nodes, state, derivers);
   // The furniture is resolved too: a footer naming the recipient's reference
   // is as much a published token as anything in the body, and it is the part
@@ -154,7 +160,8 @@ async function resolveRepeat(
   state: RuntimeState,
   derivers: DeriverRegistry,
 ): Promise<DocumentNode[]> {
-  const entries = await state.dataProvider.get(node.source.path);
+  // By scope, not always the provider: a loop over a deriver's rows reads `derived`.
+  const entries = await resolveReference(node.source, state);
   const previousEntry = state.ctx[node.as];
   const previousIndex = state.ctx[node.indexAs];
   const children: DocumentNode[] = [];
@@ -210,6 +217,18 @@ async function resolveParagraph(
   state: RuntimeState,
 ): Promise<ParagraphNode> {
   if (node.mode === "static") {
+    if (node.runs !== undefined) {
+      // Settled run by run and joined, so the runs go on spelling the text:
+      // a token filled in changes length, and the two must change together.
+      const runs = await Promise.all(node.runs.map(async (run) => ({
+        ...run,
+        text: await renderTemplate(run.text, state),
+        ...(run.href === undefined ? {} : { href: await renderTemplate(run.href, state) }),
+      })));
+
+      return { ...node, text: runs.map((run) => run.text).join(""), runs };
+    }
+
     return {
       ...node,
       text: node.text ? await renderTemplate(node.text, state) : "",
