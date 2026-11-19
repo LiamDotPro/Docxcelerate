@@ -102,10 +102,20 @@ test("7. rolled hours that do not extend", () => {
   assertEquals(o.entries[0].parts[0].rolled, true);
   assertEquals(o.blocks[1].expires, "30 June 2026; rolled hours 15 May 2026");
   invariant(o);
-  const late = go({ blocks, entries: [entry("2026-04-10", 120)], periodEnd: "2026-05-31" });
+  const late = go({ blocks: [giver({ rolledExpiry: "2026-05-15" }), receiver({ opening: 40, rate: 90000 })], entries: [entry("2026-04-10", 120)], periodEnd: "2026-05-31" });
   assertEquals(row(late, "b").forfeited, 360);
-  assertEquals(late.forfeitedValue, 200000); // 4h above the cap, then the 6h left in the rolled pool
+  assertEquals(late.forfeitedValue, 200000); // 4h above the cap, then the 6h left in the rolled pool, both at the giver's rate, not b's
   invariant(late);
+});
+
+test("7b. a rolled pool keeps the giver's roles", () => {
+  const blocks = [giver({ allowedRoles: ["associate"] }), receiver({ opening: 0 })];
+  const at = (role: string) => parts(go({ blocks, entries: [entry("2026-04-10", 60, { role, standardRate: 1 })] }));
+  assertEquals(at("associate"), [["b", 60]]);
+  assertEquals(at("partner"), [[null, 60]]); // cannot draw the rolled 8h in b
+  const own = go({ blocks: [giver({ allowedRoles: ["associate"] }), receiver({ opening: 5 })], entries: [entry("2026-04-10", 60, { role: "partner" })] });
+  assertEquals(parts(own), [["b", 60]]); // but can draw b's own pool
+  assertEquals(own.entries[0].parts[0].rolled, false);
 });
 
 test("8. rolled hours never roll twice", () => {
@@ -270,6 +280,11 @@ test("20. publishing then resolving matches building directly", async () => {
   for (const id of ["block-1", "block-2", "block-3", "block-4", "ledger-total", "split", "rolled", "forfeited", "expiring", "overage"]) {
     assertEquals(resolved.includes("prepaid-hours-" + id), true);
   }
+  // The preview shows every behaviour at once: a split into overage, a block with no cap lapsing, a capped rollover.
+  const shown = mod.run([preview.retainer], {} as RuntimeState) as Obj;
+  assertStringIncludes(shown.splitNote, "as overage");
+  assertEquals(row(shown, "q4-carried").forfeited > 0, true);
+  assertEquals(row(shown, "q1").rolled < 0, true);
   // The preview leaves Q2 and the paralegal block open, so neither warning fires.
   for (const id of ["low", "exhausted"]) assertEquals(resolved.includes("prepaid-hours-" + id), false);
 });

@@ -1054,15 +1054,15 @@ export const COMPONENTS: RegistryComponent[] = [
         expiringDays: 61,
         vatOnPurchase: true,
         blocks: [
-          { id: "q4-carried", name: "Hours carried from the Q4 2025 commercial litigation retainer", hours: 30, opening: 12.5, rate: 62500, start: "2025-10-01", expiry: "2026-03-15" },
+          { id: "q4-carried", name: "Hours carried from the Q4 2025 commercial litigation retainer", hours: 30, opening: 24, rate: 62500, start: "2025-10-01", expiry: "2026-03-15" },
           { id: "q1", name: "Q1 2026 retainer: commercial litigation and regulatory advisory", hours: 250, opening: 100.3, rate: 62500, start: "2026-01-01", expiry: "2026-03-31", rolloverCap: { percent: 10 }, rolledExpiry: "2026-04-30", allowedRoles: ["partner", "senior associate", "associate"] },
           { id: "q2", name: "Q2 2026 retainer: commercial litigation and regulatory advisory", hours: 250, rate: 62500, start: "2026-04-01", expiry: "2026-06-30", rolloverCap: { percent: 10 }, rolledInFrom: "q1" },
-          { id: "paralegal-q1", name: "Q1 2026 document review and disclosure support (paralegal time only)", hours: 120, opening: 48, rate: 18500, start: "2026-01-01", expiry: "2026-05-31", allowedRoles: ["paralegal", "trainee solicitor"] },
+          { id: "paralegal-q1", name: "Q1 2026 document review and disclosure support (paralegal time only)", hours: 120, opening: 6, rate: 18500, start: "2026-01-01", expiry: "2026-05-31", allowedRoles: ["paralegal", "trainee solicitor"] },
         ],
         entries: [
           { date: "2026-02-27", timekeeper: "Alexandra Montgomery-Fitzwilliam", role: "partner", minutes: 184, standardRate: 145000 },
           { date: "2026-03-03", timekeeper: "Oluwaseun Adebayo-Richardson", role: "senior associate", minutes: 437, standardRate: 89500 },
-          { date: "2026-03-09", timekeeper: "Krystyna Wiśniewska-Hargreaves", role: "paralegal", minutes: 1250, standardRate: 24500 },
+          { date: "2026-03-17", timekeeper: "Krystyna Wiśniewska-Hargreaves", role: "paralegal", minutes: 1250, standardRate: 24500 },
           { date: "2026-03-12", timekeeper: "Alexandra Montgomery-Fitzwilliam", role: "partner", minutes: 611, standardRate: 145000 },
           { date: "2026-03-18", timekeeper: "Oluwaseun Adebayo-Richardson", role: "senior associate", minutes: 1904, standardRate: 89500 },
           { date: "2026-03-24", timekeeper: "Maximilian Featherstonehaugh", role: "associate", minutes: 1022, standardRate: 72500 },
