@@ -49,8 +49,8 @@ useSetPrompts({
 
 ## Verzweigen
 
-Ein Dokument, das eines von drei Dingen sagt, ist eine Komponente mit drei
-Ausgängen. Geben Sie jedem Zweig eine eigene id:
+Sagt ein Dokument eines von drei Dingen, ist das eine Komponente mit drei
+Ausgängen — nicht drei Komponenten. Geben Sie jedem Zweig eine eigene id:
 
 ```tsx
 if (state.settled) {
@@ -77,6 +77,203 @@ const [state] = useState((data: MemberData) => ({
 return <Paragraph id="balance">{state.line}</Paragraph>;
 ```
 
+## Wie er auf der Seite sitzt
+
+`align` ist die eine Erscheinung, die ein Absatz selbst festlegt, denn die
+Ausrichtung ist oft das, was der Absatz *ist*, und nicht, wie er aussieht — ein
+Datum steht in jedem Theme rechtsbündig, so wie eine Geldspalte:
+
+```tsx
+<Paragraph id="issued" align="right">{state.issuedOn}</Paragraph>
+```
+
+Alles Übrige darüber, wie ein Absatz gesetzt wird, gehört dem Theme, erreicht
+über den Namen per `variant`. Der Block entscheidet; der Node sagt nur, welcher
+Block er ist:
+
+```ts
+blocks: {
+  standfirst: { align: "center", spacingBeforePt: 4, spacingAfterPt: 14 },
+  quote:      { indentMm: 10, indentRightMm: 10 },
+  heading:    { keepWithNext: true },
+  contents:   { tabStopsMm: [{ at: 170, align: "right", leader: "dot" }] },
+}
+```
+
+```tsx
+<Paragraph id="lead" variant="standfirst">What this letter is about.</Paragraph>
+<Paragraph id="terms" variant="contents">{"What the agreement covers\t3"}</Paragraph>
+```
+
+Ein Node, der sein eigenes `align` angibt, sticht das seines Blocks, so wie eine
+Zelle ihre Spalte sticht. Was ein Block über Füllung, Rahmen und Schrift hinaus
+festlegen kann:
+
+| | |
+| --- | --- |
+| `align` | wie die Zeilen in der Spalte sitzen |
+| `spacingBeforePt`, `spacingAfterPt` | Abstand darüber und darunter, in Punkt |
+| `indentMm`, `indentRightMm` | Einzug vom linken und rechten Rand |
+| `firstLineIndentMm` | nur die erste Zeile — das Absatzzeichen eines Buchs |
+| `hangingIndentMm` | die erste Zeile gegenüber dem Rest zurückgezogen |
+| `keepWithNext`, `keepLines` | nie das Letzte auf einer Seite; nie über eine Seite geteilt |
+| `tabStopsMm` | `[{ at, align?, leader? }]` ab dem linken Rand oder ab der Innenkante einer Zelle oder Form. Ein `\t` im Text führt dorthin |
+| `lineHeight` | Zeilenabstand, als Vielfaches der Schriftgröße |
+
+Jede dieser Angaben bedeutet am Bildschirm dasselbe wie in Word, und das wird
+geprüft statt angenommen: Zu jeder Eigenschaft hier gibt es einen
+Konformitätsfall, der ein Dokument packt, in Word öffnet und die Vorschau auf den
+Millimeter an das hält, was Word zeichnet. Zwei Grenzen ergeben sich aus Words
+eigenem Format und sind gut zu wissen — der Innenabstand braucht einen Rahmen,
+an dem er hängen kann, und ein linker Rahmen schiebt die *Linie* nach außen,
+statt den Text nach innen zu rücken.
+
+Ein Absatz in einer [`<Cell>`](/de/docs/nodes/table/#was-eine-zelle-enthält)
+oder einer [`<Shape>`](/de/docs/nodes/shape/) behält all das — sein eigenes
+`align` über dem der Spalte, dazu Einzüge, Tabstopps, Rahmen und Füllung seiner
+Variante —, sodass eine Unterschriftszelle einen gepunkteten Tabstopp tragen kann
+und eine Karte ein umrandetes Zitat. Dort misst ein Tabstopp ab der Innenkante
+des Containers, und `bleed` und `maxWidthMm`, die Maße der Seite sind, bewirken
+nichts.
+
+Ein Rahmen ist eine durchgezogene Linie, sofern der Block nichts anderes sagt.
+`borderStyle` zeichnet Words eigene Linie `"double"`, `"dashed"` oder `"dotted"`
+auf jeder Kante, die der Block zeichnet — eine Doppellinie unter einer
+Gesamtsumme, eine gestrichelte Abreißlinie über einem Überweisungsabschnitt —,
+statt Blöcke zu stapeln, um eine vorzutäuschen:
+
+```ts
+grandTotal: { border: "1C2340", borderSides: ["bottom"], borderStyle: "double", weight: "bold" },
+```
+
+## Listen
+
+Eine Liste besteht aus Absätzen, die von sich sagen, dass sie Einträge sind.
+`list="bullet"` markiert einen, `list="number"` zählt ihn:
+
+```tsx
+<Paragraph id="intro">To renew:</Paragraph>
+<Paragraph id="check" list="number">Check the plan and the price.</Paragraph>
+<Paragraph id="pay" list="number">Pay online, or at the desk.</Paragraph>
+<Paragraph id="pay-note" list="bullet" listLevel={1}>Card and direct debit are both accepted.</Paragraph>
+<Paragraph id="collect" list="number">Collect your new card.</Paragraph>
+```
+
+Nacheinander geschriebene Einträge sind eine Liste, und das Zählen übernimmt der
+Renderer — so, wie er Seiten zählt. Das ist der ganze Grund, die Nummern nicht
+selbst zu tippen: Ein Schritt, der für einen Empfänger entfällt, hinterlässt
+keine Lücke, und eine Liste aus Ihren Daten ist ein `.map()` wie jedes andere.
+
+```tsx
+{state.steps.map((step) => <Paragraph id="step" list="number">{step.text}</Paragraph>)}
+```
+
+Alles, was kein Eintrag ist, beendet die Liste, und eine nummerierte Liste danach
+beginnt wieder bei eins. `listLevel` stellt einen Eintrag unter den darüber: `1`
+für einen Punkt unter einem Eintrag, bis zu neun Ebenen tief. Die Nummern gehen
+beim Abwärtsgehen von Ziffern über Buchstaben zu römischen Ziffern, Aufzählungen
+von einem gefüllten Punkt über einen leeren zu einem Quadrat. Ein Aufzählungspunkt
+unter einem nummerierten Schritt unterbricht die Zählung der Schritte nicht.
+
+Dass eine nummerierte Liste in Ziffern, dann Buchstaben, dann römischen Ziffern
+zählt, ist der Standard, keine Notwendigkeit. `listStyle` am ersten Eintrag einer
+Ebene wählt die Zählweise dieser Ebene für die ganze Liste — die Unterklauseln
+eines Vertrags heißen `(a)`:
+
+```tsx
+<Paragraph list="number">The tenant agrees:</Paragraph>
+<Paragraph list="number" listLevel={1} listStyle="lowerLetterParen">to pay the rent on time;</Paragraph>
+<Paragraph list="number" listLevel={1}>to keep the property in good order.</Paragraph>
+```
+
+Auf `decimal`, `lowerLetter`, `upperLetter`, `lowerRoman` und `upperRoman` folgt
+ein Punkt; mit `Paren` erhalten Sie die Form in Klammern. Aufzählungen ignorieren
+es.
+
+Ein Eintrag ist weiterhin ein Absatz. Er hat eine id, eine Bedingung kann ihn
+entfernen, er nimmt eine `variant`, und einer, den eine Engine schreibt, kann ein
+Eintrag sein wie jeder andere. Einträge stehen zusammen, wobei der Abstand, den
+ein Absatz unter sich lässt, nach der Liste kommt statt zwischen den
+Einträgen — es sei denn, die `variant` des Eintrags nennt einen Abstand; der
+gewinnt.
+
+Zwei Grenzen. Das Zeichen einer Aufzählung und der Einzug jedes Eintrags gehören
+dem Renderer, nicht dem Theme — `listStyle` wählt nur die Zählweise einer Nummer,
+sonst nichts. Und ein Eintrag an einer `<Shape>` wird als schlichter Absatz
+gezeichnet: Die Box hält ihre Wörter mit demselben Einzug vom Rand fern, den ein
+hängender Einzug braucht.
+
+## Anders gesetzte Wörter
+
+`<Text>` setzt einige Wörter eines Absatzes vom Rest ab — den Begriff, auf dem
+eine Mitteilung beruht, eine Wendung, die irgendwohin führt:
+
+```tsx
+import { Paragraph, Text } from "docxcelerate/template";
+
+<Paragraph id="terms">
+  Payment is due within <Text bold>thirty days</Text>. You can{" "}
+  <Text href="https://example.com/pay">pay online</Text>.
+</Paragraph>
+```
+
+`bold`, `italic`, `underline` und `strike` sagen, wie die Wörter betont werden;
+`script="superscript"` oder `"subscript"` hebt oder senkt sie — die 2 in m², die
+2 in CO₂, das st in 1st —, sodass Word sie setzt und Sie nicht `²` tippen; und
+`href` sagt, wohin sie führen: eine `https:`-, `http:`-, `mailto:`- oder
+`tel:`-Adresse. Ein `<Text>` in einem anderen übernimmt beide Einstellungen. Es
+funktioniert genauso zwischen den Wörtern einer `<Cell>` oder einer `<Shape>`.
+
+Es ist kein Node. Es hat keine id, und nichts adressiert es. Es gibt nie eine
+Farbe oder Größe an; muss eine Wendung hervorstechen — ein fälliger Betrag in
+einem Satz, ein definierter Begriff —, nennen Sie einen Theme-Block, so wie es
+ein Absatz tut:
+
+```tsx
+The amount due is <Text variant="amountDue">{state.due}</Text>.
+```
+
+Nur die Zeicheneinstellungen des Blocks erreichen die Wörter — `color`, `fill` als
+Schattierung, `fontSizePt`, `weight`, `font`, `transform`, `letterSpacingEm`;
+Rahmen, Innenabstand und Abstände gehören einem Absatz. Eine daneben gesagte
+Auszeichnung sticht den Block, und ein Link behält den Akzent des Themes. Eine
+Adresse, die keine der vier Arten ist, wird nur als ihre Wörter gedruckt, denn
+die Adresse kann aus Ihren Daten stammen, und eine Vorschau zeichnet einen Link
+als etwas, das ein Leser anklicken kann.
+
+Ein Zeilenende im Text ist ein Zeilenumbruch und kein neuer Absatz, was eine
+Adresse braucht — ein Node, drei Zeilen und nichts von dem Abstand, den ein
+Absatz unter sich lässt:
+
+```tsx
+<Paragraph id="address">{"Flat 2\n14 Example Road\nLeeds LS1 4AB"}</Paragraph>
+```
+
+Nur ein statischer Absatz hat Runs. Einer, den eine Engine schreibt, wird als
+schlichte Wörter geschrieben.
+
+### Was veröffentlicht wird
+
+Der Absatz behält seinen `text` ungeteilt, sodass alles, was die Wörter eines
+Absatzes liest, weiterhin einen String liest. Die Einstellungen reisen daneben
+als `runs`, jeder mit seinen eigenen Wörtern:
+
+```json
+{ "kind": "paragraph", "mode": "static", "id": "terms",
+  "text": "Payment is due within thirty days.",
+  "runs": [
+    { "text": "Payment is due within " },
+    { "text": "thirty days", "bold": true },
+    { "text": "." }
+  ] }
+```
+
+Ein Absatz, in dem nichts abgesetzt ist, hat gar keine `runs` und veröffentlicht
+genau das, was er vorher veröffentlichte. Interpolierte Werte funktionieren in
+einem `<Text>` wie überall sonst: Ein veröffentlichter Run enthält das Token, und
+die Engine löst es an Ort und Stelle auf, sodass `<Text bold>{state.name}</Text>`
+für jeden Empfänger fett ist, gleich wie lang sein Name ist.
+
 ## Dynamische Absätze
 
 Ein dynamischer Absatz hat keinen eigenen Text; er trägt stattdessen Prompts und
@@ -101,4 +298,5 @@ erforderlich — die vierte Variante unten zeigt, wozu die anderen drei da sind.
   wegzulassen, geben Sie nichts zurück — `false`, `null` und `undefined` werden
   alle übersprungen.
 - Renderer escapen den Text. Ein Absatz kann kein Markup in die Seite
-  schmuggeln und ist nicht der Ort für Formatierung.
+  schmuggeln: `<Text>` ist die einzige Formatierung, und es ist ein Element,
+  kein String.

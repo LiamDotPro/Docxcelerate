@@ -13,6 +13,10 @@ import NodeVariants from "../../../../components/NodeVariants.astro";
 
 ## Zo schrijf je er een
 
+Een tabel vraagt twee dingen van je: de kolommen en de rijen. De kolommen
+declareer je één keer op de `<Table>`, en daarna vul je hem met `<Row>`s van
+`<Cell>`s.
+
 ```tsx
 import { Cell, Row, Table, useFormat, useState } from "docxcelerate/template";
 
@@ -23,8 +27,8 @@ export const VisitLog: Table = () => {
   return (
     <Table id="visit-log" columns={[{ width: "auto" }, { width: 28, align: "right" }]}>
       <Row header>
-        <Cell>Maand</Cell>
-        <Cell>Bezoeken</Cell>
+        <Cell>Month</Cell>
+        <Cell>Visits</Cell>
       </Row>
       {state.months.map((entry) => (
         <Row>
@@ -37,17 +41,109 @@ export const VisitLog: Table = () => {
 };
 ```
 
-**De kolommen horen bij de tabel**, in millimeters of `"auto"` om te verdelen wat de vaste overlaten, elk met een optionele `align`. Ze worden één keer gedeclareerd omdat elke rij ze deelt: een tabel waarvan de kolommen niet uitlijnen is geen tabel.
+Elke kolom krijgt een `width` — in millimeters, of `"auto"` om te verdelen wat de
+vaste kolommen overlaten — en een optionele `align`.
 
-**Al het andere is een gewone node.** Een `.map()` maakt rijen, een voorwaarde laat er een weg, en elke noemt zichzelf. Dat is wat een gepubliceerde factuur één lus laat dragen die de engine doorloopt, in plaats van een tabel vol uitzonderingen.
+`align` op de `<Table>` verplaatst de hele tabel, niet zijn woorden: een
+totalenblok met vaste kolommen en `align="right"` staat tegen de rechtermarge
+zonder dat een afstandskolom het daar houdt. Alleen een tabel die smaller is dan
+de kolom kan verschuiven — een `"auto"`-kolom of een `bleed` vult hem.
+
+**Waarom de kolommen op de tabel declareren in plaats van per cel?** Omdat elke
+rij ze deelt, en ze één keer declareren is wat de rijen laat uitlijnen. Het
+betekent ook dat een cel alleen hoeft te zeggen wat erin zit.
+
+Een breedte die je opgeeft is een breedte die je krijgt. De tabel wordt met een
+vaste layout ingepakt, dus Word zet de kolommen waar jij ze neerzet in plaats van
+ze te herschalen om wat er toevallig in de cellen staat — en dat is wat een
+bedragenkolom laat uitlijnen met het totaal eronder. Dat wordt gecontroleerd in
+plaats van aangenomen: de conformiteitssuite pakt deze tabel in, opent hem in Word
+en houdt elke kolomgrens binnen een millimeter van waar de preview hem tekende.
+
+## Rijen zijn gewone nodes
+
+Dit is het deel dat het weten waard is, omdat er daardoor minder te leren valt
+dan je zou verwachten.
+
+Rijen en cellen zijn nodes, precies zoals een alinea of een sectie. Dus alles wat
+je al kent werkt erop:
+
+- `.map()` over je data levert een rij per item op, zoals hierboven.
+- Een voorwaarde laat een rij weg, op dezelfde manier als elke andere node.
+- Ids noemen zichzelf, dus je hoeft er niet per rij een te verzinnen.
+
+Niets hiervan is voor tabellen een speciaal geval. Het is ook waarom een
+gepubliceerde factuur één lus draagt die de engine doorloopt, in plaats van een
+tabel vol uitzonderingen.
 
 ## Wat een cel bevat
 
-Tekst gaat er rechtstreeks in, dus `<Cell>{line.qty}</Cell>` is het gewone geval en leest ook zo. Geef een cel alinea's wanneer één regel niet genoeg is — een omschrijving boven een gedempte notitie — en ze blijven op aparte regels.
+De meeste cellen bevatten een waarde, dus tekst gaat er rechtstreeks in:
+
+```tsx
+<Cell>{line.qty}</Cell>
+```
+
+Een [`<Text>`](/nl/docs/nodes/paragraph/#woorden-anders-gezet) tussen de woorden
+zet een deel ervan apart, en de cel blijft één regel tekst:
+
+```tsx
+<Cell>Total <Text bold>due</Text></Cell>
+```
+
+Is één regel niet genoeg — een omschrijving met een rustigere notitie eronder —
+geef de cel dan alinea's, en ze blijven op aparte regels:
+
+```tsx
+<Cell>
+  <Paragraph>{line.desc}</Paragraph>
+  <Paragraph variant="muted">{line.meta}</Paragraph>
+</Cell>
+```
+
+Elke houdt zijn eigen `align` en `variant` — de
+[alineapagina](/nl/docs/nodes/paragraph/#hoe-het-op-de-pagina-staat) beschrijft
+wat er behouden blijft.
 
 ## Koprijen
 
-`header` op een rij tekent hem als kop. Alleen de rijen waarmee een tabel **begint** herhalen op elke nieuwe pagina, dus een totaalrij met `header` wordt als kop getekend maar blijft staan waar hij staat, onder de cijfers die hij optelt.
+Een rij als `header` markeren tekent hem als kop:
+
+```tsx
+<Row header>
+  <Cell>Description</Cell>
+  <Cell>Amount</Cell>
+</Row>
+```
+
+Alleen de rijen waarmee een tabel **begint** herhalen op elke nieuwe pagina. Dat
+is van belang als je een totaalrij als kop markeert om hem nadruk te geven: hij
+wordt nog steeds als kop getekend, maar blijft onderaan staan, onder de cijfers
+die hij optelt. Hij wordt niet naar boven op pagina twee gehaald.
+
+De preview herhaalt hem ook. Een tabel die langer is dan een pagina wordt
+afgebroken tussen twee van zijn rijen — dezelfde naad waarop Word afbreekt — en de
+kop wordt bovenaan elk stuk opnieuw getekend, zodat een factuur van vijftig regels
+op het scherm eruitziet zoals hij wordt afgedrukt.
+
+## Rijen die hun vorm houden
+
+Word breekt een lange rij over een pagina af waar de pagina ophoudt, wat een halve
+factuurregel onderaan de ene pagina en een halve bovenaan de volgende oplevert.
+`keepTogether` verplaatst in plaats daarvan de hele rij; zet het op de rij die een
+`.map()` produceert en elke regel krijgt het. Een rij die hoger is dan een pagina
+breekt toch af.
+
+`height` geeft een rij een eigen hoogte, in punten — een vak om in te tekenen, een
+regel van een formulier. Het is een ondergrens waar de rij overheen groeit als zijn
+cellen meer nodig hebben; `heightRule="exact"` maakt hem vast, voor een etikettenvel
+waar het raster zwaarder weegt dan de woorden, en Word knipt af wat niet past (de
+preview laat de rij groeien in plaats van het te verbergen).
+
+```tsx
+{state.lines.map((line) => <Row keepTogether>…</Row>)}
+<Row height={56}><Cell>Signed</Cell><Cell>Date</Cell></Row>
+```
 
 ## Varianten
 
@@ -55,7 +151,11 @@ Tekst gaat er rechtstreeks in, dus `<Cell>{line.qty}</Cell>` is het gewone geval
 
 ## Aantekeningen
 
-- Een lege cel is nog steeds een cel. Word accepteert geen lege, dus hij wordt als blanco vak ingepakt in plaats van als ontbrekende kolom.
-- `span` laat een cel over meerdere kolommen lopen; `align` overschrijft de uitlijning van de kolom voor alleen die cel.
-- Een `variant` op een cel wint van die op zijn rij, en die van die op de tabel — de smallere uitspraak is de bewustere.
-- Beide meegeleverde renderers tekenen een echte tabel: een `<table>` op het scherm en een Word-tabel met de gedeclareerde kolombreedtes in de `.docx`.
+- Een lege cel is nog steeds een cel. Word accepteert geen echt lege, dus hij
+  wordt als blanco vak ingepakt in plaats van als ontbrekende kolom.
+- `span` laat een cel over meerdere kolommen lopen. `align` overschrijft de
+  uitlijning van de kolom voor alleen die cel.
+- Als je een `variant` op een cel zet, wint die van een op de rij, die wint van
+  een op de tabel. De specifiekere is meestal degene die je bedoelde.
+- Beide renderers tekenen een echte tabel — een `<table>` op het scherm, en een
+  Word-tabel met je gedeclareerde kolombreedtes in de `.docx`.
