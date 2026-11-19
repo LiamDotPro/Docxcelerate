@@ -490,12 +490,16 @@ export interface GraphNode extends BaseNode {
  */
 export interface TableColumn {
   /**
-   * Width in millimetres, or `"auto"` to share out what the fixed ones leave.
+   * Width in millimetres, a share of the text column such as `"30%"`, or
+   * `"auto"` to share out what the others leave. Left out, it is `"auto"`.
    *
    * Millimetres rather than points because a page is measured in them: a
    * 26mm money column against a 210mm page is a proportion a reader can check.
+   * A percentage is for the table that has to keep its proportions on any
+   * paper: it is a share of the text column, or of the paper for a `bleed`
+   * table, worked out when the page is known.
    */
-  width?: number | "auto";
+  width?: number | "auto" | `${number}%`;
   /** How this column's cells are aligned. Left unless it is said. */
   align?: TableAlign;
 }
