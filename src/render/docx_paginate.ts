@@ -31,8 +31,9 @@
  * how far the two engines' page counts and placements diverge, and the honest
  * summary is that they agree on documents made of ordinary paragraphs and drift
  * on documents made of very long ones. It does not honour `w:keepNext` or
- * `w:keepLines` either, so a kept heading can still sit at the foot of a sheet
- * here; the Word tier is the authority for where a kept heading lands.
+ * `w:keepLines` either, so a kept heading can still sit at the foot of a sheet,
+ * and a `<Table keepTogether>` can still be split between two rows, here; the
+ * Word tier is the authority for where either lands.
  *
  * @module
  */

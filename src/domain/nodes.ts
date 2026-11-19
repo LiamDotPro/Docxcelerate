@@ -516,6 +516,17 @@ export interface TableNode extends BaseNode {
   columns: TableColumn[];
   /** Where the table sits across the text column. Left unless it is said. */
   align?: TableAlign;
+  /**
+   * Whether the whole table stays on one page rather than breaking between rows.
+   *
+   * For a short table that reads as one thing — a totals box, bank details, a
+   * signature block — where a page break between two of its rows leaves a
+   * subtotal on one page and the total it leads to on the next. Word moves the
+   * whole table over instead. Every row is also kept whole, as `keepTogether`
+   * on a row does. A table taller than a page breaks anyway, having nowhere
+   * else to go. Left out, Word may break the table between any two rows.
+   */
+  keepTogether?: boolean;
   /** The rows, and any loops that produce them. */
   children: DocumentNode[];
 }

@@ -426,6 +426,8 @@ type CellContext = {
    * against the box's edge on screen while Word indents them properly.
    */
   indent?: { left: number; right: number };
+  /** Whether every paragraph keeps with the next row, for a table kept together. */
+  keepNext?: boolean;
 };
 
 /** The paragraph options a cell context contributes, or none outside a cell. */
@@ -434,6 +436,7 @@ function inCell(cell: CellContext | undefined) {
     alignment: cell.alignment,
     spacing: { after: 0, line: cell.line },
     ...(cell.indent ? { indent: cell.indent } : {}),
+    ...(cell.keepNext ? { keepNext: true } : {}),
   };
 }
 
@@ -1530,7 +1533,15 @@ function renderTable(node: TableNode, style: DocumentStyle, furniture: boolean):
     // grey band in the empty spacer beside the totals panel: a stripe of
     // nothing, next to the figures rather than under them.
     rows: rows.map((row, index) =>
-      renderRow(row, node, style, index < headers, furniture, headers === 0 ? -1 : index - headers)),
+      renderRow(
+        row,
+        node,
+        style,
+        index < headers,
+        furniture,
+        node.keepTogether === true && index < rows.length - 1,
+        headers === 0 ? -1 : index - headers,
+      )),
   });
 }
 
@@ -1946,6 +1957,7 @@ function renderRow(
   style: DocumentStyle,
   repeats: boolean,
   furniture: boolean,
+  keepNext: boolean,
   bodyIndex = -1,
 ): TableRow {
   // F8: striping is the renderer's to do, counted as the rows are drawn. A
@@ -2012,7 +2024,7 @@ function renderRow(
           left: ptToTwips(inset.left),
           right: ptToTwips(inset.right),
         },
-        children: cellContent(child, align, row.header === true, block, style, furniture),
+        children: cellContent(child, align, row.header === true, block, style, furniture, keepNext),
       }),
     );
     column += span;
@@ -2021,7 +2033,7 @@ function renderRow(
   // Only when asked: `false` would write `w:cantSplit w:val="false"`, a statement rather than silence.
   return new TableRow({
     tableHeader: repeats,
-    cantSplit: row.keepTogether === true ? true : undefined,
+    cantSplit: row.keepTogether === true || table.keepTogether === true ? true : undefined,
     height: row.height === undefined
       ? undefined
       : { value: ptToTwips(row.height), rule: row.heightRule ?? "atLeast" },
@@ -2047,7 +2059,10 @@ function cellContent(
   block: DocumentBlockStyle | undefined,
   style: DocumentStyle,
   furniture: boolean,
+  keepNext: boolean,
 ): (Paragraph | Table)[] {
+  // Word keeps a row with the next one when its paragraphs say so: every one, not just the first.
+  const keep = keepNext ? { keepNext: true } : {};
   const content = cell.children.flatMap((child): (Paragraph | Table)[] => {
     // A picture in a cell is a picture, not a paragraph of prose: Word gives
     // it a line and a space after out of the body style, which drops a
@@ -2058,6 +2073,7 @@ function cellContent(
         new Paragraph({
           alignment: alignments[align],
           spacing: { after: 0, line: 240 },
+          ...keep,
           children: [imageRunOf(child)],
         }),
       ];
@@ -2073,6 +2089,7 @@ function cellContent(
       return renderNode(child, style, furniture, false, {
         alignment: alignments[align],
         ...blockLine(block, style),
+        ...(keepNext ? { keepNext } : {}),
       });
     }
 
@@ -2090,6 +2107,7 @@ function cellContent(
     return [
       new Paragraph({
         ...frame,
+        ...keep,
         // The paragraph's own alignment, then the column's.
         alignment: frame.alignment ?? alignments[align],
         numbering: item?.numbering,
@@ -2118,7 +2136,7 @@ function cellContent(
     ];
   });
 
-  return content.length === 0 ? [new Paragraph({})] : content;
+  return content.length === 0 ? [new Paragraph(keep)] : content;
 }
 
 /**

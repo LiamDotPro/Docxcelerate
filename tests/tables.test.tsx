@@ -354,6 +354,117 @@ test("a row produced by a `.map()` carries keepTogether to every pass", async ()
   assertEquals(xml.split("<w:cantSplit/>").length - 1, lines.length);
 });
 
+function count(xml: string, needle: string): number {
+  return xml.split(needle).length - 1;
+}
+
+test("the model carries a table's keepTogether only when asked", async () => {
+  const kept = await build(() => (
+    <Table id="t" keepTogether columns={[{ width: "auto" }]}>
+      <Row><Cell>A</Cell></Row>
+    </Table>
+  ));
+  const plain = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }]}>
+      <Row><Cell>A</Cell></Row>
+    </Table>
+  ));
+
+  assertEquals(tableOf(kept).keepTogether, true);
+  assertEquals("keepTogether" in tableOf(plain), false);
+});
+
+test("a kept table makes every row unsplittable and keeps every paragraph but the last row's", async () => {
+  const doc = await build(() => (
+    <Table id="t" keepTogether columns={[{ width: "auto" }, { width: 30 }]}>
+      <Row>
+        <Cell>Subtotal</Cell>
+        <Cell>
+          <Paragraph>One</Paragraph>
+          <Paragraph>Two</Paragraph>
+        </Cell>
+      </Row>
+      <Row>
+        <Cell />
+        <Cell>VAT</Cell>
+      </Row>
+      <Row>
+        <Cell>Total due</Cell>
+        <Cell>7,030.00</Cell>
+      </Row>
+    </Table>
+  ));
+  const rows = (await documentXml(doc as DocumentModel)).split("<w:tr>");
+
+  for (const row of rows.slice(1, 4)) assertStringIncludes(row, "<w:cantSplit/>");
+  for (const row of [rows[1], rows[2]]) {
+    assertEquals(count(row, "<w:keepNext/>"), count(row, "<w:p>"));
+    assertEquals(count(row, "<w:keepNext/>") >= 1, true);
+  }
+  assertEquals(rows[3].includes("w:keepNext"), false);
+});
+
+test("a table without keepTogether writes neither cantSplit nor keepNext", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }]}>
+      <Row><Cell>A</Cell></Row>
+      <Row><Cell>B</Cell></Row>
+      <Row><Cell>C</Cell></Row>
+    </Table>
+  ));
+  const xml = await documentXml(doc as DocumentModel);
+
+  assertEquals(xml.includes("w:cantSplit"), false);
+  assertEquals(xml.includes("w:keepNext"), false);
+});
+
+test("a one-row kept table is unsplittable and keeps with nothing", async () => {
+  const doc = await build(() => (
+    <Table id="t" keepTogether columns={[{ width: "auto" }]}>
+      <Row><Cell>Only</Cell></Row>
+    </Table>
+  ));
+  const rows = (await documentXml(doc as DocumentModel)).split("<w:tr>");
+
+  assertStringIncludes(rows[1], "<w:cantSplit/>");
+  assertEquals(rows[1].includes("w:keepNext"), false);
+});
+
+test("the last row of a kept table is the last one printed, through a `.map()`", async () => {
+  const doc = await build(() => (
+    <Table id="t" keepTogether columns={[{ width: "auto" }, { width: 26 }]}>
+      {lines.map((line) => (
+        <Row>
+          <Cell>{line.desc}</Cell>
+          <Cell>{line.amount}</Cell>
+        </Row>
+      ))}
+      <Row>
+        <Cell>Total due</Cell>
+        <Cell>7,030.00</Cell>
+      </Row>
+    </Table>
+  ));
+  const rows = (await documentXml(doc as DocumentModel)).split("<w:tr>");
+
+  assertEquals(rows.length, 4);
+  for (const row of rows.slice(1)) assertStringIncludes(row, "<w:cantSplit/>");
+  assertStringIncludes(rows[1], "<w:keepNext/>");
+  assertStringIncludes(rows[2], "<w:keepNext/>");
+  assertEquals(rows[3].includes("w:keepNext"), false);
+});
+
+test("a kept row inside a kept table writes one cantSplit, not two", async () => {
+  const doc = await build(() => (
+    <Table id="t" keepTogether columns={[{ width: "auto" }]}>
+      <Row keepTogether><Cell>A</Cell></Row>
+    </Table>
+  ));
+  const rows = (await documentXml(doc as DocumentModel)).split("<w:tr>");
+
+  assertEquals(count(rows[1], "<w:cantSplit/>"), 1);
+});
+
 // ---------------------------------------------------------------------------
 // What comes out the other end
 // ---------------------------------------------------------------------------
