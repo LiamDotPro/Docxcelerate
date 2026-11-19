@@ -474,6 +474,7 @@ function renderNode(
         // docx writes an empty <w:spacing/> for {}; a heading that said nothing writes none.
         ...(Object.keys(spacing).length === 0 ? {} : { spacing }),
         ...blockKeeps(block),
+        ...blockOutline(block),
       }),
       ...renderNodes(node.children, style, furniture),
     ];
@@ -490,6 +491,7 @@ function renderNode(
         numbering: item?.numbering,
         ...paragraphFrame(node, block),
         ...blockLayout(block, style, item),
+        ...blockOutline(block),
       }),
     ];
   }
@@ -1374,6 +1376,19 @@ function blockKeeps(block: DocumentBlockStyle | undefined) {
     ...(block?.keepWithNext === true ? { keepNext: true } : {}),
     ...(block?.keepLines === true ? { keepLines: true } : {}),
   };
+}
+
+/**
+ * Where a block sits in Word's outline, when it says.
+ *
+ * Word counts levels from 0 and the theme from 1. Silence writes nothing, so
+ * a paragraph keeps its style's level: body text, or Heading 1's for a
+ * section. A stored model is plain JSON, so a level the type would refuse is
+ * dropped rather than written: `w:outlineLvl` past 9 is not a file Word opens.
+ */
+function blockOutline(block: DocumentBlockStyle | undefined) {
+  const level = block?.outlineLevel;
+  return Number.isInteger(level) && level! >= 1 && level! <= 9 ? { outlineLevel: level! - 1 } : {};
 }
 
 /** The stops a block's tabs align to, in the twips Word measures them in. */

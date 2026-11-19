@@ -245,6 +245,7 @@ function readParagraph(xml, index) {
     /** The three-state keeps. */
     keepNext: toggle(pPr, "w:keepNext"),
     keepLines: toggle(pPr, "w:keepLines"),
+    outlineLvl: childNum(pPr, "w:outlineLvl", "w:val"),
     widowControl: toggle(pPr, "w:widowControl"),
     pageBreakBefore: toggle(pPr, "w:pageBreakBefore"),
 
@@ -1308,6 +1309,7 @@ function missingParagraph(anchor) {
     spacing: null,
     keepNext: null,
     keepLines: null,
+    outlineLvl: null,
     widowControl: null,
     pageBreakBefore: null,
     tabs: [],

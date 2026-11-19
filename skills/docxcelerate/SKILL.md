@@ -195,6 +195,12 @@ Heading 1 for the contents. That is how schedule or annex headings are centred
 capitals while clause headings stay as they are. `transform: "none"` turns off
 capitals the theme's headings ask for.
 
+A heading drawn as a `<Paragraph variant="…">` instead of a `<Section>` is body
+text to Word unless its block says `outlineLevel: 1`–`9`. With it, the heading
+is listed in Word's navigation pane, in a contents Word builds and in a PDF's
+bookmarks. Give every component heading a level, because a long document is
+navigated by them. It does not change how the block looks.
+
 `<Text variant="amountDue">` sets a phrase from a theme block, for an amount due
 inside a sentence or a defined term. Only the block's `color`, `fill`,
 `fontSizePt`, `weight`, `font`, `transform` and `letterSpacingEm` reach the

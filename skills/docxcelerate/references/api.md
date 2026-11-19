@@ -722,7 +722,7 @@ blocks: {
   badge: { fill: "FBF0DC", border: "E5C78A", color: "8A5A06", fontSizePt: 7,
            weight: "bold", transform: "uppercase", letterSpacingEm: 0.1, paddingPt: 5 },
   quote: { indentMm: 10, indentRightMm: 10 },
-  heading: { keepWithNext: true, spacingBeforePt: 18, spacingAfterPt: 4 },
+  heading: { keepWithNext: true, outlineLevel: 1, spacingBeforePt: 18, spacingAfterPt: 4 },
   contentsLine: { tabStopsMm: [{ at: 170, align: "right", leader: "dot" }] },
 }
 ```
@@ -740,6 +740,7 @@ blocks: {
 | `firstLineIndentMm` | the first line only, for a book's paragraph mark |
 | `hangingIndentMm` | the first line pulled back from the rest. Word writes one or the other, and a hang wins over a first-line indent |
 | `keepWithNext`, `keepLines` | refuse to be the last thing on a page, or to be split across one |
+| `outlineLevel` | `1`–`9`: the block is a heading to Word — listed in the navigation pane, in a contents Word builds, and in an exported PDF's bookmarks — at that level. Changes nothing about how it looks, here or on screen. Paragraphs and section headings; ignored inside a `Cell` or `Shape` |
 | `tabStopsMm` | `[{ at, align?, leader? }]`, measured from the left margin — or, inside a `Cell` or `Shape`, from its inner left edge. Put a `\t` in the text to reach one |
 | `bleed` | the block runs the full width of the page rather than the text. Ignored inside a `Cell` or `Shape` |
 | `maxWidthMm` | a measure, narrowing the column from the right. Ignored inside a `Cell` or `Shape` |
@@ -778,7 +779,7 @@ Only the paragraph's own variant draws a border or fill on it; the cell's stays
 on the cell. A tab leader inside a `Shape` draws in Word; the preview shows the
 gap without the dots.
 
-A section's `variant` styles its printed heading, not its children. The heading takes the block's `fontSizePt`, `weight`, `transform`, `letterSpacingEm`, `color`, `font`, `align`, `border`/`borderWidthPt`/`borderSides`/`paddingPt`, `spacingBeforePt`, `spacingAfterPt`, `keepWithNext` and `keepLines`. Anything the block leaves out comes from `sectionHeading`, and it stays a Heading 1, so the contents still lists it. Fill, indents, bleed, measure, leading and tab stops are not applied to a heading. With `showTitle={false}` there is no heading and the variant does nothing.
+A section's `variant` styles its printed heading, not its children. The heading takes the block's `fontSizePt`, `weight`, `transform`, `letterSpacingEm`, `color`, `font`, `align`, `border`/`borderWidthPt`/`borderSides`/`paddingPt`, `spacingBeforePt`, `spacingAfterPt`, `keepWithNext`, `keepLines` and `outlineLevel`. Anything the block leaves out comes from `sectionHeading`, and it stays a Heading 1, so the contents still lists it. A block's `outlineLevel` moves the heading in the outline — `2` lists an annex under the clauses — and it still looks like a Heading 1. Fill, indents, bleed, measure, leading and tab stops are not applied to a heading. With `showTitle={false}` there is no heading and the variant does nothing.
 
 ```tsx
 <Section id="schedule-1" title="Schedule 1: Services" variant="schedule">…</Section>
