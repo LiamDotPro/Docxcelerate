@@ -174,6 +174,7 @@ dxcl list components
 | `cis-invoice-deduction` | What a subcontractor is paid on an invoice, after CIS and VAT. |
 | `us-sales-tax-breakdown` | Sales tax by state, county, city and district, in rows that add up to the tax charged. |
 | `india-gst-split` | CGST and SGST or IGST from the place of supply, with the summary, round-off and total in words. |
+| `statement-remittance-reference` | The one reference a payer quotes for several open items, and the tear-off advice. |
 
 ## `dxcl show <id>`
 
