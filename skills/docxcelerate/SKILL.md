@@ -304,7 +304,9 @@ decision that depends on request data has to travel to the engine instead:
 - **`.map()` over request data is how a loop is written.** It walks the list when
   the data is real and is published as a loop the engine walks when it is not.
   Never hand-write a `{{ctx.…}}` token inside one — the entry writes its own
-  references. Anything needing the entries first (`.filter`, `.length`, `for…of`)
+  references. Number what a map produces with `position(i)` from
+  `docxcelerate/template`: 1, 2, 3 on both paths, counted over what a `.filter()`
+  kept. `i + 1` does not publish. Anything needing the entries first (`.filter`, `.length`, `for…of`)
   belongs in a deriver. `.map()` over what a deriver returns is published as a
   loop too, and the engine walks the rows it returns for each document; a
   `.map()` inside a `.map()` publishes the same way.
