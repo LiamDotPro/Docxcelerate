@@ -262,13 +262,13 @@ interface ReportData {
 const Trend = () => {
   const [state] = useState((data: ReportData) => ({ city: data.city }));
   useAi({ ask: `Plot monthly visits for ${state.city}.`, placeholder: "A trend chart." });
-  return <Graph id="trend" graphType="line" width={300} />;
+  return <Graph id="trend" graphType="line" title={`Visits in ${state.city}`} width={300} />;
 };
 
 const Cover = () => {
   const [state] = useState((data: ReportData) => ({ city: data.city }));
   useAi({ ask: `Draw ${state.city} at dusk.`, placeholder: "A picture of the city." });
-  return <Image id="cover" alt="The city" width={200} height={120} />;
+  return <Image id="cover" alt={`Picture of ${state.city}`} width={200} height={120} />;
 };
 
 const CellNote = () => {
@@ -371,7 +371,7 @@ test("a published chart and image carry their prompts and nothing generated", as
   assertEquals(cover !== undefined && "path" in cover, false);
   assertEquals(
     cover?.kind === "image" ? [cover.alt, cover.width, cover.height] : undefined,
-    ["The city", 200, 120],
+    ["Picture of {{data.city}}", 200, 120],
   );
   assertEquals(JSON.stringify(published).includes("Leeds"), false);
 });

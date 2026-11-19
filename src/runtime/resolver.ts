@@ -265,7 +265,7 @@ async function resolveImage(
     path: result.path,
     // The size and description the template stated belong to the node, as they
     // do in a direct build; a client that does not restate them keeps them.
-    alt: result.alt ?? node.alt,
+    alt: result.alt ?? (node.alt ? await renderTemplate(node.alt, state) : node.alt),
     width: result.width ?? node.width,
     height: result.height ?? node.height,
   };
@@ -294,6 +294,7 @@ async function resolveGraph(
   return {
     ...node,
     prompts,
+    title: node.title ? await renderTemplate(node.title, state) : node.title,
     graphType: result.graphType ?? node.graphType,
     data: result.data,
     caption: result.caption,
