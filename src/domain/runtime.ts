@@ -27,8 +27,11 @@ export interface RuntimeState {
   derived: JsonObject;
   /** Where caller data is read from. */
   dataProvider: DataProvider;
-  /** What writes the content of dynamic nodes. */
-  aiClient: AiClient;
+  /**
+   * What writes the content of dynamic nodes. Absent when none was given, so a
+   * dynamic node fails naming itself rather than inside a stand-in client.
+   */
+  aiClient?: AiClient;
   /**
    * The document's locale, as a BCP 47 tag, when it declared one.
    *
@@ -125,9 +128,11 @@ export interface AiGraphResult {
 /**
  * What fills in the dynamic nodes of a document.
  *
- * Only paragraphs are required. A client that cannot draw or illustrate simply
- * leaves those methods off, and the resolver falls back to the node's
- * placeholder rather than failing the document.
+ * Only paragraphs are required. A client that cannot draw or illustrate
+ * leaves those methods off, and a document that prompts for one fails on that
+ * node, naming it. A method that throws or rejects fails the build or resolve
+ * with an `AiGenerationError` carrying the node's id and kind, and the
+ * method's own error as `cause`.
  */
 export interface AiClient {
   /**

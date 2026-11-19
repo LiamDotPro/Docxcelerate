@@ -323,6 +323,12 @@ decision that depends on request data has to travel to the engine instead:
 - **`generateParagraph` returns the text itself**, not a provider's response
   object; anything else fails, naming the node. Return what the model wrote as
   it is — the answer is trimmed and stripped of characters a `.docx` cannot hold.
+- **A model call that fails rejects with an `AiGenerationError`** (from
+  `docxcelerate`) carrying `nodeId`, `kind` and the client's own error as
+  `cause`. Catch it around the build or resolve, not inside the client: log
+  `err.nodeId`, retry on what `err.cause` says (a 429). docxcelerate's own
+  refusals — no client, a missing method, an answer that is not text — are plain
+  errors with their own wording. A preview never calls the client.
 - **`.map()` over request data is how a loop is written.** It walks the list when
   the data is real and is published as a loop the engine walks when it is not.
   Never hand-write a `{{ctx.…}}` token inside one — the entry writes its own

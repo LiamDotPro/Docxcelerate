@@ -258,6 +258,7 @@ Each of these is an error naming the position, not a quiet reinterpretation:
 | A prompted `<Image>` among a paragraph's words, published to an engine | An engine draws block nodes only — give the `<Image>` its own place beside the paragraph |
 | A generated chart whose answer is not a chart (`"twelve"` as a value, an unknown `graphType`) | Word would draw it empty; the error names the node and the field |
 | A generated paragraph whose answer is not a string (a provider's response object, `undefined`) | It would pack as `[object Object]` or nothing; the error names the node |
+| A client method that throws or rejects (`fetch failed`, a 429) | Rejects with `AiGenerationError`: `nodeId`, `kind`, and the client's error as `cause` |
 
 ## Component types
 
@@ -502,6 +503,32 @@ Build the state with `createRuntimeState`, not by hand. It is seeded exactly as
 `buildDocument` seeds its own, and a hand-built `ctx` without `availableTokens`
 silently prints nothing wherever a template read `useAvailableTokens()`.
 
+### When the model call fails
+
+A client method that throws or rejects fails the build or resolve with an
+`AiGenerationError`. Nodes are written in order, so nothing after the failed
+node is asked.
+
+```ts
+import { AiGenerationError } from "docxcelerate";
+
+try {
+  await resolveDocument(artifact.engineDocument, createRuntimeState({ data, aiClient }));
+} catch (err) {
+  if (err instanceof AiGenerationError) {
+    err.nodeId; // "summary", or "note-1" inside a repeat
+    err.kind;   // "paragraph" | "image" | "graph"
+    err.cause;  // exactly what the client threw: read a status from it to retry
+  }
+  throw err;
+}
+```
+
+Only the client's failure is wrapped. No client, a missing `generateImage` or
+`generateGraph`, and an answer that is not text or not a chart fail with their
+own errors. The error carries nothing from the request — no prompts, no data.
+A preview (`dynamicMode: "placeholder"`) never calls the client.
+
 ### Stand-in AI clients
 
 Both come from `docxcelerate` and need no network. Use them in tests and offline previews.
@@ -524,8 +551,8 @@ ai.requests; // ScriptedAiRequest[]: { id, kind, prompt, prompts }, in the order
 
 `ScriptedAiClient` matches an exact id first, then the id with each trailing
 `-<index>` a repeat added taken off in turn (`note-1-2` → `note-1` → `note`). An
-id with no answer, or an answer of the wrong shape for the node, throws and the
-build or resolve rejects. Previews (`dynamicMode: "placeholder"`) never call it.
+id with no answer, or an answer of the wrong shape for the node, throws, and the
+build or resolve rejects with an `AiGenerationError` whose `cause` is that error. Previews (`dynamicMode: "placeholder"`) never call it.
 
 ## The built document
 
