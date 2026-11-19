@@ -281,32 +281,54 @@ test("publishing keeps every generated arm and points the facts at the deriver",
   assertStringIncludes(json, "{{derived.dunningReminder.promptFacts}}");
 });
 
-test("a published node resolves against a bundled deriver", async () => {
-  const published = await buildDocument(documentOf("table"), createPublishData() as never, {
-    branchMode: "publish",
-    deriverMode: "preserve",
-    dynamicMode: "resolve",
-    aiClient: { generateParagraph: () => "" },
+/** Every line printed, in reading order, whatever the arrangement nests it in. */
+function texts(nodes: DocumentNode[]): string[] {
+  return nodes.flatMap((node) => {
+    const own = node as { text?: string; children?: DocumentNode[] };
+    return [...(own.text ? [own.text] : []), ...texts(own.children ?? [])];
   });
-  const resolve = async (data: Obj) => {
-    const runtime: RuntimeState = {
-      ctx: { ...data },
-      derived: {},
-      dataProvider: new InMemoryDataProvider(data),
+}
+
+for (const arrangement of ["table", "stacked"] as const) {
+  test(`${arrangement}: a published node resolves against a bundled deriver`, async () => {
+    const published = await buildDocument(documentOf(arrangement), createPublishData() as never, {
+      branchMode: "publish",
+      deriverMode: "preserve",
+      dynamicMode: "resolve",
       aiClient: { generateParagraph: () => "" },
+    });
+    const resolve = async (data: Obj) => {
+      const runtime: RuntimeState = {
+        ctx: { ...data },
+        derived: {},
+        dataProvider: new InMemoryDataProvider(data),
+        aiClient: { generateParagraph: () => "" },
+      };
+      return (await resolveDocument(published, runtime, { derivers: registry })).nodes;
     };
-    return ids((await resolveDocument(published, runtime, { derivers: registry })).nodes);
-  };
+    // Equal text proves no slot resolved empty, which an id check cannot.
+    const same = async (data: Obj) => {
+      const got = texts(await resolve(data));
+      assertEquals(got, texts((await build(data, arrangement)).nodes));
+      return got;
+    };
 
-  const level1 = await resolve({ reminder: { ...base, invoices: [old({ dueDate: "2026-11-01" })] } });
-  assertEquals(level1.includes("dunning-reminder-opening"), true);
-  assertEquals(level1.includes("dunning-reminder-contact"), false);
-  assertEquals(level1.includes("dunning-reminder-consequence"), false);
+    const level1Data = { reminder: { ...base, invoices: [old({ dueDate: "2026-11-01" })] } };
+    const level1 = ids(await resolve(level1Data));
+    await same(level1Data);
+    assertEquals(level1.includes("dunning-reminder-opening"), true);
+    assertEquals(level1.includes("dunning-reminder-contact"), false);
+    assertEquals(level1.includes("dunning-reminder-consequence"), false);
 
-  const full = await resolve(preview);
-  for (const id of ["dunning-reminder-contact", "dunning-reminder-consequence", "dunning-reminder-total"]) {
-    assertEquals([id, full.includes(id)], [id, true]);
-  }
+    const full = ids(await resolve(preview));
+    assertEquals((await same(preview)).length > 0, true);
+    const required = ["dunning-reminder-contact", "dunning-reminder-consequence", "dunning-reminder-total"];
+    for (const id of arrangement === "table" ? [...required, "dunning-reminder-invoices"] : required) {
+      assertEquals([id, full.includes(id)], [id, true]);
+    }
 
-  assertEquals((await resolve({ reminder: base })).includes("dunning-reminder"), false);
-});
+    const empty = { reminder: base };
+    assertEquals(ids(await resolve(empty)).includes("dunning-reminder"), false);
+    await same(empty);
+  });
+}
