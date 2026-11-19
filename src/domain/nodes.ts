@@ -276,6 +276,15 @@ export type ListStyle =
   | "lowerRomanParen"
   | "upperRomanParen";
 
+/**
+ * The glyph a bulleted item is marked with, in place of the bullet.
+ *
+ * `"dash"` is an en dash (–), `"tick"` a check mark (✓), `"cross"` a ballot
+ * x (✗) and `"square"` a small square (▪). Each is a plain Unicode glyph in
+ * the paragraph's own face, like the bullet, so no symbol font is needed.
+ */
+export type ListMarker = "dash" | "tick" | "cross" | "square";
+
 /** A paragraph's place in a list. */
 export interface ParagraphList {
   /** Whether the item is marked or counted. */
@@ -297,6 +306,12 @@ export interface ParagraphList {
    * the level in its list. Absent means 1. A bulleted item has none.
    */
   start?: number;
+  /**
+   * The glyph this item is marked with, for a bulleted item. Each item says its
+   * own, so ticks and crosses can stand in one list. Absent means the bullet:
+   * •, ◦, ▪ by depth. A numbered item has none.
+   */
+  marker?: ListMarker;
 }
 
 /**
@@ -314,8 +329,11 @@ export interface ParagraphRun {
   bold?: boolean;
   /** Set in italics. */
   italic?: boolean;
-  /** Set with a rule beneath. */
-  underline?: boolean;
+  /**
+   * Set with a rule beneath: `true` for a single rule, `"double"` for the
+   * accounting double rule under a grand total. Left out or `false`, no rule.
+   */
+  underline?: boolean | "double";
   /** Set struck through. */
   strike?: boolean;
   /** Raised above the line or dropped below it, smaller. Absent, the words sit on it. */
@@ -658,6 +676,21 @@ export interface PageNumberNode extends BaseNode {
   format?: PageNumberFormat;
   /** What sits between the two numbers in `currentOfTotal`. Defaults to ` / `. */
   separator?: string;
+  /**
+   * Words printed before the number: `"Page "` for "Page 3 of 10".
+   *
+   * Printed as written, spaces included, and set in the same type as the
+   * numbers. Absent prints nothing before them.
+   */
+  prefix?: string;
+  /**
+   * How the line sits across the column, the same as a paragraph's.
+   *
+   * Absent writes no `w:jc`, so the line inherits whatever the style around it
+   * decides, which is what a page number did before it could say. A theme can
+   * also say it through `variant`, and when both do the node wins.
+   */
+  align?: TextAlign;
 }
 
 /**

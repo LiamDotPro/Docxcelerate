@@ -21,7 +21,6 @@ import Base from "../layouts/Base.astro";
 import CopyField from "./CopyField.astro";
 import Eyebrow from "./Eyebrow.astro";
 import {
-  addCommand,
   COMPONENTS,
   componentHref,
   componentsByFamily,
@@ -29,7 +28,7 @@ import {
   themeHref,
 } from "../registry";
 import { DEFAULT_SERIES_COLORS } from "docxcelerate/themes";
-import { asLocale, localizePath, LOCALES, ui } from "../i18n";
+import { asLocale, fill, localizePath, LOCALES, ui } from "../i18n";
 import type {
   ComponentPageEntry,
   ResolvedNode,
@@ -59,15 +58,6 @@ function fontStack(name: string): string {
 
 const clamp = (value: number, low: number, high: number) =>
   Math.min(high, Math.max(low, Math.round(value)));
-
-/** Swatches in the order a reader meets them: heading, accent, muted, rule. */
-function swatches(theme: ThemePageEntry): string[] {
-  const palette = theme.style.palette;
-
-  return [palette?.heading, palette?.accent, palette?.muted, palette?.rule]
-    .filter(Boolean)
-    .map((value) => colour(value, "#000000"));
-}
 
 /**
  * Which of the two headings carries the theme's character.
@@ -472,27 +462,7 @@ function miniChart(entry: Extract<Sketch, { kind: "chart" }>): string {
     `preserveAspectRatio="xMidYMid meet" role="presentation" focusable="false">${base}${body}</svg>`;
 }
 
-/**
- * The tags worth filtering by.
- *
- * Only those carried by more than one entry. A tag on a single entry filters
- * eleven cards down to that one — which is a link to it, not a filter — and
- * eighteen of those in a row buries the handful that actually group anything.
- */
-const tagIndex = (() => {
-  const counts = new Map<string, number>();
-
-  for (const entry of [...THEMES, ...COMPONENTS]) {
-    for (const tag of entry.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
-  }
-
-  return [...counts.entries()]
-    .filter(([, count]) => count > 1)
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .map(([tag, count]) => ({ tag, count }));
-})();
-
-const themes = THEMES.map((theme) => ({ theme, spec: specimen(theme), swatches: swatches(theme) }));
+const themes = THEMES.map((theme) => ({ theme, spec: specimen(theme) }));
 
 /**
  * The components, grouped by what they are made of.
@@ -506,76 +476,50 @@ const families = componentsByFamily().map((group) => ({
   rows: group.components.map((component) => ({ component, sketch: sketch(component) })),
 }));
 
-/** Every band shares one measure and one set of gutters — the nav's, so the
- *  eyebrow, the heading and the first card hang off the same left edge as the
- *  wordmark above them. Widening the gutters here breaks that line. */
-const band = "mx-auto flex max-w-6xl flex-col px-5 sm:px-8";
+/** Every band shares one measure and one set of gutters. */
+const band = "mx-auto flex max-w-7xl flex-col px-5 sm:px-8";
+
 ---
 
 <Base title={t.registry.browse.title} description={t.registry.browse.description} hreflangLocales={LOCALES}>
-  <header class:list={[band, "gap-[18px] pt-8 pb-7 lg:pt-14 lg:pb-11"]}>
-    <Eyebrow>{t.registry.browse.eyebrow}</Eyebrow>
-    <h1 class="m-0 font-serif text-[1.7rem] font-semibold leading-[1.1] tracking-[-0.02em] sm:text-4xl">
-      {t.registry.browse.heading}
-    </h1>
-    <p class="m-0 max-w-[40rem] text-[0.95rem] leading-[1.7] text-muted sm:text-[1.05rem]">
-      {t.registry.browse.lead}
-    </p>
-    <CopyField command="npx dxcl list" class="w-full sm:w-60" />
-
-    <div class="mt-1 flex flex-wrap items-center gap-2" data-tag-filter>
-      <span
-        class="mr-1.5 font-mono text-[0.62rem] uppercase tracking-[0.14em] text-muted"
-        id="tag-filter-label"
-      >
-        {t.registry.browse.filterByTag}
-      </span>
-      {
-        tagIndex.map(({ tag, count }) => (
-          <button
-            type="button"
-            class="inline-flex items-baseline gap-1.5 rounded-full border border-firm px-[11px] py-[3px] font-mono text-[0.68rem] text-ink transition-colors hover:border-default hover:bg-surface aria-pressed:border-accent aria-pressed:bg-accent-tint aria-pressed:text-accent"
-            data-tag={tag}
-            aria-pressed="false"
-          >
-            {tag} <span class="text-muted">{count}</span>
-          </button>
-        ))
-      }
+  <header class:list={[band, "gap-10 pt-12 pb-12 lg:grid lg:grid-cols-2 lg:items-end lg:gap-16 lg:pt-22 lg:pb-14"]}>
+    <div class="flex flex-col gap-4">
+      <Eyebrow>
+        {t.registry.browse.eyebrow} · {fill(t.registry.browse.counts, { themes: THEMES.length, components: COMPONENTS.length })}
+      </Eyebrow>
+      <h1 class="m-0 font-serif text-[clamp(2.6rem,6vw,5rem)] leading-[0.98] font-semibold tracking-[-0.03em]">
+        {t.registry.browse.headline}
+      </h1>
+    </div>
+    <div class="flex flex-col gap-4">
+      <p class="m-0 text-[1.15rem] leading-[1.65] text-pretty text-muted">{t.registry.browse.lead}</p>
+      <CopyField command="npx dxcl list" class="w-full sm:w-64" copiedLabel={t.registry.copied} />
     </div>
   </header>
 
-  <!-- 01 — Themes. On paper: the first drawer. -->
-  <section class="border-t border-default" id="themes" data-section>
-    <div class:list={[band, "gap-6 py-7 lg:pt-11 lg:pb-13"]}>
+  <!-- 01 — Themes, as the paper they produce, on Word's own workspace grey. -->
+  <section class="workspace-band" id="themes">
+    <div class:list={[band, "gap-8 py-12 lg:py-14"]}>
       <div class="flex flex-wrap items-baseline justify-between gap-4">
-        <Eyebrow index={1}>{t.registry.themes.heading}</Eyebrow>
-        <span class="font-mono text-[0.68rem] text-muted">{t.registry.browse.themesNote}</span>
+        <div class="flex items-baseline gap-3.5">
+          <span class="font-mono text-[0.72rem] text-[#657287]">01</span>
+          <h2 class="m-0 text-[2rem] font-semibold text-[#111827]">{t.registry.themes.heading}</h2>
+        </div>
+        <span class="font-mono text-[0.72rem] text-[#657287]">{t.registry.browse.themesNote}</span>
       </div>
 
-      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="grid grid-cols-2 items-start gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5 lg:items-end lg:gap-7">
         {
-          themes.map(({ theme, spec, swatches }) => (
-            <article
-              class="flex flex-col overflow-hidden rounded-md border border-default bg-paper transition-colors hover:border-firm"
-              data-entry
-              data-tags={theme.tags.join(" ")}
-            >
+          themes.map(({ theme, spec }) => (
+            <article class="flex min-w-0 flex-col gap-3.5">
               {/* The specimen: this theme's own type, colour, tint and margins. */}
               <a
                 href={localizePath(themeHref(theme.id), locale)}
-                class="relative block min-h-[120px] border-b border-default no-underline sm:min-h-[150px]"
-                style={`background:${spec.paper};padding:${spec.padY}px ${spec.padX}px;`}
+                class="theme-page no-underline"
+                style={`aspect-ratio:${spec.size === "LTR" ? "216/279" : "210/297"};background:${spec.paper};padding:${spec.padY}px ${spec.padX}px;`}
                 aria-label={theme.title}
               >
-                <span
-                  class="absolute right-3 top-2.5 font-mono text-[0.6rem] tracking-[0.08em]"
-                  style={`color:${spec.muted};`}
-                >
-                  {spec.size}
-                </span>
                 <div
-                  class="max-w-[88%]"
                   style={`font-family:${spec.display};font-size:${spec.titleSize};font-weight:${spec.titleWeight};color:${spec.heading};text-transform:${spec.titleTransform};letter-spacing:${spec.titleSpacing};line-height:1.15;`}
                 >
                   Membership renewal
@@ -589,32 +533,28 @@ const band = "mx-auto flex max-w-6xl flex-col px-5 sm:px-8";
                   happens next, and what we need from you before then.
                 </p>
               </a>
-
-              <div class="flex flex-1 flex-col gap-2 px-5 py-[18px]">
-                <div class="flex items-baseline justify-between gap-3">
+              <div class="flex flex-col gap-1.5">
+                <div class="flex items-baseline justify-between gap-2">
                   <a
                     href={localizePath(themeHref(theme.id), locale)}
-                    class="font-serif text-[1.05rem] font-semibold text-ink no-underline hover:text-accent"
+                    class="font-serif text-[1.15rem] font-semibold text-[#111827] no-underline hover:text-[#17624a]"
                   >
                     {theme.title}
                   </a>
-                  <span class="whitespace-nowrap font-mono text-[0.6rem] uppercase tracking-[0.08em] text-muted">
-                    {theme.category}
-                  </span>
+                  <span class="font-mono text-[0.62rem] whitespace-nowrap text-[#657287]">{theme.category}</span>
                 </div>
-                <p class="m-0 text-[0.85rem] leading-[1.6] text-muted">{theme.summary}</p>
-                <div class="flex items-center justify-between gap-2.5">
-                  <span class="font-mono text-[0.66rem] text-muted">{theme.fonts.join(" · ")}</span>
-                  <div class="flex gap-1">
-                    {swatches.map((value) => (
-                      <span
-                        class="h-[13px] w-[13px] rounded-[3px] border border-default"
-                        style={`background:${value}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <CopyField command={addCommand(theme.id)} compact class="mt-auto" />
+                <span class="text-[0.82rem] leading-normal text-[#4b5563]">{theme.summary}</span>
+                <button
+                  type="button"
+                  class="pick pick-theme"
+                  data-pick={theme.id}
+                  data-kind="theme"
+                  aria-pressed="false"
+                  data-on={t.registry.browse.selected}
+                  data-off={t.registry.browse.useTheme}
+                >
+                  {t.registry.browse.useTheme}
+                </button>
               </div>
             </article>
           ))
@@ -623,205 +563,296 @@ const band = "mx-auto flex max-w-6xl flex-col px-5 sm:px-8";
     </div>
   </section>
 
-  <!-- 02 — Components. On surface: the second drawer, read as rows. -->
-  <section class="border-t border-default bg-surface" id="components" data-section>
-    <div class:list={[band, "gap-4 py-7 lg:pt-11 lg:pb-13"]}>
-      <div class="flex flex-wrap items-baseline justify-between gap-4">
-        <Eyebrow index={2}>{t.registry.components.heading}</Eyebrow>
-        <span class="font-mono text-[0.68rem] text-muted">{t.registry.browse.componentsNote}</span>
+  <!-- 02 — Components, filtered by what they resolve to. -->
+  <section class:list={[band, "gap-10 pt-14 pb-16 lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-12"]} id="components">
+    <aside class="flex flex-col gap-7">
+      <div class="flex items-baseline gap-3.5">
+        <span class="font-mono text-[0.72rem] text-muted">02</span>
+        <h2 class="m-0 text-[2rem] font-semibold">{t.registry.components.heading}</h2>
       </div>
+      <div class="flex flex-col" role="group" aria-label={t.registry.browse.familyLabel} data-family-filter>
+        <span class="mb-2 font-mono text-[0.65rem] tracking-[0.16em] text-muted uppercase">
+          {t.registry.browse.familyLabel}
+        </span>
+        <div class="flex flex-wrap gap-x-4 lg:flex-col">
+          {
+            [{ family: "", count: COMPONENTS.length }, ...families.map(({ family, rows }) => ({ family, count: rows.length }))].map(
+              ({ family, count }) => (
+                <button type="button" class="family" data-family={family} aria-pressed={family === "" ? "true" : "false"}>
+                  <span>{family || t.registry.browse.allTags}</span>
+                  <span class="font-mono text-[0.7rem] text-muted">{count}</span>
+                </button>
+              ),
+            )
+          }
+        </div>
+      </div>
+      <p class="m-0 hidden text-[0.82rem] leading-[1.6] text-muted lg:block">{t.registry.browse.familyNote}</p>
+    </aside>
 
+    <div class="grid content-start gap-5 sm:grid-cols-2 xl:grid-cols-3">
       {
-        families.map(({ family, rows }) => (
-          <div class="flex flex-col gap-4 lg:gap-0" data-group>
-            {/* The family, as a rule with a word on it. A heading here would
-                compete with the band's own; what this has to do is separate. */}
-            <div class="mt-5 flex items-baseline gap-3 lg:mt-7">
-              <Eyebrow class="text-[0.6rem] whitespace-nowrap">{family}</Eyebrow>
-              <span class="h-px grow bg-[var(--border-default)]" />
-              {/* Follows the filter. A family headed "6" over two rows is the
-                  heading disagreeing with what is under it. */}
-              <span class="font-mono text-[0.62rem] text-muted" data-group-count>{rows.length}</span>
-            </div>
-
-            {rows.map(({ component, sketch }) => (
-            <article
-              class="border-default bg-paper max-lg:overflow-hidden max-lg:rounded-md max-lg:border lg:grid lg:grid-cols-[190px_minmax(0,1fr)_320px] lg:items-center lg:gap-8 lg:border-t lg:bg-transparent lg:py-[22px]"
-              data-entry
-              data-tags={component.tags.join(" ")}
-            >
-              {/* What its nodes resolved to, on paper that stays white at night. */}
+        families.flatMap(({ family, rows }) =>
+          rows.map(({ component, sketch }) => (
+            <article class="card" data-entry data-family={family}>
               <a
                 href={localizePath(componentHref(component.id), locale)}
-                class="flex min-h-[88px] flex-col justify-center overflow-hidden px-4 py-3.5 no-underline max-lg:border-b lg:h-28 lg:min-h-0 lg:rounded lg:border"
-                style="background:var(--paper-fixed);border-color:var(--paper-fixed-border);font-family:Calibri,'Segoe UI',sans-serif;"
+                class="card-preview no-underline"
+                tabindex="-1"
+                aria-hidden="true"
               >
-                {
-                  sketch.length === 0
-                    ? <span class="text-xs" style="color:#657287">{t.registry.browse.noPreview}</span>
-                    : sketch.map((entry, index) => (
-                      entry.kind === "chart"
-                        ? <div class="mt-1" set:html={miniChart(entry)} />
-                        : entry.kind === "band"
-                        ? (
-                          <div
-                            class="truncate rounded-[2px] px-1.5 py-1 leading-[1.4]"
-                            style={`font-size:10.5px;font-weight:700;color:#ffffff;background:${
-                              seriesColour(1)
-                            };margin-top:${index === 0 ? 0 : 4}px;`}
-                          >
-                            {entry.text}
-                          </div>
-                        )
-                        : entry.kind === "image"
-                        ? (
-                          <div
-                            class="rounded-[2px]"
-                            style={`height:16px;width:52px;background:#E3E7ED;margin-top:${
-                              index === 0 ? 0 : 5
-                            }px;`}
-                          />
-                        )
-                        : (
-                          <div
-                            class="truncate leading-[1.45]"
-                            style={index === 0
-                              ? "font-size:12.5px;font-weight:700;color:#111827;"
-                              : "font-size:11px;color:#1f2937;margin-top:4px;"}
-                          >
-                            {entry.text}
-                          </div>
-                        )
-                    ))
-                }
+                <div class="card-paper">
+                  {
+                    sketch.length === 0
+                      ? <span class="text-xs" style="color:#657287">{t.registry.browse.noPreview}</span>
+                      : sketch.map((entry, index) => (
+                        entry.kind === "chart"
+                          ? <div class="mt-1" set:html={miniChart(entry)} />
+                          : entry.kind === "band"
+                          ? (
+                            <div
+                              class="truncate rounded-[2px] px-1.5 py-1 leading-[1.4]"
+                              style={`font-size:10.5px;font-weight:700;color:#ffffff;background:${seriesColour(1)};margin-top:${index === 0 ? 0 : 4}px;`}
+                            >
+                              {entry.text}
+                            </div>
+                          )
+                          : entry.kind === "image"
+                          ? <div class="rounded-[2px]" style={`height:16px;width:52px;background:#E3E7ED;margin-top:${index === 0 ? 0 : 5}px;`} />
+                          : (
+                            <div
+                              class="truncate leading-[1.45]"
+                              style={index === 0 ? "font-size:12px;font-weight:700;color:#111827;" : "font-size:10.5px;color:#1f2937;margin-top:4px;"}
+                            >
+                              {entry.text}
+                            </div>
+                          )
+                      ))
+                  }
+                </div>
               </a>
-
-              <div class="flex flex-col gap-1.5 px-5 py-4 lg:px-0 lg:py-0">
-                <Eyebrow class="text-[0.6rem]">{component.category}</Eyebrow>
-                <a
-                  href={localizePath(componentHref(component.id), locale)}
-                  class="font-serif text-[1.05rem] font-semibold text-ink no-underline hover:text-accent lg:text-[1.15rem]"
-                >
-                  {component.title}
-                </a>
-                <p class="m-0 text-[0.85rem] leading-[1.6] text-muted sm:text-[0.875rem]">
-                  {component.summary}
-                </p>
-                <span class="hidden font-mono text-[0.66rem] leading-[1.8] text-muted lg:inline">
+              <div class="flex flex-1 flex-col gap-2 border-t border-default px-[18px] pt-4 pb-[18px]">
+                <div class="flex items-baseline justify-between gap-2">
+                  <h3 class="m-0 text-[1.15rem] font-semibold">
+                    <a href={localizePath(componentHref(component.id), locale)} class="text-ink no-underline hover:text-accent">
+                      {component.title}
+                    </a>
+                  </h3>
+                  <span class="font-mono text-[0.62rem] tracking-[0.12em] whitespace-nowrap text-muted uppercase">
+                    {component.category}
+                  </span>
+                </div>
+                <p class="m-0 text-[0.86rem] leading-[1.55] text-pretty text-muted">{component.summary}</p>
+                <span class="font-mono text-[0.66rem] leading-[1.6] break-words text-muted">
                   {t.registry.browse.readsPrefix} {component.dataFields.map((field) => field.path).join(", ")}
                 </span>
-                <div class="mt-0.5 hidden flex-wrap gap-1.5 lg:flex">
-                  {component.tags.map((tag) => (
-                    <span class="inline-flex rounded-full border border-firm px-[7px] py-px font-mono text-[0.6rem] uppercase tracking-[0.08em] text-muted">
-                      {tag}
-                    </span>
-                  ))}
+                <div class="mt-auto flex items-center justify-between gap-3 pt-2.5">
+                  <span class="truncate font-mono text-[0.68rem] text-ink">{component.id}</span>
+                  <button
+                    type="button"
+                    class="pick"
+                    data-pick={component.id}
+                    data-kind="component"
+                    aria-pressed="false"
+                    data-on={t.registry.browse.added}
+                    data-off={t.registry.browse.add}
+                  >
+                    {t.registry.browse.add}
+                  </button>
                 </div>
               </div>
-
-              <div class="flex flex-col gap-2 px-5 pb-4 lg:px-0 lg:pb-0">
-                <CopyField command={addCommand(component.id)} compact />
-                <span class="hidden font-mono text-[0.66rem] text-muted lg:inline">
-                  {t.registry.exportsResolves
-                    .replace("{exports}", component.exports.join(", "))
-                    .replace("{count}", String(component.resolved.length))}
-                </span>
-              </div>
             </article>
-            ))}
-          </div>
-        ))
+          ))
+        )
       }
     </div>
   </section>
 
-  <!-- Nothing matched the filter. One action, no apology copy. -->
-  <section class="border-t border-default" data-empty hidden>
-    <div class:list={[band, "items-start gap-2 py-12"]}>
-      <Eyebrow tone="muted">{t.registry.browse.noMatchesTitle}</Eyebrow>
-      <p class="m-0 text-[0.9rem] leading-[1.6] text-ink" data-empty-line data-template={t.registry.browse.noMatches} data-and={t.registry.browse.andJoin}></p>
-      <p class="m-0 text-[0.8rem] leading-[1.6] text-muted">{t.registry.browse.noMatchesNote}</p>
+  <!-- The install, composed from what was picked above. Fixed green, so it
+       reads as the page's one control rather than another section. -->
+  <div class="band-dark sticky bottom-0 z-30 bg-ledger-950">
+    <div class:list={[band, "gap-3 py-4 sm:grid sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-8"]}>
+      <span
+        class="font-mono text-[0.65rem] tracking-[0.16em] text-ledger-300 uppercase"
+        data-tray-count
+        data-template={t.registry.browse.trayCount}
+      >
+        {fill(t.registry.browse.trayCount, { count: 0 })}
+      </span>
+      <code class="truncate font-mono text-[0.85rem] text-[#f0f7f4]" aria-live="polite">
+        <span class="text-ledger-300">$ </span><span data-tray-command data-empty={t.registry.browse.trayEmpty}
+          >{t.registry.browse.trayEmpty}</span
+        >
+      </code>
       <button
         type="button"
-        class="mt-2 inline-flex min-h-[44px] items-center rounded border border-firm bg-transparent px-5 text-sm font-medium text-accent transition-colors hover:bg-accent-tint sm:min-h-0 sm:py-2.5"
-        data-clear-tags
+        class="justify-self-start rounded border border-white/30 bg-transparent px-3.5 py-2 font-mono text-[0.72rem] text-[#f0f7f4] transition-colors hover:bg-white/10 disabled:opacity-40"
+        data-tray-copy
+        data-copied={t.registry.copied}
+        disabled
       >
-        {t.registry.browse.clearFilter}
+        {t.registry.copy}
       </button>
     </div>
-  </section>
+  </div>
 </Base>
 
 <script>
-  // Tag filtering, in the page rather than the URL: it is a way of looking at
-  // one list, not a place you would link somebody to.
-  //
-  // Tags are additive and each one narrows, so a chip already on turns itself
-  // off when pressed again — which is also the only way back to everything,
-  // and the reason there is no "all" chip to keep in step with the rest.
-  const bar = document.querySelector("[data-tag-filter]");
-  const entries = [...document.querySelectorAll<HTMLElement>("[data-entry]")];
-  const empty = document.querySelector<HTMLElement>("[data-empty]");
-  const emptyLine = document.querySelector<HTMLElement>("[data-empty-line]");
-  const sections = [...document.querySelectorAll<HTMLElement>("[data-section]")];
-  const groups = [...document.querySelectorAll<HTMLElement>("[data-group]")];
-  const chosen = new Set<string>();
+  // Family filtering, in the page rather than the URL: it is a way of looking
+  // at one list, not a place you would link somebody to.
+  const filter = document.querySelector<HTMLElement>("[data-family-filter]");
+  const cards = [...document.querySelectorAll<HTMLElement>("[data-entry]")];
 
-  function apply() {
-    let shown = 0;
-
-    for (const button of bar?.querySelectorAll<HTMLButtonElement>("[data-tag]") ?? []) {
-      button.setAttribute("aria-pressed", String(chosen.has(button.dataset.tag ?? "")));
+  filter?.addEventListener("click", (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-family]");
+    if (!button) return;
+    const family = button.dataset.family ?? "";
+    for (const other of filter.querySelectorAll("[data-family]")) {
+      other.setAttribute("aria-pressed", String(other === button));
     }
+    for (const card of cards) card.hidden = family !== "" && card.dataset.family !== family;
+  });
 
-    for (const entry of entries) {
-      const tags = (entry.dataset.tags ?? "").split(" ");
-      const match = [...chosen].every((tag) => tags.includes(tag));
-      entry.hidden = !match;
-      if (match) shown += 1;
-    }
+  // One theme at most, any number of components; the command is `dxcl add`
+  // with the theme first, which is the order the CLI writes them in.
+  const picks = [...document.querySelectorAll<HTMLButtonElement>("[data-pick]")];
+  const count = document.querySelector<HTMLElement>("[data-tray-count]");
+  const command = document.querySelector<HTMLElement>("[data-tray-command]");
+  const copy = document.querySelector<HTMLButtonElement>("[data-tray-copy]");
 
-    // A family whose every row is filtered out is a rule with a word on it and
-    // nothing under it. Hidden before the sections, because a section is only
-    // empty once all of its groups are.
-    for (const group of groups) {
-      const visible = [...group.querySelectorAll<HTMLElement>("[data-entry]")]
-        .filter((entry) => !entry.hidden);
-      const count = group.querySelector<HTMLElement>("[data-group-count]");
-
-      group.hidden = visible.length === 0;
-      if (count) count.textContent = String(visible.length);
-    }
-
-    // A section whose every entry is filtered out is a heading over nothing, so
-    // it goes with them rather than sitting there empty.
-    for (const section of sections) {
-      const visible = [...section.querySelectorAll<HTMLElement>("[data-entry]")]
-        .some((entry) => !entry.hidden);
-      section.hidden = !visible;
-    }
-
-    if (empty) empty.hidden = shown > 0;
-    if (emptyLine) {
-      // "money and legal" reads as the sentence it is in; a comma-joined list
-      // would not.
-      const listed = [...chosen].join(` ${emptyLine.dataset.and ?? "and"} `);
-      emptyLine.textContent = emptyLine.dataset.template?.replace("{tag}", listed) ?? "";
-    }
+  function chosen() {
+    const on = picks.filter((pick) => pick.getAttribute("aria-pressed") === "true");
+    const theme = on.filter((pick) => pick.dataset.kind === "theme");
+    const components = on.filter((pick) => pick.dataset.kind === "component");
+    return [...theme, ...components].map((pick) => pick.dataset.pick!);
   }
 
-  bar?.addEventListener("click", (event) => {
-    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-tag]");
-    if (!button) return;
+  function render() {
+    for (const pick of picks) {
+      pick.textContent = (pick.getAttribute("aria-pressed") === "true" ? pick.dataset.on : pick.dataset.off) ?? "";
+    }
+    const ids = chosen();
+    if (count) count.textContent = (count.dataset.template ?? "").replace("{count}", String(ids.length));
+    if (command) command.textContent = ids.length ? `npx dxcl add ${ids.join(" ")}` : (command.dataset.empty ?? "");
+    if (copy) copy.disabled = ids.length === 0 || !navigator.clipboard;
+  }
 
-    const tag = button.dataset.tag ?? "";
-    if (chosen.has(tag)) chosen.delete(tag);
-    else chosen.add(tag);
-    apply();
-  });
+  for (const pick of picks) {
+    pick.addEventListener("click", () => {
+      const on = pick.getAttribute("aria-pressed") !== "true";
+      if (on && pick.dataset.kind === "theme") {
+        for (const other of picks) if (other.dataset.kind === "theme") other.setAttribute("aria-pressed", "false");
+      }
+      pick.setAttribute("aria-pressed", String(on));
+      render();
+    });
+  }
 
-  document.querySelector("[data-clear-tags]")?.addEventListener("click", () => {
-    chosen.clear();
-    apply();
+  copy?.addEventListener("click", async () => {
+    const ids = chosen();
+    if (!ids.length) return;
+    const idle = copy.textContent;
+    try {
+      await navigator.clipboard.writeText(`npx dxcl add ${ids.join(" ")}`);
+      copy.textContent = copy.dataset.copied ?? idle;
+      setTimeout(() => (copy.textContent = idle), 1600);
+    } catch {
+      // Denied, or an insecure origin. The command is on screen to select.
+    }
   });
 </script>
+
+<style>
+  /* The DOCX renderer's own greys: a theme is shown as the paper it produces,
+     so the band it sits on is Word's workspace, in both site themes. */
+  .workspace-band {
+    background: #e6e8ed;
+    border-block: 1px solid #d8dce3;
+  }
+  .theme-page {
+    display: block;
+    overflow: hidden;
+    border: 1px solid #c7ccd6;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 10%), 0 14px 34px -18px rgb(0 0 0 / 40%);
+  }
+
+  .pick {
+    align-self: flex-start;
+    padding: 0.375rem 0.625rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-firm);
+    background: transparent;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  }
+  /* On the workspace grey the off state needs its own paper behind it. */
+  .pick-theme {
+    border-color: #c7ccd6;
+    background: #ffffff;
+    color: #17624a;
+  }
+  .pick[aria-pressed="true"] {
+    border-color: var(--accent-solid);
+    background: var(--accent-solid);
+    color: var(--on-accent);
+  }
+
+  .family {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.4375rem 0.625rem;
+    margin-left: -0.625rem;
+    border: 0;
+    border-left: 2px solid transparent;
+    background: transparent;
+    color: var(--ink);
+    font-size: 0.9rem;
+    text-align: left;
+    cursor: pointer;
+    transition: color 0.12s ease;
+  }
+  .family:hover,
+  .family[aria-pressed="true"] {
+    color: var(--accent);
+  }
+  .family[aria-pressed="true"] {
+    border-left-color: var(--accent);
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--paper);
+    transition: border-color 0.12s ease;
+  }
+  .card:has([aria-pressed="true"]) {
+    border-color: var(--accent);
+  }
+  .card-preview {
+    display: flex;
+    align-items: flex-end;
+    height: 150px;
+    padding: 18px 18px 0;
+    overflow: hidden;
+    background: #e6e8ed;
+  }
+  .card-paper {
+    width: 100%;
+    height: 132px;
+    padding: 14px 16px;
+    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid #c7ccd6;
+    border-bottom: 0;
+    font-family: Calibri, Aptos, "Segoe UI", Arial, sans-serif;
+  }
+</style>

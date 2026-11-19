@@ -17,6 +17,7 @@ import {
   LevelFormat,
   LineRuleType,
   Packer,
+  PageBorderOffsetFrom,
   PageBreak,
   PageNumber,
   PageOrientation,
@@ -30,18 +31,27 @@ import {
   TableRow,
   TabStopType,
   TextRun,
+  UnderlineType,
   VerticalAlign,
   WidthType,
 } from "docx";
-import type { IParagraphStyleOptions, IParagraphStylePropertiesOptions } from "docx";
+import type {
+  IFontAttributesProperties,
+  IPageBordersOptions,
+  IParagraphStyleOptions,
+  IParagraphStylePropertiesOptions,
+} from "docx";
 import type {
   DocumentBlockStyle,
+  DocumentPageStyle,
   DocumentModel,
   DocumentNode,
   DocumentStyle,
   DocumentTextBlockStyle,
+  DocumentTextTransform,
   GraphNode,
   ImageNode,
+  ListMarker,
   ListStyle,
   PageNumberNode,
   ParagraphList,
@@ -57,7 +67,7 @@ import type {
 } from "../domain/types.ts";
 import { cleanMinimalDocumentStyle } from "../project/style.ts";
 import { hasChartData } from "./chart_part.ts";
-import { columnWidthMm, pageWidthMm, paperMm } from "./page_size.ts";
+import { columnWidthMm, pageBorderOffsetPt, pageWidthMm, paperMm } from "./page_size.ts";
 import { addChartsToPackage, chartRelationshipToken } from "./docx_charts.ts";
 import { type ImageSource, imageSourceOf, isSvg, pixelSizeOf, rasterTypeOf } from "./image_source.ts";
 
@@ -109,7 +119,7 @@ export function createDocxDocument(doc: DocumentModel): Document {
     styles: createDocxStyles(style, doc.locale),
     // Only for a document with a list in it, so one without is packed with
     // exactly the numbering part it always had.
-    numbering: lists.items === 0 ? undefined : listNumbering(lists.numbered),
+    numbering: lists.items === 0 ? undefined : listNumbering(lists.numbered, lists.markers),
     evenAndOddHeaderAndFooters: evenAndOdd || undefined,
     // A settings-part switch, like the one above. Passed only when asked:
     // `docx` writes `w:val="false"` for an explicit false, and a document that
@@ -145,6 +155,7 @@ export function createDocxDocument(doc: DocumentModel): Document {
               start: firstPageNumberOf(style),
               formatType: style.page.numberStyle,
             },
+            borders: pageBorders(style.page),
           },
           titlePage: titlePage || undefined,
           verticalAlign: style.page.valign,
@@ -476,6 +487,7 @@ function renderNode(
         // docx writes an empty <w:spacing/> for {}; a heading that said nothing writes none.
         ...(Object.keys(spacing).length === 0 ? {} : { spacing }),
         ...blockKeeps(block),
+        ...blockOutline(block),
       }),
       ...renderNodes(node.children, style, furniture),
     ];
@@ -487,22 +499,12 @@ function renderNode(
 
     return [
       new Paragraph({
-        children: paragraphRuns(node, block, style),
+        children: paragraphRuns(node, blockRun(block, style), style),
         ...breakStyle(broken),
         numbering: item?.numbering,
         ...paragraphFrame(node, block),
-        indent: blockIndent(block, style) ?? item?.indent,
-        spacing: {
-          ...blockSpacingBefore(block),
-          // Items of one list stand together: the space a paragraph leaves
-          // under itself belongs after the list, not between its items. A
-          // block that names its own spacing still gets it.
-          after: ptToTwips(
-            block?.spacingAfterPt ?? (item?.tight ? 0 : style.paragraph.spacingAfterPt),
-          ),
-          ...blockLine(block, style),
-        },
-        ...blockKeeps(block),
+        ...blockLayout(block, style, item),
+        ...blockOutline(block),
       }),
     ];
   }
@@ -547,7 +549,21 @@ function renderNode(
   // number that stops being true the moment an engine writes a longer
   // paragraph into a dynamic node.
   if (node.kind === "pageNumber") {
-    return [new Paragraph({ children: pageNumberRuns(node), ...breakStyle(broken), ...inCell(cell) })];
+    const block = blockOf(style, node.variant);
+
+    return [
+      new Paragraph({
+        children: pageNumberRuns(node, blockRun(block, style)),
+        ...breakStyle(broken),
+        ...paragraphFrame(node, block),
+        // Only when a block is named: an unstyled page number writes no
+        // spacing of its own, and its bytes stay what they were.
+        ...(block === undefined ? {} : blockLayout(block, style)),
+        // Last, so a cell's column alignment and spacing win, as they do for
+        // every paragraph in a cell.
+        ...inCell(cell),
+      }),
+    ];
   }
 
   // A built document has already walked its loops, so this is a published one
@@ -639,8 +655,10 @@ function blockRun(
   size?: number;
   color?: string;
   allCaps?: boolean;
+  smallCaps?: boolean;
+  italics?: boolean;
   characterSpacing?: number;
-  font?: string;
+  font?: IFontAttributesProperties;
 } {
   if (!block) {
     return {};
@@ -652,12 +670,28 @@ function blockRun(
     bold: block.weight === undefined ? undefined : block.weight === "bold",
     size: block.fontSizePt === undefined ? undefined : ptToHalfPoints(block.fontSizePt),
     color: block.color,
-    allCaps: block.transform === undefined ? undefined : block.transform === "uppercase",
+    ...caseOf(block.transform),
+    italics: block.italic,
     characterSpacing: block.letterSpacingEm === undefined
       ? undefined
       : Math.round(block.letterSpacingEm * sizePt * 20),
-    font: block.font,
+    font: block.font === undefined ? undefined : runFonts(block.font, style),
   };
+}
+
+/**
+ * A casing as docx's two case fields, always both keys.
+ *
+ * docx writes `w:smallCaps` whenever `smallCaps` is defined and then drops
+ * `allCaps`, so the field a casing does not use has to be there as undefined
+ * to replace whatever casing it is laid over.
+ *
+ * shortcut: a heading variant cannot undo the other casing its Heading 1 style carries; set the casing on sectionHeading instead.
+ */
+function caseOf(transform: DocumentTextTransform | undefined): { allCaps?: boolean; smallCaps?: boolean } {
+  return transform === "smallCaps"
+    ? { allCaps: undefined, smallCaps: true }
+    : { allCaps: transform === undefined ? undefined : transform === "uppercase", smallCaps: undefined };
 }
 
 /** The numbering every bulleted item counts in. Bullets do not count, so one serves them all. */
@@ -665,6 +699,11 @@ const BULLET_LIST = "dxcl-bullet";
 
 /** The stem of a numbered list's numbering; each list gets one of its own. */
 const NUMBER_LIST = "dxcl-number";
+
+/** The numbering a bulleted item is marked in: one per marker, shared like the bullet's. */
+function bulletReference(marker: ListMarker | undefined): string {
+  return marker === undefined ? BULLET_LIST : `${BULLET_LIST}-${marker}`;
+}
 
 /**
  * How far an item's words stand in from its marker, and each level from the
@@ -675,8 +714,11 @@ const LIST_HANG_PT = 18;
 /** As deep as Word's numbering goes. */
 const LIST_LEVELS = 9;
 
+/** The glyph each chosen marker stands for, in the paragraph's own face like the bullet. */
+const MARKERS: Record<ListMarker, string> = { dash: "\u2013", tick: "\u2713", cross: "\u2717", square: "\u25AA" };
+
 /** Plain glyphs in the paragraph's own face: no symbol font for a preview to be missing. */
-const BULLETS = ["\u2022", "\u25E6", "\u25AA"];
+const BULLETS = ["\u2022", "\u25E6", MARKERS.square];
 
 /** Figures, then letters, then roman numerals, and round again. */
 const NUMBER_FORMATS = [LevelFormat.DECIMAL, LevelFormat.LOWER_LETTER, LevelFormat.LOWER_ROMAN];
@@ -715,8 +757,11 @@ type ListLevelSettings = { style?: ListStyle; start?: number };
  * @returns How many items there are, and for each numbered list the numerals
  * and starting number each of its levels was given.
  */
-function placeLists(doc: DocumentModel): { items: number; numbered: ListLevelSettings[][] } {
+function placeLists(
+  doc: DocumentModel,
+): { items: number; numbered: ListLevelSettings[][]; markers: Set<ListMarker> } {
   let items = 0;
+  const markers = new Set<ListMarker>();
   const numbered: ListLevelSettings[][] = [];
 
   const walk = (nodes: readonly DocumentNode[]): void => {
@@ -746,10 +791,14 @@ function placeLists(doc: DocumentModel): { items: number; numbered: ListLevelSet
         level.style ??= node.list.style;
       }
 
+      if (node.list.marker !== undefined) {
+        markers.add(node.list.marker);
+      }
+
       const next = nodes[index + 1];
       items += 1;
       listPlaces.set(node, {
-        reference: node.list.kind === "number" && reference !== undefined ? reference : BULLET_LIST,
+        reference: node.list.kind === "number" && reference !== undefined ? reference : bulletReference(node.list.marker),
         tight: next?.kind === "paragraph" && next.list !== undefined,
       });
     });
@@ -771,7 +820,7 @@ function placeLists(doc: DocumentModel): { items: number; numbered: ListLevelSet
     }
   }
 
-  return { items, numbered };
+  return { items, numbered, markers };
 }
 
 /**
@@ -785,7 +834,7 @@ function placeLists(doc: DocumentModel): { items: number; numbered: ListLevelSet
  * at all. This is the form both engines read, which is the same reason a
  * shape is packed as VML.
  */
-function listNumbering(numbered: ListLevelSettings[][]) {
+function listNumbering(numbered: ListLevelSettings[][], markers: ReadonlySet<ListMarker>) {
   const levels = (
     marker: (level: number) => { format: (typeof LevelFormat)[keyof typeof LevelFormat]; text: string; start?: number },
   ) =>
@@ -798,13 +847,14 @@ function listNumbering(numbered: ListLevelSettings[][]) {
 
   return {
     config: [
-      {
-        reference: BULLET_LIST,
+      // The default bullet is always written, so a document without markers keeps its numbering.
+      ...[undefined, ...markers].map((marker) => ({
+        reference: bulletReference(marker),
         levels: levels((level) => ({
           format: LevelFormat.BULLET,
-          text: BULLETS[level % BULLETS.length],
+          text: marker === undefined ? BULLETS[level % BULLETS.length] : MARKERS[marker],
         })),
-      },
+      })),
       ...numbered.map((settings, index) => ({
         reference: `${NUMBER_LIST}-${index + 1}`,
         levels: levels((level) => ({ ...numberMarker(settings[level]?.style, level), start: settings[level]?.start })),
@@ -854,13 +904,17 @@ type InlineRun = TextRun | ImageRun | ExternalHyperlink;
  * they were written, whichever run the offset falls in. A paragraph with no
  * pictures and one setting is the single text run it always was — including
  * the empty one, which Word needs to keep the line.
+ *
+ * It takes the resolved base run rather than a block because each caller has
+ * already folded its own settings into it (the body's block, a cell's column,
+ * header and block, a shape's box block), and the pictures are cut in among
+ * those runs the same way everywhere.
  */
 function paragraphRuns(
   node: ParagraphNode,
-  block: DocumentBlockStyle | undefined,
+  base: Record<string, unknown>,
   style: DocumentStyle,
 ): InlineRun[] {
-  const base = blockRun(block, style);
   const inline = [...(node.inlineImages ?? [])].sort((a, b) => a.at - b.at);
   const runs: InlineRun[] = [];
   // How far into the text the runs so far reach, and the next picture due.
@@ -925,14 +979,18 @@ function markedRun(
 ): TextRun | ExternalHyperlink {
   const own = blockOf(style, run.variant);
   // shortcut: tracking is worked out at the block's size or the body's, so a tracked variant with no size inside a larger paragraph is tracked at body size.
+  // Only "double" names a style; any other truthy value is the single rule, so nothing unknown reaches w:val.
+  const underline = run.underline === "double" ? { type: UnderlineType.DOUBLE } : run.underline ? {} : undefined;
   const props = {
     ...base,
     // A field the block leaves out has no opinion, so it must not blank the paragraph's.
     ...Object.fromEntries(Object.entries(blockRun(own, style)).filter(([, value]) => value !== undefined)),
     ...(own?.fill === undefined ? {} : { shading: { type: ShadingType.CLEAR, fill: own.fill } }),
+    // A run variant's casing replaces the paragraph's as a pair — see caseOf.
+    ...(own?.transform === undefined ? {} : caseOf(own.transform)),
     ...(run.bold === undefined ? {} : { bold: run.bold }),
     ...(run.italic === undefined ? {} : { italics: run.italic }),
-    ...(run.underline ? { underline: {} } : {}),
+    ...(underline === undefined ? {} : { underline }),
     ...(run.strike === undefined ? {} : { strike: run.strike }),
     ...(run.script === "superscript" ? { superScript: true } : {}),
     ...(run.script === "subscript" ? { subScript: true } : {}),
@@ -948,7 +1006,7 @@ function markedRun(
         // or header cell the accent is the fill, and the link would vanish into it.
         // A style with no palette leaves the link in the ink around it.
         color: (props as { color?: string }).color ?? style.palette?.accent,
-        underline: {},
+        underline: underline ?? {},
       }),
     ],
   });
@@ -1002,26 +1060,6 @@ function textRun(text: string, props: Record<string, unknown>): TextRun {
   }
 
   return new TextRun({ children, ...props });
-}
-
-/**
- * A cell paragraph's runs, with its pictures set among them.
- *
- * The cell path builds its text run itself — it has the column's alignment and
- * the cell's own block to fold in first — so the pictures are placed around
- * that finished run rather than rebuilt from the node.
- */
-function withInlineImages(node: ParagraphNode, textRuns: InlineRun[]): InlineRun[] {
-  const inline = [...(node.inlineImages ?? [])].sort((a, b) => a.at - b.at);
-  if (inline.length === 0) return textRuns;
-
-  // A picture at offset 0 leads the line — the mark before the words. Anything
-  // further in follows them, because one text run cannot be cut in two here
-  // without losing the styling that was just resolved onto it.
-  const leading = inline.filter((entry) => entry.at === 0).map((entry) => imageRunOf(entry.image));
-  const trailing = inline.filter((entry) => entry.at > 0).map((entry) => imageRunOf(entry.image));
-
-  return [...leading, ...textRuns, ...trailing];
 }
 
 /** Whether a block draws anything around what it holds. */
@@ -1156,6 +1194,15 @@ function blockLine(block: DocumentBlockStyle | undefined, style: DocumentStyle) 
   };
 }
 
+/** One line of a border as Word measures it: its width in eighths of a point. */
+function borderLine(color: string, from: Pick<DocumentBlockStyle, "borderWidthPt" | "borderStyle">) {
+  return {
+    style: from.borderStyle ?? BorderStyle.SINGLE,
+    color,
+    size: Math.max(1, Math.round((from.borderWidthPt ?? 1) * 8)),
+  };
+}
+
 /**
  * The borders a block draws, as Word measures them.
  *
@@ -1182,9 +1229,7 @@ function blockBorders(block: DocumentBlockStyle | undefined, on: "paragraph" | "
   }
 
   const edge = {
-    style: block.borderStyle ?? BorderStyle.SINGLE,
-    color: block.border,
-    size: Math.max(1, Math.round((block.borderWidthPt ?? 1) * 8)),
+    ...borderLine(block.border, block),
     ...(on === "paragraph" ? { space: Math.min(31, Math.round(block.paddingPt ?? 0)) } : {}),
   };
   const sides = block.borderSides ?? ["top", "right", "bottom", "left"];
@@ -1291,7 +1336,7 @@ function blockInset(block: DocumentBlockStyle | undefined) {
  * a cell, a box. Alignment only when the node or its block said: a paragraph
  * that never said writes no `w:jc` and goes on inheriting.
  */
-function paragraphFrame(node: ParagraphNode, block: DocumentBlockStyle | undefined) {
+function paragraphFrame(node: { align?: TextAlign }, block: DocumentBlockStyle | undefined) {
   return {
     alignment: textAlignmentOf(node.align ?? block?.align),
     shading: block?.fill === undefined
@@ -1299,6 +1344,35 @@ function paragraphFrame(node: ParagraphNode, block: DocumentBlockStyle | undefin
       : { type: ShadingType.CLEAR, fill: block.fill },
     border: blockBorders(block, "paragraph"),
     ...blockTabStops(block),
+  };
+}
+
+/**
+ * What a block gives a paragraph it draws besides its frame: room, spacing and
+ * keeps.
+ *
+ * Shared, so that a page number in a variant is set exactly as a paragraph in
+ * that variant is. A list item's indent and tight spacing apply only where the
+ * block does not say otherwise.
+ */
+function blockLayout(
+  block: DocumentBlockStyle | undefined,
+  style: DocumentStyle,
+  item?: ReturnType<typeof listItem>,
+) {
+  return {
+    indent: blockIndent(block, style) ?? item?.indent,
+    spacing: {
+      ...blockSpacingBefore(block),
+      // Items of one list stand together: the space a paragraph leaves
+      // under itself belongs after the list, not between its items. A
+      // block that names its own spacing still gets it.
+      after: ptToTwips(
+        block?.spacingAfterPt ?? (item?.tight ? 0 : style.paragraph.spacingAfterPt),
+      ),
+      ...blockLine(block, style),
+    },
+    ...blockKeeps(block),
   };
 }
 
@@ -1342,6 +1416,19 @@ function blockKeeps(block: DocumentBlockStyle | undefined) {
     ...(block?.keepWithNext === true ? { keepNext: true } : {}),
     ...(block?.keepLines === true ? { keepLines: true } : {}),
   };
+}
+
+/**
+ * Where a block sits in Word's outline, when it says.
+ *
+ * Word counts levels from 0 and the theme from 1. Silence writes nothing, so
+ * a paragraph keeps its style's level: body text, or Heading 1's for a
+ * section. A stored model is plain JSON, so a level the type would refuse is
+ * dropped rather than written: `w:outlineLvl` past 9 is not a file Word opens.
+ */
+function blockOutline(block: DocumentBlockStyle | undefined) {
+  const level = block?.outlineLevel;
+  return Number.isInteger(level) && level! >= 1 && level! <= 9 ? { outlineLevel: level! - 1 } : {};
 }
 
 /** The stops a block's tabs align to, in the twips Word measures them in. */
@@ -1459,23 +1546,18 @@ function ptToPx(points: number): number {
   return Math.round(points * (96 / 72));
 }
 
-/** The runs a page number becomes — Word's own fields, not a printed digit. */
-function pageNumberRuns(node: PageNumberNode): TextRun[] {
+/** The runs a page number becomes: Word's own fields, not a printed digit, all set in the block's type. */
+function pageNumberRuns(node: PageNumberNode, base: Record<string, unknown>): TextRun[] {
+  const field = (which: (typeof PageNumber)[keyof typeof PageNumber]) =>
+    new TextRun({ children: [which], ...base });
   const format = node.format ?? "currentOfTotal";
+  const numbers = format === "current"
+    ? [field(PageNumber.CURRENT)]
+    : format === "total"
+    ? [field(PageNumber.TOTAL_PAGES)]
+    : [field(PageNumber.CURRENT), textRun(node.separator ?? " / ", base), field(PageNumber.TOTAL_PAGES)];
 
-  if (format === "current") {
-    return [new TextRun({ children: [PageNumber.CURRENT] })];
-  }
-
-  if (format === "total") {
-    return [new TextRun({ children: [PageNumber.TOTAL_PAGES] })];
-  }
-
-  return [
-    new TextRun({ children: [PageNumber.CURRENT] }),
-    new TextRun(node.separator ?? " / "),
-    new TextRun({ children: [PageNumber.TOTAL_PAGES] }),
-  ];
+  return node.prefix ? [textRun(node.prefix, base), ...numbers] : numbers;
 }
 
 /**
@@ -1737,7 +1819,7 @@ function chartCaption(
         // that names a `chartCaption` block says it properly and wins.
         size: Math.round((block?.fontSizePt ?? style.typography.bodySizePt - 1) * 2),
         color: block?.color ?? style.palette?.muted,
-        font: block?.font ?? style.typography.bodyFont,
+        font: runFonts(block?.font ?? style.typography.bodyFont, style),
       }),
     ],
     alignment: textAlignmentOf(align ?? block?.align ?? "center"),
@@ -1897,10 +1979,7 @@ function shapeContent(
           left: indent.left + (own?.left ?? 0),
           right: indent.right + (own?.right ?? 0),
         },
-        children: withInlineImages(
-          child,
-          runsOf(child).map((words) => markedRun(words, run, style)),
-        ),
+        children: paragraphRuns(child, run, style),
       }),
     ];
   });
@@ -2116,22 +2195,19 @@ function cellContent(
         // a muted note under a description is set tighter than the row it
         // sits in — and the cell's block decides it otherwise.
         spacing: { after: 0, ...blockLine(inner ?? block, style) },
-        children: withInlineImages(
-          child,
-          runsOf(child).map((words) =>
-            markedRun(words, {
-              bold: run.bold ?? heading.bold,
-              color: run.color ?? heading.color,
-              size,
-              font: run.font,
-              allCaps: run.allCaps ?? heading.allCaps,
-              characterSpacing: run.characterSpacing ??
-                (heading.trackedEm === undefined
-                  ? undefined
-                  : trackingOf(heading.trackedEm, size, style)),
-            }, style)
-          ),
-        ),
+        children: paragraphRuns(child, {
+          bold: run.bold ?? heading.bold,
+          color: run.color ?? heading.color,
+          size,
+          font: run.font,
+          allCaps: run.allCaps ?? heading.allCaps,
+          italics: run.italics,
+          smallCaps: run.smallCaps,
+          characterSpacing: run.characterSpacing ??
+            (heading.trackedEm === undefined
+              ? undefined
+              : trackingOf(heading.trackedEm, size, style)),
+        }, style),
       }),
     ];
   });
@@ -2211,17 +2287,54 @@ function columnWidths(
   return fixed.map((width) => (width === 0 ? each : width));
 }
 
+/**
+ * A Latin face, with the theme's East Asian and complex-script faces kept in
+ * their own slots — a plain name would put the Latin face in all four.
+ */
+function runFonts(name: string, style: DocumentStyle): IFontAttributesProperties {
+  const { eastAsiaFont = name, complexScriptFont = name } = style.typography;
+  return { ascii: name, hAnsi: name, eastAsia: eastAsiaFont, cs: complexScriptFont };
+}
+
+/** Scripts Word proofs against `w:eastAsia`, and against `w:bidi`. */
+const EAST_ASIAN_SCRIPTS = new Set(["Hans", "Hant", "Jpan", "Kore"]);
+const COMPLEX_SCRIPTS = new Set(["Arab", "Hebr"]);
+
+/**
+ * The document's language in each slot Word reads it from. `w:val` stays as it
+ * was, so a Latin-script document's file is unchanged; a Japanese or Arabic one
+ * gains the slot Word proofs that script against.
+ */
+function languageOf(locale: string | undefined) {
+  if (locale === undefined) return undefined;
+  const script = scriptOf(locale);
+  return {
+    value: locale,
+    eastAsia: script !== undefined && EAST_ASIAN_SCRIPTS.has(script) ? locale : undefined,
+    bidirectional: script !== undefined && COMPLEX_SCRIPTS.has(script) ? locale : undefined,
+  };
+}
+
+function scriptOf(locale: string): string | undefined {
+  try {
+    return new Intl.Locale(locale).maximize().script;
+  } catch {
+    // A stored model's locale was never checked here; it keeps w:val alone.
+    return undefined;
+  }
+}
+
 function createDocxStyles(style: DocumentStyle, locale: string | undefined) {
   return {
     default: {
       document: {
         run: {
-          font: style.typography.bodyFont,
+          font: runFonts(style.typography.bodyFont, style),
           size: ptToHalfPoints(style.typography.bodySizePt),
           color: style.typography.color,
           // What Word spell-checks and hyphenates against. Left off when the
           // document never said, so Word keeps using the reader's own default.
-          language: locale === undefined ? undefined : { value: locale },
+          language: languageOf(locale),
         },
         paragraph: {
           spacing: {
@@ -2241,11 +2354,12 @@ function createDocxStyles(style: DocumentStyle, locale: string | undefined) {
 function textBlockStyle(style: DocumentStyle, block: DocumentTextBlockStyle) {
   return {
     run: {
-      font: style.typography.headingFont,
+      font: runFonts(style.typography.headingFont, style),
       size: ptToHalfPoints(block.fontSizePt),
       bold: block.weight === "bold",
       color: headingColor(style, block),
-      allCaps: block.transform === "uppercase",
+      ...caseOf(block.transform ?? "none"),
+      italics: block.italic,
       characterSpacing: trackingPt(block.letterSpacingEm, block.fontSizePt),
     },
     paragraph: {
@@ -2280,6 +2394,19 @@ function firstPageNumberOf(style: DocumentStyle): number | undefined {
     throw new RangeError(`page.firstPageNumber must be a whole number from 0, not ${start}`);
   }
   return start;
+}
+
+/** The rule round every page, measured from the paper's edge as a certificate's frame is. */
+function pageBorders(page: DocumentPageStyle): IPageBordersOptions | undefined {
+  if (!page.border) return undefined;
+  const edge = { ...borderLine(page.border, page), space: pageBorderOffsetPt(page) };
+  return {
+    pageBorders: { offsetFrom: PageBorderOffsetFrom.PAGE },
+    pageBorderTop: edge,
+    pageBorderRight: edge,
+    pageBorderBottom: edge,
+    pageBorderLeft: edge,
+  };
 }
 
 function mmToTwips(value: number): number {

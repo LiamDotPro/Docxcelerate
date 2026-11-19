@@ -429,7 +429,9 @@ async function renderHostKind(
       id,
       kind: "pageNumber",
       format: pageProps.format,
+      prefix: pageProps.prefix,
       separator: pageProps.separator,
+      align: pageProps.align,
       when,
     });
   }
@@ -799,6 +801,7 @@ function listOf(props: ParagraphProps, id: string): ParagraphList | undefined {
       // Bullets count nothing, so a style on one would only be noise in the model.
       style: props.list === "number" ? props.listStyle : undefined,
       start: props.list === "number" ? start : undefined,
+      marker: props.list === "bullet" ? props.listMarker : undefined,
     });
 }
 
@@ -885,8 +888,8 @@ async function renderGraph(
     legend: props.legend,
     stacked: props.stacked,
     numberFormat: props.numberFormat,
-    categoryAxisTitle: props.categoryAxisTitle,
-    valueAxisTitle: props.valueAxisTitle,
+    categoryAxisTitle: await text(props.categoryAxisTitle, context),
+    valueAxisTitle: await text(props.valueAxisTitle, context),
     valueAxisMin: props.valueAxisMin,
     valueAxisMax: props.valueAxisMax,
     valueAxisStep: props.valueAxisStep,

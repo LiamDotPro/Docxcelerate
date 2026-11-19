@@ -15,6 +15,7 @@ import type {
   GraphType,
   JsonObject,
   ListKind,
+  ListMarker,
   ListStyle,
   PageNumberFormat,
   RowHeightRule,
@@ -184,6 +185,13 @@ export interface ParagraphProps extends CommonElementProps, PromptProps {
    * Omitted, a level counts from 1 as it always has. Ignored on a bullet.
    */
   listStart?: number;
+  /**
+   * The glyph a bulleted item is marked with: `"tick"` for ✓, `"cross"` for ✗,
+   * `"dash"` for –, `"square"` for ▪. Say it on each item that wants it; an
+   * item without it keeps the bullet. Omitted, bullets are •, ◦, ▪ by depth as
+   * they always have been. Ignored on a numbered item.
+   */
+  listMarker?: ListMarker;
   /** The paragraph's text, as children. */
   children?: Yield<"paragraph">;
 }
@@ -202,8 +210,11 @@ export interface TextProps {
   bold?: boolean;
   /** Set in italics. */
   italic?: boolean;
-  /** Set with a rule beneath. */
-  underline?: boolean;
+  /**
+   * Set with a rule beneath: `true` for a single rule, `"double"` for the
+   * accounting double rule under a grand total. Left out or `false`, no rule.
+   */
+  underline?: boolean | "double";
   /** Set struck through. */
   strike?: boolean;
   /**
@@ -221,7 +232,7 @@ export interface TextProps {
    *
    * A name, not an appearance, the same as `variant` on every element. Only the
    * block's character settings reach a run: `color`, `fill` (drawn as shading
-   * behind the words), `fontSizePt`, `weight`, `font`, `transform` and
+   * behind the words), `fontSizePt`, `weight`, `italic`, `font`, `transform` and
    * `letterSpacingEm`. Borders, padding, spacing and alignment belong to a
    * paragraph and are ignored here. An unknown name draws the words plain.
    * `bold`, `italic`, `underline` and `strike` said beside it win over the
@@ -485,6 +496,13 @@ export interface PageNumberProps extends CommonElementProps {
   format?: PageNumberFormat;
   /** What sits between the two numbers. Defaults to ` / `. */
   separator?: string;
+  /** Words printed before the number, such as `"Page "`. Nothing when it is left out. */
+  prefix?: string;
+  /**
+   * How the line sits across the column. Left out, it inherits. A `variant`
+   * can carry it instead, and this wins when both say.
+   */
+  align?: TextAlign;
 }
 
 // The types below are written out rather than inferred from `host`. Both

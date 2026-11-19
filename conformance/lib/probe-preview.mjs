@@ -135,6 +135,7 @@ function harnessHtml(bodyFont) {
       var padBottom = parseFloat(cs.paddingBottom) + parseFloat(cs.borderBottomWidth);
       return {
         el: s,
+        cs: cs,
         page: { x: rect.x, y: rect.y, w: rect.width, h: rect.height },
         content: {
           x: rect.x + padLeft, y: rect.y + padTop,
@@ -230,6 +231,7 @@ function harnessHtml(bodyFont) {
           fontStyle: cs.fontStyle,
           verticalAlign: view.getComputedStyle(span.querySelector(":scope > sup, :scope > sub") || span).verticalAlign,
           textDecoration: cs.textDecorationLine,
+          textDecorationStyle: cs.textDecorationStyle,
           color: cs.color,
           background: cs.backgroundColor,
           href: link === null ? null : link.getAttribute("href")
@@ -296,6 +298,7 @@ function harnessHtml(bodyFont) {
           color: rcs.color,
           letterSpacing: rcs.letterSpacing === "normal" ? 0 : r2(parseFloat(rcs.letterSpacing)),
           textTransform: rcs.textTransform,
+          fontVariantCaps: rcs.fontVariantCaps,
           runs: runsOf(el),
           // What is drawn in front of a list item. docx-preview draws it as
           // the paragraph's ::before, so it is in no text node and no range:
@@ -589,7 +592,8 @@ function harnessHtml(bodyFont) {
       sections: boxes.map(function (b) {
         return {
           page: { w: r2(b.page.w), h: r2(b.page.h), x: r2(b.page.x), y: r2(b.page.y) },
-          content: { w: r2(b.content.w), h: r2(b.content.h) }
+          content: { w: r2(b.content.w), h: r2(b.content.h) },
+          outline: { style: b.cs.outlineStyle, width: r2(parseFloat(b.cs.outlineWidth)), offset: r2(parseFloat(b.cs.outlineOffset)) }
         };
       }),
       furniture: furniture,
@@ -844,7 +848,7 @@ export function previewView(measure) {
       const wanted = anchor.toLowerCase();
       return measure.paragraphs.flatMap((p) => p.runs ?? [])
         .find((run) => run.text.toLowerCase().includes(wanted)) ??
-        { missing: true, anchor, text: "", fontWeight: null, fontStyle: null, textDecoration: null, verticalAlign: null, color: null, background: null, href: null };
+        { missing: true, anchor, text: "", fontWeight: null, fontStyle: null, textDecoration: null, textDecorationStyle: null, verticalAlign: null, color: null, background: null, href: null };
     },
 
     /** Whether the named face resolved rather than falling back silently. */
@@ -1179,6 +1183,7 @@ function missingParagraph(anchor) {
     background: null,
     letterSpacing: null,
     textTransform: null,
+    fontVariantCaps: null,
     textIndent: null,
     computedLineHeight: null,
     marginTop: null,

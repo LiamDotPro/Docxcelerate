@@ -2,11 +2,11 @@ import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { buildDocument, cleanMinimalDocumentStyle, imageSourceOf, isSvg, pixelSizeOf, rasterTypeOf } from "docxcelerate";
 import { createDocxBlob, createDocxDocument } from "docxcelerate/docx";
-import { documentXml, elementOf, entryOf, partXml } from "./docx.ts";
+import { documentXml, elementOf, entryOf, paragraphOf, partXml } from "./docx.ts";
 
-import { Cell, createPublishData, Document, Image, Paragraph, Row, Table, template, useState } from "docxcelerate/template";
+import { Cell, createPublishData, Document, Image, Paragraph, Row, Shape, Table, template, useState } from "docxcelerate/template";
 import { createDeriverRegistry, EchoAiClient, InMemoryDataProvider, resolveDocument } from "docxcelerate";
-import type { ImageNode, RuntimeState } from "docxcelerate";
+import type { ImageNode, ParagraphNode, RuntimeState } from "docxcelerate";
 import { settleDocxPreview } from "docxcelerate/preview";
 import { JSDOM } from "jsdom";
 
@@ -546,4 +546,105 @@ test("the preview keeps a linked picture's frame inside its link", () => {
 
   assertEquals(page.querySelector(`p > a[href="${PAY}"] > span > img`) !== null, true);
   assertEquals(page.querySelector("p div"), null);
+});
+
+const statusStyle = {
+  ...cleanMinimalDocumentStyle,
+  blocks: { ...cleanMinimalDocumentStyle.blocks, status: { color: "1F7A3D" } },
+};
+
+const paidCell = () =>
+  build(
+    <Document id="d" title="D">
+      <Table id="t" columns={[{ width: "auto" }]}>
+        <Row>
+          <Cell variant="status">
+            <Paragraph id="p">
+              Paid <Image id="i" src={pngPixel} width={8} height={8} /> on 3 March
+            </Paragraph>
+          </Cell>
+        </Row>
+      </Table>
+    </Document>,
+  );
+
+test("a picture mid-sentence in a cell sits where it was written", async () => {
+  const xml = await documentXml({ ...(await paidCell()), style: statusStyle });
+  const p = paragraphOf(xml, "Paid ");
+
+  assertEquals(p.indexOf("Paid ") < p.indexOf("<w:drawing>"), true);
+  assertEquals(p.indexOf("<w:drawing>") < p.indexOf(" on 3 March"), true);
+  assertEquals((p.match(/<w:color w:val="1F7A3D"\/>/g) ?? []).length, 2);
+});
+
+test("a picture mid-sentence in a shape sits where it was written", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Shape id="s">
+          <Paragraph id="p">Look for the <Image id="i" src={pngPixel} width={8} height={8} /> mark</Paragraph>
+        </Shape>
+      </Document>,
+    ),
+  );
+  const p = paragraphOf(xml, "Look for the ");
+
+  assertEquals(p.indexOf("Look for the ") < p.indexOf("<w:drawing>"), true);
+  assertEquals(p.indexOf("<w:drawing>") < p.indexOf(" mark"), true);
+});
+
+test("a cell picture at the start or past the end keeps its place", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell>
+              <Paragraph id="p">
+                <Image id="a" src={pngPixel} width={8} height={8} />Due <Image id="b" src={pngPixel} width={8} height={8} />
+              </Paragraph>
+            </Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+  const p = paragraphOf(xml, "Due ");
+
+  assertEquals(/<w:drawing>[\s\S]*Due <\/w:t><\/w:r>[\s\S]*<w:drawing>/.test(p), true);
+  assertEquals((p.match(/<w:drawing>/g) ?? []).length, 2);
+  assertEquals((p.match(/<w:t[ >]/g) ?? []).length, 1);
+});
+
+test("a cell paragraph with no picture is still one run", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell>
+              <Paragraph id="p">Just words.</Paragraph>
+            </Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+  const p = paragraphOf(xml, "Just words.");
+
+  assertEquals((p.match(/<w:r>/g) ?? []).length, 1);
+  assertEquals(p.includes("<w:drawing>"), false);
+});
+
+test("a cell paragraph's picture offset is recorded in the model", async () => {
+  // The paragraph sits inside table, row and cell nodes; JSON.parse's reviver visits all of them.
+  let node = {} as ParagraphNode;
+  JSON.parse(JSON.stringify(await paidCell()), (_key, value) => {
+    if (value?.kind === "paragraph" && value.id === "p") node = value;
+    return value;
+  });
+
+  assertEquals(node.inlineImages?.length, 1);
+  assertEquals(node.inlineImages?.[0].at, 5);
+  assertEquals(node.text, "Paid  on 3 March");
 });
