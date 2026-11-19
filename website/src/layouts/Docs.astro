@@ -195,22 +195,42 @@ const structuredData = [
     line-height: 1.6;
   }
 
+  /* The wrapper comes from wrapTables in astro.config.mjs. It scrolls, so the
+     table never has to, and it carries the same frame as the facts box and the
+     options list on a node page. */
+  .doc-prose .table-scroll {
+    margin: 0 0 1.35rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    overflow-x: auto;
+  }
+
   .doc-prose table {
     width: 100%;
-    margin: 0 0 1.35rem;
     border-collapse: collapse;
     font-size: 0.9rem;
-    display: block;
-    overflow-x: auto;
   }
 
   .doc-prose th,
   .doc-prose td {
-    border-bottom: 1px solid var(--border);
     padding: 0.55rem 0.85rem;
     text-align: left;
+    vertical-align: top;
+    /* German and Dutch compounds outrun a phone-width column otherwise. The
+       limit keeps ordinary words like "artifact" whole. */
+    hyphens: auto;
+    hyphenate-limit-chars: 12 5 5;
   }
 
+  .doc-prose tbody tr > * {
+    border-top: 1px solid var(--border);
+  }
+
+  /* A hyphen in a name reads as part of it. */
+  .doc-prose td code {
+    hyphens: manual;
+  }
   .doc-prose th {
     font-family: var(--font-mono);
     font-size: 0.68rem;
