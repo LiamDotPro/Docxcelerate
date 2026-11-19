@@ -223,7 +223,6 @@ export const en = {
     /** {documents} and {files} are counts. */
     counts: "{documents} documents · {files} files",
     sectors: {
-      education: "Education",
       housing: "Housing",
       insurance: "Insurance",
       consulting: "Professional services",
@@ -231,7 +230,6 @@ export const en = {
     },
     documents: {
       "portfolio-review": "Quarterly portfolio review",
-      "offer-of-admission": "Offer of Admission",
       "repairs-appointment": "Repair Appointment",
       "policy-renewal": "Policy Renewal",
       invoice: "Invoice",

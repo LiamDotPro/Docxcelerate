@@ -570,6 +570,7 @@ function readCell(xml, index, column) {
     shd: childAttr(tcPr, "w:shd", "w:fill"),
     /** How the content sits against the height of the cell. */
     vAlign: childAttr(tcPr, "w:vAlign", "w:val"),
+    textDirection: childAttr(tcPr, "w:textDirection", "w:val"),
     /** Borders, by edge. An undrawn edge is null. */
     borders: bordersOf(tcPr, "w:tcBorders"),
     /** The room left inside the cell, in twips. */
@@ -1255,6 +1256,7 @@ function missingCell(anchor) {
     vMerge: null,
     shd: null,
     vAlign: null,
+    textDirection: null,
     borders: null,
     margins: null,
     paragraphs: [],

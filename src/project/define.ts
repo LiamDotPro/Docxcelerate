@@ -38,6 +38,15 @@ export interface DocumentProject<TData = unknown> {
    * own, so an engine picks the document by the reader's language.
    */
   locales?: string[];
+  /**
+   * A style for one of `locales` to be built on instead of `style`, keyed by
+   * the locale exactly as it is written in `locales`: a US edition on
+   * `LETTER` while the rest stay on A4. Each one is a whole style, so start
+   * it from the same theme (`themeStyle(theme, { page: { size: "LETTER" } })`)
+   * or spread `style`. A locale with no entry, and a build with no locale, use
+   * `style`.
+   */
+  localeStyles?: Record<string, DocumentStyle>;
   /** Runtime overrides applied when building the preview. */
   previewOptions?: ComponentRuntimeOptions;
   /** Runtime overrides applied when building for an engine. */
@@ -75,6 +84,15 @@ export interface DefineDocumentProjectOptions<TData> {
    * own, so an engine picks the document by the reader's language.
    */
   locales?: string[];
+  /**
+   * A style for one of `locales` to be built on instead of `style`, keyed by
+   * the locale exactly as it is written in `locales`: a US edition on
+   * `LETTER` while the rest stay on A4. Each one is a whole style, so start
+   * it from the same theme (`themeStyle(theme, { page: { size: "LETTER" } })`)
+   * or spread `style`. A locale with no entry, and a build with no locale, use
+   * `style`.
+   */
+  localeStyles?: Record<string, DocumentStyle>;
   /** Runtime overrides applied when building the preview. */
   previewOptions?: ComponentRuntimeOptions;
   /** Runtime overrides applied when building for an engine. */
@@ -90,6 +108,7 @@ export interface DefineDocumentProjectOptions<TData> {
  * @typeParam TData The shape the project's template reads.
  * @param options The template, its preview data, and how to build it.
  * @returns The project.
+ * @throws If `localeStyles` has a key that is not one of `locales`.
  *
  * @example
  * ```ts
@@ -104,6 +123,12 @@ export interface DefineDocumentProjectOptions<TData> {
 export function defineDocumentProject<TData>(
   options: DefineDocumentProjectOptions<TData>,
 ): DocumentProject<TData> {
+  for (const tag of Object.keys(options.localeStyles ?? {})) {
+    if (!options.locales?.includes(tag)) {
+      throw new Error(`Document project "${options.id}" has a style for "${tag}", which is not one of its locales.`);
+    }
+  }
+
   return {
     schemaVersion: "docxcelerate.project/v0",
     id: options.id,
@@ -114,6 +139,7 @@ export function defineDocumentProject<TData>(
     derivers: options.derivers,
     style: options.style,
     locales: options.locales,
+    localeStyles: options.localeStyles,
     previewOptions: options.previewOptions,
     buildOptions: options.buildOptions,
     metadata: options.metadata,

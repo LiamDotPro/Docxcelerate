@@ -75,6 +75,16 @@ export interface AiConfig {
    * legitimately varies by case.
    */
   example?: string | string[];
+  /**
+   * Settings for whatever writes this node — a model name, a token limit —
+   * handed to the engine's `AiClient` untouched as `request.node.aiOptions`.
+   *
+   * docxcelerate never reads them: what a key means is agreed between the
+   * template and the client. They are fixed when the document is built and are
+   * published with it, so they cannot be read from request data, and they must
+   * never hold a key or a secret.
+   */
+  options?: JsonObject;
 }
 
 /**
@@ -183,6 +193,23 @@ function toPromptDraft(config: AiConfig, caller: string): PromptDraft {
     );
   }
 
+  if (config.options !== undefined) {
+    if (typeof config.options !== "object" || config.options === null || Array.isArray(config.options)) {
+      throw new Error(
+        `${caller} \`options\` must be an object of settings for the engine's client, such as ` +
+          '`{ model: "large" }`.',
+      );
+    }
+
+    if (holdsPublishValue(config.options)) {
+      throw new Error(
+        `${caller} \`options\` was handed request data while publishing. Options are fixed when the ` +
+          "document is built, and an engine would be sent the token rather than the value. " +
+          "Write the setting itself.",
+      );
+    }
+  }
+
   const draft: PromptDraft = {
     generalPrompt: config.ask,
     placeholder: config.placeholder,
@@ -206,7 +233,17 @@ function toPromptDraft(config: AiConfig, caller: string): PromptDraft {
     draft.examplePrompt = examples;
   }
 
+  if (config.options !== undefined && Object.keys(config.options).length > 0) {
+    draft.aiOptions = config.options;
+  }
+
   return draft;
+}
+
+/** Whether a stand-in for request data sits anywhere inside a value. */
+function holdsPublishValue(value: unknown): boolean {
+  return isPublishValue(value) ||
+    (typeof value === "object" && value !== null && Object.values(value).some(holdsPublishValue));
 }
 
 /**
