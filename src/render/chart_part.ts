@@ -232,7 +232,6 @@ function titleXml(title: string | undefined, palette: ChartPalette): string {
   }</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/><c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr></c:title>`;
 }
 
-/** Where the key sits: what the node said, or what the chart needs. */
 /** Whether the chart prints a data table: asked for, and a type Word draws one under. */
 function hasDataTable(node: GraphNode): boolean {
   return node.dataTable === true &&
@@ -257,6 +256,7 @@ function dataTableXml(node: GraphNode, palette: ChartPalette): string {
     `</c:dTable>`;
 }
 
+/** Where the key sits: what the node said, or what the chart needs. */
 function legendOf(node: GraphNode, count: number): GraphLegend {
   if (node.legend !== undefined) {
     return node.legend;
