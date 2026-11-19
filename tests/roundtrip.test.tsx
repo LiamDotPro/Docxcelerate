@@ -308,13 +308,6 @@ const drawingClient: AiClient = {
   generateImage: (request) => ({ path: "data:image/png;base64,iVBORw0KGgo=", alt: `${request.node.alt} / ${request.prompt}` }),
 };
 
-/** A model that answers every node with nothing. */
-const silentClient: AiClient = {
-  generateParagraph: () => "",
-  generateGraph: () => ({}),
-  generateImage: () => ({ path: "" }),
-};
-
 function reportState(data: ReportData, client: AiClient): RuntimeState {
   const ctx = { ...data } as Record<string, unknown>;
 
@@ -395,15 +388,20 @@ test("a project with a generated chart builds an artifact whose preview shows th
   assertEquals(previewTrend !== undefined && "data" in previewTrend, false);
 });
 
-test("a model that answers a chart and image with nothing leaves them undrawn on both paths", async () => {
-  const resolved = await resolveDocument(
-    await buildProjectEngineDocument(reportProject),
-    reportState(leeds, silentClient),
-  );
-  const direct = await buildProjectFinalDocument(reportProject, { data: leeds, aiClient: silentClient });
+test("a model that answers a chart with nothing fails on both paths, naming the node", async () => {
+  const emptyChart: AiClient = { ...drawingClient, generateGraph: () => ({}) };
+  const expected = 'Dynamic graph "trend" got an answer it cannot plot: it has no data.';
 
-  assertEquals(json(resolved.nodes), json(direct.nodes));
-  assertEquals("data" in json(findNode(resolved.nodes, "trend")), false);
+  await assertRejects(
+    async () => resolveDocument(await buildProjectEngineDocument(reportProject), reportState(leeds, emptyChart)),
+    Error,
+    expected,
+  );
+  await assertRejects(
+    () => buildProjectFinalDocument(reportProject, { data: leeds, aiClient: emptyChart }),
+    Error,
+    expected,
+  );
 });
 
 test("an engine whose client cannot draw, or throws, fails the resolve naming why", async () => {
@@ -448,5 +446,101 @@ test("a generated picture among a paragraph's words refuses to publish", async (
     () => buildProjectEngineDocument(inlineProject),
     Error,
     'Paragraph "p" holds a generated picture, "icon"',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Chart words, published and resolved
+// ---------------------------------------------------------------------------
+
+interface SpendData {
+  city: string;
+  currency: string;
+}
+
+const StaticSpend = () => {
+  const [state] = useState((data: SpendData) => ({ city: data.city, currency: data.currency }));
+  return (
+    <Graph
+      id="spend-static"
+      graphType="bar"
+      title={`Visits in ${state.city}`}
+      categoryAxisTitle={`Month in ${state.city}`}
+      valueAxisTitle={`Spend (${state.currency})`}
+      caption={`Figures for ${state.city}.`}
+      data={{ categories: ["Jan"], series: [{ values: [1] }] }}
+    />
+  );
+};
+
+const GeneratedSpend = () => {
+  const [state] = useState((data: SpendData) => ({ city: data.city, currency: data.currency }));
+  useAi({ ask: `Plot spend for ${state.city}.`, placeholder: "A spend chart." });
+  return (
+    <Graph
+      id="spend-generated"
+      title={`Visits in ${state.city}`}
+      categoryAxisTitle={`Month in ${state.city}`}
+      valueAxisTitle={`Spend (${state.currency})`}
+      caption={`Figures for ${state.city}.`}
+    />
+  );
+};
+
+const spendProject = defineDocumentProject<SpendData>({
+  id: "spend",
+  name: "Spend",
+  template: template<SpendData>(
+    <Document id="spend-report" title="Spend">
+      <Section id="charts" title="Charts">
+        <StaticSpend />
+        <GeneratedSpend />
+      </Section>
+    </Document>,
+  ),
+  previewData: { city: "Leeds", currency: "GBP" },
+});
+
+const axisClient: AiClient = {
+  generateParagraph: () => "",
+  generateGraph: (request) => ({
+    data: {
+      categories: [request.node.categoryAxisTitle ?? ""],
+      series: [{ label: request.node.valueAxisTitle, values: [1] }],
+    },
+  }),
+};
+
+const spendLeeds: SpendData = { city: "Leeds", currency: "GBP" };
+
+test("a chart's title, caption and axis titles publish as tokens and resolve to what a direct build writes", async () => {
+  const published = await buildProjectEngineDocument(spendProject);
+  const staticSpend = findNode(published.nodes, "spend-static");
+  assertEquals(
+    staticSpend?.kind === "graph" ? staticSpend.valueAxisTitle : undefined,
+    "Spend ({{data.currency}})",
+  );
+  const publishedText = JSON.stringify(published);
+  assertEquals(publishedText.includes("Leeds"), false);
+  assertEquals(publishedText.includes("GBP"), false);
+
+  const resolved = await resolveDocument(published, reportState(spendLeeds, axisClient));
+  const direct = await buildProjectFinalDocument(spendProject, { data: spendLeeds, aiClient: axisClient });
+  assertEquals(json(resolved.nodes), json(direct.nodes));
+
+  for (const id of ["spend-static", "spend-generated"]) {
+    const chart = findNode(resolved.nodes, id);
+    assertEquals(
+      chart?.kind === "graph"
+        ? [chart.title, chart.categoryAxisTitle, chart.valueAxisTitle, chart.caption]
+        : undefined,
+      ["Visits in Leeds", "Month in Leeds", "Spend (GBP)", "Figures for Leeds."],
+    );
+  }
+
+  const generated = findNode(resolved.nodes, "spend-generated");
+  assertEquals(
+    generated?.kind === "graph" ? generated.data : undefined,
+    { categories: ["Month in Leeds"], series: [{ label: "Spend (GBP)", values: [1] }] },
   );
 });

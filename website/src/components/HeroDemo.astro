@@ -2,6 +2,7 @@
 import { Code } from "astro:components";
 import configRaw from "../demo/docxcelerate.config.json?raw";
 import { asLocale, fill, ui } from "../i18n";
+import { DEMO_DOCUMENT_IDS, type DemoDocumentId } from "../demo";
 
 const locale = asLocale(Astro.currentLocale);
 const t = ui(locale);
@@ -26,31 +27,19 @@ const sources = import.meta.glob("../demo/documents/**/*.{ts,tsx}", {
 // The documents inside the preview frames are themselves still English: they
 // are built from src/demo/documents by the real renderer, and translating them
 // would mean maintaining five copies of the demo sources.
-const DOCUMENTS = [
-  // The invoice opens the hero. It is the one that shows the most of the
-  // framework at a glance — a table of line items from a `.map()`, two pages
-  // with running furniture, a generated summary and a conditional status.
-  {
-    id: "invoice",
-    name: t.demo.documents.invoice,
-    sector: t.demo.sectors.consulting,
-  },
-  {
-    id: "offer-of-admission",
-    name: t.demo.documents["offer-of-admission"],
-    sector: t.demo.sectors.education,
-  },
-  {
-    id: "repairs-appointment",
-    name: t.demo.documents["repairs-appointment"],
-    sector: t.demo.sectors.housing,
-  },
-  {
-    id: "policy-renewal",
-    name: t.demo.documents["policy-renewal"],
-    sector: t.demo.sectors.insurance,
-  },
-] as const;
+const SECTORS: Record<DemoDocumentId, keyof typeof t.demo.sectors> = {
+  "portfolio-review": "finance",
+  invoice: "consulting",
+  "repairs-appointment": "housing",
+  "policy-renewal": "insurance",
+};
+
+// Which documents exist, and the order they open in, is src/demo.ts's call.
+const DOCUMENTS = DEMO_DOCUMENT_IDS.map((id) => ({
+  id,
+  name: t.demo.documents[id],
+  sector: t.demo.sectors[SECTORS[id]],
+}));
 
 interface DemoFile {
   key: string;
