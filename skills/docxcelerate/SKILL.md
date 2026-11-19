@@ -163,6 +163,8 @@ live in the style's `blocks`, so a document restyles without a node changing,
 and a name the theme has not heard of draws as an ordinary block rather than
 failing. Never write a colour into a component.
 
+A `<Section variant="schedule">` sets its **heading** from that block — size, weight, `transform`, tracking, colour, `align`, a `border` rule, space before and after, and the keeps — over the theme's `sectionHeading`, and it is still a Heading 1 for the contents. That is how schedule or annex headings are centred capitals while clause headings stay as they are. `transform: "none"` turns off capitals the theme's headings ask for.
+
 A block style says `fill`, `color`, `border` (with `borderWidthPt`,
 `borderSides`), `paddingPt`, `fontSizePt`, `weight`, `transform`,
 `letterSpacingEm` and `bleed`. **All of them mean the same thing on screen and

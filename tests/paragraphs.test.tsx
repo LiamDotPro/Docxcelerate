@@ -39,6 +39,15 @@ const style: DocumentStyle = {
   sectionHeading: { fontSizePt: 12, weight: "bold", spacingBeforePt: 16, spacingAfterPt: 7 },
   showTitle: false,
   blocks: {
+    /** A schedule's heading: centred capitals with a rule under them. */
+    schedule: {
+      align: "center", transform: "uppercase", fontSizePt: 14, border: "000000",
+      borderSides: ["bottom"], spacingBeforePt: 24, spacingAfterPt: 12, keepWithNext: true,
+    },
+    /** Tracked open, at whatever size the heading already is. */
+    trackedHeading: { letterSpacingEm: 0.1 },
+    /** An annex in sentence case, under a theme whose headings are capitals. */
+    sentenceCase: { transform: "none" },
     /** A theme deciding what one of its named blocks looks like. */
     standfirst: { align: "center" },
     /** Inset from both margins, the way a pulled quotation sits. */
@@ -449,4 +458,129 @@ test("the text either side of a tab survives it", async () => {
 
   assertStringIncludes(paragraph, "Signed for the supplier");
   assertStringIncludes(paragraph, "Date");
+});
+
+// ---------------------------------------------------------------------------
+// A section's variant styles its heading
+// ---------------------------------------------------------------------------
+
+const PLAIN_HEADING =
+  '<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t xml:space="preserve">%</w:t></w:r></w:p>';
+
+test("a section's variant restyles its heading, which stays a Heading 1", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Section id="s" title="Schedule 1" variant="schedule">
+          <Paragraph id="p">Body.</Paragraph>
+        </Section>
+      </Document>,
+    ),
+  );
+  const heading = paragraphOf(xml, "Schedule 1");
+
+  for (
+    const part of [
+      '<w:pStyle w:val="Heading1"/>',
+      '<w:jc w:val="center"/>',
+      "<w:caps/>",
+      '<w:sz w:val="28"/>',
+      "<w:keepNext/>",
+      'w:before="480"',
+      'w:after="240"',
+      '<w:bottom w:val="single" w:color="000000" w:sz="8" w:space="0"/>',
+    ]
+  ) {
+    assertStringIncludes(heading, part);
+  }
+});
+
+test("a heading with no variant, or one the theme lacks, is written as it always was", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Section id="a" title="Definitions" />
+        <Section id="b" title="Unknown" variant="nope" />
+      </Document>,
+    ),
+  );
+
+  assertEquals(paragraphOf(xml, "Definitions"), PLAIN_HEADING.replace("%", "Definitions"));
+  assertEquals(paragraphOf(xml, "Unknown"), PLAIN_HEADING.replace("%", "Unknown"));
+});
+
+test("a clause heading and a schedule heading sit side by side", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Section id="a" title="Clause" />
+        <Section id="b" title="Schedule" variant="schedule" />
+      </Document>,
+    ),
+  );
+  const clause = paragraphOf(xml, "Clause");
+  const schedule = paragraphOf(xml, "Schedule");
+
+  for (const part of ["<w:jc", "<w:caps", "keepNext"]) {
+    assertEquals(clause.includes(part), false);
+    assertEquals(schedule.includes(part), true);
+  }
+});
+
+test("a heading's tracking is measured against the heading's size", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Section id="s" title="Tracked" variant="trackedHeading" />
+      </Document>,
+    ),
+  );
+
+  // 0.1 x 12pt x 20; the 11pt body would have given 22.
+  assertStringIncludes(paragraphOf(xml, "Tracked"), '<w:spacing w:val="24"/>');
+});
+
+test("transform none turns off the capitals a theme's headings ask for", async () => {
+  const model = await build(
+    <Document id="d" title="D">
+      <Section id="s" title="Annex" variant="sentenceCase" />
+    </Document>,
+  );
+  const xml = await documentXml({
+    ...model,
+    style: { ...style, sectionHeading: { ...style.sectionHeading, transform: "uppercase" } },
+  });
+
+  assertStringIncludes(paragraphOf(xml, "Annex"), '<w:caps w:val="false"/>');
+});
+
+test("a heading held at a page break keeps its variant's formatting", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a">Before.</Paragraph>
+        <PageBreak id="turn" />
+        <Section id="s" title="Schedule 1" variant="schedule">
+          <Paragraph id="p">Body.</Paragraph>
+        </Section>
+      </Document>,
+    ),
+  );
+  const heading = paragraphOf(xml, "Schedule 1");
+
+  assertStringIncludes(heading, '<w:pStyle w:val="PageBreakBeforeHeading1"/>');
+  assertStringIncludes(heading, '<w:jc w:val="center"/>');
+});
+
+test("the model carries a section's variant", async () => {
+  const model = await build(
+    <Document id="d" title="D">
+      <Section id="s" title="Schedule 1" variant="schedule">
+        <Paragraph id="p">Body.</Paragraph>
+      </Section>
+    </Document>,
+  );
+
+  assertEquals(model.nodes[0]?.kind, "section");
+  assertEquals(model.nodes[0]?.variant, "schedule");
 });

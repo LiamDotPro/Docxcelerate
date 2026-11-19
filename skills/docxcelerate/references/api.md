@@ -488,7 +488,7 @@ blocks: {
 | `color` | text colour |
 | `border`, `borderWidthPt`, `borderSides` | a border, on all four edges unless sides are named |
 | `paddingPt` | the gap between a drawn border and the text. Word records it on the border, so a block with a fill and no border cannot be padded — see below |
-| `fontSizePt`, `weight`, `transform`, `letterSpacingEm`, `font`, `lineHeight` | how the text is set |
+| `fontSizePt`, `weight`, `transform`, `letterSpacingEm`, `font`, `lineHeight` | how the text is set. `transform: "none"` turns capitals off where a heading or header row would otherwise use them |
 | `align` | `"left" \| "center" \| "right" \| "justify"`. A node's own `align` wins |
 | `spacingBeforePt`, `spacingAfterPt` | space above and below, in points |
 | `indentMm`, `indentRightMm` | inset from the left and right margins |
@@ -527,3 +527,9 @@ and compares the two against each other to the millimetre.
 A cell takes its block from its own `variant`, then its row's, then its table's
 — the narrower statement wins. A paragraph inside a cell is set by its own
 variant over the cell's, which is how a muted note sits inside a filled row.
+
+A section's `variant` styles its printed heading, not its children. The heading takes the block's `fontSizePt`, `weight`, `transform`, `letterSpacingEm`, `color`, `font`, `align`, `border`/`borderWidthPt`/`borderSides`/`paddingPt`, `spacingBeforePt`, `spacingAfterPt`, `keepWithNext` and `keepLines`. Anything the block leaves out comes from `sectionHeading`, and it stays a Heading 1, so the contents still lists it. Fill, indents, bleed, measure, leading and tab stops are not applied to a heading. With `showTitle={false}` there is no heading and the variant does nothing.
+
+```tsx
+<Section id="schedule-1" title="Schedule 1: Services" variant="schedule">…</Section>
+```
