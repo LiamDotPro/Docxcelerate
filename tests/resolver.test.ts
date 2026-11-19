@@ -829,3 +829,126 @@ test("createRuntimeState's locale is canonical and wins over the document's", as
     "BCP 47",
   );
 });
+
+test("a published chart's title, caption and axis titles resolve against the request data, static and generated", async () => {
+  const state = engineState({ city: "Leeds", currency: "GBP" });
+  let seen: GraphNode | undefined;
+  state.aiClient = {
+    generateParagraph: () => "",
+    generateGraph: (request) => {
+      seen = request.node;
+      return { data: { series: [{ values: [1] }] } };
+    },
+  };
+  const words = {
+    title: "Visits in {{data.city}}",
+    caption: "For {{data.city}}",
+    categoryAxisTitle: "Month in {{data.city}}",
+    valueAxisTitle: "Spend ({{data.currency}})",
+  };
+  const doc = await resolveDocument(
+    published([
+      {
+        id: "static-spend",
+        kind: "graph",
+        mode: "static",
+        graphType: "bar",
+        ...words,
+        data: { series: [{ values: [1] }] },
+      } as DocumentNode,
+      {
+        id: "generated-spend",
+        kind: "graph",
+        mode: "dynamic",
+        graphType: "bar",
+        prompts: [{ kind: "general", text: "Plot it." }],
+        ...words,
+      } as DocumentNode,
+    ]),
+    state,
+  );
+
+  const resolved = [
+    "Visits in Leeds",
+    "For Leeds",
+    "Month in Leeds",
+    "Spend (GBP)",
+  ];
+  const [staticSpend, generatedSpend] = doc.nodes as GraphNode[];
+  assertEquals(
+    [staticSpend?.title, staticSpend?.caption, staticSpend?.categoryAxisTitle, staticSpend?.valueAxisTitle],
+    resolved,
+  );
+  assertEquals(
+    [generatedSpend?.title, generatedSpend?.caption, generatedSpend?.categoryAxisTitle, generatedSpend?.valueAxisTitle],
+    resolved,
+  );
+  assertEquals(
+    [seen?.title, seen?.caption, seen?.categoryAxisTitle, seen?.valueAxisTitle],
+    resolved,
+  );
+});
+
+test("a generated chart's caption from the model is printed as written", async () => {
+  const dynamicChart = (answer: AiGraphResult): Promise<DocumentModel> => {
+    const state = engineState({ secret: "s3cret", city: "Leeds" });
+    state.aiClient = {
+      generateParagraph: () => "",
+      generateGraph: () => answer,
+    };
+    return resolveDocument(
+      published([{
+        id: "trend",
+        kind: "graph",
+        mode: "dynamic",
+        graphType: "bar",
+        prompts: [{ kind: "general", text: "Plot it." }],
+        caption: "For {{data.city}}",
+      } as DocumentNode]),
+      state,
+    );
+  };
+
+  assertEquals(graphOf(await dynamicChart({ caption: "Up {{data.secret}}" })).caption, "Up {{data.secret}}");
+  assertEquals(graphOf(await dynamicChart({})).caption, "For Leeds");
+});
+
+test("a dynamic paragraph's request.node carries its resolved prompts, as a build's does", async () => {
+  const state = engineState({ name: "Avery" });
+  let seen: string | undefined;
+  state.aiClient = {
+    generateParagraph: (request) => {
+      seen = request.node.prompts?.[0]?.text;
+      return "x";
+    },
+  };
+  await resolveDocument(
+    published([{
+      id: "summary",
+      kind: "paragraph",
+      mode: "dynamic",
+      prompts: [{ kind: "general", text: "Summarise for {{data.name}}." }],
+    } as DocumentNode]),
+    state,
+  );
+  assertEquals(seen, "Summarise for Avery.");
+});
+
+test("a chart with nothing to resolve comes back as it went in", async () => {
+  const node = {
+    id: "plain",
+    kind: "graph",
+    mode: "static",
+    graphType: "bar",
+    data: { series: [{ values: [1] }] },
+  } as DocumentNode;
+  const doc = await resolveDocument(published([node]), engineState({}));
+  assertEquals(graphOf(doc), node as GraphNode);
+
+  const generated = await generatedChart({ data: { series: [{ values: [2] }] } });
+  const chart = graphOf(generated);
+  assertEquals(
+    ["title", "alt", "categoryAxisTitle", "valueAxisTitle"].some((key) => key in chart),
+    false,
+  );
+});
