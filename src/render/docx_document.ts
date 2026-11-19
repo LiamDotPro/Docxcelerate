@@ -147,6 +147,7 @@ export function createDocxDocument(doc: DocumentModel): Document {
             },
           },
           titlePage: titlePage || undefined,
+          verticalAlign: style.page.valign,
         },
         // `w:titlePg` is one switch for both strips: once it is on, Word takes
         // page one's header AND footer from the `first` parts and shows

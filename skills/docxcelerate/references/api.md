@@ -106,7 +106,11 @@ Notes worth knowing:
   `keepTogether` on a row stops Word breaking it across a page — the whole row
   moves over instead. Put it on the row a `.map()` produces and every line of an
   invoice or schedule gets it; leave it off a long table's short rows, where a
-  break between them is fine.
+  break between them is fine. To number the rows, pass the map's index to
+  `position`: `lines.map((line, i) => <Row id="line"><Cell id="no">{position(i)}</Cell>…</Row>)`
+  prints 1, 2, 3 in a preview and in every published document, counting only the
+  rows a `.filter()` kept. The bare index counts from zero and, in a published
+  filtered loop, counts the entries dropped too; `i + 1` throws while publishing.
 - **A row can be given a height**, in points: `<Row height={56}>` is a floor the
   row grows past if its cells need more, which is what a box to sign in wants.
   `heightRule="exact"` makes it a fixed depth instead — a label sheet, a form
@@ -181,6 +185,16 @@ Notes worth knowing:
 - `scatter` and `bubble` read the categories as their x values, so those are
   numbers written as text; anything that will not parse counts as its position.
   `sizes` is the third figure a `bubble` carries and no other type reads.
+- **A generated chart's answer is checked before it is drawn.** What
+  `aiClient.generateGraph` returns is read the way model JSON is written: a
+  number written as text (`"12"`, `" 3.5 "`) is a number, a numeric category
+  (`2024`) is its text, and `null` is the same as leaving a field out. An absent
+  `graphType`, `data` or `caption` keeps the node's own, so a `caption` written
+  on a prompted `<Graph>` survives a model that only sends numbers. Anything else
+  that is not a chart — a `graphType` that is not one of the nine, a `series`
+  that is not an array, a series without a `values` array, a value such as
+  `"twelve"` — fails with an error naming the node and the field, rather than
+  packing a chart that is empty in Word.
 - **A chart is packed as a real Word chart**, not as a picture of one: a
   `c:chartSpace` part with every value cached in it, plus the workbook "Edit
   Data" opens. The reader can select it, restyle it, change its type and open
@@ -239,6 +253,8 @@ Each of these is an error naming the position, not a quiet reinterpretation:
 | `<Image>` with neither `src` nor a prompt | Nothing says what it shows |
 | `<Graph>` with neither `data` nor a prompt | Nothing says what it plots |
 | A dynamic node in a build with no `aiClient` | Only a preview build may resolve those to placeholders |
+| A prompted `<Image>` among a paragraph's words, published to an engine | An engine draws block nodes only — give the `<Image>` its own place beside the paragraph |
+| A generated chart whose answer is not a chart (`"twelve"` as a value, an unknown `graphType`) | Word would draw it empty; the error names the node and the field |
 
 ## Component types
 
@@ -411,9 +427,15 @@ import {
 | --- | --- |
 | `buildDocument(template, data, options?)` | The raw model from a template and data you hold |
 | `buildProjectPreviewDocument(project, options?)` | What the preview app shows: dynamic nodes → placeholders, derivers resolved, project style applied |
-| `buildProjectEngineDocument(project, options?)` | The upload artifact: values stay tokens, branches keep both arms, loops stay loops |
+| `buildProjectEngineDocument(project, options?)` | The upload artifact: values stay tokens, branches keep both arms, loops stay loops, and every generated paragraph, image and chart keeps its prompts for the engine's client to answer |
 | `buildProjectFinalDocument(project, { data, aiClient, … })` | A finished document at request time, dynamic nodes run through the AI client |
 | `createDocumentProjectArtifact(project, options?)` | The manifest, both documents and the deriver bundle together |
+
+A published document is answered by the engine's `AiClient`, not the one you
+build with. A generated `<Graph>` needs the engine's client to implement
+`generateGraph`, a generated `<Image>` `generateImage`; resolving a node whose
+method is missing fails, naming the node. A generated image keeps the `alt`,
+`width` and `height` the template gave it unless the client returns its own.
 
 For a project, prefer `buildProjectPreviewDocument` over `buildDocument` — it is
 exactly what the preview app calls, so what you build in code matches what you
@@ -485,8 +507,11 @@ export const documentStyle: DocumentStyle = {
 
 `DocumentStyle` covers `preset`, `page` (size `A4`, `LETTER`, `LEGAL`, `A5`, `A3`, or `{ widthMm, heightMm }` for any other sheet given upright; `orientation` `portrait` or `landscape` turns either kind, and a table, shape or chart with no width fills the column of the page as turned,
 margins in mm, `headerMm` / `footerMm` — how far the running strips stand
-from the *paper's* edge rather than from the margin, 12.5mm unless said — and
-`firstPageNumber` / `numberStyle`: where page numbering starts, a whole number
+from the *paper's* edge rather than from the margin, 12.5mm unless said —
+`valign`, `"top"` unless said, `"center"` or `"bottom"`, which is where the body
+sits between the top and bottom margins: Word's own vertical alignment, for a
+certificate or cover sheet set mid-page; it applies to every page, so a short
+last page is centred too — and `firstPageNumber` / `numberStyle`: where page numbering starts, a whole number
 from 0 (default 1), and how it is written, `"decimal"` (default),
 `"lowerRoman"`, `"upperRoman"`, `"lowerLetter"` or `"upperLetter"`, for an
 appendix that continues its parent's numbering or front matter numbered
