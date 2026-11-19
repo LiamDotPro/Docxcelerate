@@ -405,8 +405,7 @@ decision that depends on request data has to travel to the engine instead:
 - **A generated chart or picture publishes as its prompts.** The engine's own
   `AiClient` writes it per document, so it needs `generateGraph` for a prompted
   `<Graph>` and `generateImage` for a prompted `<Image>`; an engine without one
-  fails on that node, naming it. `generateImage` returns `{ path }` as a `data:`
-  URI: anything else draws on screen but packs into Word as a note. A prompted
+  fails on that node, naming it. `generateImage` returns the picture as `{ bytes, mediaType }` — a `Uint8Array` and `image/png`, `image/jpeg`, `image/gif` or `image/bmp` — or as `{ path }` holding a `data:` URI. A URL, a file path, an empty picture, SVG or WebP fails on that node, naming it: fetch the URL inside the client and return its bytes. A prompted
   `<Image>` among a paragraph's words cannot be published — give it its own
   place beside the paragraph.
 - **`generateParagraph` returns the text itself**, not a provider's response
@@ -419,7 +418,7 @@ decision that depends on request data has to travel to the engine instead:
   `docxcelerate`) carrying `nodeId`, `kind` and the client's own error as
   `cause`. Catch it around the build or resolve, not inside the client: log
   `err.nodeId`, retry on what `err.cause` says (a 429). docxcelerate's own
-  refusals — no client, a missing method, an answer that is not text — are plain
+  refusals — no client, a missing method, an answer that is not text, a chart or a picture Word embeds — are plain
   errors with their own wording. A preview never calls the client.
 - **A client that fails, fails the document.** Nothing falls back to the
   placeholder, nothing retries, and nothing times out. Retry, fall back or bound

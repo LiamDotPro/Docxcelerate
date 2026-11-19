@@ -6,7 +6,7 @@
  * have the components any more. They differ in everything except this — how the
  * client is checked, what it is handed, and what it is told when the method it
  * needs is not there. Both had their own copy of that, down to the wording of
- * the errors. A paragraph's and a chart's answers are checked here too, for the
+ * the errors. A paragraph's, a chart's and an image's answers are checked here too, for the
  * same reason: both places would otherwise pack whatever came back. A client's
  * own failure is wrapped here too, in an {@linkcode AiGenerationError}, so both
  * places name the failed node the same way.
@@ -31,6 +31,7 @@ import type {
   PromptSpec,
   RuntimeState,
 } from "../domain/types.ts";
+import { imageSourceOf, rasterTypeOf } from "../render/image_source.ts";
 
 /**
  * A node's prompts as one instruction.
@@ -225,9 +226,10 @@ function kindOf(value: unknown): string {
  * @param node The image being filled.
  * @param prompts Its resolved prompts.
  * @param state Everything reachable while this document is being written.
- * @returns Where the image was written, and how to lay it out.
- * @throws If the client cannot draw; an {@linkcode AiGenerationError} if it
- * throws or rejects.
+ * @returns The picture as a `data:` URI on `path`, with only the `alt`, `width`
+ * and `height` the client gave.
+ * @throws If the client cannot draw, or answers with a picture Word cannot
+ * embed; an {@linkcode AiGenerationError} if it throws or rejects.
  */
 export async function generateImage(
   client: AiClient | undefined,
@@ -239,8 +241,10 @@ export async function generateImage(
     throw new Error(`Dynamic image "${node.id}" requires an aiClient.generateImage method.`);
   }
 
+  // Images are still not told the language: they have no words to write.
+  let answer: unknown;
   try {
-    return await client.generateImage({
+    answer = await client.generateImage({
       node,
       prompt: formatPromptText(prompts),
       prompts,
@@ -249,6 +253,80 @@ export async function generateImage(
   } catch (cause) {
     throw new AiGenerationError(node.id, "image", cause);
   }
+
+  return drawable(node, answer);
+}
+
+/**
+ * A client's picture as the `data:` URI the packer embeds, or an error saying
+ * why there is none. Anything else packed as a note where the picture should
+ * be, with nothing having failed. Only the fields the client gave are kept, so
+ * a build spreading this over its node keeps the size the template stated.
+ */
+function drawable(node: ImageNode, answer: unknown): AiImageResult {
+  if (!isRecord(answer)) {
+    cannotDraw(node, "it is not an object");
+  }
+
+  const { path, bytes, mediaType, alt, width, height } = answer;
+
+  if (path != null && bytes != null) {
+    cannotDraw(node, "it has both a path and bytes");
+  }
+
+  let uri: unknown = path;
+
+  if (bytes != null) {
+    if (!(bytes instanceof Uint8Array)) {
+      cannotDraw(node, "bytes is not a Uint8Array");
+    }
+    if (typeof mediaType !== "string" || mediaType === "") {
+      cannotDraw(node, "bytes came without a mediaType");
+    }
+    uri = `data:${mediaType};base64,${base64Of(bytes)}`;
+  }
+
+  if (typeof uri !== "string" || uri === "") {
+    cannotDraw(node, "it has neither a data: path nor bytes");
+  }
+
+  const source = imageSourceOf(uri);
+
+  // The path is not repeated: a signed URL carries its credentials in it.
+  if (source.kind === "url") {
+    cannotDraw(node, "its path is not a data: URI; return the picture's bytes instead");
+  }
+
+  if (source.kind === "none" || source.bytes.length === 0) {
+    cannotDraw(node, "it carries no picture");
+  }
+
+  if (!rasterTypeOf(source.mediaType)) {
+    cannotDraw(
+      node,
+      `${describe(source.mediaType)} is not a picture Word embeds; use image/png, image/jpeg, image/gif or image/bmp`,
+    );
+  }
+
+  return {
+    path: uri,
+    ...(alt == null ? {} : { alt: alt as string }),
+    ...(width == null ? {} : { width: width as number }),
+    ...(height == null ? {} : { height: height as number }),
+  };
+}
+
+/** Base64 in chunks: spreading a multi-megabyte picture into one call overflows the stack. */
+function base64Of(bytes: Uint8Array): string {
+  let binary = "";
+  for (let at = 0; at < bytes.length; at += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(at, at + 0x8000));
+  }
+  return btoa(binary);
+}
+
+function cannotDraw(node: ImageNode, detail: string): never {
+  throw new Error(`Dynamic image "${node.id}" got an answer it cannot draw: ${detail}.`);
 }
 
 /**

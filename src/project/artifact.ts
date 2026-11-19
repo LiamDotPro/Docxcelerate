@@ -371,9 +371,13 @@ function withProjectLook<TData>(project: DocumentProject<TData>, doc: DocumentMo
  */
 const engineArtifactAiClient: Required<AiClient> = {
   generateParagraph: () => "-",
-  generateImage: () => ({ path: "" }),
+  // A picture Word embeds, so the build accepts it; it is taken back off below.
+  generateImage: () => ({ path: ENGINE_STAND_IN_PICTURE }),
   generateGraph: () => ({ data: { series: [{ values: [0] }] } }),
 };
+
+/** The picture {@linkcode engineArtifactAiClient} answers with: a one-pixel PNG, which the build takes as a real picture. */
+const ENGINE_STAND_IN_PICTURE = "data:image/png;base64,iVBORw0KGgo=";
 
 /**
  * Takes the answers {@linkcode engineArtifactAiClient} gave back off the
@@ -404,7 +408,7 @@ function removeEngineStandIns(nodes: DocumentModel["nodes"]): DocumentModel["nod
       return withoutData;
     }
 
-    if (node.kind === "image" && node.mode === "dynamic" && node.path === "") {
+    if (node.kind === "image" && node.mode === "dynamic" && node.path === ENGINE_STAND_IN_PICTURE) {
       const { path: _path, ...withoutPath } = node;
       return withoutPath;
     }

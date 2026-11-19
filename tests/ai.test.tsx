@@ -918,6 +918,80 @@ test("EchoAiClient fills a generated image with a sample picture at the node's s
   }
 });
 
+const pngSignature = Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10);
+
+test("a generated image returned as bytes builds as a data: URI, keeping the template's size", async () => {
+  const built = await buildWith(
+    () => <Image id="portrait" generalPrompt="Draw it." placeholder="A portrait." width={200} height={100} />,
+    {
+      dynamicMode: "resolve",
+      aiClient: {
+        generateParagraph: () => "",
+        generateImage: () =>
+          ({ bytes: pngSignature, mediaType: "image/png", alt: "A portrait", width: undefined, height: null }) as never,
+      },
+    },
+  );
+  const image = firstOf(built.nodes);
+
+  assertEquals(image.kind, "image");
+  if (image.kind === "image") {
+    assertEquals(image.path, "data:image/png;base64,iVBORw0KGgo=");
+    assertEquals([image.alt, image.width, image.height], ["A portrait", 200, 100]);
+    assertEquals("bytes" in image || "mediaType" in image, false);
+  }
+});
+
+test("a generated image the packer cannot draw fails the build naming the node", async () => {
+  const cases: [unknown, string][] = [
+    ["data:image/png;base64,iVBORw0KGgo=", "it is not an object"],
+    [null, "it is not an object"],
+    [{}, "it has neither a data: path nor bytes"],
+    [{ path: "" }, "it has neither a data: path nor bytes"],
+    [{ path: "portrait.png" }, "its path is not a data: URI; return the picture's bytes instead"],
+    [
+      { path: "data:image/png;base64,iVBORw0KGgo=", bytes: pngSignature, mediaType: "image/png" },
+      "it has both a path and bytes",
+    ],
+    [{ bytes: [137, 80], mediaType: "image/png" }, "bytes is not a Uint8Array"],
+    [{ bytes: pngSignature }, "bytes came without a mediaType"],
+    [{ bytes: new Uint8Array(0), mediaType: "image/png" }, "it carries no picture"],
+    [{ path: "data:image/png;base64,%%%" }, "it carries no picture"],
+    [
+      { bytes: pngSignature, mediaType: "image/webp" },
+      '"image/webp" is not a picture Word embeds; use image/png, image/jpeg, image/gif or image/bmp',
+    ],
+    [
+      { path: "data:image/svg+xml;utf8,<svg/>" },
+      '"image/svg+xml" is not a picture Word embeds; use image/png, image/jpeg, image/gif or image/bmp',
+    ],
+  ];
+
+  for (const [answer, detail] of cases) {
+    const error = await rejectionOf(() =>
+      buildWith(() => <Image id="portrait" generalPrompt="Draw it." placeholder="A portrait." />, {
+        dynamicMode: "resolve",
+        aiClient: { generateParagraph: () => "", generateImage: () => answer as never },
+      })
+    );
+    assertEquals((error as Error).message, `Dynamic image "portrait" got an answer it cannot draw: ${detail}.`);
+    assertEquals(error instanceof AiGenerationError, false);
+  }
+});
+
+test("ScriptedAiClient answers an image with bytes", async () => {
+  const built = await buildWith(
+    () => <Image id="portrait" generalPrompt="Draw it." placeholder="A portrait." />,
+    {
+      dynamicMode: "resolve",
+      aiClient: new ScriptedAiClient({ portrait: { bytes: pngSignature, mediaType: "image/png" } }),
+    },
+  );
+  const image = firstOf(built.nodes);
+
+  assertEquals(image.kind === "image" ? image.path : undefined, "data:image/png;base64,iVBORw0KGgo=");
+});
+
 function graphOf(nodes: DocumentNode[]): GraphNode {
   const section = nodes[0];
   const graph = section?.kind === "section" ? section.children[0] : undefined;
