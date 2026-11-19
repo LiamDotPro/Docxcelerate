@@ -614,7 +614,7 @@ catch, retry or time out:
 
 | The client… | `resolveDocument` |
 | --- | --- |
-| throws or rejects | rejects with that error |
+| throws or rejects | rejects with an `AiGenerationError` naming the node, the client's error as `cause` |
 | never settles | never settles — bound the call with `AbortSignal.timeout` |
 | returns a non-string paragraph, or a chart it cannot plot | rejects, naming the node |
 | lacks `generateGraph` / `generateImage` for a node that needs it | rejects, naming the node and the method |
