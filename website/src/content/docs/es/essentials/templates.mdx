@@ -47,6 +47,34 @@ de cada archivo. Si estás incorporando Docxcelerate a un proyecto que apunta
 `/** @jsxImportSource docxcelerate/template */` en la primera línea lo
 sobrescribe para ese archivo.
 
+## Lo que el documento dice de sí mismo
+
+`<Document>` admite dos ajustes que tratan del archivo y no de sus páginas.
+`properties` es lo que leen Archivo › Información de Word, el Explorador, el
+Finder y un almacén de documentos — autor, asunto, palabras clave, descripción y
+valores `custom` por los que indexar. Nada de ello se imprime. Una plantilla no
+tiene datos, así que un valor que cambia de un documento a otro es una función de
+ellos:
+
+```tsx
+<Document
+  title="Invoice"
+  properties={(data: InvoiceData) => ({
+    author: "Ashcroft Housing",
+    subject: `Invoice ${data.invoice.number}`,
+    custom: { invoiceNumber: data.invoice.number },
+  })}
+>
+```
+
+Al publicar, un valor interpolado es un token que el motor rellena como cualquier
+otro; un valor `custom` que sale vacío se deja fuera del archivo.
+
+`trackChanges` abre el documento en Word con el control de cambios activado — para
+un contrato o un acuerdo que se envía a negociar, de modo que cada edición de la
+otra parte quede registrada desde la primera pulsación. Es un ajuste, no un
+bloqueo, y la vista previa se ve igual porque todavía no se ha editado nada.
+
 ## Estructura calculada
 
 Una plantilla se escribe en el ámbito del módulo, donde todavía no hay datos, así
@@ -171,8 +199,16 @@ ejecuta por documento:
 </Paragraph>
 ```
 
-`useFormat` y `useDeriver` calculan durante la compilación, que es lo correcto
-siempre que el valor ya se conozca. Echa mano de un deriver cuando no.
+Un `variant` se interpola igual: `<Row variant={line.status}>` publica el token, y
+las filas de cada destinatario toman el bloque que nombra su propio estado. Pon a
+los bloques del tema el nombre de los valores que llevan los datos. Un ternario
+que elige entre nombres es calcular — al publicar, cada destinatario recibe su
+rama verdadera — así que lleva el nombre en los datos, o derívalo.
+
+`useFormat` calcula durante la compilación. `useDeriver(deriver, inputs)` se
+ejecuta ahora cuando los datos están a mano, y al publicar viaja con el nodo y el
+motor lo ejecuta por documento — de modo que su resultado se puede interpolar como
+los datos de la petición.
 
 ### Los bucles se publican como bucles
 
@@ -199,8 +235,13 @@ nombran por posición en ambos caminos, de modo que un id significa lo mismo en 
 vista previa y en el documento que recibe alguien.
 
 Todo lo que tenga que mirar las entradas antes de poder escribir el cuerpo —
-`.filter()`, `.sort()`, `.length`, un bucle `for` — no se puede responder al
-publicar. Eso remite a un deriver, que se ejecuta donde están los datos.
+`.sort()`, `.length`, un bucle `for` — no se puede responder al publicar, y
+lanza un error que remite a un deriver, que se ejecuta donde están los datos.
+
+Después haz `.map()` sobre lo que devuelve el deriver: eso también se publica como
+bucle, y el motor recorre las filas que produjo para cada destinatario. Un `.map()`
+sobre un campo de una entrada, dentro de otro `.map()`, se publica igual.
+`.filter()` no está en esa lista — se publica como una prueba sobre cada entrada.
 
 ### Las bifurcaciones multiplican
 

@@ -1,6 +1,6 @@
 ---
 title: Paragraph
-description: Prosa, escrita a partir de tus datos o resuelta desde prompts en el momento de la petición.
+description: Texto, escrito a partir de tus datos o rellenado desde prompts en el momento de la petición.
 group: Nodes
 subgroup: Node types
 order: 10
@@ -49,8 +49,8 @@ useSetPrompts({
 
 ## Bifurcaciones
 
-Un documento que dice una de tres cosas es un componente con tres desenlaces.
-Dale a cada rama su propio id:
+Un documento que dice una de tres cosas es un componente con tres desenlaces, no
+tres componentes. Dale a cada rama su propio id:
 
 ```tsx
 if (state.settled) {
@@ -60,9 +60,9 @@ if (state.settled) {
 return <Paragraph id="balance-arrears">A balance remains.</Paragraph>;
 ```
 
-Los ids distintos son lo que permite al documento resuelto registrar qué rama le
-tocó a este destinatario, y son obligatorios en cuanto la bifurcación se publica:
-un motor almacena ambas ramas, y un id direcciona exactamente un nodo.
+Darle a cada rama su propio id es lo que permite al documento resuelto registrar
+qué rama le tocó a este destinatario, y son obligatorios en cuanto la bifurcación
+se publica: un motor almacena ambas ramas, y un id direcciona exactamente un nodo.
 
 Cuando los desenlaces solo se diferencian en la redacción, calcular la cadena y
 devolver un solo nodo conserva un único id, que es la costumbre más antigua y
@@ -75,6 +75,199 @@ const [state] = useState((data: MemberData) => ({
 
 return <Paragraph id="balance">{state.line}</Paragraph>;
 ```
+
+## Cómo se asienta en la página
+
+`align` es la única apariencia que un párrafo declara por sí mismo, porque la
+alineación suele ser lo que el párrafo *es* y no cómo se ve: una fecha va a la
+derecha en todos los temas, igual que una columna de importes:
+
+```tsx
+<Paragraph id="issued" align="right">{state.issuedOn}</Paragraph>
+```
+
+Todo lo demás sobre cómo se compone un párrafo pertenece al tema, y se alcanza
+por nombre mediante `variant`. El bloque decide; el nodo solo dice qué bloque es:
+
+```ts
+blocks: {
+  standfirst: { align: "center", spacingBeforePt: 4, spacingAfterPt: 14 },
+  quote:      { indentMm: 10, indentRightMm: 10 },
+  heading:    { keepWithNext: true },
+  contents:   { tabStopsMm: [{ at: 170, align: "right", leader: "dot" }] },
+}
+```
+
+```tsx
+<Paragraph id="lead" variant="standfirst">What this letter is about.</Paragraph>
+<Paragraph id="terms" variant="contents">{"What the agreement covers\t3"}</Paragraph>
+```
+
+Un nodo que declara su propio `align` gana al de su bloque, igual que una celda
+gana a su columna. Lo que un bloque puede fijar, además del relleno, el borde y
+la tipografía:
+
+| | |
+| --- | --- |
+| `align` | cómo se sitúan las líneas en la columna |
+| `spacingBeforePt`, `spacingAfterPt` | espacio encima y debajo, en puntos |
+| `indentMm`, `indentRightMm` | sangría desde los márgenes izquierdo y derecho |
+| `firstLineIndentMm` | solo la primera línea — la marca de párrafo de un libro |
+| `hangingIndentMm` | la primera línea sacada hacia atrás respecto al resto |
+| `keepWithNext`, `keepLines` | nunca lo último de una página; nunca partido entre dos |
+| `tabStopsMm` | `[{ at, align?, leader? }]` desde el margen izquierdo, o desde el borde interior de una celda o una forma. Pon un `\t` en el texto para llegar a uno |
+| `lineHeight` | interlineado, como múltiplo del tamaño de fuente |
+
+Cada una de estas propiedades significa en pantalla lo mismo que en Word, y eso
+se comprueba en lugar de darse por supuesto: toda propiedad de aquí tiene un caso
+de conformidad que empaqueta un documento, lo abre en Word y exige que la vista
+previa coincida con lo que Word dibuja al milímetro. Hay dos límites que se
+derivan del propio formato de Word y conviene conocer: el relleno necesita un
+borde del que colgarse, y un borde izquierdo empuja la *línea* hacia fuera en vez
+de empujar el texto hacia dentro.
+
+Un párrafo dentro de una [`<Cell>`](/es/docs/nodes/table/#qué-contiene-una-celda)
+o de una [`<Shape>`](/es/docs/nodes/shape/) conserva todo esto — su propio `align`
+sobre el de la columna, y las sangrías, tabuladores, borde y relleno de su
+variante — de modo que una celda de firma puede llevar un guion de puntos y una
+tarjeta una cita con filete. Allí un tabulador se mide desde el borde interior del
+contenedor, y `bleed` y `maxWidthMm`, que son medidas de la página, no hacen nada.
+
+Un borde es una línea continua salvo que el bloque diga otra cosa. `borderStyle`
+dibuja el filete `"double"`, `"dashed"` o `"dotted"` propio de Word en cada borde
+que dibuje el bloque — un filete doble bajo un total general, una línea de
+puntos para recortar sobre un talón de pago — en vez de apilar bloques para
+fingir uno:
+
+```ts
+grandTotal: { border: "1C2340", borderSides: ["bottom"], borderStyle: "double", weight: "bold" },
+```
+
+## Listas
+
+Una lista son párrafos que dicen ser elementos. `list="bullet"` marca uno,
+`list="number"` lo cuenta:
+
+```tsx
+<Paragraph id="intro">To renew:</Paragraph>
+<Paragraph id="check" list="number">Check the plan and the price.</Paragraph>
+<Paragraph id="pay" list="number">Pay online, or at the desk.</Paragraph>
+<Paragraph id="pay-note" list="bullet" listLevel={1}>Card and direct debit are both accepted.</Paragraph>
+<Paragraph id="collect" list="number">Collect your new card.</Paragraph>
+```
+
+Los elementos escritos uno tras otro son una sola lista, y el renderizador hace
+la cuenta — igual que cuenta las páginas. Esa es la razón de no teclear los
+números: un paso omitido para un destinatario no deja hueco, y una lista
+construida a partir de tus datos es un `.map()` como cualquier otro.
+
+```tsx
+{state.steps.map((step) => <Paragraph id="step" list="number">{step.text}</Paragraph>)}
+```
+
+Cualquier cosa que no sea un elemento termina la lista, y una lista numerada
+posterior vuelve a empezar en uno. `listLevel` coloca un elemento bajo el de
+arriba: `1` para un punto bajo un elemento, hasta nueve niveles de profundidad.
+Los números pasan de cifras a letras y a numerales romanos según se baja, y las
+viñetas de un punto relleno a uno vacío y a un cuadrado. Una viñeta bajo un paso
+numerado no detiene la cuenta de los pasos.
+
+Que una lista numerada cuente en cifras, luego letras y luego numerales romanos
+es el valor por defecto, no una obligación. `listStyle` en el primer elemento de
+un nivel elige los numerales de ese nivel para toda la lista — las subcláusulas
+de un contrato son `(a)`:
+
+```tsx
+<Paragraph list="number">The tenant agrees:</Paragraph>
+<Paragraph list="number" listLevel={1} listStyle="lowerLetterParen">to pay the rent on time;</Paragraph>
+<Paragraph list="number" listLevel={1}>to keep the property in good order.</Paragraph>
+```
+
+`decimal`, `lowerLetter`, `upperLetter`, `lowerRoman` y `upperRoman` van seguidos
+de un punto; añade `Paren` para la forma entre paréntesis. Las viñetas lo
+ignoran.
+
+Un elemento sigue siendo un párrafo. Tiene un id, una condición puede
+eliminarlo, admite un `variant`, y uno que escribe un motor puede ser un elemento
+como cualquier otro. Los elementos van juntos, y el espacio que un párrafo deja
+bajo sí mismo va después de la lista y no entre sus elementos — salvo que el
+`variant` del propio elemento nombre un espaciado, que entonces gana.
+
+Dos límites. El símbolo de una viñeta y la sangría francesa de cada elemento son
+del renderizador, no del tema — `listStyle` elige los numerales de un número y
+nada más. Y un elemento en una `<Shape>` se dibuja como un párrafo corriente: la
+caja ya mantiene sus palabras alejadas de su borde con la misma sangría que
+necesita una sangría francesa.
+
+## Palabras compuestas de otro modo
+
+`<Text>` aparta algunas de las palabras de un párrafo del resto — el término sobre
+el que gira un aviso, una frase que lleva a alguna parte:
+
+```tsx
+import { Paragraph, Text } from "docxcelerate/template";
+
+<Paragraph id="terms">
+  Payment is due within <Text bold>thirty days</Text>. You can{" "}
+  <Text href="https://example.com/pay">pay online</Text>.
+</Paragraph>
+```
+
+`bold`, `italic`, `underline` y `strike` dicen cómo se enfatizan las palabras;
+`script="superscript"` o `"subscript"` las eleva o las baja — el 2 de m², el 2 de
+CO₂, el st de 1st — para que Word las componga en vez de teclear `²`; y `href`
+dice adónde llevan: una dirección `https:`, `http:`, `mailto:` o `tel:`. Un
+`<Text>` dentro de otro toma ambos ajustes. Funciona igual entre las palabras de
+una `<Cell>` o de una `<Shape>`.
+
+No es un nodo. No tiene id y nada lo direcciona. Nunca declara un color ni un
+tamaño; cuando una frase tiene que destacar — un importe adeudado dentro de una
+oración, un término definido — nombra un bloque del tema, como hace un párrafo:
+
+```tsx
+The amount due is <Text variant="amountDue">{state.due}</Text>.
+```
+
+Al texto solo llegan los ajustes de carácter del bloque — `color`, `fill` como
+sombreado, `fontSizePt`, `weight`, `font`, `transform`, `letterSpacingEm`; los
+bordes, el relleno y el espaciado pertenecen a un párrafo. Una marca dicha junto
+a él gana al bloque, y un enlace conserva el acento del tema. Una dirección que
+no es de ninguno de los cuatro tipos se imprime solo como sus palabras, porque la
+dirección puede salir de tus datos y una vista previa dibuja un enlace como algo
+sobre lo que un lector puede hacer clic.
+
+Un fin de línea en el texto es un salto de línea y no un párrafo nuevo, que es lo
+que quiere una dirección postal — un nodo, tres líneas, y nada del espacio que un
+párrafo deja bajo sí mismo:
+
+```tsx
+<Paragraph id="address">{"Flat 2\n14 Example Road\nLeeds LS1 4AB"}</Paragraph>
+```
+
+Solo un párrafo estático tiene tramos. Uno que escribe un motor se escribe como
+palabras sin formato.
+
+### Qué publica
+
+El párrafo conserva su `text` entero, de modo que todo lo que lee las palabras de
+un párrafo sigue leyendo una sola cadena. Los ajustes viajan a su lado como
+`runs`, cada uno con sus propias palabras:
+
+```json
+{ "kind": "paragraph", "mode": "static", "id": "terms",
+  "text": "Payment is due within thirty days.",
+  "runs": [
+    { "text": "Payment is due within " },
+    { "text": "thirty days", "bold": true },
+    { "text": "." }
+  ] }
+```
+
+Un párrafo sin nada apartado no tiene `runs` en absoluto, y publica exactamente
+lo que publicaba antes. Los valores interpolados funcionan dentro de un `<Text>`
+como en cualquier otro sitio: un tramo publicado contiene el token, y el motor lo
+resuelve en su sitio, así que `<Text bold>{state.name}</Text>` va en negrita para
+cada destinatario sea cual sea la longitud de su nombre.
 
 ## Párrafos dinámicos
 
@@ -99,4 +292,5 @@ sirven los otros tres.
 - Una cadena vacía devuelve un párrafo vacío, no la ausencia de nodo. Para
   eliminar el nodo, no devuelvas nada — `false`, `null` y `undefined` se omiten.
 - Los renderizadores escapan el texto. Un párrafo no puede colar marcado en la
-  página, y no es el lugar para el formato.
+  página: `<Text>` es el único formato que existe, y es un elemento, no una
+  cadena.
