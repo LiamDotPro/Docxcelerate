@@ -188,7 +188,7 @@ Notes worth knowing:
   recipient, and the preview looks the same because nothing has been edited
   yet.
 - `Graph.data` is `{ categories?: string[], series: { label?, values: (number
-  | null)[], color?, sizes? }[] }`. A `null` value is a gap in the plot, not a
+  | null)[], color?, pointColors?, sizes? }[] }`. A `null` value is a gap in the plot, not a
   zero — a month nobody measured is not a month that measured nothing. A series
   shorter than the categories is padded with gaps; one with no categories is
   counted by position. Strings inside the payload are run through the template
@@ -221,6 +221,13 @@ Notes worth knowing:
   chart re-themeable; a series naming its own `color` overrides it. The
   gridlines take `palette.rule` and the axis and key text `palette.muted`, so a
   chart reads as part of the document rather than as something pasted into it.
+- `pointColors` picks single points out: `[null, null, "C0392B"]` paints the
+  third bar, marker or slice in its own colour and leaves the rest alone, with
+  `null` meaning the series' own colour (a pie's palette slice). It is packed as
+  a Word data point (`c:dPt`), so the reader can still restyle it. On a line,
+  scatter or radar chart only the marker changes; an `area` ignores it. Use it
+  to highlight one thing, such as the current period or an overdue bucket.
+  Colouring every point is a different chart.
 - `numberFormat` is an OOXML format code — `"#,##0"`, `"0.0%"`, `"£#,##0"` —
   handed to the value axis and to the data labels verbatim.
 - `valueAxisMin` / `valueAxisMax` fix the ends of the value axis and

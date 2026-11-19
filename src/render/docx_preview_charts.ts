@@ -44,6 +44,11 @@ export interface PreviewChartSeries {
   /** The colour the file draws it in, as RGB hex without the `#`. */
   readonly color?: string;
   /**
+   * The colour the file paints each point in, by category, and `null` where the
+   * point takes the series' colour. Always as long as `values`.
+   */
+  readonly pointColors: readonly (string | null)[];
+  /**
    * How big each point is drawn, on a bubble chart and nowhere else.
    *
    * Empty for every other kind, because no other chart part carries a
@@ -347,6 +352,19 @@ function readChart(xml: string): Omit<PreviewChart, "widthPt" | "heightPt"> {
   const series = elements(xml, "c:ser");
   const first = series[0] ?? "";
 
+  const plotted = series.map((entry) => {
+    const values = cachedNumbers(element(entry, "c:val") ?? element(entry, "c:yVal") ?? "");
+    return {
+      label: cachedText(element(entry, "c:tx") ?? "")[0],
+      values,
+      // The series' own paint, not a data point's: on a pie the two differ,
+      // and `c:spPr` is where the series states the one colour it has.
+      color: colorOf(element(entry, "c:spPr") ?? ""),
+      pointColors: pointColorsOf(entry, values.length),
+      sizes: cachedNumbers(element(entry, "c:bubbleSize") ?? ""),
+    };
+  });
+
   return {
     graphType,
     title: titleOf(head),
@@ -365,20 +383,11 @@ function readChart(xml: string): Omit<PreviewChart, "widthPt" | "heightPt"> {
     categories: graphType === "scatter" || graphType === "bubble"
       ? cachedNumbers(element(first, "c:xVal") ?? "").map((value) => String(value ?? ""))
       : cachedText(element(first, "c:cat") ?? ""),
-    series: series.map((entry) => ({
-      label: cachedText(element(entry, "c:tx") ?? "")[0],
-      values: cachedNumbers(element(entry, "c:val") ?? element(entry, "c:yVal") ?? ""),
-      // The series' own paint, not a data point's: on a pie the two differ,
-      // and `c:spPr` is where the series states the one colour it has.
-      color: colorOf(element(entry, "c:spPr") ?? ""),
-      sizes: cachedNumbers(element(entry, "c:bubbleSize") ?? ""),
-    })),
+    series: plotted,
     // The slice colours, which a pie keeps on its data points rather than on
     // its one series.
     sliceColors: pie
-      ? elements(first, "c:dPt")
-        .map((point) => colorOf(element(point, "c:spPr") ?? ""))
-        .filter((color): color is string => color !== undefined)
+      ? (plotted[0]?.pointColors ?? []).filter((color): color is string => color !== null)
       : [],
     textColor: colorOf(element(xml, "c:txPr") ?? ""),
     ruleColor: colorOf(element(xml, "c:majorGridlines") ?? ""),
@@ -427,6 +436,21 @@ function titleOf(xml: string): string | undefined {
   );
 
   return runs.length === 0 ? undefined : runs.join("");
+}
+
+/** The colour each data point is painted in, `null` where it takes the series'. */
+function pointColorsOf(series: string, count: number): (string | null)[] {
+  const colors: (string | null)[] = new Array(count).fill(null);
+
+  for (const point of elements(series, "c:dPt")) {
+    const at = numberAttribute(element(point, "c:idx") ?? "", "val");
+
+    if (at !== undefined && at < count) {
+      colors[at] = colorOf(element(point, "c:spPr") ?? "") ?? null;
+    }
+  }
+
+  return colors;
 }
 
 /** The first colour stated in a run of XML. */

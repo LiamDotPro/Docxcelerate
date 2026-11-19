@@ -392,30 +392,20 @@ function seriesXml(
   const head = `<c:idx val="${index}"/><c:order val="${index}"/>` +
     nameXml(series.label, column);
 
-  // A line is drawn, not filled, so its colour belongs on the stroke. Filling
-  // a line series paints the area under it, which is a different chart. A
-  // radar is a line closed into a ring, and drawn the same way for the same
-  // reason.
-  const paint = type === "line" || type === "scatter" || type === "radar"
-    ? `<c:spPr><a:ln w="28575" cap="rnd"><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:round/></a:ln><a:effectLst/></c:spPr><c:marker><c:symbol val="circle"/><c:size val="5"/><c:spPr><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:marker>`
-    // A bubble is a disc a reader is meant to see the one behind, so its fill
-    // is let down to three quarters. Opaque, a big bubble simply deletes every
-    // small one it covers, which is the reading the chart exists to show.
-    : type === "bubble"
-    ? `<c:spPr><a:solidFill><a:srgbClr val="${fill}"><a:alpha val="75000"/></a:srgbClr></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill></a:ln></c:spPr>`
-    : `<c:spPr><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln><a:noFill/></a:ln></c:spPr>`;
+  const paint = drawnAsLine(type)
+    ? `<c:spPr><a:ln w="28575" cap="rnd"><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:round/></a:ln><a:effectLst/></c:spPr>${
+      markerXml(fill)
+    }`
+    : paintXml(type, fill);
 
-  // A pie has one series and many colours, so each slice is painted as its own
-  // data point. Every other chart paints the series and lets the points follow.
-  const points = type === "pie" || type === "doughnut"
-    ? data.categories
-      .map((_, slice) =>
-        `<c:dPt><c:idx val="${slice}"/><c:bubble3D val="0"/><c:spPr><a:solidFill><a:srgbClr val="${
-          colors[slice % colors.length]
-        }"/></a:solidFill><a:ln w="19050"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt>`
-      )
-      .join("")
-    : "";
+  // A pie paints every slice as its own data point, in the palette unless the
+  // series names a colour for it. Every other chart paints only the points the
+  // series names. An area is one filled shape with no points to paint apart.
+  const pie = type === "pie" || type === "doughnut";
+  const points = type === "area" ? "" : data.categories.map((_, at) => {
+    const pointFill = series.pointColors?.[at] ?? (pie ? colors[at % colors.length] : undefined);
+    return pointFill === undefined ? "" : pointXml(type, at, pointFill);
+  }).join("");
 
   const categories = categoriesXml(data.categories, rows);
   const values = valuesXml(series.values, column, rows, node.numberFormat);
@@ -450,6 +440,42 @@ function seriesXml(
   }
 
   return `<c:ser>${head}${paint}<c:invertIfNegative val="0"/>${points}${categories}${values}</c:ser>`;
+}
+
+/** Whether a chart draws its series as a stroke rather than a fill. */
+function drawnAsLine(type: GraphNode["graphType"]): boolean {
+  return type === "line" || type === "scatter" || type === "radar";
+}
+
+/** The dot on a line's point, which is where a line takes a colour of its own. */
+function markerXml(fill: string): string {
+  return `<c:marker><c:symbol val="circle"/><c:size val="5"/><c:spPr><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:marker>`;
+}
+
+/** The fill of a bar, a bubble or a slice-less series; a line is stroked instead. */
+function paintXml(type: GraphNode["graphType"], fill: string): string {
+  // A bubble is a disc a reader is meant to see the one behind, so its fill
+  // is let down to three quarters. Opaque, a big bubble simply deletes every
+  // small one it covers, which is the reading the chart exists to show.
+  return type === "bubble"
+    ? `<c:spPr><a:solidFill><a:srgbClr val="${fill}"><a:alpha val="75000"/></a:srgbClr></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill></a:ln></c:spPr>`
+    : `<c:spPr><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln><a:noFill/></a:ln></c:spPr>`;
+}
+
+/**
+ * One data point in its own colour, in `CT_DPt` order.
+ *
+ * A line keeps the series stroke and takes the colour on its marker only. No
+ * `bubble3D` is written on a bar or a bubble: Word refuses a bubble file over
+ * it and the element is optional.
+ */
+function pointXml(type: GraphNode["graphType"], at: number, fill: string): string {
+  if (type === "pie" || type === "doughnut") {
+    return `<c:dPt><c:idx val="${at}"/><c:bubble3D val="0"/><c:spPr><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln w="19050"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt>`;
+  }
+  return drawnAsLine(type)
+    ? `<c:dPt><c:idx val="${at}"/>${markerXml(fill)}</c:dPt>`
+    : `<c:dPt><c:idx val="${at}"/><c:invertIfNegative val="0"/>${paintXml(type, fill)}</c:dPt>`;
 }
 
 /**

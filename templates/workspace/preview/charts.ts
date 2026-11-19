@@ -335,7 +335,7 @@ function plotSeries(chart: PreviewChart, series: PreviewChartSeries): echarts.Se
       type: "scatter",
       symbolSize: 8,
       itemStyle: { color },
-      data: data.map((value, index) => [Number(chart.categories[index] ?? index + 1), value]),
+      data: painted(series, data.map((value, index) => [Number(chart.categories[index] ?? index + 1), value])),
     };
   }
 
@@ -358,11 +358,14 @@ function plotSeries(chart: PreviewChart, series: PreviewChartSeries): echarts.Se
       // Let down, so a big bubble does not simply delete the small one behind
       // it — which is the comparison the chart exists to show.
       itemStyle: { color, opacity: 0.75 },
-      data: series.values.map((value, index) => [
-        Number(chart.categories[index] ?? index + 1),
-        value,
-        series.sizes[index] ?? 0,
-      ]),
+      data: painted(
+        series,
+        series.values.map((value, index) => [
+          Number(chart.categories[index] ?? index + 1),
+          value,
+          series.sizes[index] ?? 0,
+        ]),
+      ),
     };
   }
 
@@ -378,7 +381,7 @@ function plotSeries(chart: PreviewChart, series: PreviewChartSeries): echarts.Se
       // An area chart is a line with the ground filled in under it, which is
       // exactly what OOXML's `c:areaChart` is beside its `c:lineChart`.
       ...(chart.graphType === "area" ? { areaStyle: { color, opacity: 0.25 } } : {}),
-      data,
+      data: painted(series, data),
     };
   }
 
@@ -388,8 +391,20 @@ function plotSeries(chart: PreviewChart, series: PreviewChartSeries): echarts.Se
     stack,
     itemStyle: { color },
     ...labelStyle(chart),
-    data,
+    data: painted(series, data),
   };
+}
+
+/** A point the file paints itself keeps that paint; the rest take the series'. */
+function painted<T>(
+  series: PreviewChartSeries,
+  data: T[],
+): (T | { value: T; itemStyle: { color: string } })[] {
+  return data.map((value, index) => {
+    const color = hex(series.pointColors[index] ?? undefined);
+
+    return color === undefined ? value : { value, itemStyle: { color } };
+  });
 }
 
 /**

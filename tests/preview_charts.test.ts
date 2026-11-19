@@ -379,3 +379,32 @@ test("the value axis's fixed bounds are read from the file, and absent where Wor
   assertEquals(plain.valueAxisMax, undefined);
   assertEquals(plain.valueAxisStep, undefined);
 });
+
+test("a picked-out point is read back by category, the rest as null", async () => {
+  const [read] = await readBack([
+    chart({
+      data: { categories: quarters, series: [{ label: "n", values: [1, 2, 3, 4], pointColors: [null, null, "C0392B"] }] },
+    }),
+  ]);
+
+  assertEquals([...read.series[0].pointColors], [null, null, "C0392B", null]);
+  assertEquals(read.series[0].color, "2A78D6");
+});
+
+test("a chart with no point colours reads back all null", async () => {
+  const [read] = await readBack([chart()]);
+
+  assertEquals([...read.series[0].pointColors], [null, null, null, null]);
+});
+
+test("a pie's slice colours include an overridden slice", async () => {
+  const [read] = await readBack([
+    chart({
+      graphType: "pie",
+      data: { categories: quarters, series: [{ values: [4, 3, 2, 1], pointColors: [null, "C0392B"] }] },
+    }),
+  ]);
+
+  assertEquals([...read.sliceColors], ["2A78D6", "C0392B", "1BAF7A", "EDA100"]);
+  assertEquals(read.series[0].pointColors[1], "C0392B");
+});
