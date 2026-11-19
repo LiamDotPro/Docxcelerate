@@ -1,8 +1,14 @@
 import { test } from "node:test";
 import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
-import { buildDocument, EchoAiClient } from "docxcelerate";
-import type { DocumentNode, ParagraphNode, PromptSpec } from "docxcelerate";
-import { Document, Paragraph, Section, template, useAi, useState } from "docxcelerate/template";
+import {
+  buildDocument,
+  EchoAiClient,
+  InMemoryDataProvider,
+  resolveDocument,
+  ScriptedAiClient,
+} from "docxcelerate";
+import type { DocumentModel, DocumentNode, ParagraphNode, PromptSpec } from "docxcelerate";
+import { Document, Graph, Image, Paragraph, Section, template, useAi, useState } from "docxcelerate/template";
 
 /**
  * One hook for a node an engine writes.
@@ -55,6 +61,16 @@ function paragraphOf(nodes: DocumentNode[]): ParagraphNode {
 
 function promptOf(prompts: PromptSpec[] | undefined, kind: PromptSpec["kind"]): string | undefined {
   return prompts?.find((prompt) => prompt.kind === kind)?.text;
+}
+
+function firstOf(nodes: DocumentNode[]): DocumentNode {
+  const section = nodes[0];
+
+  if (section?.kind !== "section" || section.children[0] === undefined) {
+    throw new Error("expected one node in the body");
+  }
+
+  return section.children[0];
 }
 
 const summary = () => {
@@ -439,4 +455,164 @@ test("an example set by a shared hook comes back with the rest of the prompts", 
     placeholder: "A summary.",
     examplePrompt: "This invoice covers the June sprint.",
   });
+});
+
+// ---------------------------------------------------------------------------
+// Stand-in clients
+// ---------------------------------------------------------------------------
+
+test("ScriptedAiClient answers a paragraph by its id and records what was asked", async () => {
+  const ai = new ScriptedAiClient({ summary: "Covers the API build." });
+  const built = await buildWith(summary, { dynamicMode: "resolve", aiClient: ai });
+
+  assertEquals(paragraphOf(built.nodes).text, "Covers the API build.");
+  assertEquals(ai.requests.length, 1);
+  assertEquals(ai.requests[0].id, "summary");
+  assertEquals(ai.requests[0].kind, "paragraph");
+  assertEquals(promptOf(ai.requests[0].prompts, "general"), "Three sentences summarising what this invoice covers.");
+  assertStringIncludes(ai.requests[0].prompt, "Three sentences summarising what this invoice covers.");
+});
+
+test("ScriptedAiClient answers a chart and an image by their ids", async () => {
+  const revenue = { data: { categories: ["Q1", "Q2"], series: [{ values: [120, 140] }] }, caption: "Revenue" };
+  const ai = new ScriptedAiClient({ revenue, portrait: { path: "data:image/png;base64,AAAA", alt: "A portrait" } });
+  const chart = firstOf(
+    (await buildWith(() => <Graph id="revenue" generalPrompt="Plot revenue." placeholder="Revenue by quarter." />, {
+      dynamicMode: "resolve",
+      aiClient: ai,
+    })).nodes,
+  );
+  const image = firstOf(
+    (await buildWith(() => <Image id="portrait" generalPrompt="Draw it." placeholder="A portrait." />, {
+      dynamicMode: "resolve",
+      aiClient: ai,
+    })).nodes,
+  );
+
+  assertEquals(chart.kind, "graph");
+  if (chart.kind === "graph") {
+    assertEquals(chart.data, revenue.data);
+    assertEquals(chart.caption, "Revenue");
+  }
+
+  assertEquals(image.kind, "image");
+  if (image.kind === "image") {
+    assertEquals(image.path, "data:image/png;base64,AAAA");
+  }
+
+  assertEquals(ai.requests.map((r) => [r.id, r.kind]), [["revenue", "graph"], ["portrait", "image"]]);
+});
+
+test("ScriptedAiClient matches a repeat's suffixed ids by their base id, and an exact id wins", async () => {
+  const model: DocumentModel = {
+    schemaVersion: "docxcelerate.letter/v0",
+    id: "notes",
+    title: "Notes",
+    nodes: [{
+      id: "notes",
+      kind: "repeat",
+      source: { scope: "data", path: "notes" },
+      as: "note",
+      indexAs: "index",
+      children: [{ id: "note", kind: "paragraph", mode: "dynamic", prompts: [{ kind: "general", text: "Write note {{ctx.index}}." }] }],
+    }],
+  };
+  const ai = new ScriptedAiClient({ note: "Base.", "note-1": "Second." });
+  const data = { notes: [{}, {}, {}] };
+  const doc = await resolveDocument(model, {
+    ctx: {},
+    derived: {},
+    dataProvider: new InMemoryDataProvider(data),
+    aiClient: ai,
+  });
+
+  assertEquals(doc.nodes.map((n) => (n.kind === "paragraph" ? n.text : undefined)), ["Base.", "Second.", "Base."]);
+  assertEquals(ai.requests.map((r) => r.id), ["note-0", "note-1", "note-2"]);
+  assertEquals(ai.requests[1].prompt, "GENERAL: Write note 1.");
+});
+
+test("ScriptedAiClient refuses an id it has no answer for, listing the ids it knows", async () => {
+  const ai = new ScriptedAiClient({ other: "x", more: "y" });
+
+  await assertRejects(
+    () => buildWith(summary, { dynamicMode: "resolve", aiClient: ai }),
+    Error,
+    'ScriptedAiClient has no answer for paragraph "summary". Known ids: "other", "more".',
+  );
+  assertEquals(ai.requests.map((r) => r.id), ["summary"]);
+
+  await assertRejects(
+    () => buildWith(summary, { dynamicMode: "resolve", aiClient: new ScriptedAiClient({}) }),
+    Error,
+    "Known ids: (none).",
+  );
+});
+
+test("ScriptedAiClient refuses an answer the node cannot use", async () => {
+  await assertRejects(
+    () => buildWith(summary, { dynamicMode: "resolve", aiClient: new ScriptedAiClient({ summary: { caption: "x" } }) }),
+    Error,
+    `ScriptedAiClient's answer for "summary" is not one a paragraph can use.`,
+  );
+  await assertRejects(
+    () =>
+      buildWith(() => <Graph id="revenue" generalPrompt="Plot revenue." placeholder="Revenue." />, {
+        dynamicMode: "resolve",
+        aiClient: new ScriptedAiClient({ revenue: "text" }),
+      }),
+    Error,
+    `ScriptedAiClient's answer for "revenue" is not one a graph can use.`,
+  );
+  await assertRejects(
+    () =>
+      buildWith(() => <Image id="portrait" generalPrompt="Draw it." placeholder="A portrait." />, {
+        dynamicMode: "resolve",
+        aiClient: new ScriptedAiClient({ portrait: { caption: "no path" } }),
+      }),
+    Error,
+    `ScriptedAiClient's answer for "portrait" is not one a image can use.`,
+  );
+});
+
+test("ScriptedAiClient is asked nothing by a preview", async () => {
+  const ai = new ScriptedAiClient({ summary: "Unused." });
+  const built = await buildWith(summary, { dynamicMode: "placeholder", aiClient: ai });
+
+  assertEquals(paragraphOf(built.nodes).text, "A short summary of the work this invoice covers.");
+  assertEquals(ai.requests, []);
+});
+
+test("EchoAiClient fills a generated chart with labelled sample data, keeping its chart type", async () => {
+  const built = await buildWith(
+    () => <Graph id="revenue" graphType="line" generalPrompt="Plot revenue by quarter." placeholder="Revenue." />,
+    { dynamicMode: "resolve", aiClient: new EchoAiClient() },
+  );
+  const chart = firstOf(built.nodes);
+
+  assertEquals(chart.kind, "graph");
+  if (chart.kind === "graph") {
+    assertEquals(chart.graphType, "line");
+    assertEquals(chart.data, {
+      categories: ["A", "B", "C"],
+      series: [{ label: "Sample", values: [3, 5, 4], sizes: [3, 5, 4] }],
+    });
+    assertStringIncludes(chart.caption ?? "", "[AI draft for revenue] ");
+    assertStringIncludes(chart.caption ?? "", "Plot revenue by quarter.");
+  }
+});
+
+test("EchoAiClient fills a generated image with a sample picture at the node's size", async () => {
+  const built = await buildWith(
+    () => <Image id="portrait" generalPrompt="Draw a portrait." placeholder="A portrait." width={200} height={100} />,
+    { dynamicMode: "resolve", aiClient: new EchoAiClient() },
+  );
+  const image = firstOf(built.nodes);
+
+  assertEquals(image.kind, "image");
+  if (image.kind === "image") {
+    assertStringIncludes(image.path ?? "", "data:image/png;base64,");
+    assertStringIncludes(image.alt ?? "", "[AI draft for portrait] ");
+    assertStringIncludes(image.alt ?? "", "Draw a portrait.");
+    assertEquals([image.width, image.height], [200, 100]);
+  }
 });

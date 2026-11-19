@@ -128,6 +128,13 @@ override what a shared hook set around it.
 Previews resolve dynamic nodes to their placeholder, never to generated prose.
 Nothing leaves the machine, and the same build gives the same page every time.
 
+To see generated nodes filled without a model, pass a stand-in client to a
+resolving build. `new EchoAiClient()` writes each paragraph's prompt back and
+fills charts and images with labelled samples. `new ScriptedAiClient({ "tutor-note": "…",
+revenue: { data: { … } } })` answers by node id (a repeat's `note-0` falls back
+to `note`), throws listing the ids it knows for any id it has no answer for, and
+keeps every request on `.requests` so a test can assert what each node asked.
+
 ## The elements
 
 | Element | Holds | Notes |

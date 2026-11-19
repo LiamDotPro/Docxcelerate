@@ -29,6 +29,7 @@ const surface: Record<string, string[]> = {
     "InMemoryDataProvider",
     "REGISTRY",
     "REGISTRY_THEMES",
+    "ScriptedAiClient",
     "THEMES",
     "THEME_IDS",
     "boldBriefTheme",
