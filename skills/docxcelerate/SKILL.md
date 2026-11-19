@@ -322,6 +322,10 @@ decision that depends on request data has to travel to the engine instead:
   needs the transform in the build — `docxcelerateTransform()` for Vite,
   `docxcelerateEsbuildTransform()` for esbuild, from `docxcelerate/transform`.
   Without it the decision is made once, at build time, for every recipient.
+- **An engine fills the artifact with one call:**
+  `resolveDocument(artifact.engineDocument, createRuntimeState({ data, aiClient }))`.
+  Never build a `RuntimeState` by hand — `createRuntimeState` seeds `ctx` the way
+  the build did, including the `availableTokens` a published document reads.
 
 Read [references/publishing.md](references/publishing.md) before touching a
 document that ships to an engine, or when a document is right in preview and

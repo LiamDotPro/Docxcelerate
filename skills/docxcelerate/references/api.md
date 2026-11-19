@@ -458,6 +458,30 @@ interface ComponentRuntimeOptions {
 want. `"publish"` is for the artifact that goes to an engine, where the decision
 belongs to a request that has not happened yet.
 
+## Resolving a published document
+
+An engine holding the artifact fills its `engineDocument` at request time:
+
+```ts
+import { createRuntimeState, resolveDocument } from "docxcelerate";
+
+const doc = await resolveDocument(
+  artifact.engineDocument,
+  createRuntimeState({ data, aiClient }),
+);
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `data` | required | What `{{data.…}}` reads; copied into `ctx`, never written to |
+| `aiClient` | none | Writes dynamic nodes; without one, the first dynamic node reached throws |
+| `locale` | the document's | A BCP 47 tag; an invalid one throws |
+| `availableTokens` | `2000` | What `{{ctx.availableTokens}}` prints — what `useAvailableTokens()` returned in the build |
+
+Build the state with `createRuntimeState`, not by hand. It is seeded exactly as
+`buildDocument` seeds its own, and a hand-built `ctx` without `availableTokens`
+silently prints nothing wherever a template read `useAvailableTokens()`.
+
 ## The built document
 
 ```ts
