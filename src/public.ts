@@ -39,12 +39,10 @@ export * from "./project/style.ts";
 // renderer should do differently from another.
 export * from "./render/image_source.ts";
 export * from "./runtime/ai.ts";
-// The shape a chart client's answer is checked against, for a model's
-// structured output; the rest of that module is internal to the runtime.
-export { aiGraphResultSchema } from "./runtime/ai_request.ts";
-// Only the error: the rest of ai_request.ts is how a build and a resolve ask,
-// not something a caller calls.
-export { AiGenerationError } from "./runtime/ai_request.ts";
+// The error is what a failed client surfaces as, the schema is what a chart
+// client's answer is checked against, and promptMessages is what a client calls
+// to shape a chat request. The rest of ai_request.ts stays internal.
+export { AiGenerationError, aiGraphResultSchema, promptMessages } from "./runtime/ai_request.ts";
 // An engine resolving a published document evaluates its conditions, so the
 // two functions that do it are part of the surface rather than an internal.
 export * from "./runtime/conditions.ts";

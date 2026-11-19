@@ -166,6 +166,13 @@ export const Reminder: Paragraph = async () => {
 Previews resolve dynamic nodes to their placeholder, never to generated prose.
 Nothing leaves the machine, and the same build gives the same page every time.
 
+A model sees these as two messages. `promptMessages(request)` from
+`docxcelerate` is what a developer's `aiClient` calls: `voice` and the
+document's language become the system message; `ask` leads the user message,
+then `from` under `Facts:`, `avoid` under `Avoid:`, and `example` under
+`What a good answer looks like:`. Write each one as that heading would read it.
+Wiring a model is the developer's job, not the template's.
+
 To see generated nodes filled without a model, pass a stand-in client to a
 resolving build. `new EchoAiClient()` writes each paragraph's prompt back and
 fills charts and images with labelled samples. `new ScriptedAiClient({ "tutor-note": "…",

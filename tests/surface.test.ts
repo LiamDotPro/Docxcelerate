@@ -65,6 +65,7 @@ const surface: Record<string, string[]> = {
     "literalValue",
     "normalizeDeriverDefinitions",
     "pixelSizeOf",
+    "promptMessages",
     "rasterTypeOf",
     "registryEntry",
     "resolveDocument",

@@ -8,10 +8,12 @@ import {
   defineDocumentProject,
   EchoAiClient,
   InMemoryDataProvider,
+  promptMessages,
   resolveDocument,
   ScriptedAiClient,
 } from "docxcelerate";
 import type {
+  AiClient,
   DocumentModel,
   DocumentNode,
   GraphNode,
@@ -438,6 +440,100 @@ test("an example is enough on its own to make a node generated", async () => {
   );
 
   assertEquals(paragraphOf(built.nodes).mode, "dynamic");
+});
+
+// ---------------------------------------------------------------------------
+// What a chat model is handed
+// ---------------------------------------------------------------------------
+
+function capturing() {
+  const asked: Array<{ system: string; user: string; prompt: string }> = [];
+  const aiClient: AiClient = {
+    generateParagraph(request) {
+      asked.push({ ...promptMessages(request), prompt: request.prompt });
+      return "Written.";
+    },
+  };
+  return { asked, aiClient };
+}
+
+const fullSummary = () => {
+  useAi({
+    ask: "Summarise.",
+    placeholder: "A summary.",
+    voice: "Plain, no sales tone.",
+    from: { period: "August 2026" },
+    avoid: "Do not restate the totals.",
+    example: "This invoice covers August.",
+  });
+
+  return <Paragraph id="summary" />;
+};
+
+test("promptMessages puts the voice and the document's language in the system message", async () => {
+  const { asked, aiClient } = capturing();
+  await buildWith(fullSummary, { locale: "fr-FR", aiClient, dynamicMode: "resolve" });
+
+  assertEquals(
+    asked[0].system,
+    "Write in French (France), the language of this document.\n\nPlain, no sales tone.",
+  );
+});
+
+test("promptMessages puts the ask first and the facts, limits and example under plain headings", async () => {
+  const { asked, aiClient } = capturing();
+  await buildWith(fullSummary, { aiClient, dynamicMode: "resolve" });
+
+  assertEquals(
+    asked[0].user,
+    'Summarise.\n\nFacts:\n{\n  "period": "August 2026"\n}\n\nAvoid:\nDo not restate the totals.\n\nWhat a good answer looks like:\nThis invoice covers August.',
+  );
+});
+
+test("promptMessages leaves the system message empty when there is no voice and no language", async () => {
+  const { asked, aiClient } = capturing();
+  await buildWith(summary, { aiClient, dynamicMode: "resolve" });
+
+  assertEquals(asked[0], {
+    system: "",
+    user: "Three sentences summarising what this invoice covers.",
+    prompt: "GENERAL: Three sentences summarising what this invoice covers.",
+  });
+});
+
+test("promptMessages keeps several examples numbered under one heading", () => {
+  assertEquals(
+    promptMessages({
+      prompts: [
+        { kind: "general", text: "Summarise." },
+        { kind: "example", text: "Example 1:\nOne.\n\nExample 2:\nTwo." },
+      ],
+    }),
+    { system: "", user: "Summarise.\n\nWhat a good answer looks like:\nExample 1:\nOne.\n\nExample 2:\nTwo." },
+  );
+});
+
+test("promptMessages skips a blank prompt rather than sending an empty heading", () => {
+  assertEquals(
+    promptMessages({
+      prompts: [
+        { kind: "system", text: "  " },
+        { kind: "general", text: " Summarise. " },
+        { kind: "negative", text: "" },
+      ],
+    }),
+    { system: "", user: "Summarise." },
+  );
+});
+
+test("request.prompt is unchanged for clients already reading it", async () => {
+  const { asked, aiClient } = capturing();
+  await buildWith(fullSummary, { locale: "fr-FR", aiClient, dynamicMode: "resolve" });
+
+  assertEquals(
+    asked[0].prompt,
+    'SYSTEM: Write in French (France), the language of this document.\nSYSTEM: Plain, no sales tone.\nGENERAL: Summarise.\nINFO: {\n  "period": "August 2026"\n}\nNEGATIVE: Do not restate the totals.\nEXAMPLE: This invoice covers August.',
+  );
 });
 
 // ---------------------------------------------------------------------------
