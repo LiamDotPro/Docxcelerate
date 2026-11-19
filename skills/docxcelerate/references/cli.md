@@ -132,6 +132,7 @@ dxcl list components
 | `terms-notice` | Numbered small print, one paragraph and one stable id per clause. |
 | `invoice-document-type` | What an invoice may call itself, and the dates it has to carry. |
 | `commodity-code-summary` | Tariff codes kept as text and checked by length, and a summary by code and origin that adds up. |
+| `marketplace-payout-statement` | A period's marketplace activity reconciled row by row to the payout, with no negative payouts. |
 | `deposit-cancellation-outcome` | What a cancelled order refunds and keeps, and the VAT on each part. |
 | `tax-treatment-notice` | The mention an invoice's tax treatment requires, or a warning when its ID is missing. |
 | `payment-surcharge-line` | A payment-method surcharge only where it is lawful, capped, taxed with the supply, and disclosed. |
