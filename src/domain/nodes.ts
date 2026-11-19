@@ -124,6 +124,16 @@ export interface GraphSeries {
    */
   color?: string;
   /**
+   * Whether this series' line is dashed or dotted rather than solid.
+   *
+   * What sets a forecast, a budget or a target apart from the actuals beside
+   * it without leaning on colour alone, which a greyscale print throws away.
+   * Read by the charts that draw a series as a line — `line`, `scatter` and
+   * `radar` — and by no other: a bar, an area or a slice is a filled shape
+   * with no line to dash. Left out, the line is solid.
+   */
+  dash?: "dashed" | "dotted";
+  /**
    * How big each point is drawn, for a `bubble` chart and nothing else.
    *
    * The third figure a bubble carries: the categories are the x, `values` the

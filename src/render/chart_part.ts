@@ -53,6 +53,12 @@ export const DEFAULT_SERIES_COLORS: readonly string[] = [
   "E34948",
 ];
 
+/**
+ * The OOXML preset each series dash is drawn with: Word's "Dash" and its
+ * "Round Dot", which is `sysDot` under the round cap a series line already has.
+ */
+export const PRESET_DASH = { dashed: "dash", dotted: "sysDot" } as const;
+
 /** The ink a chart's own text is set in when the theme names none. */
 const DEFAULT_TEXT_COLOR = "595959";
 /** The colour a chart rules its gridlines and axes in when the theme names none. */
@@ -390,6 +396,10 @@ function seriesXml(
   // checked side by side and reads as deliberate. A chart with nine series
   // wants fewer series, or a palette of its own.
   const fill = series.color ?? colors[index % colors.length];
+  // A stored model is data that travels, so a dash nobody defined draws solid rather than as a preset Word refuses.
+  const dash = series.dash !== undefined && Object.hasOwn(PRESET_DASH, series.dash)
+    ? `<a:prstDash val="${PRESET_DASH[series.dash]}"/>`
+    : "";
   const head = `<c:idx val="${index}"/><c:order val="${index}"/>` +
     nameXml(series.label, column);
 
@@ -398,7 +408,7 @@ function seriesXml(
   // radar is a line closed into a ring, and drawn the same way for the same
   // reason.
   const paint = type === "line" || type === "scatter" || type === "radar"
-    ? `<c:spPr><a:ln w="28575" cap="rnd"><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:round/></a:ln><a:effectLst/></c:spPr><c:marker><c:symbol val="circle"/><c:size val="5"/><c:spPr><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:marker>`
+    ? `<c:spPr><a:ln w="28575" cap="rnd"><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill>${dash}<a:round/></a:ln><a:effectLst/></c:spPr><c:marker><c:symbol val="circle"/><c:size val="5"/><c:spPr><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:marker>`
     // A bubble is a disc a reader is meant to see the one behind, so its fill
     // is let down to three quarters. Opaque, a big bubble simply deletes every
     // small one it covers, which is the reading the chart exists to show.

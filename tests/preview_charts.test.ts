@@ -58,6 +58,17 @@ async function readBack(nodes: GraphNode[]): Promise<PreviewChart[]> {
   return await readPackedCharts(await renderDocxBytes(documentOf(nodes)));
 }
 
+test("a dashed or dotted line comes back as one, and a solid one with none", async () => {
+  const values = [1, 2, 3, 4];
+  const [line] = await readBack([
+    chart({ graphType: "line", data: { categories: quarters, series: [{ values }, { values, dash: "dashed" }, { values, dash: "dotted" }] } }),
+  ]);
+  const [bar] = await readBack([chart()]);
+
+  assertEquals(line.series.map((s) => s.dash), [undefined, "dashed", "dotted"]);
+  assertEquals(bar.series.map((s) => s.dash), [undefined, undefined]);
+});
+
 test("a chart comes back out of the file with its numbers intact", async () => {
   const [read] = await readBack([chart()]);
 
