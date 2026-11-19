@@ -136,7 +136,7 @@ Nothing leaves the machine, and the same build gives the same page every time.
 | `Section` | any nodes, including sections | the **only** container; `title` required and becomes a heading, kept on the page with what follows it |
 | `Paragraph` | text children, or prompts | `text` prop says the same as children; a `\n` in the text is a line break; `list="bullet"` or `"number"` makes it a list item, counted by the renderer; on a numbered item, `listStyle="lowerLetterParen"` (or `upperRoman`, `lowerRomanParen`, …) sets that level's numerals: (a), I., (i) |
 | `Text` | words, inside a `Paragraph`, `Cell` or `Shape` | **not a node** — no `id`. `bold`, `italic`, `underline`, `strike`, `script` (`"superscript"` \| `"subscript"`), `href`, `variant` (a theme block name: colour, shading, size, face, weight, caps, tracking). Never a colour or a size |
-| `Image` | `src`, `alt`, `width`, `height`, `align`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below; give one of `width`/`height` and the other keeps the picture's proportions; `align` (`left`/`center`/`right`) places it in the column |
+| `Image` | `src`, `alt`, `width`, `height`, `align`, `href`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below; give one of `width`/`height` and the other keeps the picture's proportions; `align` (`left`/`center`/`right`) places it in the column; `href` makes the picture a link |
 | `Graph` | `graphType`, `data`, `title`, `alt`, `caption`, `align`, or prompts | packed as a real Word chart, never a picture of one — the numbers travel with it; `align` places a chart narrower than the column, and its caption follows; `alt` is what a screen reader hears |
 | `Table` | `Row`s, and any `.map()` producing them | `columns` declared once, in mm or `"auto"`, with `align`; `align` on the table (`"center"`/`"right"`) moves a narrow one across the column |
 | `Row` | `Cell`s | `header` marks a heading row; only *leading* ones repeat across pages. `keepTogether` keeps a multi-line row whole on one page. `height` (pt) is a floor; `heightRule="exact"` fixes it and clips what overflows |
@@ -156,6 +156,12 @@ Give a picture one side and the other follows its own proportions —
 `<Image src={logo} width={160} />` is a 160pt-wide logo at its real shape, not a
 square. With neither side it is 120pt wide; with both it is exactly the box you
 gave, stretched if that box disagrees with the picture.
+
+**A picture can be a link.** `<Image href="https://pay.example.com/inv/123">`
+makes a QR code, a Pay-now button or a logo open that address — Ctrl+click in
+Word, a click in the preview. The same allowlist as `<Text href>`: `https:`,
+`http:`, `mailto:`, `tel:`; anything else draws the picture unlinked. Give a
+linked picture `alt` that says where it goes.
 
 Every element also takes **`variant`** — a name the theme looks up, never an
 appearance: `<Cell variant="badge">`, `<Paragraph variant="band">`. The colours

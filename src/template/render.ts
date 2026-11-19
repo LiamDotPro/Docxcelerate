@@ -804,6 +804,7 @@ async function renderImage(
   const prompts = settled(props.src, props, frame, id);
   const drawn = {
     alt: await text(props.alt, context),
+    href: await text(props.href, context),
     width: props.width,
     height: props.height,
     align: props.align,

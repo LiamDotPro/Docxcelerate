@@ -64,7 +64,7 @@ interface PromptProps {
 | `Section` | `title` (required), `children?` |
 | `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0), `listStyle?` (`"decimal" \| "lowerLetter" \| "upperLetter" \| "lowerRoman" \| "upperRoman"`, or any of them with `Paren` appended: `"lowerLetterParen"` is (a); default by depth 1. a. i.) |
 | `Text` | `bold?`, `italic?`, `underline?`, `strike?`, `script?` (`"superscript" \| "subscript"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`), `variant?` (a block name; only its character settings apply), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
-| `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` (points; give one and the other keeps the picture's proportions, neither is 120pt wide), `align?` (`"left" \| "center" \| "right"`) |
+| `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` (points; give one and the other keeps the picture's proportions, neither is 120pt wide), `align?` (`"left" \| "center" \| "right"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`) |
 | `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `alt?`, `caption?`, `width?`, `height?` (points), `align?` (`"left" \| "center" \| "right"`), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `dataLabels?` |
 | `Table` | `columns` (required), `align?` (`"left" \| "center" \| "right"`, default left), `children?` |
 | `Row` | `header?`, `keepTogether?`, `height?`, `heightRule?`, `children?` |
@@ -142,6 +142,9 @@ Notes worth knowing:
   JPEG, GIF or BMP header (for an SVG, from its `fallbackSrc` raster); both
   given is drawn as given. A picture with no bytes yet, such as a URL or an
   unproduced prompt, reserves a square.
+  `href` links the picture — block, inline, in a cell or in the furniture — and
+  lands on the node as `href`, settled like a run's. A refused scheme or an
+  unsettled token draws the picture alone.
 - `PageBreak` is for a break that is part of what the document *is* — payment
   details on their own page. Nudging a paragraph off the bottom of a page is the
   margins' job.

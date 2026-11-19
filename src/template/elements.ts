@@ -240,6 +240,12 @@ export interface ImageProps extends CommonElementProps, PromptProps {
    * line of text sits where the text puts it, and this is ignored.
    */
   align?: TableAlign;
+  /**
+   * An address the picture links to: `https:`, `http:`, `mailto:` or `tel:`.
+   * Anything else draws the picture alone. Give a linked picture `alt` text
+   * that says where it goes — that is what a screen reader announces.
+   */
+  href?: string;
 }
 
 /**

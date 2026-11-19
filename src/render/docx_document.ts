@@ -948,7 +948,7 @@ function markedRun(
 /**
  * The address a run links to, when it is one a reader can safely be sent to.
  *
- * A run's `href` may have come out of a request, and the preview draws the
+ * A run's or a picture's `href` may have come out of a request, and the preview draws the
  * result as a live `<a>` — so a `javascript:` address is not written, and nor
  * is a `{{token}}` nothing has settled yet. Both print as their words alone.
  */
@@ -1348,7 +1348,7 @@ function blockTabStops(block: DocumentBlockStyle | undefined) {
  * renderer that quietly fetched would produce a document that packs on one
  * machine and not another.
  */
-function imageRunOf(node: ImageNode): ImageRun | TextRun {
+function pictureOf(node: ImageNode): ImageRun | TextRun {
   const source = imageSourceOf(node.path);
   const described = node.alt ?? node.placeholder ?? node.id;
 
@@ -1405,6 +1405,20 @@ function pictureSizeOf(node: ImageNode, source: ImageSource): { width: number; h
   const width = node.width ?? (node.height !== undefined ? node.height * ratio : 120);
 
   return { width, height: node.height ?? width / ratio };
+}
+
+/**
+ * A picture as Word is handed it: linked when its node says where to.
+ *
+ * The link goes round whatever stands in the line — the picture, or the note
+ * standing in for one — so a Pay-now image that could not be packed still
+ * sends the reader on.
+ */
+function imageRunOf(node: ImageNode): InlineRun {
+  const run = pictureOf(node);
+  const link = linkOf(node.href);
+
+  return link === undefined ? run : new ExternalHyperlink({ link, children: [run] });
 }
 
 /** Points to pixels, the unit Word measures a picture in. */

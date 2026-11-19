@@ -561,6 +561,7 @@ function harnessHtml(bodyFont) {
         if (span.style.width === "" || span.style.height === "") return;
 
         var rect = span.getBoundingClientRect();
+        var link = span.closest("a");
 
         charts.push({
           pageIndex: pageIndex,
@@ -576,6 +577,8 @@ function harnessHtml(bodyFont) {
           // Whether the frame holds a picture, which is how a chart frame is
           // told from an image's.
           picture: span.querySelector("img") !== null,
+          // The address a picture links to, when it does.
+          href: link === null ? null : link.getAttribute("href"),
           // Whether anything at all was drawn inside it.
           plotted: span.childElementCount > 0
         });
@@ -1100,6 +1103,7 @@ function missingChart(anchor) {
     h: null,
     declared: { width: null, height: null },
     picture: false,
+    href: null,
     plotted: false,
   };
 }
