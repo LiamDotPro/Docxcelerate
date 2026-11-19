@@ -246,6 +246,11 @@ decision that depends on request data has to travel to the engine instead:
   stand in rather than run. Cheap derivers still run, so the figures are real.
   Give any deriver that renders, reads or fetches a `placeholder`; leave it off
   for a total or a currency format.
+- **A generated chart or picture publishes as its prompts.** The engine's own
+  `AiClient` writes it per document, so it needs `generateGraph` for a prompted
+  `<Graph>` and `generateImage` for a prompted `<Image>`; an engine without one
+  fails on that node, naming it. A prompted `<Image>` among a paragraph's words
+  cannot be published — give it its own place beside the paragraph.
 - **`.map()` over request data is how a loop is written.** It walks the list when
   the data is real and is published as a loop the engine walks when it is not.
   Never hand-write a `{{ctx.…}}` token inside one — the entry writes its own

@@ -173,6 +173,7 @@ Each of these is an error naming the position, not a quiet reinterpretation:
 | `<Image>` with neither `src` nor a prompt | Nothing says what it shows |
 | `<Graph>` with neither `data` nor a prompt | Nothing says what it plots |
 | A dynamic node in a build with no `aiClient` | Only a preview build may resolve those to placeholders |
+| A prompted `<Image>` among a paragraph's words, published to an engine | An engine draws block nodes only — give the `<Image>` its own place beside the paragraph |
 
 ## Component types
 
@@ -330,9 +331,15 @@ import {
 | --- | --- |
 | `buildDocument(template, data, options?)` | The raw model from a template and data you hold |
 | `buildProjectPreviewDocument(project, options?)` | What the preview app shows: dynamic nodes → placeholders, derivers resolved, project style applied |
-| `buildProjectEngineDocument(project, options?)` | The upload artifact: values stay tokens, branches keep both arms, loops stay loops |
+| `buildProjectEngineDocument(project, options?)` | The upload artifact: values stay tokens, branches keep both arms, loops stay loops, and every generated paragraph, image and chart keeps its prompts for the engine's client to answer |
 | `buildProjectFinalDocument(project, { data, aiClient, … })` | A finished document at request time, dynamic nodes run through the AI client |
 | `createDocumentProjectArtifact(project, options?)` | The manifest, both documents and the deriver bundle together |
+
+A published document is answered by the engine's `AiClient`, not the one you
+build with. A generated `<Graph>` needs the engine's client to implement
+`generateGraph`, a generated `<Image>` `generateImage`; resolving a node whose
+method is missing fails, naming the node. A generated image keeps the `alt`,
+`width` and `height` the template gave it unless the client returns its own.
 
 For a project, prefer `buildProjectPreviewDocument` over `buildDocument` — it is
 exactly what the preview app calls, so what you build in code matches what you

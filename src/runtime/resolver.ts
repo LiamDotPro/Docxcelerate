@@ -263,9 +263,11 @@ async function resolveImage(
     ...node,
     prompts,
     path: result.path,
-    alt: result.alt,
-    width: result.width,
-    height: result.height,
+    // The size and description the template stated belong to the node, as they
+    // do in a direct build; a client that does not restate them keeps them.
+    alt: result.alt ?? node.alt,
+    width: result.width ?? node.width,
+    height: result.height ?? node.height,
   };
 }
 

@@ -276,13 +276,17 @@ export async function buildProjectPreviewDocument<TData>(
  *
  * Nothing here is decided. The data is a stand-in for a request nobody has made,
  * so a branch keeps both arms under the condition that selects one, a loop stays
- * a loop, and every value stays the token the engine substitutes. What comes out
- * is the whole document with the decisions still in it.
+ * a loop, and every value stays the token the engine substitutes. A generated
+ * paragraph, image or chart is published with its prompts and nothing written
+ * in, for the engine's own client to answer per document. What comes out is the
+ * whole document with the decisions still in it.
  *
  * @typeParam TData The shape the project's template reads.
  * @param project The project to build.
  * @param options Runtime overrides for this build.
  * @returns The document, with its decisions still open.
+ * @throws If a paragraph holds a generated picture among its words, which an
+ *   engine cannot draw.
  */
 export async function buildProjectEngineDocument<TData>(
   project: DocumentProject<TData>,
@@ -302,11 +306,11 @@ export async function buildProjectEngineDocument<TData>(
 
   return {
     ...doc,
-    nodes: removeEmptyDynamicText(doc.nodes),
-    header: doc.header && removeEmptyDynamicText(doc.header),
-    footer: doc.footer && removeEmptyDynamicText(doc.footer),
-    firstHeader: doc.firstHeader && removeEmptyDynamicText(doc.firstHeader),
-    firstFooter: doc.firstFooter && removeEmptyDynamicText(doc.firstFooter),
+    nodes: removeEngineStandIns(doc.nodes),
+    header: doc.header && removeEngineStandIns(doc.header),
+    footer: doc.footer && removeEngineStandIns(doc.footer),
+    firstHeader: doc.firstHeader && removeEngineStandIns(doc.firstHeader),
+    firstFooter: doc.firstFooter && removeEngineStandIns(doc.firstFooter),
     style: project.style,
     metadata: project.metadata ? { ...project.metadata, ...doc.metadata } : doc.metadata,
   };
@@ -342,24 +346,50 @@ export async function buildProjectFinalDocument<TData>(
   };
 }
 
-const engineArtifactAiClient: AiClient = {
-  generateParagraph(): string {
-    return "";
-  },
+/**
+ * The client the engine build is written with. It answers every kind with
+ * nothing, so each dynamic node is assembled with its prompts on it and no
+ * content, and {@linkcode removeEngineStandIns} takes the empty answers back
+ * off. `Required` so a kind the client learns to write later cannot be left
+ * off here and fail every publish that uses it.
+ */
+const engineArtifactAiClient: Required<AiClient> = {
+  generateParagraph: () => "",
+  generateImage: () => ({ path: "" }),
+  generateGraph: () => ({}),
 };
 
-function removeEmptyDynamicText(nodes: DocumentModel["nodes"]): DocumentModel["nodes"] {
+/**
+ * Takes the empty answers {@linkcode engineArtifactAiClient} gave back off the
+ * nodes, at every depth: a cell or a shape holds a generated paragraph as much
+ * as a section does, and an engine reading `text: ""` reads it as written.
+ */
+function removeEngineStandIns(nodes: DocumentModel["nodes"]): DocumentModel["nodes"] {
   return nodes.map((node) => {
-    if (node.kind === "section" || node.kind === "repeat") {
-      return {
-        ...node,
-        children: removeEmptyDynamicText(node.children),
-      };
+    if (node.kind === "paragraph") {
+      const generated = node.inlineImages?.find(({ image }) => image.mode === "dynamic");
+      // The resolver fills block nodes, never a picture among a paragraph's
+      // words, so publishing one would ship a picture nothing ever draws.
+      if (generated) {
+        throw new Error(
+          `Paragraph "${node.id}" holds a generated picture, "${generated.image.id}", which an ` +
+            "engine cannot draw. Give the <Image> its own place beside the paragraph, or a src.",
+        );
+      }
+
+      if (node.mode === "dynamic" && node.text === "") {
+        const { text: _text, ...withoutText } = node;
+        return withoutText;
+      }
     }
 
-    if (node.kind === "paragraph" && node.mode === "dynamic" && node.text === "") {
-      const { text: _text, ...withoutText } = node;
-      return withoutText;
+    if (node.kind === "image" && node.mode === "dynamic" && node.path === "") {
+      const { path: _path, ...withoutPath } = node;
+      return withoutPath;
+    }
+
+    if ("children" in node) {
+      return { ...node, children: removeEngineStandIns(node.children) };
     }
 
     return node;
