@@ -120,6 +120,7 @@ dxcl list components
 | `letterhead` | Who sent this, from where, and when. |
 | `recipient-block` | The address, and a greeting that survives a missing name. |
 | `payment-summary` | What is owed, by when — and what to say when nothing is. |
+| `invoice-totals` | Line items and VAT totals, rounded per rate — the penny the customer's system expects. |
 | `balance-trend` | A line of how a balance has moved, and a sentence saying the same thing. |
 | `usage-breakdown` | A pie of where a total went, with the tail folded into Other. |
 | `period-comparison` | This period against the last, category by category, as clustered bars. |
@@ -130,8 +131,44 @@ dxcl list components
 | `signature-block` | A closing, a signature image, and who signed it. |
 | `terms-notice` | Numbered small print, one paragraph and one stable id per clause. |
 | `invoice-document-type` | What an invoice may call itself, and the dates it has to carry. |
+| `deposit-cancellation-outcome` | What a cancelled order refunds and keeps, and the VAT on each part. |
 | `tax-treatment-notice` | The mention an invoice's tax treatment requires, or a warning when its ID is missing. |
+| `payment-surcharge-line` | A payment-method surcharge only where it is lawful, capped, taxed with the supply, and disclosed. |
+| `fee-cap-status` | What a capped, ceiling or estimated engagement may charge, and the overrun or notice wording it needs. |
+| `advance-payment-invoice` | A deposit or prepayment against an order: the share, what's already requested, and what's left. |
+| `vat-place-of-supply` | Whose VAT applies and at what rate, decided before anything is printed. |
+| `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `dunning-reminder` | A payment reminder that escalates one level at a time, skips disputed or held invoices, and only threatens what you intend. |
+| `open-items-ageing` | Every invoice still open, aged by days past due, with unallocated credit kept out of the buckets. |
+| `statement-of-account` | Every transaction in a period with a running balance, and what the closing balance means. |
+| `bank-transfer-details` | The one way to pay that fits this payer, checked, with a reference their bank won't cut short. |
+| `direct-debit-collection-notice` | The advance notice a direct debit needs, dated no earlier than its scheme allows. |
+| `structured-payment-reference` | A bank payment reference with its check digits worked out, or the invoice number when none can be issued. |
+| `gst-inclusive-statement` | How GST shows on an AU or NZ tax invoice, and who it must name at each threshold. |
+| `exemption-certificate-check` | Which lines of a US sale go out exempt under the buyer's certificates, and why the rest stay taxable. |
+| `japan-qualified-invoice` | The tax part of a Japanese qualified invoice: lines by rate, ※ marks, tax once per rate, and a checked T-number. |
+| `vat-in-local-currency` | A foreign-currency invoice's VAT bands in the currency the VAT is owed in, band by band. |
+| `voucher-redemption-lines` | Vouchers, coupons and gift cards placed where their tax treatment puts them. |
+| `prepaid-hours-drawdown` | Time entries drawn against prepaid hour blocks soonest-expiring first, with overage, rollover and lapsed hours in a ledger. |
+| `contingency-settlement-statement` | The closing statement for a contingent or damages-based fee: fee by band, statutory cap, liens, and the net. |
+| `stage-payment-schedule` | Stage payments that add up to the contract sum, with each stage's VAT tax point. |
+| `pay-less-notice` | A UK pay less notice: sum due, itemised basis, and whether it was served in time. |
+| `prompt-payment-discount` | Early-payment discount terms, worked per VAT band under the rule where the invoice is issued. |
+| `credits-applied-to-invoice` | Open credit notes and payments on account set against an invoice, from total to amount due. |
+| `canadian-sales-tax` | GST/HST and provincial sales tax for the province of supply, each on its own base, with CRA's invoice checks. |
+| `net-payable-withholdings` | From a Spanish or Italian invoice total to what is actually transferred, after IRPF, ritenuta and split payment. |
+| `invoice-change-explainer` | Why this invoice differs from the last, or nothing when it barely does. |
+| `renewal-and-price-change-notice` | The cancel-by date and what a renewal or price-change notice must say, measured from the right date. |
+| `commitment-drawdown` | Prepaid commitment and credit drawn down line by line before tax, with what is left and any true-up. |
+| `timesheet-fee-summary` | Billed fees per timekeeper from raw time entries, rounded per entry and rated by date. |
+| `disbursements-and-recharges` | Expenses split into VAT-bearing recharges and disbursements passed on at cost. |
+| `final-invoice-settlement` | The final invoice after advances: the whole supply by VAT rate, each advance deducted, and the balance. |
+| `credit-note-totals` | What a credit note credits, by VAT band, worked from the original invoice. |
+| `construction-payment-timetable` | The Construction Act payment dates for one interim payment, counted the way section 116 counts them. |
+| `cis-invoice-deduction` | What a subcontractor is paid on an invoice, after CIS and VAT. |
+| `us-sales-tax-breakdown` | Sales tax by state, county, city and district, in rows that add up to the tax charged. |
+| `india-gst-split` | CGST and SGST or IGST from the place of supply, with the summary, round-off and total in words. |
 
 ## `dxcl show <id>`
 

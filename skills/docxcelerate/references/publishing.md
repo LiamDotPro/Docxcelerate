@@ -97,6 +97,12 @@ handed knows the path it stands for, so the reference writes itself. Passes are
 named by position on both paths, so an id means the same thing in a preview and
 in the document a recipient receives.
 
+**Numbering a loop is `position(i)`, not `i + 1`.** The index is a stand-in while
+publishing, and arithmetic on it is refused. `position` hands the counting to the
+engine, which binds each walked entry's place, from one, beside the entry. It
+counts only the entries a `.filter()` kept, the same as the standard library on
+real data, so a preview and a delivered invoice number their lines alike.
+
 ### 3. A decision has to be written as a condition
 
 A published branch stores **both arms**, each carrying the condition that selects

@@ -701,6 +701,7 @@ async function renderLoop(
     source: { scope: props.overScope, path: props.over },
     as: props.as,
     indexAs: props.indexAs,
+    positionAs: props.positionAs,
     where: props.where,
     when,
     children: await renderYield(props.children, context, {
@@ -919,6 +920,7 @@ async function renderGraph(
       when,
       graphType,
       ...drawn,
+      caption: await text(props.caption, context),
       placeholder: await placeholderText(prompts, id, context),
     });
   }
@@ -931,6 +933,7 @@ async function renderGraph(
     when,
     graphType,
     ...drawn,
+    caption: await text(props.caption, context),
     prompts: specs,
   };
 
@@ -939,8 +942,8 @@ async function renderGraph(
   return prune({
     ...node,
     graphType: result.graphType ?? graphType,
-    data: result.data,
-    caption: result.caption,
+    data: result.data ?? node.data,
+    caption: result.caption ?? node.caption,
   });
 }
 
