@@ -132,6 +132,7 @@ dxcl list components
 | `invoice-document-type` | What an invoice may call itself, and the dates it has to carry. |
 | `tax-treatment-notice` | The mention an invoice's tax treatment requires, or a warning when its ID is missing. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `preferential-origin-statement` | The statement on origin an agreement prescribes, or a warning when its exporter reference is missing. |
 
 ## `dxcl show <id>`
 
