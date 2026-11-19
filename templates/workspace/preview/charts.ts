@@ -31,11 +31,12 @@ import type { ChartDrawer, PreviewChart, PreviewChartSeries } from "docxcelerate
 const PX_PER_PT = 96 / 72;
 
 /** How much room the axis labels are given, in pixels. */
+const GUTTER = { left: 56, right: 18, top: 16, bottom: 18 };
+
 /** The preview letters at the file's own point size, falling back to what a theme with no `chart` block gets. */
 const textPx = (chart: PreviewChart) => (chart.textSizePt ?? 9) * PX_PER_PT;
+/** The title's size in pixels, with the same fallback as {@linkcode textPx}. */
 const titlePx = (chart: PreviewChart) => (chart.titleSizePt ?? 12) * PX_PER_PT;
-
-const GUTTER = { left: 56, right: 18, top: 16, bottom: 18 };
 
 /** How small the least of a bubble chart's readings is drawn, in pixels. */
 const BUBBLE_MIN_PX = 8;
