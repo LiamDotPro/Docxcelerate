@@ -40,7 +40,7 @@ La separación es justamente el punto. Cada archivo responde una pregunta:
 | `preview-data.ts` | Una instancia de ese contrato, para la vista previa |
 | `document.tsx` | Solo estructura: qué nodos, en qué secciones, en qué orden |
 | `nodes/` | Un componente por nodo, más un `index.ts` que los exporta |
-| `document-style.ts` | Fuentes, espaciado y márgenes del `.docx` empaquetado |
+| `document-style.ts` | Papel, fuentes, espaciado y márgenes del `.docx` empaquetado |
 | `derivers/index.ts` | Funciones con nombre que el motor ejecuta por documento |
 | `document.project.ts` | Ata todo lo anterior y nombra el documento |
 
@@ -82,6 +82,26 @@ export default defineDocumentProject<DocumentData>({
 La app de vista previa descubre proyectos haciendo glob de `document.project.ts`,
 así que un documento nuevo aparece en el selector en cuanto existe. No se registra
 en ningún sitio.
+
+## Papel y números de página
+
+`document-style.ts` decide la hoja. `page.size` es `"A4"`, `"LETTER"`, `"LEGAL"`,
+`"A5"`, `"A3"` o `{ widthMm, heightMm }` para cualquier otra hoja, dada en
+vertical; `orientation: "landscape"` gira cualquiera de las dos, y las tablas, los
+sangrados, las formas y los gráficos sin ancho propio llenan la columna más ancha
+sin que se les diga.
+
+`page.firstPageNumber` y `page.numberStyle` cambian cómo cuenta `<PageNumber>` —
+un anexo que continúa desde la página 37, unas páginas preliminares numeradas i,
+ii, iii. Solo se mueve el número de la propia página; un total sigue siendo el
+recuento de páginas, tal como lo imprime Word.
+
+```ts
+export const documentStyle: DocumentStyle = {
+  ...cleanMinimalDocumentStyle,
+  page: { ...cleanMinimalDocumentStyle.page, size: "A3", orientation: "landscape", firstPageNumber: 37 },
+};
+```
 
 ## Mantén honestos los datos de vista previa
 

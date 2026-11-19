@@ -104,7 +104,15 @@ export interface AiGraphGenerationRequest {
   state: RuntimeState;
 }
 
-/** The chart an {@linkcode AiClient} produced. Absent fields keep the node's own. */
+/**
+ * The chart an {@linkcode AiClient} produced.
+ *
+ * Absent or `null` fields keep the node's own, so a caption written on the
+ * `<Graph>` survives a model that only sends numbers. The answer is read the
+ * way model JSON is written: a number written as text, such as `"12"`, is a
+ * number, and a numeric category is its text. Anything else that is not a
+ * chart fails the document with an error naming the node and the field.
+ */
 export interface AiGraphResult {
   /** Which chart to draw. */
   graphType?: GraphType;

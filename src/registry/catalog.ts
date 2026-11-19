@@ -318,6 +318,64 @@ export const COMPONENTS: RegistryComponent[] = [
 
   {
     kind: "component",
+    id: "invoice-totals",
+    title: "Invoice totals",
+    summary: "Line items and VAT totals, worked in minor units and rounded once per rate.",
+    detail:
+      "The arithmetic every invoice gets subtly wrong, done once in a deriver. " +
+      "Money is worked in integer minor units at the currency's own exponent, " +
+      "so yen and dinars come out right and no float reaches a total. Each " +
+      "line is rounded once, lines are grouped by rate, and VAT is worked once " +
+      "per band on the band's sum. That is rate-level rounding, which HMRC and " +
+      "the EU accept, and it is the figure an accounting system recomputes; " +
+      "per-line VAT summed drifts a penny from it. Inclusive prices have their " +
+      "VAT backed out of the band's gross, so the total is exactly what was " +
+      "charged. Discounts reduce their own band. Exempt lines print under " +
+      "their own label rather than as 0%, and more than one band draws the " +
+      "per-rate VAT analysis an invoice is required to carry.",
+    category: "Body",
+    tags: ["money", "table", "tax", "invoice", "branching", "section"],
+    exports: ["InvoiceTotals"],
+    dataFields: [
+      {
+        path: "invoice.currency",
+        type: "string",
+        summary: "ISO 4217 code. Required; sets the decimal places.",
+      },
+      {
+        path: "invoice.pricing",
+        type: '"exclusive" | "inclusive" | undefined',
+        summary: "Whether unit prices exclude or include VAT. Defaults to exclusive.",
+      },
+      {
+        path: "invoice.lines",
+        type:
+          "Array<{ description: string; quantity: number; unit?: string; unitPrice: number; taxRate: number | null; taxLabel?: string }>",
+        summary:
+          "One per line, in print order. `taxRate` is a percentage; `null` is exempt or outside scope, labelled by `taxLabel`. Empty prints \"no charges\".",
+      },
+    ],
+    files: node("invoice-totals", { deriver: true }),
+    previewData: {
+      invoice: {
+        currency: "GBP",
+        pricing: "exclusive",
+        lines: [
+          { description: "Quarterly planned preventive maintenance of rooftop air handling units AHU-1 to AHU-6, including filter replacement and belt tensioning", quantity: 4, unit: "visits", unitPrice: 12850, taxRate: 20 },
+          { description: "Out-of-hours emergency call-out, chilled water pump failure at Riverside House, 14–15 March", quantity: 7.25, unit: "h", unitPrice: 142.5, taxRate: 20 },
+          { description: "Replacement variable-speed drive and mounting kit for pump P-03", quantity: 1, unitPrice: 3487.6, taxRate: 20 },
+          { description: "Communal heating fuel and power, March (reduced rate)", quantity: 18432.5, unit: "kWh", unitPrice: 0.2847, taxRate: 5 },
+          { description: "Printed site logbooks and operating manuals", quantity: 6, unit: "copies", unitPrice: 48.5, taxRate: 0 },
+          { description: "Plant breakdown insurance premium recharge, 2026–27", quantity: 1, unitPrice: 2310, taxRate: null, taxLabel: "Exempt" },
+          { description: "Loyalty discount on planned maintenance", quantity: 1, unitPrice: -2570, taxRate: 20 },
+        ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
     id: "balance-trend",
     title: "Balance trend",
     summary: "A line of how a balance has moved, and a sentence saying the same thing.",
@@ -959,6 +1017,51 @@ export const COMPONENTS: RegistryComponent[] = [
       customer: {
         vatNumber: "NL123456789B01",
         resaleCertificate: { number: "SR EAA 102-345678", state: "California" },
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "invoice-billing-periods",
+    title: "Invoice billing periods",
+    summary: "The periods a subscription invoice bills for, in advance and in arrears.",
+    detail:
+      "Works out the periods an invoice states from the billing anchor and " +
+      "interval. Month-end anchors are clamped without being forgotten, so an " +
+      "anchor of the 31st bills on 31 Jan, 28 Feb and 31 Mar, and 29 Feb on an " +
+      "annual plan falls on 28 Feb in a common year. End dates are inclusive, " +
+      "the EN 16931 convention. Licensed items are billed in advance for the " +
+      "coming period and metered items in arrears for the previous one, so " +
+      "one invoice can state two periods; the header period then runs from " +
+      "the earliest start to the latest end, so it contains every line " +
+      "period, as Peppol requires. A first period that starts off the anchor " +
+      "is labelled a part period. Dates are calendar dates in the seller's " +
+      "billing time zone, never UTC. All of it is one deriver.",
+    category: "Opening",
+    tags: ["invoice", "subscription", "billing", "dates", "deriver", "section"],
+    exports: ["InvoiceBillingPeriods"],
+    dataFields: [
+      { path: "billing.anchor", type: "string", summary: "The original anchor date, YYYY-MM-DD or an instant with an offset. Required; its day is kept for every period." },
+      { path: "billing.interval", type: '"week" | "month" | "year"', summary: "The unit the cycle repeats in. Anything else fails the document." },
+      { path: "billing.intervalCount", type: "number | undefined", summary: "Units per period; 3 months is quarterly. Missing means 1." },
+      { path: "billing.invoiceDate", type: "string", summary: "When the invoice is issued, read in the billing time zone. Required." },
+      { path: "billing.timeZone", type: "string", summary: "The seller's IANA billing time zone. Required." },
+      { path: "billing.signupDate", type: "string | undefined", summary: "When the subscription started. Inside a billed period, it starts a part period." },
+      { path: "billing.hasAdvanceItems", type: "boolean", summary: "Licensed items, billed in advance for the coming period. Missing means false." },
+      { path: "billing.hasArrearsItems", type: "boolean", summary: "Metered items, billed in arrears for the previous period. Missing means false." },
+    ],
+    files: node("invoice-billing-periods", { deriver: true }),
+    previewData: {
+      billing: {
+        anchor: "2025-12-31",
+        interval: "month",
+        intervalCount: 1,
+        invoiceDate: "2027-01-01T02:30:00Z",
+        timeZone: "America/Argentina/Buenos_Aires",
+        signupDate: "2025-12-14",
+        hasAdvanceItems: true,
+        hasArrearsItems: true,
       },
     },
     requires: [],

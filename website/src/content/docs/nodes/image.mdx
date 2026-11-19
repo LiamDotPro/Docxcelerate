@@ -13,7 +13,7 @@ import NodeVariants from "../../../components/NodeVariants.astro";
 
 ## Every field is a prop
 
-`src`, `alt`, `width` and `height` are plain props, computed from state before
+`src`, `alt`, `width`, `height`, `align` and `href` are plain props, computed from state before
 the element is returned. A signature that differs per office, a logo per brand,
 a photograph keyed by reference — all of it stays inside the component instead
 of becoming a branch in the template:
@@ -35,6 +35,30 @@ export const Signature: Image = () => {
 
 The prop is `src`; the resolved node calls it `path`. Expand *What it resolves
 to* on the first variant below to see it.
+
+## Size and place
+
+Give one side and the other follows the picture's own proportions, read from the
+PNG, JPEG, GIF or BMP it carries (an SVG's from its `fallbackSrc`):
+`<Image src={logo} width={160} />` is a 160pt logo at its real shape, not a
+square. With neither side it is 120pt wide; with both it is the box you gave. A
+picture with no bytes yet — a URL, a prompt not yet answered — reserves a square.
+
+`align="center"` or `"right"` moves the picture's own line across the column.
+Nothing floats and no text wraps around it. In a cell or a shape the column's or
+the shape's alignment governs.
+
+## A picture that links
+
+`href` makes the picture open an address — a QR code, a Pay-now button, a logo —
+Ctrl+click in Word, a click in the preview. The same four schemes as a
+[`<Text>` link](/docs/nodes/paragraph/#words-set-differently); anything else
+draws the picture unlinked, because the address may come out of your data. Its
+`alt` is what a screen reader announces, so say where it goes:
+
+```tsx
+<Image src={state.qr} alt="Pay invoice 1042 online" width={96} align="right" href={state.payUrl} />
+```
 
 ## Dynamic images
 
