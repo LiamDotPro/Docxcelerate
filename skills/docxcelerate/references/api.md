@@ -241,6 +241,11 @@ Notes worth knowing:
   not what a document handing over an array means by it.
 - `title` is drawn *on* the chart and travels with it; `caption` is a paragraph
   printed underneath, styled by a `chartCaption` block where the theme has one.
+- Chart text is sized by a `chart` block in the theme: `blocks: { chart: { fontSizePt: 14 } }`
+  sets the axis labels, key, axis titles and data labels to 14pt, and the chart
+  title to 3pt more. Without one, charts are lettered at 9pt with a 12pt title.
+  Only `fontSizePt` is read from this block; the colours come from the palette
+  and the face from the body font.
 - `alt` is the chart's description for screen readers and Word's
   accessibility checker. Say what the numbers show — "Revenue rose 40% from
   Q1 to Q4" — not what the chart is called. Left out, the title is read
@@ -765,6 +770,8 @@ blocks: {
   contentsLine: { tabStopsMm: [{ at: 170, align: "right", leader: "dot" }] },
 }
 ```
+
+A few names are read by the renderer itself rather than through a `variant`: `chart` (the size of chart text), `chartCaption` (the line under a chart) and `rowAlt` (a table's banded rows).
 
 | Field | Means |
 | --- | --- |

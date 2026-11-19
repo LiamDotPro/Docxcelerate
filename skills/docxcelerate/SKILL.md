@@ -192,6 +192,7 @@ appearance: `<Cell variant="badge">`, `<Paragraph variant="band">`. The colours
 live in the style's `blocks`, so a document restyles without a node changing,
 and a name the theme has not heard of draws as an ordinary block rather than
 failing. Never write a colour into a component.
+A theme's `chart` block sizes chart text — `blocks: { chart: { fontSizePt: 14 } }` for large print, smaller for a chart in a table cell; the title is set 3pt larger.
 
 A `<Section variant="schedule">` sets its **heading** from that block — size,
 weight, italic, `transform`, tracking, colour, `align`, a `border` rule, space before

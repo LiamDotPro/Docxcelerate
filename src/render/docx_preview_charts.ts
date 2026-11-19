@@ -105,6 +105,10 @@ export interface PreviewChart {
   readonly heightPt: number;
   /** The ink the chart's own text is set in. */
   readonly textColor?: string;
+  /** The size the chart's labels, key and axis titles are set at, in points. */
+  readonly textSizePt?: number;
+  /** The size its title is set at, in points. Absent where the chart has no title. */
+  readonly titleSizePt?: number;
   /** The colour its gridlines and axes are ruled in. */
   readonly ruleColor?: string;
   /** The face its text is set in. */
@@ -381,6 +385,8 @@ function readChart(xml: string): Omit<PreviewChart, "widthPt" | "heightPt"> {
         .filter((color): color is string => color !== undefined)
       : [],
     textColor: colorOf(element(xml, "c:txPr") ?? ""),
+    textSizePt: sizeOf(element(xml, "c:txPr") ?? ""),
+    titleSizePt: sizeOf(element(head, "c:title") ?? ""),
     ruleColor: colorOf(element(xml, "c:majorGridlines") ?? ""),
     font: attribute(element(xml, "a:latin") ?? "", "typeface"),
   };
@@ -464,4 +470,11 @@ function cachedNumbers(reference: string): (number | null)[] {
   }
 
   return values;
+}
+
+/** The size a piece of chart text is set at, in points, from its `a:defRPr`. */
+function sizeOf(xml: string): number | undefined {
+  const size = numberAttribute(element(xml, "a:defRPr") ?? "", "sz");
+
+  return size === undefined ? undefined : size / 100;
 }

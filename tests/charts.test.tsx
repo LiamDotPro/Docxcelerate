@@ -810,3 +810,64 @@ test("axis bounds Word has no drawing for stop the build", async () => {
   await message({ valueAxisStep: 0 }, "greater than zero");
   await message({ valueAxisMax: Number.NaN }, "finite number");
 });
+
+// ---------------------------------------------------------------------------
+// Text size
+// ---------------------------------------------------------------------------
+
+function sizedBy(fontSizePt: number): DocumentStyle {
+  return {
+    ...cleanMinimalDocumentStyle,
+    blocks: { ...cleanMinimalDocumentStyle.blocks, chart: { fontSizePt } },
+  };
+}
+
+const titled = () => chart({ title: "Revenue", categoryAxisTitle: "Quarter", valueAxisTitle: "£k" });
+
+test("a theme with no chart block letters its charts at 9pt, titled at 12pt", async () => {
+  const xml = await chartXml(documentOf([chart({ title: "Revenue", valueAxisTitle: "£k" })]));
+
+  assertStringIncludes(xml, '<a:defRPr sz="900" b="0" i="0"');
+  assertStringIncludes(xml, '<a:defRPr sz="1200" b="0">');
+});
+
+test("a theme's chart block sizes every piece of a chart's text, and its title follows", async () => {
+  const xml = await chartXml(documentOf([titled()], sizedBy(14)));
+
+  assertEquals(xml.split('sz="1400" b="0" i="0"').length - 1, 4);
+  assertEquals(xml.split('<a:defRPr sz="1700" b="0">').length - 1, 1);
+  assertEquals(xml.split('<a:defRPr sz="1400" b="0"><a:solidFill>').length - 1, 2);
+  assertEquals(xml.includes('sz="900"') || xml.includes('sz="1200"'), false);
+});
+
+test("a fractional size survives as hundredths of a point", async () => {
+  const xml = await chartXml(documentOf([titled()], sizedBy(7.5)));
+
+  assertStringIncludes(xml, 'sz="750"');
+  assertStringIncludes(xml, 'sz="1050"');
+});
+
+test("a size Word would refuse is held to the range it accepts", async () => {
+  const huge = await chartXml(documentOf([titled()], sizedBy(5000)));
+
+  assertStringIncludes(huge, 'sz="400000"');
+  assertEquals(huge.includes('sz="5000'), false);
+
+  for (const bad of [-2, Number.NaN]) {
+    const xml = await chartXml(documentOf([titled()], sizedBy(bad)));
+
+    assertStringIncludes(xml, 'sz="900"');
+    assertStringIncludes(xml, 'sz="1200"');
+  }
+});
+
+test("other blocks do not size a chart", async () => {
+  const style: DocumentStyle = {
+    ...cleanMinimalDocumentStyle,
+    blocks: { ...cleanMinimalDocumentStyle.blocks, chartCaption: { fontSizePt: 20 } },
+  };
+  const xml = await chartXml(documentOf([chart({ title: "Revenue", caption: "Figure 1" })], style));
+
+  assertStringIncludes(xml, 'sz="900"');
+  assertEquals(xml.includes('sz="2000"'), false);
+});

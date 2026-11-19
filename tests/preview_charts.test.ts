@@ -8,7 +8,8 @@ import {
   readPackedCharts,
   settleDocxPreviewCharts,
 } from "docxcelerate/preview";
-import type { DocumentModel, GraphNode } from "docxcelerate";
+import { cleanMinimalDocumentStyle } from "docxcelerate";
+import type { DocumentModel, DocumentStyle, GraphNode } from "docxcelerate";
 import { JSDOM } from "jsdom";
 
 /**
@@ -27,11 +28,12 @@ import { JSDOM } from "jsdom";
 
 const quarters = ["Q1", "Q2", "Q3", "Q4"];
 
-function documentOf(nodes: GraphNode[]): DocumentModel {
+function documentOf(nodes: GraphNode[], style?: DocumentStyle): DocumentModel {
   return {
     schemaVersion: "docxcelerate.letter/v0",
     id: "charts",
     title: "Charts",
+    style,
     nodes,
   };
 }
@@ -54,8 +56,8 @@ function chart(over: Partial<GraphNode> = {}): GraphNode {
 }
 
 /** What the file says about the charts in a document, read back out of it. */
-async function readBack(nodes: GraphNode[]): Promise<PreviewChart[]> {
-  return await readPackedCharts(await renderDocxBytes(documentOf(nodes)));
+async function readBack(nodes: GraphNode[], style?: DocumentStyle): Promise<PreviewChart[]> {
+  return await readPackedCharts(await renderDocxBytes(documentOf(nodes, style)));
 }
 
 test("a chart comes back out of the file with its numbers intact", async () => {
@@ -378,4 +380,17 @@ test("the value axis's fixed bounds are read from the file, and absent where Wor
   assertEquals(plain.valueAxisMin, undefined);
   assertEquals(plain.valueAxisMax, undefined);
   assertEquals(plain.valueAxisStep, undefined);
+});
+
+test("the sizes a chart is lettered at come back out of the file", async () => {
+  const [plain] = await readBack([chart({ title: "Revenue" })]);
+  const [untitled] = await readBack([chart()]);
+  const [large] = await readBack([chart({ title: "Revenue", valueAxisTitle: "£k" })], {
+    ...cleanMinimalDocumentStyle,
+    blocks: { ...cleanMinimalDocumentStyle.blocks, chart: { fontSizePt: 14 } },
+  });
+
+  assertEquals([plain.textSizePt, plain.titleSizePt], [9, 12]);
+  assertEquals(untitled.titleSizePt, undefined);
+  assertEquals([large.textSizePt, large.titleSizePt], [14, 17]);
 });
