@@ -49,6 +49,33 @@ any file. If you're adding Docxcelerate to a project that points
 `/** @jsxImportSource docxcelerate/template */` on line one of the file to
 override it just there.
 
+## What the document says about itself
+
+`<Document>` takes two settings that are about the file rather than its pages.
+`properties` is what Word's File › Info, Explorer, Finder and a document store
+read — author, subject, keywords, description, and `custom` values to index on.
+None of it is printed. A template has no data, so a value that differs per
+document is a function of it:
+
+```tsx
+<Document
+  title="Invoice"
+  properties={(data: InvoiceData) => ({
+    author: "Ashcroft Housing",
+    subject: `Invoice ${data.invoice.number}`,
+    custom: { invoiceNumber: data.invoice.number },
+  })}
+>
+```
+
+Published, an interpolated value is a token the engine fills like any other; a
+custom value that comes out empty is left out of the file.
+
+`trackChanges` opens the document in Word with Track Changes on — for a contract
+or an agreement sent out to be negotiated, so every edit the other side makes is
+recorded from the first keystroke. It is a setting, not a lock, and the preview
+looks the same because nothing has been edited yet.
+
 ## Computed structure
 
 A template is written at module scope, where no data exists yet. So if your
@@ -191,8 +218,16 @@ the engine runs per document:
 </Paragraph>
 ```
 
-`useFormat` and `useDeriver` compute during the build instead, which is what you
-want whenever the value is already known. Reach for a deriver when it isn't.
+A `variant` interpolates the same way: `<Row variant={line.status}>` publishes
+the token, and each recipient's rows take the block their own status names. Name
+the theme's blocks after the values the data carries. A ternary choosing between
+names is computing — published, every recipient gets its true arm — so carry the
+name in the data, or derive it.
+
+`useFormat` computes during the build. `useDeriver(deriver, inputs)` runs now
+when the data is in hand, and while publishing it travels with the node and the
+engine runs it per document — so its result can be interpolated like request
+data.
 
 ### Decisions travel, and you still write `if`
 
@@ -242,9 +277,13 @@ You never write a `{{ctx…}}` token here. The entry your body was handed knows 
 path it stands for, so the reference writes itself.
 
 Anything that has to look at the entries before the body can be written —
-`.filter()`, `.sort()`, `.length`, a `for` loop — can't be answered while
-publishing. Those raise an error telling you to use a deriver, which runs where
-the data is.
+`.sort()`, `.length`, a `for` loop — can't be answered while publishing, and
+raises an error telling you to use a deriver, which runs where the data is.
+
+Then map what the deriver returns: that publishes as a loop too, and the engine
+walks the rows it produced for each recipient. A `.map()` over a field of an
+entry, inside another `.map()`, publishes the same way. `.filter()` is not on
+that list — it publishes as a test on each entry.
 
 ### Branches multiply
 
