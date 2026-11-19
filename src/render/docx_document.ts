@@ -55,6 +55,7 @@ import type {
 } from "../domain/types.ts";
 import { cleanMinimalDocumentStyle } from "../project/style.ts";
 import { hasChartData } from "./chart_part.ts";
+import { columnWidthMm, pageWidthMm, paperMm } from "./page_size.ts";
 import { addChartsToPackage, chartRelationshipToken } from "./docx_charts.ts";
 import { imageSourceOf, isSvg, rasterTypeOf } from "./image_source.ts";
 
@@ -100,8 +101,8 @@ export function createDocxDocument(doc: DocumentModel): Document {
         properties: {
           page: {
             size: {
-              width: pageWidthTwips(style),
-              height: pageHeightTwips(style),
+              width: mmToTwips(paperMm(style.page).widthMm),
+              height: mmToTwips(paperMm(style.page).heightMm),
               orientation: style.page.orientation === "landscape"
                 ? PageOrientation.LANDSCAPE
                 : PageOrientation.PORTRAIT,
@@ -1174,8 +1175,7 @@ function blockIndent(block: DocumentBlockStyle | undefined, style: DocumentStyle
   // everything else on the page still stands where it stood, and the block
   // stops short of them.
   if (block?.maxWidthMm !== undefined) {
-    const columnMm = (style.page.size === "A4" ? 210 : 215.9) -
-      style.page.margins.leftMm - style.page.margins.rightMm;
+    const columnMm = columnWidthMm(style.page);
     const spare = columnMm - block.maxWidthMm;
 
     return spare > 0 ? { right: mmToTwips(spare) } : undefined;
@@ -1770,10 +1770,7 @@ function shapeAlign(block: DocumentBlockStyle | undefined): TableAlign {
 
 /** The text column's width, in points — what a shape fills unless it is sized. */
 function columnWidthPt(style: DocumentStyle): number {
-  const pageMm = style.page.size === "A4" ? 210 : 215.9;
-  const columnMm = pageMm - style.page.margins.leftMm - style.page.margins.rightMm;
-
-  return columnMm * (72 / 25.4);
+  return columnWidthMm(style.page) * (72 / 25.4);
 }
 
 /** Two decimal places, which is finer than Word or a screen can draw. */
@@ -2036,7 +2033,9 @@ function columnWidths(
   // A bleeding table is laid out on the paper, not on the text column: it is
   // pulled out to the edges by a negative indent, so the width it has to fill
   // is the whole sheet.
-  const available = bleed ? pageWidthTwips(style) : pageWidthTwips(style) -
+  // Twips are subtracted, not millimetres, so stored tables keep their widths.
+  const pageTwips = mmToTwips(pageWidthMm(style.page));
+  const available = bleed ? pageTwips : pageTwips -
     mmToTwips(style.page.margins.leftMm + style.page.margins.rightMm);
   const fixed = columns.map((column) =>
     typeof column.width === "number" ? mmToTwips(column.width) : 0
@@ -2117,14 +2116,6 @@ function createDocxStyles(style: DocumentStyle, locale: string | undefined) {
  */
 function headingColor(style: DocumentStyle, block: DocumentTextBlockStyle): string {
   return block.color ?? style.palette?.heading ?? style.typography.color;
-}
-
-function pageWidthTwips(style: DocumentStyle): number {
-  return mmToTwips(style.page.size === "A4" ? 210 : 215.9);
-}
-
-function pageHeightTwips(style: DocumentStyle): number {
-  return mmToTwips(style.page.size === "A4" ? 297 : 279.4);
 }
 
 function mmToTwips(value: number): number {

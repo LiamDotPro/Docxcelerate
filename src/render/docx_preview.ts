@@ -24,6 +24,7 @@
 
 import type { DocumentModel } from "../domain/types.ts";
 import { fillPageFields } from "./docx_fields.ts";
+import { columnWidthMm } from "./page_size.ts";
 import type { PackedParagraph, PackedTable } from "./docx_packed.ts";
 
 export { fillPageFields } from "./docx_fields.ts";
@@ -59,9 +60,6 @@ export {
 
 /** A millimetre, in points. */
 const PT_PER_MM = 72 / 25.4;
-
-/** How close to the paper's edge a page's own margin sits, by page size. */
-const PAGE_WIDTH_MM: Record<string, number> = { A4: 210, Letter: 215.9 };
 
 /**
  * Finishes docx-preview's reading of a document it has already laid out.
@@ -443,8 +441,7 @@ export function applyTableIndents(container: Element, model: DocumentModel): voi
     return;
   }
 
-  const pageMm = PAGE_WIDTH_MM[model.style?.page?.size ?? "A4"] ?? PAGE_WIDTH_MM.A4;
-  const columnPt = (pageMm - margins.leftMm - margins.rightMm) * PT_PER_MM;
+  const columnPt = columnWidthMm(model.style!.page) * PT_PER_MM;
 
   for (const table of [...container.querySelectorAll("table")]) {
     const element = table as HTMLElement;

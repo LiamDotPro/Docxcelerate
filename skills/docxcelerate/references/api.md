@@ -400,7 +400,7 @@ export const documentStyle: DocumentStyle = {
 };
 ```
 
-`DocumentStyle` covers `preset`, `page` (size `A4` or `LETTER`, orientation,
+`DocumentStyle` covers `preset`, `page` (size `A4`, `LETTER`, `LEGAL`, `A5`, `A3`, or `{ widthMm, heightMm }` for any other sheet given upright; `orientation` `portrait` or `landscape` turns either kind, and a table, shape or chart with no width fills the column of the page as turned,
 margins in mm, and `headerMm` / `footerMm` — how far the running strips stand
 from the *paper's* edge rather than from the margin, 12.5mm unless said),
 `typography` (body and heading font, body size in pt, line

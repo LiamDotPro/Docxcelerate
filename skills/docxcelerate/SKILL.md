@@ -227,6 +227,8 @@ already passes through — so the next preview is themed. It replaces a
 `document-style.ts` nothing has touched; once you have edited that file,
 replacing it needs `--force`.
 
+Paper and turn are `page.size` and `page.orientation` in `document-style.ts`: `A4`, `LETTER`, `LEGAL`, `A5`, `A3`, or `{ widthMm, heightMm }`. Override them on a theme with `themeStyle(theme, { page: { size: "LEGAL" } })`. In landscape, auto columns, bleeds and unsized shapes and charts take the wider column on their own.
+
 Reach for the registry first when a request names something ordinary — a
 letterhead, an address block, a signature, small print. Every entry is listed in
 [references/cli.md](references/cli.md) and browsable at
