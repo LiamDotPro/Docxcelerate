@@ -47,6 +47,35 @@ zu ergänzen. Wenn Sie Docxcelerate zu einem Projekt hinzufügen, das
 `/** @jsxImportSource docxcelerate/template */` in Zeile eins das für diese
 Datei.
 
+## Was das Dokument über sich selbst sagt
+
+`<Document>` nimmt zwei Einstellungen, die die Datei betreffen statt ihre Seiten.
+`properties` ist das, was Words Datei › Info, der Explorer, der Finder und ein
+Dokumentenspeicher lesen — Autor, Betreff, Schlüsselwörter, Beschreibung und
+`custom`-Werte zum Indizieren. Nichts davon wird gedruckt. Ein Template hat keine
+Daten, also ist ein Wert, der je Dokument abweicht, eine Funktion davon:
+
+```tsx
+<Document
+  title="Invoice"
+  properties={(data: InvoiceData) => ({
+    author: "Ashcroft Housing",
+    subject: `Invoice ${data.invoice.number}`,
+    custom: { invoiceNumber: data.invoice.number },
+  })}
+>
+```
+
+Veröffentlicht ist ein interpolierter Wert ein Token, das die Engine wie jedes
+andere füllt; ein benutzerdefinierter Wert, der leer herauskommt, wird aus der
+Datei weggelassen.
+
+`trackChanges` öffnet das Dokument in Word mit eingeschalteter Änderungsverfolgung —
+für einen Vertrag oder eine Vereinbarung, die zum Verhandeln verschickt wird, damit
+jede Änderung der Gegenseite vom ersten Tastendruck an festgehalten wird. Es ist
+eine Einstellung, keine Sperre, und die Vorschau sieht gleich aus, weil noch nichts
+bearbeitet wurde.
+
 ## Berechnete Struktur
 
 Ein Template steht auf Modulebene, wo es noch keine Daten gibt. Struktur, die
@@ -171,9 +200,17 @@ formatieren, eine Liste summieren, ein Datum vergleichen — dafür braucht es e
 </Paragraph>
 ```
 
-`useFormat` und `useDeriver` rechnen stattdessen während des Builds, was richtig
-ist, wann immer der Wert schon bekannt ist. Zum Deriver greifen Sie, wenn er es
-nicht ist.
+Eine `variant` wird genauso interpoliert: `<Row variant={line.status}>`
+veröffentlicht das Token, und die Zeilen jedes Empfängers nehmen den Block, den ihr
+eigener Status benennt. Benennen Sie die Blöcke des Themes nach den Werten, die die
+Daten tragen. Ein Ternary, das zwischen Namen wählt, rechnet — veröffentlicht
+bekommt jeder Empfänger seinen wahren Arm —, tragen Sie den Namen also in den
+Daten oder leiten Sie ihn ab.
+
+`useFormat` rechnet während des Builds. `useDeriver(deriver, inputs)` läuft jetzt,
+wenn die Daten vorliegen, und reist beim Veröffentlichen mit dem Node, und die
+Engine führt ihn je Dokument aus — sein Ergebnis lässt sich also wie
+Anfragedaten interpolieren.
 
 ### Schleifen werden als Schleifen veröffentlicht
 
@@ -200,9 +237,15 @@ und die Durchläufe werden auf beiden Wegen nach ihrer Position benannt, damit e
 id in der Vorschau dasselbe bedeutet wie im Dokument, das eine Empfängerin erhält.
 
 Alles, was die Einträge erst ansehen muss, bevor der Rumpf geschrieben werden kann
-— `.filter()`, `.sort()`, `.length`, eine `for`-Schleife — lässt sich beim
-Veröffentlichen nicht beantworten. Das verweist auf einen Deriver, der dort läuft,
-wo die Daten sind.
+— `.sort()`, `.length`, eine `for`-Schleife — lässt sich beim Veröffentlichen
+nicht beantworten und löst einen Fehler aus, der auf einen Deriver verweist, der
+dort läuft, wo die Daten sind.
+
+Dann mappen Sie, was der Deriver zurückgibt: Das wird ebenfalls als Schleife
+veröffentlicht, und die Engine läuft für jeden Empfänger über die Zeilen, die er
+erzeugt hat. Ein `.map()` über ein Feld eines Eintrags, innerhalb eines anderen
+`.map()`, wird genauso veröffentlicht. `.filter()` steht nicht auf dieser Liste —
+es wird als Test an jedem Eintrag veröffentlicht.
 
 ### Verzweigungen multiplizieren
 
