@@ -233,6 +233,10 @@ for (const arrangement of ["table", "stacked"] as const) {
     assertEquals(ids.has("jp-invoice-note"), false);
     assertEquals(ids.get("jp-invoice-legend")!.join(""), "※は軽減税率対象");
     assertEquals(ids.get("jp-invoice-total")!.join("").includes("1,640円"), true);
+    assertEquals(ids.get("jp-invoice-registration")!.join(""), "登録番号：T7000012050002");
+    assertEquals(ids.get("jp-invoice-date")!.join(""), "取引年月日：2026年11月30日");
+    assertEquals(ids.get("jp-invoice-line-2")!.join("").includes("米 ※"), true);
+    assertEquals(ids.get("jp-invoice-buyer")!.join("").includes("株式会社テスト"), true);
   });
 
   test(`${arrangement}: an unregistered invoice publishes and resolves`, async () => {
@@ -242,6 +246,20 @@ for (const arrangement of ["table", "stacked"] as const) {
     }
     assertEquals(ids.has("jp-invoice-note") && ids.has("jp-invoice-standard-total"), true);
     assertEquals(ids.get("jp-invoice-total")!.join("").includes("1,000円"), true);
+    assertEquals(ids.get("jp-invoice-note")!.join("").includes("70%"), true);
+    const withBuyer = await published(unregistered(), arrangement);
+    assertEquals(withBuyer.get("jp-invoice-buyer")!.join("").includes("株式会社テスト"), true);
+  });
+
+  test(`${arrangement}: a simplified invoice prints the buyer only if given`, async () => {
+    const inv = { simplified: true, lines: [line(1000), line(500, "8")] };
+    const ids = await published(base({ ...inv, buyerName: undefined }), arrangement);
+    assertEquals(ids.has("jp-invoice-buyer"), false);
+    for (const id of ["registration", "date", "legend", "standard-total", "standard-tax", "reduced-total", "reduced-tax"]) {
+      assertEquals(ids.has("jp-invoice-" + id), true);
+    }
+    const named = await published(base(inv), arrangement);
+    assertEquals(named.get("jp-invoice-buyer")!.join("").includes("株式会社テスト"), true);
   });
 }
 

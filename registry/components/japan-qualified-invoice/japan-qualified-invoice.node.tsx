@@ -149,6 +149,7 @@ export interface JapanQualifiedInvoiceProps {
   arrangement?: JapanQualifiedInvoiceArrangement;
 }
 
+/** Prints the heading as the Section title, then the invoice lines placed by `arrangement`. */
 export const JapanQualifiedInvoice: SectionComponent<JapanQualifiedInvoiceProps> = async ({ arrangement }) => {
   const [jpInvoice] = useState((data: JapanQualifiedInvoiceData) => data.jpInvoice);
   const inv = await useDeriver(japanQualifiedInvoice, [jpInvoice]);
