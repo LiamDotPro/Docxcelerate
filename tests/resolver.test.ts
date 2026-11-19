@@ -121,6 +121,23 @@ test("a repeat is walked once per entry, with ids suffixed by position", async (
   ]);
 });
 
+test("a repeat reads its source by scope: derived and ctx, not only the provider", async () => {
+  const loop = (scope: "derived" | "ctx") =>
+    published([
+      {
+        id: "rows",
+        kind: "repeat",
+        source: { scope, path: "rows" },
+        as: "row",
+        indexAs: "index",
+        children: [paragraph("row", "{{ctx.row}}")],
+      },
+    ]);
+  const derivedState = { ...engineState({}), derived: { rows: ["a", "b"] } };
+  assertEquals(texts((await resolveDocument(loop("derived"), derivedState)).nodes), ["a", "b"]);
+  assertEquals(texts((await resolveDocument(loop("ctx"), engineState({ rows: ["c"] }))).nodes), ["c"]);
+});
+
 test("a repeat leaves no structure of its own behind", async () => {
   // Wrapping the passes in a section would print a heading nobody asked for.
   const doc = await resolveDocument(
