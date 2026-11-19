@@ -292,6 +292,11 @@ export interface ParagraphList {
    * each followed by a full stop. A bulleted item has none.
    */
   style?: ListStyle;
+  /**
+   * The number this item's level counts from, for a numbered item that opens
+   * the level in its list. Absent means 1. A bulleted item has none.
+   */
+  start?: number;
 }
 
 /**
