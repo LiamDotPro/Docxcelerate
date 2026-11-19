@@ -1125,6 +1125,69 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+
+  {
+    kind: "component",
+    id: "renewal-and-price-change-notice",
+    title: "Renewal and price change notice",
+    summary: "The cancel-by date and what a renewal or price-change notice must say, measured from the date the law uses.",
+    detail:
+      "Works out the last day to cancel as the renewal date less the notice period, clamping month " +
+      "arithmetic so 31 March less a month is the end of February, and prints it as 'on or before'. " +
+      "Each law's window is measured from its own anchor: California's 2025 rules from the renewal " +
+      "date, the trial end and the price change's effective date; New York §5-903 from the cancellation " +
+      "deadline, for business service contracts as well as consumers. A late notice drops the deadline " +
+      "and says what the law gives the customer, including that a late New York notice makes the " +
+      "renewal unenforceable. A German consumer contract past its minimum term gets 'cancel at any time " +
+      "with one month's notice' instead of a date, and a longer notice period is flagged. UK subscription " +
+      "rules apply only to contracts started on or after a commencement date you can move. A price change " +
+      "shows old and new amounts, the difference and the percentage to one decimal place. All of it is one deriver.",
+    category: "Legal",
+    tags: ["subscription", "renewal", "price-change", "legal", "consumer", "dates", "deriver", "branching", "section"],
+    exports: ["RenewalAndPriceChangeNotice"],
+    dataFields: [
+      { path: "renewal.jurisdiction", type: '"US-CA" | "US-NY" | "DE" | "UK" | "other"', summary: "Whose rules apply. Other is contractual wording only." },
+      { path: "renewal.customerType", type: '"consumer" | "business"', summary: "CA, DE and UK rules are consumer only; NY covers both." },
+      { path: "renewal.contractStart", type: "string", summary: "ISO 8601 date the contract was entered. Required." },
+      { path: "renewal.amendedOn", type: "string | undefined", summary: "Latest amendment or extension, read for California only." },
+      { path: "renewal.initialTermMonths", type: "number", summary: "First term in whole months. Required." },
+      { path: "renewal.renewalTermMonths", type: "number", summary: "Each renewal term in whole months; printed as the frequency. Required." },
+      { path: "renewal.renewalDate", type: "string", summary: "ISO 8601 date the next term starts. Required." },
+      { path: "renewal.noticePeriod", type: '{ value: number; unit: "days" | "months" }', summary: "Notice the customer must give. Zero means the day before renewal." },
+      { path: "renewal.sendDate", type: "string", summary: "ISO 8601 date the notice is sent; every window is checked against it. Required." },
+      { path: "renewal.currency", type: "string", summary: "ISO 4217 code. Required." },
+      { path: "renewal.currentAmount", type: "number", summary: "Price per renewal term now, major units. Required." },
+      { path: "renewal.previousAmount", type: "number | undefined", summary: "Last payment. Printed when given; a UK reminder warns without it." },
+      { path: "renewal.priceChange", type: "{ newAmount: number; effectiveDate: string } | undefined", summary: "A price change. Missing or unchanged prints no price line." },
+      { path: "renewal.trialEnds", type: "string | undefined", summary: "When a trial or introductory price ends. Missing or past prints nothing." },
+      { path: "renewal.cancelInstructions", type: "string", summary: "How to cancel, as printed. Required." },
+      { path: "renewal.commencementDate", type: "string | undefined", summary: "When UK subscription rules start. Missing means 2027-01-01." },
+    ],
+    arrangements: [
+      { id: "stacked", title: "Stacked", summary: "One labelled line under another, down the text column." },
+      { id: "table", title: "Table", summary: "Labels in a narrow column with the values beside them, like a key-facts box." },
+    ],
+    files: node("renewal-and-price-change-notice", { deriver: true, arrangements: ["stacked", "table"] }),
+    previewData: {
+      renewal: {
+        jurisdiction: "US-NY",
+        customerType: "business",
+        contractStart: "2024-05-31",
+        initialTermMonths: 36,
+        renewalTermMonths: 12,
+        renewalDate: "2027-05-31",
+        noticePeriod: { value: 3, unit: "months" },
+        sendDate: "2027-02-01",
+        currency: "USD",
+        currentAmount: 1284750.0,
+        previousAmount: 1168000.0,
+        priceChange: { newAmount: 1413225.0, effectiveDate: "2027-05-31" },
+        cancelInstructions:
+          "Write to Contract Renewals at the address on your master services agreement, or sign in to the customer portal, open Agreements, choose the maintenance agreement and select Cancel automatic renewal, at least by the date above",
+      },
+    },
+    requires: [],
+  },
   {
     kind: "component",
     id: "commitment-drawdown",
