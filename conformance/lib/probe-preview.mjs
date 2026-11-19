@@ -135,6 +135,7 @@ function harnessHtml(bodyFont) {
       var padBottom = parseFloat(cs.paddingBottom) + parseFloat(cs.borderBottomWidth);
       return {
         el: s,
+        cs: cs,
         page: { x: rect.x, y: rect.y, w: rect.width, h: rect.height },
         content: {
           x: rect.x + padLeft, y: rect.y + padTop,
@@ -591,7 +592,8 @@ function harnessHtml(bodyFont) {
       sections: boxes.map(function (b) {
         return {
           page: { w: r2(b.page.w), h: r2(b.page.h), x: r2(b.page.x), y: r2(b.page.y) },
-          content: { w: r2(b.content.w), h: r2(b.content.h) }
+          content: { w: r2(b.content.w), h: r2(b.content.h) },
+          outline: { style: b.cs.outlineStyle, width: r2(parseFloat(b.cs.outlineWidth)), offset: r2(parseFloat(b.cs.outlineOffset)) }
         };
       }),
       furniture: furniture,
