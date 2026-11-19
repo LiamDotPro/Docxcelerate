@@ -1022,6 +1022,59 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "open-items-ageing",
+    title: "Open items and ageing",
+    summary: "Every invoice still open, aged by days past due, with unallocated credit kept out of the buckets.",
+    detail:
+      "Lists every invoice not yet fully settled with the amount still open on it, then ages the " +
+      "open balance into not yet due, 1-30, 31-60, 61-90 and over 90 days overdue. Age is counted " +
+      "from the due date, not the invoice date, and each bucket includes its top edge, so 30 days is " +
+      "1-30 and an invoice due today is not yet due; one with no due date ages from its date plus the " +
+      "default terms, and the strip says so. A payment or credit note not set against an invoice is " +
+      "unallocated credit on a line of its own, never netted into a bucket, so no bucket goes negative " +
+      "and an old debt never disappears. A disputed invoice is listed, marked and aged in its own " +
+      "column, so it cannot drive the over-90 figure. The shares are largest-remainder rounded to sum " +
+      "to exactly 100, an over-allocated invoice fails the document, and when nothing is overdue the " +
+      "strip is one line. All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "statement", "ageing", "table", "deriver", "branching", "section"],
+    exports: ["OpenItemsAgeing"],
+    dataFields: [
+      { path: "account.currency", type: "string", summary: "ISO 4217 code. Sets the minor unit. Required." },
+      { path: "account.statementDate", type: "string", summary: "ISO 8601 date every age is counted to. Required." },
+      { path: "account.defaultTermsDays", type: "number | undefined", summary: "Days to due for an invoice with no due date. Required only when one is open without it." },
+      { path: "account.invoices", type: "Array<{ number: string; date: string; dueDate?: string; amount: number; disputed?: boolean }>", summary: "Every invoice, settled ones an allocation names included. Amounts in major units." },
+      { path: "account.credits", type: "Array<{ type: \"payment\" | \"credit-note\"; date: string; number: string; amount: number; allocations?: Array<{ invoice: string; amount: number }> }>", summary: "Payments and credit notes. What their allocations do not cover is unallocated credit." },
+    ],
+    arrangements: [
+      { id: "across", title: "Across", summary: "The buckets side by side: name, amount and share in three rows." },
+      { id: "down", title: "Down", summary: "One row per bucket with its amount and share, for narrow columns and large figures." },
+    ],
+    files: node("open-items-ageing", { deriver: true, arrangements: ["across", "down"] }),
+    previewData: {
+      account: {
+        currency: "GBP", statementDate: "2026-11-30", defaultTermsDays: 30,
+        invoices: [
+          { number: "INV-2026-0004211", date: "2026-06-12", dueDate: "2026-07-12", amount: 248750, disputed: true },
+          { number: "INV-2026-0004290", date: "2026-07-01", dueDate: "2026-07-31", amount: 54000 },
+          { number: "INV-2026-0004388", date: "2026-07-20", dueDate: "2026-08-19", amount: 1186420.5 },
+          { number: "INV-2026-0004502", date: "2026-08-28", dueDate: "2026-09-27", amount: 312980.75 },
+          { number: "INV-2026-0004617", date: "2026-09-30", amount: 97640 },
+          { number: "INV-2026-0004733", date: "2026-10-15", dueDate: "2026-11-14", amount: 1048215.4 },
+          { number: "INV-2026-0004851", date: "2026-11-02", dueDate: "2026-12-02", amount: 655300 },
+        ],
+        credits: [
+          { type: "credit-note", date: "2026-10-08", number: "CN-2026-000412", amount: 54000, allocations: [{ invoice: "INV-2026-0004290", amount: 54000 }] },
+          { type: "payment", date: "2026-11-03", number: "BACS-REMIT-20261103-000918", amount: 400000, allocations: [{ invoice: "INV-2026-0004388", amount: 400000 }] },
+          { type: "credit-note", date: "2026-11-18", number: "CN-2026-000431", amount: 18500, allocations: [{ invoice: "INV-2026-0004502", amount: 6250 }] },
+          { type: "payment", date: "2026-11-26", number: "BACS-REMIT-20261126-001147", amount: 125000 },
+        ],
+      },
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
