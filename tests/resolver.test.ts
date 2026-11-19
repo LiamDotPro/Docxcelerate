@@ -383,3 +383,57 @@ test("a shape produced by a loop gives each pass its own ids", async () => {
   assertEquals(lines.map((node) => node.id), ["banner-line-0", "banner-line-1"]);
   assertEquals(texts(lines), ["First", "Second"]);
 });
+
+test("a variant resolves per entry of a repeat", async () => {
+  const doc = await resolveDocument(
+    published([
+      {
+        id: "lines",
+        kind: "repeat",
+        source: { scope: "data", path: "lines" },
+        as: "line",
+        indexAs: "index",
+        children: [paragraph("row", "{{ctx.line.desc}}", { variant: "{{ctx.line.status}}" })],
+      },
+    ]),
+    engineState({ lines: [{ desc: "A", status: "overdue" }, { desc: "B", status: "paid" }] }),
+  );
+
+  assertEquals(doc.nodes.map((node) => node.variant), ["overdue", "paid"]);
+  assertEquals(ids(doc.nodes), ["row-0", "row-1"]);
+});
+
+test("a variant with no token, and a node with none, come back as they were", async () => {
+  const doc = await resolveDocument(
+    published([paragraph("a", "x", { variant: "band" }), paragraph("b", "x")]),
+    engineState({}),
+  );
+
+  assertEquals(doc.nodes[0].variant, "band");
+  assertEquals("variant" in doc.nodes[1], false);
+});
+
+test("a variant in the furniture resolves too", async () => {
+  const doc = await resolveDocument(
+    { ...published([]), footer: [paragraph("f", "x", { variant: "{{data.tier}}" })] },
+    engineState({ tier: "gold" }),
+  );
+
+  assertEquals(doc.footer?.[0].variant, "gold");
+});
+
+test("a container's own variant resolves", async () => {
+  const doc = await resolveDocument(
+    published([
+      {
+        id: "cell",
+        kind: "tableCell",
+        variant: "{{data.state}}",
+        children: [paragraph("p", "x")],
+      } as DocumentNode,
+    ]),
+    engineState({ state: "paid" }),
+  );
+
+  assertEquals(doc.nodes[0].variant, "paid");
+});
