@@ -60,6 +60,12 @@ export interface PreviewChartSeries {
    * `c:bubbleSize` for this to read.
    */
   readonly sizes: readonly (number | null)[];
+  /** The lower edge of the band this series fills to, when it is a band rather than a line. */
+  readonly band?: readonly (number | null)[];
+  /** The line's weight, in points. */
+  readonly widthPt?: number;
+  /** Whether its name is printed beside its last point. */
+  readonly endLabel?: boolean;
 }
 
 /** One chart, as the packed file describes it. */
@@ -129,6 +135,12 @@ export interface PreviewChart {
   readonly ruleColor?: string;
   /** The face its text is set in. */
   readonly font?: string;
+  /** Whether a line's points carry a dot. */
+  readonly markers: boolean;
+  /** Where the plot sits in the frame, as fractions of it, when the file says. */
+  readonly plotArea?: { readonly x: number; readonly y: number; readonly w: number; readonly h: number };
+  /** Whether the first and last points sit on the plot's edges. */
+  readonly fromEdge: boolean;
 }
 
 /**
@@ -375,8 +387,10 @@ function readChart(xml: string): Omit<PreviewChart, "widthPt" | "heightPt"> {
   const series = elements(xml, "c:ser");
   const first = series[0] ?? "";
 
-  const plotted = series.map((entry) => {
+  const plotted: PreviewChartSeries[] = lineSeries(xml, graphType, series).map((entry) => {
     const values = cachedNumbers(element(entry, "c:val") ?? element(entry, "c:yVal") ?? "");
+    const paint = element(entry, "c:spPr") ?? "";
+    const width = numberAttribute(element(paint, "a:ln") ?? "", "w");
     return {
       label: cachedText(element(entry, "c:tx") ?? "")[0],
       values,
@@ -387,6 +401,9 @@ function readChart(xml: string): Omit<PreviewChart, "widthPt" | "heightPt"> {
       trendline: trendlineOf(element(entry, "c:trendline") ?? ""),
       pointColors: pointColorsOf(entry, values.length),
       sizes: cachedNumbers(element(entry, "c:bubbleSize") ?? ""),
+      // A line the file draws with no stroke is a label standing alone.
+      widthPt: width === undefined ? (/<a:ln><a:noFill\/>/.test(paint) ? 0 : undefined) : width / EMU_PER_PT,
+      endLabel: /<c:dLbl>[\s\S]*<c:showSerName val="1"\/>/.test(entry) || undefined,
     };
   });
 
@@ -394,7 +411,9 @@ function readChart(xml: string): Omit<PreviewChart, "widthPt" | "heightPt"> {
     graphType,
     title: titleOf(head),
     legend: legendOf(attribute(element(xml, "c:legendPos") ?? "", "val")),
-    stacked: stackingOf(xml),
+    // A line chart's bands are stacked by construction; whether its lines
+    // are is what the line group says.
+    stacked: stackingOf(graphType === "line" ? element(xml, "c:lineChart") ?? xml : xml),
     numberFormat: formatOf(attribute(element(valueAxis, "c:numFmt") ?? "", "formatCode")),
     dataLabels: labelsOf(element(xml, "c:dLbls") ?? ""),
     dataTable: element(xml, "c:dTable") !== null,
@@ -411,7 +430,7 @@ function readChart(xml: string): Omit<PreviewChart, "widthPt" | "heightPt"> {
     categories: graphType === "scatter" || graphType === "bubble"
       ? cachedNumbers(element(first, "c:xVal") ?? "").map((value) => String(value ?? ""))
       : cachedText(element(first, "c:cat") ?? ""),
-    series: plotted,
+    series: [...bandsOf(xml), ...plotted],
     // The slice colours, which a pie keeps on its data points rather than on
     // its one series.
     sliceColors: pie
@@ -422,7 +441,51 @@ function readChart(xml: string): Omit<PreviewChart, "widthPt" | "heightPt"> {
     titleSizePt: sizeOf(element(head, "c:title") ?? ""),
     ruleColor: colorOf(element(xml, "c:majorGridlines") ?? elements(categoryAxis, "c:spPr").at(-1) ?? ""),
     font: attribute(element(xml, "a:latin") ?? "", "typeface"),
+    markers: !series.some((entry) => /<c:symbol val="none"\/>/.test(entry)),
+    plotArea: plotAreaOf(element(xml, "c:manualLayout") ?? ""),
+    fromEdge: attribute(element(valueAxis, "c:crossBetween") ?? "", "val") === "midCat",
   };
+}
+
+/** The plot's rectangle as fractions of the frame, from a manual layout. */
+function plotAreaOf(layout: string): PreviewChart["plotArea"] {
+  const read = (name: string) => numberAttribute(element(layout, name) ?? "", "val");
+  const [x, y, w, h] = ["c:x", "c:y", "c:w", "c:h"].map(read);
+  return x === undefined || y === undefined || w === undefined || h === undefined ? undefined : { x, y, w, h };
+}
+
+/** The series a plot draws as series: on a line chart, the ones not in the band beneath it. */
+function lineSeries(xml: string, graphType: GraphType, series: string[]): string[] {
+  const under = element(xml, "c:areaChart");
+  return graphType === "line" && under !== null ? elements(element(xml, "c:lineChart") ?? "", "c:ser") : series;
+}
+
+/**
+ * The bands a line chart stacks under its lines, put back together.
+ *
+ * The packer writes each as two stacked areas — the lower edge unfilled and
+ * the depth over it filled — which is how Word draws a band. A drawer wants
+ * the band itself: its upper edge, its lower edge and its colour.
+ */
+function bandsOf(xml: string): PreviewChartSeries[] {
+  const under = element(xml, "c:areaChart");
+  if (under === null || element(xml, "c:lineChart") === null) return [];
+
+  const parts = elements(under, "c:ser");
+  const bands: PreviewChartSeries[] = [];
+  for (let i = 0; i + 1 < parts.length; i += 2) {
+    const foot = cachedNumbers(element(parts[i]!, "c:val") ?? "");
+    const depth = cachedNumbers(element(parts[i + 1]!, "c:val") ?? "");
+    bands.push({
+      label: cachedText(element(parts[i + 1]!, "c:tx") ?? "")[0],
+      values: depth.map((value, at) => (value === null || foot[at] === null ? null : value + foot[at]!)),
+      band: foot,
+      color: colorOf(element(parts[i + 1]!, "c:spPr") ?? ""),
+      sizes: [],
+      pointColors: [],
+    });
+  }
+  return bands;
 }
 
 /**

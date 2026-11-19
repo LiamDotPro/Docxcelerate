@@ -13,8 +13,10 @@ import type {
   GraphData,
   GraphDataLabels,
   GraphLegend,
+  GraphPlotArea,
   GraphStacking,
   GraphType,
+  ImageFloat,
   JsonObject,
   ListKind,
   ListMarker,
@@ -284,6 +286,12 @@ export interface ImageProps extends CommonElementProps, PromptProps {
    * that says where it goes — that is what a screen reader announces.
    */
   href?: string;
+  /**
+   * Pins the picture to the page instead of setting it in the line: a cover
+   * photograph, a background, a watermark. Text runs over it rather than round
+   * it, so `behind: true` is what lets a title sit on a photograph.
+   */
+  float?: ImageFloat;
 }
 
 /**
@@ -402,6 +410,14 @@ export interface GraphProps extends CommonElementProps, PromptProps {
    * `legend` is given.
    */
   dataTable?: boolean;
+  /** Whether a line's points are marked with a dot. On unless this says `false`. */
+  markers?: boolean;
+  /** The size the chart's labels are set in, in points, over the theme's chart size. */
+  textSizePt?: number;
+  /** Where the plot sits in the frame, in points from each edge, so Word and the preview draw it alike. */
+  plotArea?: GraphPlotArea;
+  /** A line's first and last points on the plot's edges. */
+  fromEdge?: boolean;
 }
 
 /** Props for the `<Table>` element. */

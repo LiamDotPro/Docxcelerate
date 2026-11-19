@@ -45,6 +45,8 @@ export interface PackedRun {
    * `w:rPr`, which is where Word keeps character spacing, never reaches the DOM.
    */
   letterSpacingPt?: number;
+  /** The words the run sets, for matching it to the span drawn for it. */
+  text?: string;
 }
 
 /**
@@ -116,13 +118,25 @@ export interface PackedParagraph {
  * ```
  */
 export async function readPackedParagraphs(packed: Uint8Array): Promise<PackedParagraph[]> {
-  const xml = await readPart(packed, "word/document.xml");
-
-  if (xml === undefined) {
-    return [];
+  // The running furniture is drawn from its own parts, and docx-preview drops
+  // the same things there as in the body — a tracked label in a header band is
+  // as narrow on screen as one on the page. The packer numbers its parts from
+  // one, so the first name that is missing is the last there is.
+  const parts = ["word/document.xml"];
+  for (const kind of ["header", "footer"]) {
+    for (let n = 1; ; n++) {
+      const name = `word/${kind}${n}.xml`;
+      if ((await readPart(packed, name)) === undefined) break;
+      parts.push(name);
+    }
   }
 
-  return paragraphsOf(xml).map(readParagraph);
+  const paragraphs: PackedParagraph[] = [];
+  for (const part of parts) {
+    const xml = await readPart(packed, part);
+    if (xml !== undefined) paragraphs.push(...paragraphsOf(xml).map(readParagraph));
+  }
+  return paragraphs;
 }
 /**
  * What a packed document says about one of its tables.
@@ -374,8 +388,12 @@ function readParagraph(xml: string): PackedParagraph {
     text: textOf(xml),
     runs: elements(xml, "w:r").map((run) => {
       const spacing = numberAttribute(element(element(run, "w:rPr") ?? "", "w:spacing") ?? "", "w:val");
+      const text = textOf(run);
 
-      return spacing === undefined ? {} : { letterSpacingPt: spacing / TWIPS_PER_PT };
+      return {
+        ...(spacing === undefined ? {} : { letterSpacingPt: spacing / TWIPS_PER_PT }),
+        ...(text === "" ? {} : { text }),
+      };
     }),
     borderSpacePt: {
       top: borderSpace(borders, "top"),

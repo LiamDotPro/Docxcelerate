@@ -149,14 +149,14 @@ function optionFor(chart: PreviewChart): echarts.EChartsOption {
     ...(chart.legend === "none" || !named ? {} : { legend: legendFor(chart, text) }),
     ...(radar ? { radar: radarFor(chart, rule, text) } : {}),
     ...(cartesian ? {
-      grid: {
+      grid: chart.plotArea !== undefined ? plotGrid(chart) : {
         left: (horizontal && chart.axes ? gutter.left + 20 : gutter.left) +
           (chart.valueAxisTitle === undefined && chart.categoryAxisTitle === undefined ? 0 : 16),
         right: gutter.right,
         top: gutter.top + (chart.title === undefined ? 0 : Math.round(titlePx(chart)) + 9),
         bottom: gutter.bottom + (chart.legend === "none" || !named ? 0 : Math.round(textPx(chart)) + 11) +
           (chart.categoryAxisTitle === undefined && chart.valueAxisTitle === undefined ? 0 : 18),
-        containLabel: true,
+        containLabel: chart.axes !== false,
       },
       // The value axis is the one along the bottom on a horizontal bar chart,
       // so the labels follow the axes rather than the names x and y.
@@ -180,7 +180,9 @@ function optionFor(chart: PreviewChart): echarts.EChartsOption {
       ? [pieSeries(chart)]
       : radar
       ? [radarSeries(chart)]
-      : chart.series.flatMap((series) => [plotSeries(chart, series), ...trendSeries(chart, series)]),
+      : chart.series.flatMap((series, index) =>
+        series.band === undefined ? [plotSeries(chart, series), ...trendSeries(chart, series)] : bandSeries(series, index)
+      ),
   };
 }
 
@@ -307,6 +309,8 @@ function categoryAxis(chart: PreviewChart, rule: string, text: AxisText) {
   return {
     type: "category" as const,
     data: [...chart.categories],
+    // Points on the plot's edges, as the file's `midCat` crossing puts them.
+    boundaryGap: chart.fromEdge !== true,
     axisLine: { lineStyle: { color: rule } },
     axisTick: { show: false },
     axisLabel: text,
@@ -461,9 +465,17 @@ function plotSeries(chart: PreviewChart, series: PreviewChartSeries): echarts.Se
       name: series.label,
       type: "line",
       stack,
-      symbol: "circle",
+      symbol: chart.markers === false ? "none" : "circle",
       symbolSize: 6,
-      lineStyle: { color, width: 2, type: series.dash ?? "solid" },
+      lineStyle: {
+        color,
+        width: (series.widthPt ?? 1.5) * PX_PER_PT,
+        type: series.dash ?? "solid",
+        ...(series.widthPt === 0 ? { opacity: 0 } : {}),
+      },
+      ...(series.endLabel === true
+        ? { endLabel: { show: true, formatter: series.label ?? "", color, fontFamily: chart.font, fontSize: textPx(chart), distance: 6 } }
+        : {}),
       itemStyle: { color },
       // An area chart is a line with the ground filled in under it, which is
       // exactly what OOXML's `c:areaChart` is beside its `c:lineChart`.
@@ -492,6 +504,45 @@ function painted<T>(
 
     return color === undefined ? value : { value, itemStyle: { color } };
   });
+}
+
+/**
+ * The plot in the rectangle the file pins it to, measured from the frame.
+ *
+ * The labels stand outside it, as Word stands them, so nothing is left for
+ * ECharts to fit: the plot is where the document says, in both renderers.
+ */
+function plotGrid(chart: PreviewChart) {
+  const area = chart.plotArea!;
+  const width = chart.widthPt * PX_PER_PT;
+  const height = chart.heightPt * PX_PER_PT;
+  return {
+    left: area.x * width,
+    top: area.y * height,
+    right: (1 - area.x - area.w) * width,
+    bottom: (1 - area.y - area.h) * height,
+    containLabel: false,
+  };
+}
+
+/**
+ * A band, drawn the way the file stacks it: its lower edge carried unseen,
+ * and the depth over it filled, both on a stack of their own so the lines
+ * beside them are not lifted onto it.
+ */
+function bandSeries(series: PreviewChartSeries, index: number): echarts.SeriesOption[] {
+  const foot = series.band ?? [];
+  const stack = `band-${index}`;
+  const quiet = { type: "line" as const, stack, symbol: "none", lineStyle: { opacity: 0 }, silent: true };
+  return [
+    { ...quiet, data: [...foot], areaStyle: { opacity: 0 } },
+    {
+      ...quiet,
+      name: series.label,
+      data: series.values.map((value, at) => (value === null || foot[at] == null ? null : value - foot[at]!)),
+      areaStyle: { color: hex(series.color), opacity: 1 },
+    },
+  ];
 }
 
 /**
@@ -568,26 +619,47 @@ function pieSeries(chart: PreviewChart): echarts.SeriesOption {
 /**
  * A number printed the way the value axis says to print it.
  *
- * Enough of an OOXML number format to be useful and no more: whatever stands
- * before the first `#` or `0` is a prefix, whatever stands after the last is a
- * suffix, a comma means thousands are grouped, and the digits after the point
- * say how many decimals. A format this does not understand prints the number
- * plainly, which is what the axis would have shown anyway.
+ * Enough of an OOXML number format to be useful and no more. Sections split
+ * on `;` — positive, then negative — unless they carry a condition such as
+ * `[>=1000]`, in which case the first whose condition holds is used. Within a
+ * section, whatever stands before the first `#` or `0` is a prefix and
+ * whatever stands after the last is a suffix, a comma means thousands are
+ * grouped, and the digits after the point say how many decimals. A section
+ * with no digits at all is printed as the words it says.
  */
 function print(value: number, format: string): string {
-  const percent = format.includes("%");
-  const digits = /\.(0+)/.exec(format)?.[1].length ?? 0;
-  const shown = percent ? value * 100 : value;
+  const sections = format.split(";");
+  const condition = /^\[(>=|<=|>|<|=)(-?[\d.]+)\]/;
+  const holds = (section: string) => {
+    const match = condition.exec(section);
+    if (match === null) return undefined;
+    const limit = Number(match[2]);
+    return { ">=": value >= limit, "<=": value <= limit, ">": value > limit, "<": value < limit, "=": value === limit }[match[1]!];
+  };
+  const conditional = sections.some((section) => condition.test(section));
+  const chosen = conditional
+    ? sections.find((section) => holds(section) === true) ?? sections.find((section) => !condition.test(section)) ?? sections[0]!
+    : value < 0 && sections[1] !== undefined
+    ? sections[1]
+    : sections[0]!;
+  const shown0 = !conditional && value < 0 && sections[1] !== undefined ? -value : value;
+  const section = chosen.replace(condition, "");
+  const literal = (text: string) => text.replace(/[\\"]/g, "");
+
+  const first = section.search(/[#0]/);
+  if (first === -1) return literal(section);
+  const last = Math.max(section.lastIndexOf("#"), section.lastIndexOf("0"));
+
+  const percent = section.includes("%");
+  const digits = /\.(0+)/.exec(section)?.[1].length ?? 0;
+  const shown = percent ? shown0 * 100 : shown0;
   const body = shown.toLocaleString(undefined, {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
-    useGrouping: format.includes(","),
+    useGrouping: section.includes(","),
   });
 
-  const prefix = /^[^#0]*/.exec(format)?.[0].replace(/[\\"]/g, "") ?? "";
-  const suffix = percent ? "%" : "";
-
-  return `${prefix}${body}${suffix}`;
+  return `${literal(section.slice(0, first))}${body}${literal(section.slice(last + 1))}`;
 }
 
 /** A colour as the file writes it — six hex digits — as CSS wants it. */

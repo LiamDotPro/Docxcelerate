@@ -115,9 +115,10 @@ export function hasChartData(node: GraphNode): boolean {
  * @returns The chart's XML and the workbook behind it.
  */
 export function chartPartOf(node: GraphNode, style: DocumentStyle): ChartPart {
-  const data = normalised(node.data);
+  const data = withBands(node, normalised(node.data));
   const colors = seriesColors(style);
-  const sizePt = chartTextSizePt(style);
+  // A chart can set its own labels' size where a design asks; the theme's otherwise.
+  const sizePt = node.textSizePt ?? chartTextSizePt(style);
   const palette = {
     text: style.palette?.muted ?? DEFAULT_TEXT_COLOR,
     heading: style.palette?.heading ?? DEFAULT_TEXT_COLOR,
@@ -202,6 +203,42 @@ function normalised(data: GraphData | undefined): {
   };
 }
 
+/** A series the packer split a band into: its unfilled foot, or the band itself. */
+type Packed = GraphSeries & { area?: "foot" | "band" };
+
+/**
+ * Each banded series as the two Word stacks to draw it: the lower edge,
+ * unfilled, and the band's depth over it, filled.
+ *
+ * Done before anything is written, so the chart and the workbook behind it
+ * carry the same columns — a reader who opens the data finds the lower edge
+ * and the depth, which is what Word itself would have stored.
+ */
+function withBands(
+  node: GraphNode,
+  data: { categories: string[]; series: GraphSeries[] },
+): { categories: string[]; series: Packed[] } {
+  if (node.graphType !== "line" || !data.series.some((entry) => entry.band !== undefined)) {
+    return data;
+  }
+
+  const bands: Packed[] = data.series.filter((entry) => entry.band !== undefined).flatMap((entry) => {
+    const foot = data.categories.map((_, i) => entry.band?.[i] ?? null);
+    return [
+      { label: entry.label === undefined ? undefined : `${entry.label} (from)`, values: foot, area: "foot" as const },
+      {
+        label: entry.label,
+        color: entry.color,
+        area: "band" as const,
+        values: entry.values.map((value, i) => (value === null || foot[i] === null ? null : value - foot[i]!)),
+      },
+    ];
+  });
+
+  // The bands first, so they are drawn under the lines.
+  return { categories: data.categories, series: [...bands, ...data.series.filter((entry) => entry.band === undefined)] };
+}
+
 // ---------------------------------------------------------------------------
 // The chart part
 // ---------------------------------------------------------------------------
@@ -219,8 +256,8 @@ function chartSpaceXml(
     `<c:chart>`,
     titleXml(node.title, palette),
     `<c:autoTitleDeleted val="${node.title === undefined ? 1 : 0}"/>`,
-    `<c:plotArea><c:layout/>`,
-    plotXml(node, data, colors),
+    `<c:plotArea>${plotLayoutXml(node)}`,
+    plotXml(node, data, colors, palette),
     axesXml(node, palette),
     dataTableXml(node, palette),
     `<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>`,
@@ -244,6 +281,29 @@ function chartSpaceXml(
     ` xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
     parts.join("") +
     `</c:chartSpace>`;
+}
+
+/**
+ * Where the plot sits in the frame, as fractions of the frame Word reads.
+ *
+ * `inner` is the plot itself, without its axis labels, which is the rectangle
+ * a design draws its lines in — and the one the preview is handed too.
+ */
+function plotLayoutXml(node: GraphNode): string {
+  const area = node.plotArea;
+  if (area === undefined) {
+    return `<c:layout/>`;
+  }
+  const width = node.width ?? 0;
+  const height = node.height ?? 0;
+  if (width <= 0 || height <= 0) {
+    return `<c:layout/>`;
+  }
+  const f = (value: number) => Math.max(0, Math.min(1, value)).toFixed(4);
+  return `<c:layout><c:manualLayout><c:layoutTarget val="inner"/><c:xMode val="edge"/><c:yMode val="edge"/>` +
+    `<c:x val="${f(area.leftPt / width)}"/><c:y val="${f(area.topPt / height)}"/>` +
+    `<c:w val="${f((width - area.leftPt - area.rightPt) / width)}"/><c:h val="${f((height - area.topPt - area.bottomPt) / height)}"/>` +
+    `</c:manualLayout></c:layout>`;
 }
 
 /** The chart's heading, which is the node's title. */
@@ -328,6 +388,7 @@ function textPropertiesXml(palette: ChartPalette): string {
   }"/></a:defRPr></a:pPr><a:endParaRPr lang="en-GB"/></a:p></c:txPr>`;
 }
 
+
 /**
  * How a chart group says its series are arranged.
  *
@@ -359,12 +420,13 @@ function plotXml(
   node: GraphNode,
   data: { categories: string[]; series: GraphSeries[] },
   colors: readonly string[],
+  palette: ChartPalette,
 ): string {
   const type = node.graphType;
   const labels = dataLabelsXml(node);
   const axes = `<c:axId val="${CATEGORY_AXIS_ID}"/><c:axId val="${VALUE_AXIS_ID}"/>`;
   const series = data.series
-    .map((entry, index) => seriesXml(node, entry, index, data, colors))
+    .map((entry, index) => seriesXml(node, entry, index, data, colors, palette))
     .join("");
 
   if (type === "pie" || type === "doughnut") {
@@ -376,9 +438,22 @@ function plotXml(
   }
 
   if (type === "line") {
-    return `<c:lineChart><c:grouping val="${
+    // Bands are a stacked area drawn under the lines on the same axes: one
+    // plot to a reader, two chart groups to Word.
+    const packed = data.series as Packed[];
+    const of = (area: boolean) =>
+      packed
+        .map((entry, index) => ({ entry, index }))
+        .filter(({ entry }) => (entry.area !== undefined) === area)
+        .map(({ entry, index }) => seriesXml(node, entry, index, data, colors, palette))
+        .join("");
+    const banded = packed.some((entry) => entry.area !== undefined);
+    const under = banded
+      ? `<c:areaChart><c:grouping val="stacked"/><c:varyColors val="0"/>${of(true)}${axes}</c:areaChart>`
+      : "";
+    return `${under}<c:lineChart><c:grouping val="${
       groupingOf(node, "standard")
-    }"/><c:varyColors val="0"/>${series}${labels}<c:marker val="1"/>${axes}</c:lineChart>`;
+    }"/><c:varyColors val="0"/>${of(false)}${labels}<c:marker val="1"/>${axes}</c:lineChart>`;
   }
 
   if (type === "area") {
@@ -436,6 +511,7 @@ function seriesXml(
   index: number,
   data: { categories: string[]; series: GraphSeries[] },
   colors: readonly string[],
+  palette: ChartPalette,
 ): string {
   const type = node.graphType;
   const rows = data.categories.length;
@@ -453,17 +529,26 @@ function seriesXml(
   const head = `<c:idx val="${index}"/><c:order val="${index}"/>` +
     nameXml(series.label, column);
 
-  const paint = drawnAsLine(type)
-    ? `<c:spPr><a:ln w="28575" cap="rnd"><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill>${dash}<a:round/></a:ln><a:effectLst/></c:spPr>${
-      markerXml(fill)
-    }`
+  // A band's foot lifts the band off the axis and is not drawn; the band is
+  // ground with no edge of its own. A line at no width is a label standing
+  // alone, which is how a band's edges are named.
+  const area = (series as Packed).area;
+  const widthPt = series.widthPt ?? 2.25;
+  const paint = area !== undefined
+    ? `<c:spPr>${area === "foot" ? "<a:noFill/>" : `<a:solidFill><a:srgbClr val="${fill}"/></a:solidFill>`}<a:ln><a:noFill/></a:ln></c:spPr>`
+    : drawnAsLine(type)
+    ? `<c:spPr>${
+      widthPt === 0
+        ? "<a:ln><a:noFill/></a:ln>"
+        : `<a:ln w="${Math.round(widthPt * 12700)}" cap="rnd"><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill>${dash}<a:round/></a:ln>`
+    }<a:effectLst/></c:spPr>${node.markers === false ? `<c:marker><c:symbol val="none"/></c:marker>` : markerXml(fill)}`
     : paintXml(type, fill);
 
   // A pie paints every slice as its own data point, in the palette unless the
   // series names a colour for it. Every other chart paints only the points the
   // series names. An area is one filled shape with no points to paint apart.
   const pie = type === "pie" || type === "doughnut";
-  const points = type === "area" ? "" : data.categories.map((_, at) => {
+  const points = type === "area" || area !== undefined ? "" : data.categories.map((_, at) => {
     const pointFill = series.pointColors?.[at] ?? (pie ? colors[at % colors.length] : undefined);
     return pointFill === undefined ? "" : pointXml(type, at, pointFill);
   }).join("");
@@ -490,8 +575,12 @@ function seriesXml(
     }<c:bubble3D val="0"/></c:ser>`;
   }
 
+  if (area !== undefined) {
+    return `<c:ser>${head}${paint}${categories}${values}</c:ser>`;
+  }
+
   if (type === "line" || type === "radar") {
-    return `<c:ser>${head}${paint}${points}${trend}${categories}${values}` +
+    return `<c:ser>${head}${paint}${points}${trend}${type === "line" ? endLabelXml(series, rows, fill, palette) : ""}${categories}${values}` +
       // A radar's ring is already closed, so it has no line to smooth and the
       // schema gives it nowhere to say so.
       (type === "line" ? `<c:smooth val="0"/>` : "") +
@@ -566,6 +655,17 @@ function pointXml(type: GraphNode["graphType"], at: number, fill: string): strin
   return drawnAsLine(type)
     ? `<c:dPt><c:idx val="${at}"/>${markerXml(fill)}</c:dPt>`
     : `<c:dPt><c:idx val="${at}"/><c:invertIfNegative val="0"/>${paintXml(type, fill)}</c:dPt>`;
+}
+
+/** The series' name beside its last point, set in its colour. */
+function endLabelXml(series: GraphSeries, rows: number, fill: string, palette: ChartPalette): string {
+  if (series.endLabel !== true || rows === 0) {
+    return "";
+  }
+  const off = `<c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/>`;
+  return `<c:dLbls><c:dLbl><c:idx val="${rows - 1}"/><c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>` +
+    `<c:txPr><a:bodyPr wrap="none"/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="${palette.textSize}" b="0"><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill></a:defRPr></a:pPr><a:endParaRPr lang="en-GB"/></a:p></c:txPr>` +
+    `<c:dLblPos val="r"/><c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/><c:showSerName val="1"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbl>${off}</c:dLbls>`;
 }
 
 /**
@@ -846,7 +946,7 @@ function valueAxisXml(
     textPropertiesXml(palette) +
     `<c:crossAx val="${CATEGORY_AXIS_ID}"/><c:crosses val="${
       crossesAtEnd ? "max" : "autoZero"
-    }"/><c:crossBetween val="between"/>${
+    }"/><c:crossBetween val="${node.fromEdge === true ? "midCat" : "between"}"/>${
       step === undefined ? "" : `<c:majorUnit val="${step}"/>`
     }</c:valAx>`;
 }

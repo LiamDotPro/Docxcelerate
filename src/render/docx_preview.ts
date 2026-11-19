@@ -22,7 +22,7 @@
  * @module
  */
 
-import type { DocumentModel } from "../domain/types.ts";
+import type { DocumentModel, DocumentNode, ImageFloat } from "../domain/types.ts";
 import { fillPageFields } from "./docx_fields.ts";
 import { columnWidthMm, pageBorderOffsetPt } from "./page_size.ts";
 import type { PackedParagraph, PackedTable } from "./docx_packed.ts";
@@ -94,7 +94,12 @@ export function settleDocxPreview(
   packed?: readonly PackedParagraph[],
   tables?: readonly PackedTable[],
 ): void {
+  if (model !== undefined) {
+    pinFloatingPictures(container, model);
+  }
   inlinePictureWrappers(container);
+  matchStruts(container);
+  addParagraphSpacing(container);
   applyDoubleBorders(container);
   liftShapeText(container);
   fillPageFields(container, model?.style?.page, model);
@@ -310,8 +315,17 @@ function applyTracking(element: HTMLElement, packed: PackedParagraph): void {
   const aligned = targets.length === packed.runs.length;
 
   targets.forEach((target, index) => {
+    // Where the counts disagree, a span is matched to the run that says the
+    // same words before it falls back on the first tracking: a label with an
+    // untracked note after a tab is two runs and three spans, and the note
+    // must not take the label's tracking.
+    const same = aligned
+      ? undefined
+      : packed.runs.find((run) => run.text !== undefined && run.text.trim() !== "" && run.text.trim() === target.textContent?.trim());
     const spacing = aligned
       ? packed.runs[index].letterSpacingPt
+      : same !== undefined
+      ? same.letterSpacingPt
       : tracked[0].letterSpacingPt;
 
     if (spacing !== undefined) {
@@ -398,6 +412,100 @@ export function inlinePictureWrappers(container: Element): void {
   }
 }
 
+
+/**
+ * Every floating picture, put where the file pins it: on the page, not in the line.
+ *
+ * docx-preview reads a `wp:anchor` that does not wrap as a zero-sized box
+ * nudged by the anchor's offsets from wherever its paragraph happens to be —
+ * the offsets are from the paper's corner in the file, so the picture lands a
+ * paragraph's distance too low — and it reads `behindDoc` and then drops it,
+ * so a cover photograph paints over the title set on it. Word draws both from
+ * the page.
+ *
+ * The pictures are matched to the model's floating images in order, and the
+ * position written back is the model's own, so nothing here is measured or
+ * guessed. Behind means behind the words and in front of the sheet, which is
+ * what an isolated stacking context on the sheet gives a negative z-index.
+ */
+function pinFloatingPictures(container: Element, model: DocumentModel): void {
+  const floats: ImageFloat[] = [];
+  const walk = (nodes: readonly DocumentNode[]) => {
+    for (const node of nodes) {
+      if (node.kind === "image" && node.float !== undefined) floats.push(node.float);
+      // A picture set in a paragraph is carried beside its text, not as a child.
+      if (node.kind === "paragraph") {
+        for (const inline of node.inlineImages ?? []) {
+          if (inline.image.float !== undefined) floats.push(inline.image.float);
+        }
+      }
+      if ("children" in node) walk(node.children);
+    }
+  };
+  walk(model.nodes);
+  if (floats.length === 0) return;
+
+  const anchors = [...container.querySelectorAll<HTMLElement>("section.docx article div")]
+    .filter((box) => box.style.width === "0px" && box.style.height === "0px" && box.querySelector("img"));
+
+  anchors.slice(0, floats.length).forEach((box, index) => {
+    const float = floats[index]!;
+    const sheet = box.closest<HTMLElement>("section.docx");
+    if (sheet === null) return;
+
+    sheet.style.position = "relative";
+    sheet.style.isolation = "isolate";
+    box.style.position = "absolute";
+    box.style.left = `${float.xMm}mm`;
+    box.style.top = `${float.yMm}mm`;
+    box.style.zIndex = float.behind === true ? "-1" : "1";
+    sheet.prepend(box);
+  });
+}
+
+/**
+ * The space between two paragraphs, added up the way Word adds it.
+ *
+ * Word leaves a paragraph's space after *and* the next one's space before.
+ * docx-preview writes both as CSS margins, and CSS collapses two touching
+ * margins into the larger of them — so a label 7pt above a point padded 8pt
+ * below its own top came out 8pt apart on screen and 15pt apart in Word, and
+ * every such pair let the preview run shorter than the file. Folding the one
+ * margin into the other gives CSS's collapse the sum to keep.
+ */
+function addParagraphSpacing(container: Element): void {
+  for (const paragraph of container.querySelectorAll<HTMLElement>("p")) {
+    const before = paragraph.previousElementSibling as HTMLElement | null;
+    if (before === null || before.tagName !== "P") continue;
+    const above = Number.parseFloat(before.style.marginBottom) || 0;
+    const own = Number.parseFloat(paragraph.style.marginTop) || 0;
+    if (above > 0 && own > 0) paragraph.style.marginTop = `${above + own}pt`;
+  }
+}
+
+/**
+ * Each paragraph set at the size of its own words.
+ *
+ * docx-preview writes a run's size on the run's span and leaves the paragraph
+ * at the page's default size. CSS then lays every line out around a strut in
+ * that default face, and when the run is a different size, aligning the two on
+ * one baseline makes the line box a pixel or so deeper than the leading the
+ * file states — on a page of labelled bars, a pixel a row. Word has no strut;
+ * a line is exactly the height its spacing says. Where every run of a
+ * paragraph is one size, that size is the paragraph's, which is what puts the
+ * preview's lines back at the file's height.
+ */
+function matchStruts(container: Element): void {
+  for (const paragraph of container.querySelectorAll<HTMLElement>("p")) {
+    if (paragraph.style.fontSize !== "") continue;
+    const sizes = new Set(
+      [...paragraph.querySelectorAll<HTMLElement>(":scope > span")]
+        .map((span) => span.style.fontSize)
+        .filter((size) => size !== ""),
+    );
+    if (sizes.size === 1) paragraph.style.fontSize = [...sizes][0]!;
+  }
+}
 
 /**
  * Widens every double border to the three widths Word draws it across.

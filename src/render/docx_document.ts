@@ -12,6 +12,11 @@ import {
   Footer,
   Header,
   HeadingLevel,
+  DropCapType,
+  FrameAnchorType,
+  FrameWrap,
+  HorizontalPositionAlign,
+  HorizontalPositionRelativeFrom,
   ImageRun,
   LeaderType,
   LevelFormat,
@@ -35,6 +40,9 @@ import {
   UnderlineType,
   VerticalAlign,
   WidthType,
+  TextWrappingType,
+  VerticalPositionAlign,
+  VerticalPositionRelativeFrom,
 } from "docx";
 import type {
   IFontAttributesProperties,
@@ -121,7 +129,7 @@ export function createDocxDocument(doc: DocumentModel): Document {
     styles: createDocxStyles(style, doc.locale),
     // Only for a document with a list in it, so one without is packed with
     // exactly the numbering part it always had.
-    numbering: lists.items === 0 ? undefined : listNumbering(lists.numbered, lists.markers),
+    numbering: lists.items === 0 ? undefined : listNumbering(lists.numbered, lists.markers, lists.numerals, style),
     evenAndOddHeaderAndFooters: evenAndOdd || undefined,
     // A settings-part switch, like the one above. Passed only when asked:
     // `docx` writes `w:val="false"` for an explicit false, and a document that
@@ -443,6 +451,12 @@ type CellContext = {
   indent?: { left: number; right: number };
   /** Whether every paragraph keeps with the next row, for a table kept together. */
   keepNext?: boolean;
+  /**
+   * How the cell sets its words — size, ink, weight, tracking — for what it
+   * holds that is not a paragraph of its own. A page number in a tracked
+   * footer cell is set like the label beside it, not in the body's face.
+   */
+  run?: ReturnType<typeof blockRun>;
 };
 
 /** The paragraph options a cell context contributes, or none outside a cell. */
@@ -498,16 +512,26 @@ function renderNode(
   }
 
   if (node.kind === "paragraph") {
-    const block = blockOf(style, node.variant);
+    const pieces = splitParagraphs(node);
+    if (pieces.length > 1) {
+      return pieces.flatMap((piece, index) => renderNode(piece, style, furniture, index === 0 && broken, cell));
+    }
+
+    const block = blockFor(style, node.variant, ...standInVariants(node, style));
     const item = listItem(node);
+    const capped = dropCapOf(node, block, style, broken);
+    if (capped !== undefined) {
+      return [capped.cap, ...renderNode(capped.rest, style, furniture, false, cell)];
+    }
 
     return [
+      ...standInLabel(node, style),
       new Paragraph({
         children: paragraphRuns(node, blockRun(block, style), style, cell?.widthPt ?? columnWidthPt(style)),
         ...breakStyle(broken),
         numbering: item?.numbering,
         ...paragraphFrame(node, block),
-        ...blockLayout(block, style, item),
+        ...blockLayout(isLabelled(node, style) && block !== undefined ? { ...block, spacingBeforePt: undefined } : block, style, item),
         ...blockOutline(block),
       }),
     ];
@@ -538,7 +562,8 @@ function renderNode(
   }
 
   if (node.kind === "table") {
-    return [renderTable(node, style, furniture)];
+    // A table in a cell shares its "auto" columns out of the cell's own width.
+    return [renderTable(node, style, furniture, cell === undefined ? undefined : ptToTwips(cell.widthPt))];
   }
 
   if (node.kind === "shape") {
@@ -560,7 +585,7 @@ function renderNode(
 
     return [
       new Paragraph({
-        children: pageNumberRuns(node, blockRun(block, style)),
+        children: pageNumberRuns(node, overRun(cell?.run ?? {}, blockRun(block, style))),
         ...breakStyle(broken),
         ...paragraphFrame(node, block),
         // Only when a block is named: an unstyled page number writes no
@@ -636,9 +661,15 @@ function blockFor(
     for (const [property, value] of Object.entries(block)) {
       // A property a block leaves out is one it has no opinion on, so it must
       // not overwrite the opinion underneath it.
-      if (value !== undefined) {
-        merged[property] = value;
+      if (value === undefined) {
+        continue;
       }
+      // The same goes for one side of a box: a cell that names its left
+      // padding has said nothing about its top, which the band still owns.
+      const under = merged[property];
+      merged[property] = property === "paddingSidesPt" && typeof under === "object"
+        ? { ...under, ...value }
+        : value;
     }
   }
 
@@ -684,6 +715,22 @@ function blockRun(
       : Math.round(block.letterSpacingEm * sizePt * 20),
     font: block.font === undefined ? undefined : runFonts(block.font, style),
   };
+}
+
+/**
+ * One run's setting laid over another's, property by property.
+ *
+ * `blockRun` writes every property it knows, `undefined` where the block said
+ * nothing — and a plain spread lets that `undefined` win. A muted note's
+ * variant naming only its size would then wipe out the ink its cell set, which
+ * is the opposite of what saying nothing means.
+ */
+function overRun<T extends Record<string, unknown>>(under: T, over: T): T {
+  const merged: Record<string, unknown> = { ...under };
+  for (const [property, value] of Object.entries(over)) {
+    if (value !== undefined) merged[property] = value;
+  }
+  return merged as T;
 }
 
 /**
@@ -735,6 +782,9 @@ function numberMarker(style: ListStyle | undefined, level: number) {
   if (style === undefined) {
     return { format: NUMBER_FORMATS[level % NUMBER_FORMATS.length], text: `%${level + 1}.` };
   }
+  if (style === "decimalPlain") {
+    return { format: LevelFormat.DECIMAL, text: `%${level + 1}` };
+  }
   const paren = style.endsWith("Paren");
   return {
     format: (paren ? style.slice(0, -"Paren".length) : style) as (typeof LevelFormat)[keyof typeof LevelFormat],
@@ -766,10 +816,12 @@ type ListLevelSettings = { style?: ListStyle; start?: number };
  */
 function placeLists(
   doc: DocumentModel,
-): { items: number; numbered: ListLevelSettings[][]; markers: Set<ListMarker> } {
+): { items: number; numbered: ListLevelSettings[][]; markers: Set<ListMarker>; numerals: (string | undefined)[] } {
   let items = 0;
   const markers = new Set<ListMarker>();
   const numbered: ListLevelSettings[][] = [];
+  // The variant each numbered list's first item names, for its numerals' face.
+  const numerals: (string | undefined)[] = [];
 
   const walk = (nodes: readonly DocumentNode[]): void => {
     // The numbering the list being walked counts in, once it has a numbered item.
@@ -786,6 +838,7 @@ function placeLists(
 
       if (node.list.kind === "number" && reference === undefined) {
         numbered.push([]);
+        numerals.push(node.variant);
         reference = `${NUMBER_LIST}-${numbered.length}`;
       }
 
@@ -827,7 +880,7 @@ function placeLists(
     }
   }
 
-  return { items, numbered, markers };
+  return { items, numbered, markers, numerals };
 }
 
 /**
@@ -841,16 +894,31 @@ function placeLists(
  * at all. This is the form both engines read, which is the same reason a
  * shape is packed as VML.
  */
-function listNumbering(numbered: ListLevelSettings[][], markers: ReadonlySet<ListMarker>) {
+function listNumbering(
+  numbered: ListLevelSettings[][],
+  markers: ReadonlySet<ListMarker>,
+  numerals: readonly (string | undefined)[],
+  style: DocumentStyle,
+) {
   const levels = (
     marker: (level: number) => { format: (typeof LevelFormat)[keyof typeof LevelFormat]; text: string; start?: number },
+    run?: ReturnType<typeof blockRun>,
   ) =>
     Array.from({ length: LIST_LEVELS }, (_, level) => ({
       level,
       ...marker(level),
       alignment: AlignmentType.LEFT,
-      style: { paragraph: { indent: listIndent(level) } },
+      style: {
+        paragraph: { indent: listIndent(level) },
+        ...(run === undefined ? {} : { run: Object.fromEntries(Object.entries(run).filter(([, v]) => v !== undefined)) }),
+      },
     }));
+  // The face a list's numerals are set in: the block its first item's variant
+  // names as its marker, where it names one.
+  const numeralRun = (index: number) => {
+    const named = blockOf(style, blockOf(style, numerals[index])?.marker);
+    return named === undefined ? undefined : blockRun(named, style);
+  };
 
   return {
     config: [
@@ -864,7 +932,7 @@ function listNumbering(numbered: ListLevelSettings[][], markers: ReadonlySet<Lis
       })),
       ...numbered.map((settings, index) => ({
         reference: `${NUMBER_LIST}-${index + 1}`,
-        levels: levels((level) => ({ ...numberMarker(settings[level]?.style, level), start: settings[level]?.start })),
+        levels: levels((level) => ({ ...numberMarker(settings[level]?.style, level), start: settings[level]?.start }), numeralRun(index)),
       })),
     ],
   };
@@ -1237,13 +1305,17 @@ function blockBorders(block: DocumentBlockStyle | undefined, on: "paragraph" | "
     return undefined;
   }
 
-  const edge = {
-    ...borderLine(block.border, block),
-    ...(on === "paragraph" ? { space: Math.min(31, Math.round(block.paddingPt ?? 0)) } : {}),
-  };
+  const edge = (side: "top" | "right" | "bottom" | "left") => ({
+    ...borderLine(block.border!, block),
+    // A paragraph's padding is the room it holds its words off each rule,
+    // side by side: a point over a hairline is padded below and nowhere else.
+    ...(on === "paragraph"
+      ? { space: Math.min(31, Math.round(block.paddingSidesPt?.[side] ?? block.paddingPt ?? 0)) }
+      : {}),
+  });
   const sides = block.borderSides ?? ["top", "right", "bottom", "left"];
 
-  return Object.fromEntries(sides.map((side) => [side, edge]));
+  return Object.fromEntries(sides.map((side) => [side, edge(side)]));
 }
 
 /**
@@ -1489,9 +1561,10 @@ function pictureOf(node: ImageNode, roomPt: number): ImageRun | TextRun {
   const transformation = { width: ptToPx(size.width), height: ptToPx(size.height) };
   const altText = { name: node.id, description: described, title: described };
   const raster = rasterTypeOf(source.mediaType);
+  const floating = floatingOf(node);
 
   if (raster) {
-    return new ImageRun({ type: raster, data: source.bytes, transformation, altText });
+    return new ImageRun({ type: raster, data: source.bytes, transformation, altText, floating });
   }
 
   if (isSvg(source.mediaType)) {
@@ -1508,11 +1581,38 @@ function pictureOf(node: ImageNode, roomPt: number): ImageRun | TextRun {
         fallback: { type: fallbackType, data: fallback.bytes },
         transformation,
         altText,
+        floating,
       });
     }
   }
 
   return new TextRun(`[image: ${described}]`);
+}
+
+/**
+ * A floating picture's anchor, placed from the paper's corner.
+ *
+ * `wrapNone` because text runs over a floated picture rather than round it:
+ * what floats here is a background or a band, and a background that pushed
+ * the words aside would be a picture in a hole.
+ */
+function floatingOf(node: ImageNode) {
+  if (node.float === undefined) {
+    return undefined;
+  }
+
+  return {
+    horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: mmToEmu(node.float.xMm) },
+    verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, offset: mmToEmu(node.float.yMm) },
+    behindDocument: node.float.behind === true,
+    allowOverlap: true,
+    wrap: { type: TextWrappingType.NONE },
+  };
+}
+
+/** Millimetres to the English Metric Units a drawing is positioned in. */
+function mmToEmu(mm: number): number {
+  return Math.round(mm * 36000);
 }
 
 /**
@@ -1582,13 +1682,13 @@ function pageNumberRuns(node: PageNumberNode, base: Record<string, unknown>): Te
  * money column lining up is the whole reason it was given a width. Whatever
  * the fixed columns leave is shared between the `"auto"` ones.
  */
-function renderTable(node: TableNode, style: DocumentStyle, furniture: boolean): Table {
+function renderTable(node: TableNode, style: DocumentStyle, furniture: boolean, withinTwips?: number): Table {
   // `bleed` reaches a table the same way it reaches a paragraph: out past the
   // margins to the paper's edge. A footer bar that stopped at the margin would
   // be a bar with a white gutter either side of it, which is not a bar.
   const block = blockOf(style, node.variant);
   const bleed = block?.bleed === true;
-  const widths = columnWidths(node.columns, style, bleed);
+  const widths = columnWidths(node.columns, style, bleed, withinTwips);
   const rows = tableRows(node.children);
 
   // Only the rows a table opens with are its heading. `tableHeader` is what
@@ -1708,10 +1808,16 @@ function renderGraph(
   const heightPt = node.height ?? widthPt * CHART_ASPECT;
 
   const placed = { alignment: textAlignmentOf(node.align), ...breakStyle(broken), ...inCell(cell) };
+  // The frame's line is single and automatic, which grows to the drawing in
+  // it. The leading every other paragraph inherits is exact — the one form
+  // both engines read alike — and Word clips a line to an exact height: a
+  // chart set at the body's leading prints as a strip of axis labels.
+  const frameLine = { spacing: { after: cell === undefined ? undefined : 0, line: 240, lineRule: LineRuleType.AUTO } };
   const plot = hasChartData(node)
     ? new Paragraph({
       children: [chartDrawing(node, widthPt, heightPt) as unknown as TextRun],
       ...placed,
+      ...frameLine,
     })
     : new Paragraph({
       children: [
@@ -1975,8 +2081,8 @@ function shapeContent(
 
     // The shape's block, then the paragraph's own — a muted note under a
     // heading on the same box is set by its own variant, not the shape's.
-    const inner = blockOf(style, child.variant);
-    const run = { ...blockRun(block, style), ...blockRun(inner, style) };
+    const inner = blockFor(style, child.variant, ...standInVariants(child, style));
+    const run = overRun(blockRun(block, style), blockRun(inner, style));
 
     const frame = paragraphFrame(child, inner);
     const own = blockInset(inner);
@@ -2089,8 +2195,12 @@ function renderRow(
     const align = child.align ?? table.columns[column]?.align ?? "left";
 
     // The table's block, then its row's, then the cell's — each overriding the
-    // last property by property rather than wholesale.
-    const block = blockFor(style, table.variant, row.variant, child.variant);
+    // last property by property rather than wholesale. Then, for a cell
+    // holding words still to be written, the look its block names for that.
+    const named = blockFor(style, table.variant, row.variant, child.variant);
+    const block = holdsStandIn(child) && named?.standIn !== undefined
+      ? blockFor(style, table.variant, row.variant, child.variant, named.standIn)
+      : named;
     // The accent bar over a heading is what a header row looks like when the
     // theme has not named one. Once it has — for the cell, its row or its
     // table — that naming is the whole answer, and the default steps aside
@@ -2193,13 +2303,14 @@ function cellContent(
         ...blockLine(block, style),
         widthPt,
         ...keep,
+        run: blockRun(block, style),
       });
     }
 
     // The cell's own block, then the paragraph's — a muted note inside a
     // filled cell is set by its own variant, not the cell's.
-    const inner = blockOf(style, child.variant);
-    const run = { ...blockRun(block, style), ...blockRun(inner, style) };
+    const inner = blockFor(style, child.variant, ...standInVariants(child, style));
+    const run = overRun(blockRun(block, style), blockRun(inner, style));
     const heading: Partial<ReturnType<typeof headingRun>> = header
       ? headingRun(block, style)
       : {};
@@ -2208,17 +2319,25 @@ function cellContent(
     const frame = paragraphFrame(child, inner);
 
     return [
+      ...standInLabel(child, style, alignments[align]),
       new Paragraph({
         ...frame,
         ...keep,
-        // The paragraph's own alignment, then the column's.
-        alignment: frame.alignment ?? alignments[align],
+        // The paragraph's own alignment, then the cell's block's, then the column's.
+        alignment: frame.alignment ?? textAlignmentOf(block?.align) ?? alignments[align],
         numbering: item?.numbering,
         indent: blockInset(inner) ?? item?.indent,
         // The paragraph's own variant decides the leading where it has one —
         // a muted note under a description is set tighter than the row it
-        // sits in — and the cell's block decides it otherwise.
-        spacing: { after: 0, ...blockLine(inner ?? block, style) },
+        // sits in — and the cell's block decides it otherwise. The space it
+        // leaves is its own variant's too: a label 3pt above its figure is the
+        // same 3pt in a cell as on the page, and a cell's paragraphs leave
+        // none unless one says so.
+        spacing: {
+          ...(isLabelled(child, style) ? {} : blockSpacingBefore(inner)),
+          after: ptToTwips(inner?.spacingAfterPt ?? 0),
+          ...blockLine(inner ?? block, style),
+        },
         children: paragraphRuns(child, {
           bold: run.bold ?? heading.bold,
           color: run.color ?? heading.color,
@@ -2236,7 +2355,163 @@ function cellContent(
     ];
   });
 
-  return content.length === 0 ? [new Paragraph(keep)] : content;
+  // Word will not let a cell end on a table, and docx adds a bare paragraph
+  // after one at the body's leading — a line of empty space under every bar
+  // drawn as a table inside a cell. The separator is a point deep instead.
+  if (content.at(-1) instanceof Table) {
+    content.push(tableSeparatorParagraph());
+  }
+
+  // The paragraph Word insists on is set at the cell's own leading. At the
+  // body's, a bar segment three points deep is a line of text deep instead —
+  // Word clips an exact row to its height, but the preview grows the row to
+  // fit, and a cell that says nothing about its leading still gets the body's.
+  return content.length === 0
+    ? [
+      new Paragraph({
+        ...keep,
+        spacing: { after: 0, ...blockLine(block, style) },
+        ...(block?.fontSizePt === undefined ? {} : { run: { size: ptToHalfPoints(block.fontSizePt) } }),
+      }),
+    ]
+    : content;
+}
+
+/**
+ * "Dynamic: <id>", over a paragraph a preview build left standing in for the
+ * engine, when the theme says how to set it.
+ *
+ * Opt-in by the theme's `dynamicLabel` block: a proof that marks what is still
+ * to be written is a house decision, and a theme that never named the block
+ * prints placeholders exactly as it always has.
+ */
+function standInLabel(
+  node: ParagraphNode,
+  style: DocumentStyle,
+  alignment?: (typeof AlignmentType)[keyof typeof AlignmentType],
+): Paragraph[] {
+  const block = style.blocks?.dynamicLabel;
+  if (!isLabelled(node, style) || block === undefined) {
+    return [];
+  }
+  // The label goes where the paragraph would have started: it takes the
+  // space the paragraph leaves above itself, and the paragraph follows it
+  // directly — a label floating over a gap names nothing in particular.
+  const above = blockOf(style, node.variant)?.spacingBeforePt ?? block.spacingBeforePt;
+
+  return [
+    new Paragraph({
+      children: [textRun(`Dynamic: ${node.standIn}`, blockRun(block, style))],
+      alignment: textAlignmentOf(block.align) ?? alignment,
+      keepNext: true,
+      spacing: {
+        ...(above === undefined ? {} : { before: ptToTwips(above) }),
+        after: ptToTwips(block.spacingAfterPt ?? 0),
+        ...blockLine(block, style),
+      },
+    }),
+  ];
+}
+
+/** Whether a cell holds a paragraph a preview build left for the engine. */
+function holdsStandIn(cell: TableCellNode): boolean {
+  return cell.children.some((child) => child.kind === "paragraph" && child.standIn !== undefined);
+}
+
+/**
+ * The blocks a stand-in is set apart with, over its own variant: the theme's
+ * `standIn` block for every placeholder, so a proof can show them in a quieter
+ * ink, then whatever look the paragraph's own variant names for one.
+ */
+function standInVariants(node: ParagraphNode, style: DocumentStyle): (string | undefined)[] {
+  return node.standIn !== undefined ? ["standIn", blockOf(style, node.variant)?.standIn] : [];
+}
+
+/** The paragraphs a written passage was split into, after its first. */
+const continuations = new WeakSet<ParagraphNode>();
+
+/**
+ * A paragraph's drop cap, when its block asks for one and it has the words
+ * for it: the letter, set in its own framed paragraph, and the paragraph
+ * without it.
+ */
+function dropCapOf(
+  node: ParagraphNode,
+  block: DocumentBlockStyle | undefined,
+  style: DocumentStyle,
+  broken = false,
+): { cap: Paragraph; rest: ParagraphNode } | undefined {
+  const drop = block?.dropCap;
+  const text = node.text;
+  if (
+    drop === undefined || text === undefined || node.runs !== undefined || node.inlineImages !== undefined ||
+    node.standIn !== undefined || continuations.has(node) || text.trim().length < 2
+  ) {
+    return undefined;
+  }
+
+  const capBlock = blockOf(style, drop.variant);
+  // The frame is as deep as the lines it drops through, at the paragraph's own leading.
+  const line = blockLine(block, style);
+  const depth = typeof line.line === "number" ? line.line * drop.lines : 240 * drop.lines;
+  const cap = new Paragraph({
+    frame: {
+      type: "alignment",
+      alignment: { x: HorizontalPositionAlign.LEFT, y: VerticalPositionAlign.TOP },
+      dropCap: DropCapType.DROP,
+      lines: drop.lines,
+      width: 0,
+      height: 0,
+      wrap: FrameWrap.AROUND,
+      anchor: { horizontal: FrameAnchorType.TEXT, vertical: FrameAnchorType.TEXT },
+      space: { horizontal: ptToTwips(capBlock?.paddingSidesPt?.right ?? 0), vertical: 0 },
+    },
+    ...breakStyle(broken),
+    spacing: { before: 0, after: 0, line: depth, lineRule: LineRuleType.EXACT },
+    indent: { right: ptToTwips(capBlock?.paddingSidesPt?.right ?? 0) },
+    children: [textRun(text.trimStart().slice(0, 1), blockRun(capBlock, style, capBlock?.fontSizePt))],
+  });
+
+  const rest: ParagraphNode = { ...node, text: text.trimStart().slice(1) };
+  // The words after the cap are the same paragraph's, not a new opening.
+  continuations.add(rest);
+  return { cap, rest };
+}
+
+/** Whether a preview build prints a label over this paragraph. */
+function isLabelled(node: ParagraphNode, style: DocumentStyle): boolean {
+  return node.standIn !== undefined && style.blocks?.dynamicLabel !== undefined &&
+    blockOf(style, node.variant)?.standInLabel !== false;
+}
+
+/**
+ * A paragraph as the paragraphs it is: written text with a blank line in it
+ * is two paragraphs, set alike.
+ *
+ * What an engine writes is prose, and prose a model was asked to write in four
+ * paragraphs comes back as one string with blank lines in it. Setting it as
+ * one paragraph with the breaks inside would lose the space between them and
+ * every first-line treatment. Only plain text splits: runs and inline pictures
+ * belong to the paragraph they were placed in.
+ */
+function splitParagraphs(node: ParagraphNode): ParagraphNode[] {
+  if (node.text === undefined || node.runs !== undefined || node.inlineImages !== undefined || !/\n\s*\n/.test(node.text)) {
+    return [node];
+  }
+
+  const place = listPlaces.get(node);
+  return node.text
+    .split(/\n\s*\n/)
+    .map((text) => text.trim())
+    .filter((text) => text.length > 0)
+    .map((text, index) => {
+      const piece: ParagraphNode = { ...node, text, standIn: index === 0 ? node.standIn : undefined };
+      if (index > 0) continuations.add(piece);
+      // An item written as several paragraphs is that many items of the one
+      // list, counted on from each other: three points, numbered 1, 2, 3.
+      if (place !== undefined) listPlaces.set(piece, place);
+      return piece;
+    });
 }
 
 /**
@@ -2298,14 +2573,15 @@ function columnWidths(
   columns: readonly TableColumn[],
   style: DocumentStyle,
   bleed = false,
+  withinTwips?: number,
 ): number[] {
   // A bleeding table is laid out on the paper, not on the text column: it is
   // pulled out to the edges by a negative indent, so the width it has to fill
   // is the whole sheet.
   // Twips are subtracted, not millimetres, so stored tables keep their widths.
   const pageTwips = mmToTwips(pageWidthMm(style.page));
-  const available = bleed ? pageTwips : pageTwips -
-    mmToTwips(style.page.margins.leftMm + style.page.margins.rightMm);
+  const available = withinTwips ?? (bleed ? pageTwips : pageTwips -
+    mmToTwips(style.page.margins.leftMm + style.page.margins.rightMm));
   const fixed = columns.map((column) => declaredTwips(column.width, available));
   const autos = fixed.filter((width) => width === 0).length;
   const spare = Math.max(available - fixed.reduce((total, width) => total + width, 0), 0);

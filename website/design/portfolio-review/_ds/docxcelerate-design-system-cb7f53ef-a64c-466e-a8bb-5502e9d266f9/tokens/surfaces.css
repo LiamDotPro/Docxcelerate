@@ -1,0 +1,36 @@
+/* Borders, radii, shadows. Everything on the site is a hairline plus a radius
+   under 8px; shadow is reserved for things that represent paper or float. */
+:root {
+  --radius-xs: 2px; /* focus ring rounding */
+  --radius-sm: 3px; /* inline code, small controls */
+  --radius: 4px; /* buttons, inputs, tags */
+  --radius-md: 6px; /* code blocks, cards */
+  --radius-lg: 8px; /* the demo shell */
+  --radius-pill: 9999px;
+
+  --border-width: 1px;
+  --border-hairline: 1px solid var(--border);
+  --border-strong: 1px solid var(--border-firm);
+  --border-accent: 1px solid var(--accent);
+
+  /* Elevation. Two of these are drawings of paper, so they keep their tuned
+     values rather than snapping to a generic scale. */
+  --shadow-none: none;
+  --shadow-shell: 0 1px 2px rgb(0 0 0 / 4%), 0 18px 40px -24px rgb(0 0 0 / 28%);
+  --shadow-sheet: 0 18px 40px rgba(23, 26, 23, 0.08);
+  --shadow-page: 0 2px 6px rgb(0 0 0 / 10%), 0 14px 34px -18px rgb(0 0 0 / 40%);
+  --shadow-page-docx: 0 1px 2px rgb(15 23 42 / 12%), 0 16px 44px rgb(15 23 42 / 24%);
+  --shadow-quote-glow: 0 1px 24px rgba(0, 0, 0, 0.18); /* text-shadow on the green band */
+
+  /* The one gradient in the system: the glow behind the pull quote. */
+  --glow-band: radial-gradient(ellipse 70% 90% at 50% 34%, rgba(159, 212, 184, 0.16), rgba(15, 63, 45, 0) 70%); /* @kind color */
+  /* Highlighter wash under a run of text. */
+  --wash-underlay: linear-gradient(180deg, transparent 52%, var(--wash) 52%); /* @kind color */
+
+  /* Paper is #ffffff in BOTH themes — a letter preview that dims at night
+     stops reading as paper, and the product's claim is that the preview is
+     the document. */
+  --paper-fixed: #ffffff;
+  --paper-fixed-ink: #1f2933;
+  --paper-fixed-border: #c7ccd6;
+}
