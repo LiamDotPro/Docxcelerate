@@ -331,6 +331,7 @@ interface AiConfig {
   from?: JsonObject | string;   // the facts to write from, as data or as prose
   avoid?: string;               // what it must not say
   example?: string | string[];  // what a good answer looks like, written out
+  options?: JsonObject;         // settings for the engine's client, e.g. { model: "large", maxTokens: 400 }
 }
 ```
 
@@ -358,6 +359,8 @@ their lines. Once filled, a string arrives without quotes and a list or object a
 compact JSON; literals you write beside them stay as they are. Name the fields —
 handing over the whole request data, or the result of a `.map()`, is refused at
 publish.
+
+`options` is handed to the engine's `AiClient` untouched as `request.node.aiOptions`, for a paragraph, an image and a chart alike. Use it when one node needs a different model or a longer limit than the rest: `options: { model: "large", maxTokens: 1200 }`. docxcelerate reads none of it, so the keys are whatever your client understands. It is fixed at build time and published with the document, so it cannot be read from request data (that is refused at publish) and must never hold a key. Omitted or `{}`, the node carries no `aiOptions`. A shared hook can set it with `useSetPrompts({ aiOptions })`, and a later layer replaces it whole, without merging.
 
 The `useState` setter is not a re-render request — a build is a single pass. It
 updates the value this component reads later, and the value anything sharing it
@@ -556,7 +559,7 @@ interface AiClient {
 
 // All three requests have this shape; `node` is a ParagraphNode, GraphNode or ImageNode.
 interface AiGenerationRequest {
-  node: ParagraphNode;    // the node being written, with its id
+  node: ParagraphNode;    // the node being written, with its id and any aiOptions from useAi
   prompt: string;         // the prompts joined, one "KIND: text" line each
   prompts: PromptSpec[];  // the same, kept apart: { kind, text }
   state: RuntimeState;    // the data and locale this document is written for

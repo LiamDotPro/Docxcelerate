@@ -128,6 +128,8 @@ and a length. The same call makes an `<Image>` or a `<Graph>` generated: return
 `<Graph id="trend" graphType="bar" />` with no `data`, or `<Image id="hero" />`
 with no `src`.
 
+`options` passes settings to the engine's client for this node only, such as `options: { model: "large", maxTokens: 1200 }` for a long summary in a document of short lines. The client reads it as `request.node.aiOptions`, and its keys are whatever that client understands. It is fixed when the document is built: write the values, not request data.
+
 Everything in `useAi` is published in the engine document, so never put a key,
 a token or anything secret in it.
 

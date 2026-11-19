@@ -10,7 +10,7 @@ import {
   ScriptedAiClient,
 } from "docxcelerate";
 import type { DocumentModel, DocumentNode, GraphNode, ParagraphNode, PromptSpec } from "docxcelerate";
-import { Document, Graph, Image, Paragraph, Section, template, useAi, useState } from "docxcelerate/template";
+import { Document, Graph, Image, Paragraph, Section, template, useAi, useSetPrompts, useState } from "docxcelerate/template";
 
 /**
  * One hook for a node an engine writes.
@@ -789,5 +789,169 @@ test("a generated paragraph that is not text names the node", async () => {
       }),
     Error,
     'Dynamic paragraph "summary" got an answer that is not text: it returned an object.',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Options
+// ---------------------------------------------------------------------------
+
+const withOptions = (options: unknown) => () => {
+  useAi({ ask: "Summarise.", placeholder: "A summary.", options: options as never });
+  return <Paragraph id="summary" />;
+};
+
+/** A client that records the options of every node it is asked to write. */
+function optionsClient(seen: unknown[]) {
+  return {
+    generateParagraph: (request: { node: { aiOptions?: unknown } }) => {
+      seen.push(request.node.aiOptions);
+      return "Written.";
+    },
+    generateImage: (request: { node: { aiOptions?: unknown } }) => {
+      seen.push(request.node.aiOptions);
+      return { path: "data:image/png;base64,AAAA" };
+    },
+    generateGraph: (request: { node: { aiOptions?: unknown } }) => {
+      seen.push(request.node.aiOptions);
+      return { data: { categories: ["Q1"], series: [{ values: [1] }] } };
+    },
+  };
+}
+
+test("a paragraph's options reach the client", async () => {
+  const seen: unknown[] = [];
+  const options = { model: "large", maxTokens: 400 };
+  const built = await buildWith(withOptions(options), {
+    dynamicMode: "resolve",
+    aiClient: optionsClient(seen),
+  });
+
+  assertEquals(seen, [options]);
+  assertEquals(paragraphOf(built.nodes).aiOptions, options);
+});
+
+test("an image's and a chart's options reach their clients", async () => {
+  const seen: unknown[] = [];
+
+  for (const node of [<Image id="portrait" />, <Graph id="revenue" />]) {
+    await buildWith(() => {
+      useAi({ ask: "Make it.", placeholder: "Stand-in.", options: { model: "img-1" } });
+      return node;
+    }, { dynamicMode: "resolve", aiClient: optionsClient(seen) });
+  }
+
+  assertEquals(seen, [{ model: "img-1" }, { model: "img-1" }]);
+});
+
+test("options survive publishing and a stored model", async () => {
+  const Summary = () => {
+    useAi({ ask: "Summarise.", placeholder: "A summary.", options: { model: "large" } });
+    return <Paragraph id="summary" />;
+  };
+  const published = await buildProjectEngineDocument(defineDocumentProject<InvoiceData>({
+    id: "invoice",
+    name: "Invoice",
+    template: template<InvoiceData>(
+      <Document id="invoice" title="Invoice">
+        <Section id="body" title="Body">
+          <Summary />
+        </Section>
+      </Document>,
+    ),
+    previewData: invoice,
+  }));
+
+  assertEquals(paragraphOf(published.nodes).aiOptions, { model: "large" });
+
+  const seen: unknown[] = [];
+
+  await resolveDocument(JSON.parse(JSON.stringify(published)), {
+    ctx: { ...invoice, availableTokens: 2_000 },
+    derived: {},
+    dataProvider: new InMemoryDataProvider({ ...invoice }),
+    aiClient: optionsClient(seen),
+  } as never);
+
+  assertEquals(seen, [{ model: "large" }]);
+});
+
+test("omitted or empty options leave no aiOptions on the node", async () => {
+  for (const component of [summary, withOptions({})]) {
+    const built = await buildWith(component, {
+      dynamicMode: "resolve",
+      aiClient: { generateParagraph: () => "" },
+    });
+
+    assertEquals("aiOptions" in paragraphOf(built.nodes), false);
+  }
+});
+
+test("a preview carries no options", async () => {
+  const node = paragraphOf((await buildWith(withOptions({ model: "large" }), {
+    dynamicMode: "placeholder",
+  })).nodes);
+
+  assertEquals("aiOptions" in node, false);
+  assertEquals(node.text, "A summary.");
+});
+
+test("a static arm drops its options", async () => {
+  const built = await buildWith(() => {
+    useAi({ ask: "Summarise.", placeholder: "A summary.", options: { model: "large" } });
+    return <Paragraph id="p">Written here.</Paragraph>;
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  const node = paragraphOf(built.nodes);
+
+  assertEquals(node.mode, "static");
+  assertEquals("aiOptions" in node, false);
+});
+
+test("a later layer replaces options whole", async () => {
+  const built = await buildWith(() => {
+    useSetPrompts({ aiOptions: { model: "small", temperature: 0 } });
+    useAi({ ask: "Summarise.", placeholder: "A summary.", options: { model: "large" } });
+    return <Paragraph id="summary" />;
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+
+  assertEquals(paragraphOf(built.nodes).aiOptions, { model: "large" });
+});
+
+test("options that are not an object are refused", async () => {
+  await assertRejects(
+    () => buildWith(withOptions("large"), { dynamicMode: "placeholder" }),
+    Error,
+    "must be an object",
+  );
+});
+
+test("request data in options is refused at publish", async () => {
+  await assertRejects(
+    () => {
+      const Summary = () => {
+        const [data] = useState((input: InvoiceData) => input);
+        useAi({
+          ask: "Summarise.",
+          placeholder: "A summary.",
+          options: { model: data.reference as never },
+        });
+        return <Paragraph id="summary" />;
+      };
+
+      return buildProjectEngineDocument(defineDocumentProject<InvoiceData>({
+        id: "invoice",
+        name: "Invoice",
+        template: template<InvoiceData>(
+          <Document id="invoice" title="Invoice">
+            <Section id="body" title="Body">
+              <Summary />
+            </Section>
+          </Document>,
+        ),
+        previewData: invoice,
+      }));
+    },
+    Error,
+    "handed request data while publishing",
   );
 });

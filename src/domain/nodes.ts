@@ -164,6 +164,12 @@ export interface BaseNode {
   when?: Condition;
   /** Instructions for an engine writing this node's content. */
   prompts?: PromptSpec[];
+  /**
+   * Settings for the engine writing this node — a model name, a token limit —
+   * passed to its `AiClient` untouched. Nothing in docxcelerate reads them.
+   * Only a generated node carries them.
+   */
+  aiOptions?: JsonObject;
   /** Computations to run before the node is written. */
   derivers?: DeriverInvocation[];
 }
