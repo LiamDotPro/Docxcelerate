@@ -184,6 +184,12 @@ Notes worth knowing:
   shorter than the categories is padded with gaps; one with no categories is
   counted by position. Strings inside the payload are run through the template
   renderer, so a label containing `{{derived.total}}` resolves.
+- A chart's `title`, `alt`, `caption`, `categoryAxisTitle` and `valueAxisTitle`
+  are text like any other: interpolated request data publishes as a token and is
+  filled per document, by a direct build and by `resolveDocument` alike. On a
+  generated chart they are filled before `aiClient.generateGraph` is called, so
+  `request.node` carries the recipient's words. A `caption` the model returns is
+  printed as written, never rendered, so a token in an answer stays text.
 - `scatter` and `bubble` read the categories as their x values, so those are
   numbers written as text; anything that will not parse counts as its position.
   `sizes` is the third figure a `bubble` carries and no other type reads.
@@ -456,6 +462,11 @@ build with. A generated `<Graph>` needs the engine's client to implement
 `generateGraph`, a generated `<Image>` `generateImage`; resolving a node whose
 method is missing fails, naming the node. A generated image keeps the `alt`,
 `width` and `height` the template gave it unless the client returns its own.
+
+A missing method is never filled in with the placeholder: the placeholder is
+only what a preview shows before anything is asked. Every request's `node`
+arrives with its prompts already resolved against the request data — a
+paragraph's included — and whatever the client returns is printed as written.
 
 For a project, prefer `buildProjectPreviewDocument` over `buildDocument` — it is
 exactly what the preview app calls, so what you build in code matches what you

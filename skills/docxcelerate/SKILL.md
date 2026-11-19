@@ -315,6 +315,11 @@ decision that depends on request data has to travel to the engine instead:
   document. Never hand-write a `{{data.…}}` token; interpolation produces it.
   This holds in every header and footer, the first-page and even-page ones
   included.
+- **A chart's words publish like any others.** Interpolate into a `<Graph>`'s
+  `title`, `alt`, `caption`, `categoryAxisTitle` and `valueAxisTitle` —
+  ``valueAxisTitle={`Spend (${state.currency})`}`` — and each is filled per
+  document, on a generated chart before the client is asked. A caption the
+  model writes back is printed as written.
 - **`useAi({ from: { … } })` takes request data as it is.** Each field you name
   publishes as its token, so the model is sent the recipient's facts — a list
   arrives whole, as JSON. Name the fields (`from: { period: data.period }`), never

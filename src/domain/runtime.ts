@@ -58,7 +58,7 @@ export interface DataProvider {
 
 /** What an {@linkcode AiClient} is told when asked to write a paragraph. */
 export interface AiGenerationRequest {
-  /** The node being written. */
+  /** The node being written, its prompts resolved against the request data. */
   node: ParagraphNode;
   /** The node's prompts, joined into one instruction. */
   prompt: string;
@@ -70,7 +70,7 @@ export interface AiGenerationRequest {
 
 /** What an {@linkcode AiClient} is told when asked to produce an image. */
 export interface AiImageGenerationRequest {
-  /** The node being filled. */
+  /** The node being filled, its prompts and alt resolved against the request data. */
   node: ImageNode;
   /** The node's prompts, joined into one instruction. */
   prompt: string;
@@ -97,7 +97,7 @@ export interface AiImageResult {
 
 /** What an {@linkcode AiClient} is told when asked to produce chart data. */
 export interface AiGraphGenerationRequest {
-  /** The node being filled. */
+  /** The node being filled, its prompts, title, alt, caption and axis titles resolved against the request data. */
   node: GraphNode;
   /** The node's prompts, joined into one instruction. */
   prompt: string;
@@ -129,8 +129,17 @@ export interface AiGraphResult {
  * What fills in the dynamic nodes of a document.
  *
  * Only paragraphs are required. A client that cannot draw or illustrate leaves
- * those methods off, and a document that reaches a generated chart or image
- * then fails, naming the node, rather than packing an empty one.
+ * `generateImage` or `generateGraph` off, and a document that never asks for
+ * one builds and resolves without it. The first generated image or chart
+ * reached without its method fails the build or the resolve with an error
+ * naming the node. A placeholder is only what a preview build shows instead of
+ * asking at all; it never stands in for a missing method.
+ *
+ * Every request's `node` arrives with its prompts and the words its template
+ * wrote on it already resolved against the request data, on a build and on an
+ * engine alike. What the client returns is printed as written: a `{{data.x}}`
+ * in a model's answer stays text, so model output cannot pull request data into
+ * the document.
  */
 export interface AiClient {
   /**
