@@ -3644,6 +3644,63 @@ export const COMPONENTS: RegistryComponent[] = [
 
   {
     kind: "component",
+    id: "statement-remittance-reference",
+    title: "Statement remittance reference",
+    summary: "The one reference a payer quotes for several open items, and the tear-off advice.",
+    detail:
+      "Credit notes and unallocated payments are set against open invoices oldest " +
+      "due date first, so the advice shows exactly which invoices the payment " +
+      "clears, and the one left part-paid says what remains. Disputed items are " +
+      "listed with an unticked box and never counted in the amount to pay. The " +
+      "reference follows the rail: one item's own reference, else the invoice list " +
+      "with its common prefix written once, else a statement RF where the rail " +
+      "takes one, else the account number with a statement tag. It is folded to " +
+      "the rail's case and characters before it is measured, and never truncated: " +
+      "a reference that fits nowhere fails the document. KID and OCR rails take " +
+      "one reference per payment, so there the advice asks for one payment per " +
+      "item. The advice has the account number, statement date, a tick box, " +
+      "amount and running total per item, and an amount-paid box. All of it is " +
+      "one deriver.",
+    category: "Closing",
+    tags: ["money", "statement", "payment", "remittance", "reference", "table", "deriver", "branching", "section"],
+    exports: ["StatementRemittanceReference"],
+    dataFields: [
+      { path: "statement.currency", type: "string", summary: "ISO 4217 code; sets the minor units and must match the rail. Required." },
+      { path: "statement.date", type: "string", summary: "ISO 8601 statement date. Required." },
+      { path: "statement.customerNumber", type: "string", summary: "The account number, printed on the advice and used in RF and account-tag references. Required." },
+      {
+        path: "statement.rail",
+        type: '"bacs" | "fps" | "sepa" | "sepa-rf" | "ach-ccd" | "ach-ctx" | "swift" | "nz" | "kid" | "se-ocr"',
+        summary: "The payer's rail; sets the reference's length, characters and shape.",
+      },
+      { path: "statement.acceptsRf", type: "boolean | undefined", summary: "Whether an RF is matched on bacs, fps, sepa or swift. Missing means no." },
+      {
+        path: "items",
+        type:
+          'Array<{ type: "invoice" | "credit-note" | "payment"; number: string; date: string; dueDate?: string; amount: number; reference?: string; disputed?: boolean }>',
+        summary: "Every open item, amounts unsigned in major units. Missing or empty means nothing to pay.",
+      },
+    ],
+    files: node("statement-remittance-reference", { deriver: true }),
+    previewData: {
+      statement: { currency: "EUR", date: "2026-11-30", customerNumber: "CUST-00482137-DE", rail: "sepa", acceptsRf: true },
+      items: [
+        { type: "invoice", number: "INV-2026-0041873", date: "2026-08-04", dueDate: "2026-09-03", amount: 184250.0 },
+        { type: "invoice", number: "INV-2026-0041902", date: "2026-08-11", dueDate: "2026-09-10", amount: 96400.5 },
+        { type: "invoice", number: "INV-2026-0042177", date: "2026-09-01", dueDate: "2026-10-01", amount: 1284750.0 },
+        { type: "invoice", number: "INV-2026-0042318", date: "2026-09-15", dueDate: "2026-10-15", amount: 412980.75 },
+        { type: "invoice", number: "INV-2026-0042406", date: "2026-10-01", dueDate: "2026-10-31", amount: 73615.2 },
+        { type: "invoice", number: "INV-2026-0042555", date: "2026-10-20", dueDate: "2026-11-19", amount: 258300.0, disputed: true },
+        { type: "invoice", number: "INV-2026-0042690", date: "2026-11-02", dueDate: "2026-12-02", amount: 339125.4 },
+        { type: "credit-note", number: "CN-2026-0003318", date: "2026-09-22", amount: 215000.0 },
+        { type: "payment", number: "PAY-2026-0118842", date: "2026-10-28", amount: 100000.0 },
+      ],
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
     id: "boleto-linha-digitavel",
     title: "Boleto typeable line (Brazil)",
     summary: "A boleto's 47-digit typeable line, built from the invoice or checked against the bank's.",
