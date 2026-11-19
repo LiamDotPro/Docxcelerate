@@ -120,6 +120,7 @@ dxcl list components
 | `letterhead` | Who sent this, from where, and when. |
 | `recipient-block` | The address, and a greeting that survives a missing name. |
 | `payment-summary` | What is owed, by when — and what to say when nothing is. |
+| `invoice-totals` | Line items and VAT totals, rounded per rate — the penny the customer's system expects. |
 | `balance-trend` | A line of how a balance has moved, and a sentence saying the same thing. |
 | `usage-breakdown` | A pie of where a total went, with the tail folded into Other. |
 | `period-comparison` | This period against the last, category by category, as clustered bars. |
