@@ -159,11 +159,20 @@ async function singleNodeTemplate() {
     template(jsx(Document, { id, title, children: jsx(component, {}) }));
 }
 
-/** Answers nothing, so only the prompts survive the round trip. */
+/**
+ * Answers with a stand-in, so only the prompts are worth reading back.
+ *
+ * Not an empty string: the resolver refuses an empty answer as a blank where
+ * the document promised prose, and a refusal here fails the whole site build.
+ * The words are thrown away; the prompts beside them are what the page shows.
+ */
 const EMPTY_AI_CLIENT = {
-  generateParagraph: () => "",
-  generateImage: () => ({ path: "" }),
-  generateGraph: () => ({}),
+  generateParagraph: () => "Written per document.",
+  // A one-pixel PNG: the resolver draws what it is given, and refuses nothing.
+  generateImage: () => ({
+    path: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  }),
+  generateGraph: () => ({ data: { series: [{ values: [1] }] } }),
 };
 
 /**
