@@ -292,6 +292,11 @@ export interface ParagraphList {
    * each followed by a full stop. A bulleted item has none.
    */
   style?: ListStyle;
+  /**
+   * The number this item's level counts from, for a numbered item that opens
+   * the level in its list. Absent means 1. A bulleted item has none.
+   */
+  start?: number;
 }
 
 /**
@@ -650,7 +655,7 @@ export interface PageNumberNode extends BaseNode {
  * A build cannot unroll this the way it unrolls a branch: the length of
  * `source` is not known until a document is written. So the loop itself is
  * what gets published, and the engine walks it. Each pass binds the entry under
- * `as` and its position under `indexAs`, both readable through `ctx`, and
+ * `as` and its position under `indexAs`, and its one-based place among the entries that pass `where` under `positionAs`, both readable through `ctx`, and
  * suffixes child ids with the index so they stay unique across passes.
  */
 export interface RepeatNode extends BaseNode {
@@ -662,6 +667,14 @@ export interface RepeatNode extends BaseNode {
   as: string;
   /** The `ctx` key each entry's zero-based position is bound to. */
   indexAs: string;
+  /**
+   * The `ctx` key each walked entry's position, counting from one, is bound to.
+   *
+   * Counted over the entries that pass `where`, so a filtered loop numbers what
+   * the recipient sees. Absent on a loop published before positions existed,
+   * which binds none.
+   */
+  positionAs?: string;
   /**
    * A test each entry has to pass to be walked at all.
    *

@@ -114,6 +114,17 @@ export interface DocumentPageStyle {
   /** How far the running footer stands from the foot of the paper, in mm. */
   footerMm?: number;
   /**
+   * Where the body sits between the top and bottom margins.
+   *
+   * For a document that is one page or whose pages are mostly empty: a
+   * certificate or a cover sheet set mid-page instead of hanging off the top
+   * margin. It is Word's own setting rather than space pushed in above the
+   * text, so it stays right whatever the text runs to. It applies to every
+   * page. A full page has no room to move, but a short last page is centred
+   * too, the same as in Word. A document that says nothing starts at the top.
+   */
+  valign?: "top" | "center" | "bottom";
+  /**
    * The number the first page carries, counting on from there.
    *
    * For a document that continues another — an appendix whose pages run on
@@ -249,7 +260,7 @@ export interface DocumentStyle {
 export interface DocumentBlockStyle {
   /** Background, as a hex string without the `#`. */
   fill?: string;
-  /** Text colour, for a block whose fill is dark enough to need one. */
+  /** Text colour, for a block whose fill is dark enough to need one. A link in the block is drawn in it too, rather than in the palette's accent. */
   color?: string;
   /** Border colour. Drawn only when this is set. */
   border?: string;
