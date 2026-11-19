@@ -3268,6 +3268,59 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "good-faith-estimate-comparison",
+    title: "Good faith estimate comparison (No Surprises Act)",
+    summary: "Each provider's bill against its own good faith estimate, and the dispute rights a $400 overrun gives a self-pay patient.",
+    detail:
+      "For a patient who is uninsured or paying for their own care, each provider or facility " +
+      "is compared with its own line on the good faith estimate, never with the estimate as a " +
+      "whole, and everything it billed counts, including items that were not on the estimate. " +
+      "A provider missing from the estimate is compared with nothing. Where a provider billed " +
+      "at least $400 more, counted in whole cents, the patient is told they can dispute that " +
+      "bill, by a deadline 120 days from the date on the initial bill, that it will not go to " +
+      "collections or gather late fees while the dispute is open, and whom to contact: CMS, or " +
+      "the state where it runs its own process. A statement can offer the dispute for one " +
+      "provider and not another. Under $400 it says so without dispute wording. A patient " +
+      "billing their plan or enrolled in a federal programme, or with no estimate, gets nothing. " +
+      "All of it is one deriver.",
+    category: "Legal",
+    tags: ["legal", "healthcare", "billing", "no-surprises-act", "dispute", "table", "deriver", "branching", "section"],
+    exports: ["GoodFaithEstimateComparison"],
+    dataFields: [
+      { path: "patientBill.coverage", type: '"uninsured" | "self-pay" | "insured" | "federal-program"', summary: "How the patient pays. Only uninsured and self-pay print anything. Required." },
+      { path: "patientBill.initialBillDate", type: "string", summary: "ISO 8601 date on the initial bill; the deadline is 120 days on. Required when anything prints." },
+      { path: "patientBill.estimate", type: "{ date: string } | undefined", summary: "The good faith estimate. Missing prints nothing." },
+      { path: "patientBill.stateProcess", type: "{ name: string; contact: string } | undefined", summary: "The state's own dispute process. Missing means the federal one." },
+      { path: "patientBill.providers", type: "Array<{ name: string; estimateCents?: number; billedLines: Array<{ amountCents: number }> }>", summary: "Up to 6 providers, amounts in integer cents. A missing estimate means not on it." },
+    ],
+    files: node("good-faith-estimate-comparison", { deriver: true }),
+    previewData: {
+      patientBill: {
+        coverage: "self-pay",
+        initialBillDate: "2026-11-02",
+        estimate: { date: "2026-09-14" },
+        providers: [
+          {
+            name: "Northwestern Lakeshore Regional Medical Center Ambulatory Surgery Department",
+            estimateCents: 4850000,
+            billedLines: [{ amountCents: 4612500 }, { amountCents: 186750 }, { amountCents: 39999 }],
+          },
+          {
+            name: "Associated Anesthesiologists of the Greater Metropolitan Area, P.C.",
+            estimateCents: 640000,
+            billedLines: [{ amountCents: 702500 }, { amountCents: 118289 }],
+          },
+          {
+            name: "Lakeshore Pathology and Laboratory Medicine Consultants, LLC",
+            billedLines: [{ amountCents: 48250 }],
+          },
+        ],
+      },
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
