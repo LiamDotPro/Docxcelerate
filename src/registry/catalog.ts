@@ -1127,6 +1127,70 @@ export const COMPONENTS: RegistryComponent[] = [
   },
   {
     kind: "component",
+    id: "timesheet-fee-summary",
+    title: "Timesheet fee summary",
+    summary: "Billed fees per timekeeper from raw time entries, rounded per entry and rated by date.",
+    detail:
+      "Each entry is rounded to the billing increment on its own (up or to nearest, " +
+      "minimum one increment), because per-entry, per-day and per-total rounding " +
+      "bill different hours and the client's guidelines name one: three 7-minute " +
+      "entries are 0.60 hours, not 0.40. Each entry is rated by its date, so a rate " +
+      "change mid-invoice splits the timekeeper into two rows instead of applying the " +
+      "new rate backwards. A client-approved rate below standard never replaces the " +
+      "rate; the row keeps the engagement-letter rate and a 'reduction per billing " +
+      "guidelines' line shows the difference. Travel is its own row at the agreed " +
+      "factor, no-charge time is listed at 0.00 with its hours, and a write-down is " +
+      "its own line with its reason. Hours always print with two decimals and every " +
+      "row's hours times rate equals its amount, counted in integer minor units. " +
+      "All of it is one deriver.",
+    category: "Body",
+    tags: ["invoice", "legal", "time", "billing", "table", "deriver"],
+    exports: ["TimesheetFeeSummary"],
+    dataFields: [
+      { path: "time.entries", type: 'Array<{ date: string; timekeeperId: string; minutes: number; kind?: "work" | "travel" | "no-charge" }>', summary: "Raw time entries, each rounded on its own. Empty prints 'No time was recorded'." },
+      { path: "time.timekeepers", type: "Array<{ id: string; name: string; role: string; rates: Array<{ from: string; rate: number }>; approvedRate?: number }>", summary: "In print order; dated standard rates, and an optional client-approved rate." },
+      { path: "time.billing.incrementMinutes", type: "number | undefined", summary: "Billing increment in minutes, a multiple of 3. Missing means 6 (0.1 hours)." },
+      { path: "time.billing.rounding", type: '"up" | "nearest" | undefined', summary: "How each entry rounds to the increment. Missing means up." },
+      { path: "time.billing.travelFactor", type: "number | undefined", summary: "Share of the rate travel bills at, 0 to 1. Missing means the full rate." },
+      { path: "time.billing.writeDown", type: "{ amount: number; reason: string } | undefined", summary: "An agreed write-down, printed as its own line with its reason." },
+      { path: "time.currency", type: "string | undefined", summary: "ISO 4217 code; sets the minor unit. Missing means GBP." },
+    ],
+    files: node("timesheet-fee-summary", { deriver: true }),
+    previewData: {
+      time: {
+        currency: "GBP",
+        billing: {
+          incrementMinutes: 6,
+          rounding: "up",
+          travelFactor: 0.5,
+          writeDown: { amount: 4750, reason: "Agreed reduction for duplicated research on the limitation point" },
+        },
+        timekeepers: [
+          { id: "AMF", name: "Alexandra Montgomery-Fitzwilliam KC", role: "Partner, Head of Commercial Litigation",
+            rates: [{ from: "2025-04-01", rate: 1150 }, { from: "2026-10-01", rate: 1295 }], approvedRate: 1200 },
+          { id: "COH", name: "Chukwuemeka Okonkwo-Hargreaves", role: "Senior Associate (Solicitor-Advocate)",
+            rates: [{ from: "2025-04-01", rate: 685 }] },
+          { id: "PSL", name: "Priyanka Subramaniam-Lindqvist", role: "Trainee Solicitor",
+            rates: [{ from: "2025-09-01", rate: 245 }] },
+        ],
+        entries: [
+          { date: "2026-09-14", timekeeperId: "AMF", minutes: 547 },
+          { date: "2026-09-29", timekeeperId: "AMF", minutes: 412 },
+          { date: "2026-10-02", timekeeperId: "AMF", minutes: 583 },
+          { date: "2026-10-02", timekeeperId: "AMF", minutes: 185, kind: "travel" },
+          { date: "2026-09-15", timekeeperId: "COH", minutes: 598 },
+          { date: "2026-09-16", timekeeperId: "COH", minutes: 601 },
+          { date: "2026-10-02", timekeeperId: "COH", minutes: 185, kind: "travel" },
+          { date: "2026-10-05", timekeeperId: "COH", minutes: 44, kind: "no-charge" },
+          { date: "2026-09-17", timekeeperId: "PSL", minutes: 589 },
+          { date: "2026-09-18", timekeeperId: "PSL", minutes: 7 },
+        ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
     id: "disbursements-and-recharges",
     title: "Disbursements and recharges",
     summary: "Expenses split into recharges that carry your fees' VAT and disbursements passed on at cost outside it.",
