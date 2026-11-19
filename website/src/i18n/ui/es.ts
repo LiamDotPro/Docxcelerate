@@ -61,14 +61,32 @@ export const es: UiStrings = {
       "sobre él. Aprovecha nuestro motor para generar documentos a gran escala.",
     ctaStart: "Empezar →",
     ctaHowItWorks: "Cómo funciona",
-    copyInstall: "Copiar el comando de instalación",
-    copy: "Copiar",
     copied: "Copiado",
     copyFallback: "Pulsa ⌘C",
     integrityTitle: "{hash} · haz clic para copiar",
     /** Accessible name for the registry marks beside the version. */
     onNpm: "Docxcelerate en npm",
     onJsr: "Docxcelerate en JSR",
+
+    /** The hero's switch between the two builds of the document it shows. */
+    builds: {
+      label: "Una plantilla · dos builds",
+      engine: "Motor",
+      preview: "Vista previa",
+      engineCaption: "Motor: las partes resaltadas las escribió un modelo para este cliente, y la decisión fue suya. Cada cifra se calcula, nunca se genera.",
+      previewCaption: "Vista previa: la misma plantilla en tu máquina. Las partes generadas muestran su texto provisional, no se envía nada a ningún sitio y la página sale igual cada vez que guardas.",
+    },
+
+    /** §1: one paragraph followed from source to preview to the engine. */
+    source: {
+      title: "Código. Vista previa. Documento.",
+      lead: "Un párrafo del informe de cartera, seguido desde el archivo que escribes hasta la página que abre tu cliente. La vista previa nunca espera a un modelo y nada sale de tu máquina; el motor escribe la frase real para cada persona.",
+      sourceLabel: "código",
+      previewLabel: "vista previa",
+      sourceNote: "Se escribe una vez, en tu repositorio. El prompt vive junto al nodo que rellena.",
+      previewNote: "Se reconstruye cada vez que guardas. Los nodos generados muestran su texto provisional.",
+      engineNote: "Se escribe para cada destinatario. Las frases de alrededor no se mueven.",
+    },
 
     points: {
       authoring: {
@@ -79,16 +97,6 @@ export const es: UiStrings = {
           "conoces esta forma: props, composición, archivos pequeños. Así que una " +
           "persona con perfil de frontend es productiva la primera tarde en lugar de " +
           "tener que aprender antes un lenguaje de plantillas.",
-      },
-      ai: {
-        label: "IA",
-        title: "IA a nivel de componente",
-        body:
-          "La IA entra por hooks, dentro de los componentes que ya escribes. Un " +
-          "componente le da al modelo su contexto y lo que quieres que escriba, así " +
-          "que produce esa única parte del documento mientras todo lo que la rodea " +
-          "sigue siendo determinista. Tú decides cuánto se genera, un componente " +
-          "cada vez.",
       },
       changeControl: {
         label: "Control de cambios",
@@ -129,6 +137,8 @@ export const es: UiStrings = {
         "completo, con mucho que la versión gratuita no tiene, y llegará pronto.",
       ctaHow: "Cómo funciona el motor →",
       ctaCloud: "Nube gestionada",
+      /** {count} is a number of documents. */
+      volume: "{count} informes este trimestre",
       steps: {
         build: {
           title: "Compilar",
@@ -147,70 +157,7 @@ export const es: UiStrings = {
       },
     },
 
-    scale: {
-      eyebrow: "Empresa",
-      title: "Pensado para los informes que ya escribes a mano",
-      lead:
-        "Una firma que produce el mismo informe cientos de veces al mes ya tiene la " +
-        "maquetación y casi toda la redacción. Lo que cambia es la persona para la " +
-        "que se escribe. Reconstruye ese informe con componentes, mantén cada " +
-        "ejecución idéntica y deja al modelo solo las partes que dependen de quién " +
-        "lo va a leer.",
-      traits: {
-        volume: {
-          title: "Una plantilla, cada destinatario",
-          body:
-            "Publica la plantilla una vez y luego llámala por persona. Un informe o " +
-            "cien mil son la misma llamada, repetida.",
-        },
-        determinism: {
-          title: "El mismo documento siempre",
-          body:
-            "Todo lo que no marcaste como generado se renderiza igual en cada " +
-            "ejecución. Solo pueden variar las partes que elegiste.",
-        },
-        integration: {
-          title: "Lo llaman los sistemas que ya tienes",
-          body:
-            "Tu CRM, tu gestor de expedientes o tu sistema de facturación envía sus " +
-            "datos y recibe un .docx. Nadie exporta una hoja de cálculo ni abre Word.",
-        },
-        reproducibility: {
-          title: "Reproducible un año después",
-          body:
-            "Las plantillas están versionadas, así que cualquier documento se puede " +
-            "reconstruir con la misma plantilla y los mismos datos. Una auditoría " +
-            "recibe una compilación, no un archivo.",
-        },
-      },
-    },
 
-    openSource: {
-      eyebrow: "Código abierto",
-      title: "Código abierto, y hecho para seguir siéndolo",
-      bodyOne:
-        "El framework, los renderizadores, el modelo de nodos y la CLI tienen " +
-        "licencia MIT y se desarrollan a la vista de todos. Lee el código que escribe " +
-        "tus documentos, bifúrcalo o incorpóralo a tu propia compilación.",
-      bodyTwo:
-        "El motor se puede autoalojar gratis, así que generar documentos a escala " +
-        "nunca depende de que un proveedor siga en el mercado ni de que una lista de " +
-        "precios no cambie. Nuestra nube de pago añade las funciones premium sobre " +
-        "ese mismo núcleo libre, de modo que el alojamiento y la escala empresarial " +
-        "están listos desde el primer documento que escribes. Es la comodidad, no la " +
-        "puerta de entrada.",
-      ctaSource: "Ver el código →",
-      ctaNpm: "Verlo en npm",
-
-      licence: {
-        pages: "1 de 1",
-        copyright: "Copyright (c) {year} Docxcelerate",
-        fork: "Bifúrcalo",
-        vendor: "Incorpóralo",
-        ship: "Publícalo",
-        read: "Léela →",
-      },
-    },
 
     docs: {
       eyebrow: "Documentación",
@@ -248,35 +195,6 @@ export const es: UiStrings = {
       },
     },
 
-    agentSkill: {
-      eyebrow: "Agent skills",
-      title: "Dale el conjunto a tu agente",
-      lead:
-        "Un solo archivo Markdown le enseña a un agente de código cómo se arman aquí " +
-        "los documentos: el modelo de componentes, las reglas con las que tropiezan " +
-        "los agentes y todos los comandos. Colócalo y pide un documento en lugar de " +
-        "escribir el primero tú.",
-      where: "Dónde va el archivo",
-      copySkill: "Copiar la skill",
-      references:
-        "Es Markdown corriente, y a su lado hay cuatro archivos de referencia en " +
-        "skills/docxcelerate/.",
-      agents: {
-        "claude-code":
-          "Copia la carpeta en .claude/skills/ para un proyecto, o en " +
-          "~/.claude/skills/ para todos. Se carga sola en cuanto aparece un proyecto " +
-          "de documentos.",
-        "cursor":
-          "Guárdalo como archivo de reglas y Cursor lo lee en ese proyecto. O " +
-          "menciónalo con @ en el chat cuando lo necesites.",
-        "copilot":
-          "Pégalo en .github/copilot-instructions.md y Copilot lo aplica en todo el " +
-          "repositorio.",
-        "agents-md":
-          "Codex, Gemini CLI, Aider y Cline leen AGENTS.md en la raíz del repositorio. " +
-          "Pégalo ahí, o enlázalo si tu agente abre archivos.",
-      },
-    },
   },
 
   demo: {
@@ -298,8 +216,10 @@ export const es: UiStrings = {
       housing: "Vivienda",
       insurance: "Seguros",
       consulting: "Servicios profesionales",
+      finance: "Finanzas",
     },
     documents: {
+      "portfolio-review": "Informe trimestral de cartera",
       "offer-of-admission": "Carta de admisión",
       "repairs-appointment": "Cita de reparación",
       "policy-renewal": "Renovación de póliza",
@@ -313,6 +233,12 @@ export const es: UiStrings = {
     onThisPage: "En esta página",
     editOnGithub: "Editar esta página en GitHub ↗",
     viewAsMarkdown: "Leer esta página en Markdown",
+    /** {version} is the release the page was built against. */
+    renderedAgainst: "Renderizado con {version}",
+    previous: "Anterior",
+    next: "Siguiente",
+    /** Names the previous/next links at the foot of a page. */
+    pagination: "Página anterior y siguiente",
     untranslatedNote:
       "Esta página todavía no está traducida a tu idioma, así que se muestra en inglés.",
 
@@ -421,20 +347,25 @@ export const es: UiStrings = {
       heading: "Registro",
       lead:
         "Temas y componentes listos para tus proyectos de documento. Instala uno con un solo comando y edítalo como si fuera código tuyo.",
-      filterByTag: "Filtrar por etiqueta",
       allTags: "Todo",
       themesNote: "Instalar un tema escribe document-style.ts",
-      componentsNote: "Instalar un componente escribe su archivo en nodes/",
       nodes: "nodos",
       noPreview: "Sin vista previa",
       /** Abre las rutas de datos de una fila; une las etiquetas filtradas. */
       readsPrefix: "lee",
-      andJoin: "y",
-      /** {tag} is the tag that matched nothing. */
-      noMatches: "Ninguna entrada coincide con {tag}.",
-      noMatchesTitle: "Sin coincidencias",
-      noMatchesNote: "Prueba con otra etiqueta o quita el filtro.",
-      clearFilter: "Quitar filtro",
+      /** The page's headline; `heading` is the short name the nav uses. */
+      headline: "Empieza con papel que ya funciona.",
+      /** {themes} and {components} are counts. */
+      counts: "{themes} temas · {components} componentes",
+      useTheme: "Usar tema",
+      selected: "✓ Elegido",
+      add: "+ Añadir",
+      added: "✓ Añadido",
+      familyLabel: "Qué dibuja",
+      familyNote: "Agrupados según aquello en lo que se resuelve cada componente, leído del build, no una etiqueta que alguien mantiene.",
+      /** {count} is how many themes and components are picked. */
+      trayCount: "Tu instalación · selección: {count}",
+      trayEmpty: "elige un tema o un componente",
     },
     themes: {
       title: "Temas",

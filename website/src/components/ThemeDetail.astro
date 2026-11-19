@@ -99,7 +99,7 @@ const compare = THEMES.map((entry) => ({
       <div class="max-w-sm"><CopyField command={addCommand(theme.id)} /></div>
     </header>
 
-    <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+    <div class="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
       <!-- The document itself. -->
       <div class="flex flex-col gap-2">
         <NodePreview src={theme.previewUrl} title={theme.title} />
