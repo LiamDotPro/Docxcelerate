@@ -23,7 +23,7 @@ export function mergePrompts(...drafts: Array<PromptDraft | undefined>): PromptD
   for (const draft of drafts) {
     for (const [key, value] of Object.entries(draft ?? {})) {
       if (value !== undefined) {
-        merged[key as keyof PromptDraft] = value as string;
+        (merged as Record<string, unknown>)[key] = value;
       }
     }
   }

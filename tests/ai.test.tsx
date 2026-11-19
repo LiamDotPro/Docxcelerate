@@ -8,10 +8,12 @@ import {
   defineDocumentProject,
   EchoAiClient,
   InMemoryDataProvider,
+  promptMessages,
   resolveDocument,
   ScriptedAiClient,
 } from "docxcelerate";
 import type {
+  AiClient,
   DocumentModel,
   DocumentNode,
   GraphNode,
@@ -31,6 +33,7 @@ import {
   template,
   useAi,
   useDeriver,
+  useSetPrompts,
   useState,
 } from "docxcelerate/template";
 
@@ -437,6 +440,100 @@ test("an example is enough on its own to make a node generated", async () => {
   );
 
   assertEquals(paragraphOf(built.nodes).mode, "dynamic");
+});
+
+// ---------------------------------------------------------------------------
+// What a chat model is handed
+// ---------------------------------------------------------------------------
+
+function capturing() {
+  const asked: Array<{ system: string; user: string; prompt: string }> = [];
+  const aiClient: AiClient = {
+    generateParagraph(request) {
+      asked.push({ ...promptMessages(request), prompt: request.prompt });
+      return "Written.";
+    },
+  };
+  return { asked, aiClient };
+}
+
+const fullSummary = () => {
+  useAi({
+    ask: "Summarise.",
+    placeholder: "A summary.",
+    voice: "Plain, no sales tone.",
+    from: { period: "August 2026" },
+    avoid: "Do not restate the totals.",
+    example: "This invoice covers August.",
+  });
+
+  return <Paragraph id="summary" />;
+};
+
+test("promptMessages puts the voice and the document's language in the system message", async () => {
+  const { asked, aiClient } = capturing();
+  await buildWith(fullSummary, { locale: "fr-FR", aiClient, dynamicMode: "resolve" });
+
+  assertEquals(
+    asked[0].system,
+    "Write in French (France), the language of this document.\n\nPlain, no sales tone.",
+  );
+});
+
+test("promptMessages puts the ask first and the facts, limits and example under plain headings", async () => {
+  const { asked, aiClient } = capturing();
+  await buildWith(fullSummary, { aiClient, dynamicMode: "resolve" });
+
+  assertEquals(
+    asked[0].user,
+    'Summarise.\n\nFacts:\n{\n  "period": "August 2026"\n}\n\nAvoid:\nDo not restate the totals.\n\nWhat a good answer looks like:\nThis invoice covers August.',
+  );
+});
+
+test("promptMessages leaves the system message empty when there is no voice and no language", async () => {
+  const { asked, aiClient } = capturing();
+  await buildWith(summary, { aiClient, dynamicMode: "resolve" });
+
+  assertEquals(asked[0], {
+    system: "",
+    user: "Three sentences summarising what this invoice covers.",
+    prompt: "GENERAL: Three sentences summarising what this invoice covers.",
+  });
+});
+
+test("promptMessages keeps several examples numbered under one heading", () => {
+  assertEquals(
+    promptMessages({
+      prompts: [
+        { kind: "general", text: "Summarise." },
+        { kind: "example", text: "Example 1:\nOne.\n\nExample 2:\nTwo." },
+      ],
+    }),
+    { system: "", user: "Summarise.\n\nWhat a good answer looks like:\nExample 1:\nOne.\n\nExample 2:\nTwo." },
+  );
+});
+
+test("promptMessages skips a blank prompt rather than sending an empty heading", () => {
+  assertEquals(
+    promptMessages({
+      prompts: [
+        { kind: "system", text: "  " },
+        { kind: "general", text: " Summarise. " },
+        { kind: "negative", text: "" },
+      ],
+    }),
+    { system: "", user: "Summarise." },
+  );
+});
+
+test("request.prompt is unchanged for clients already reading it", async () => {
+  const { asked, aiClient } = capturing();
+  await buildWith(fullSummary, { locale: "fr-FR", aiClient, dynamicMode: "resolve" });
+
+  assertEquals(
+    asked[0].prompt,
+    'SYSTEM: Write in French (France), the language of this document.\nSYSTEM: Plain, no sales tone.\nGENERAL: Summarise.\nINFO: {\n  "period": "August 2026"\n}\nNEGATIVE: Do not restate the totals.\nEXAMPLE: This invoice covers August.',
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -943,6 +1040,170 @@ test("a generated paragraph that is not text names the node", async () => {
       }),
     Error,
     'Dynamic paragraph "summary" got an answer that is not text: it returned an object.',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Options
+// ---------------------------------------------------------------------------
+
+const withOptions = (options: unknown) => () => {
+  useAi({ ask: "Summarise.", placeholder: "A summary.", options: options as never });
+  return <Paragraph id="summary" />;
+};
+
+/** A client that records the options of every node it is asked to write. */
+function optionsClient(seen: unknown[]) {
+  return {
+    generateParagraph: (request: { node: { aiOptions?: unknown } }) => {
+      seen.push(request.node.aiOptions);
+      return "Written.";
+    },
+    generateImage: (request: { node: { aiOptions?: unknown } }) => {
+      seen.push(request.node.aiOptions);
+      return { path: "data:image/png;base64,AAAA" };
+    },
+    generateGraph: (request: { node: { aiOptions?: unknown } }) => {
+      seen.push(request.node.aiOptions);
+      return { data: { categories: ["Q1"], series: [{ values: [1] }] } };
+    },
+  };
+}
+
+test("a paragraph's options reach the client", async () => {
+  const seen: unknown[] = [];
+  const options = { model: "large", maxTokens: 400 };
+  const built = await buildWith(withOptions(options), {
+    dynamicMode: "resolve",
+    aiClient: optionsClient(seen),
+  });
+
+  assertEquals(seen, [options]);
+  assertEquals(paragraphOf(built.nodes).aiOptions, options);
+});
+
+test("an image's and a chart's options reach their clients", async () => {
+  const seen: unknown[] = [];
+
+  for (const node of [<Image id="portrait" />, <Graph id="revenue" />]) {
+    await buildWith(() => {
+      useAi({ ask: "Make it.", placeholder: "Stand-in.", options: { model: "img-1" } });
+      return node;
+    }, { dynamicMode: "resolve", aiClient: optionsClient(seen) });
+  }
+
+  assertEquals(seen, [{ model: "img-1" }, { model: "img-1" }]);
+});
+
+test("options survive publishing and a stored model", async () => {
+  const Summary = () => {
+    useAi({ ask: "Summarise.", placeholder: "A summary.", options: { model: "large" } });
+    return <Paragraph id="summary" />;
+  };
+  const published = await buildProjectEngineDocument(defineDocumentProject<InvoiceData>({
+    id: "invoice",
+    name: "Invoice",
+    template: template<InvoiceData>(
+      <Document id="invoice" title="Invoice">
+        <Section id="body" title="Body">
+          <Summary />
+        </Section>
+      </Document>,
+    ),
+    previewData: invoice,
+  }));
+
+  assertEquals(paragraphOf(published.nodes).aiOptions, { model: "large" });
+
+  const seen: unknown[] = [];
+
+  await resolveDocument(JSON.parse(JSON.stringify(published)), {
+    ctx: { ...invoice, availableTokens: 2_000 },
+    derived: {},
+    dataProvider: new InMemoryDataProvider({ ...invoice }),
+    aiClient: optionsClient(seen),
+  } as never);
+
+  assertEquals(seen, [{ model: "large" }]);
+});
+
+test("omitted or empty options leave no aiOptions on the node", async () => {
+  for (const component of [summary, withOptions({})]) {
+    const built = await buildWith(component, {
+      dynamicMode: "resolve",
+      aiClient: { generateParagraph: () => "Written." },
+    });
+
+    assertEquals("aiOptions" in paragraphOf(built.nodes), false);
+  }
+});
+
+test("a preview carries no options", async () => {
+  const node = paragraphOf((await buildWith(withOptions({ model: "large" }), {
+    dynamicMode: "placeholder",
+  })).nodes);
+
+  assertEquals("aiOptions" in node, false);
+  assertEquals(node.text, "A summary.");
+});
+
+test("a static arm drops its options", async () => {
+  const built = await buildWith(() => {
+    useAi({ ask: "Summarise.", placeholder: "A summary.", options: { model: "large" } });
+    return <Paragraph id="p">Written here.</Paragraph>;
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } });
+  const node = paragraphOf(built.nodes);
+
+  assertEquals(node.mode, "static");
+  assertEquals("aiOptions" in node, false);
+});
+
+test("a later layer replaces options whole", async () => {
+  const built = await buildWith(() => {
+    useSetPrompts({ aiOptions: { model: "small", temperature: 0 } });
+    useAi({ ask: "Summarise.", placeholder: "A summary.", options: { model: "large" } });
+    return <Paragraph id="summary" />;
+  }, { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } });
+
+  assertEquals(paragraphOf(built.nodes).aiOptions, { model: "large" });
+});
+
+test("options that are not an object are refused", async () => {
+  await assertRejects(
+    () => buildWith(withOptions("large"), { dynamicMode: "placeholder" }),
+    Error,
+    "must be an object",
+  );
+});
+
+test("request data in options is refused at publish", async () => {
+  await assertRejects(
+    () => {
+      const Summary = () => {
+        const [data] = useState((input: InvoiceData) => input);
+        useAi({
+          ask: "Summarise.",
+          placeholder: "A summary.",
+          options: { model: data.reference as never },
+        });
+        return <Paragraph id="summary" />;
+      };
+
+      return buildProjectEngineDocument(defineDocumentProject<InvoiceData>({
+        id: "invoice",
+        name: "Invoice",
+        template: template<InvoiceData>(
+          <Document id="invoice" title="Invoice">
+            <Section id="body" title="Body">
+              <Summary />
+            </Section>
+          </Document>,
+        ),
+        previewData: invoice,
+      }));
+    },
+    Error,
+    "handed request data while publishing",
   );
 });
 

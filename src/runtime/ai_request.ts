@@ -27,6 +27,7 @@ import type {
   GraphType,
   ImageNode,
   ParagraphNode,
+  PromptKind,
   PromptSpec,
   RuntimeState,
 } from "../domain/types.ts";
@@ -39,6 +40,62 @@ import type {
  */
 export function formatPromptText(prompts: PromptSpec[]): string {
   return prompts.map((entry) => `${entry.kind.toUpperCase()}: ${entry.text}`).join("\n");
+}
+
+/**
+ * The heading each part of a request is read under. The ask has none: it is
+ * the request, and everything after it qualifies it.
+ */
+const HEADINGS: Partial<Record<PromptKind, string>> = {
+  info: "Facts:",
+  negative: "Avoid:",
+  example: "What a good answer looks like:",
+};
+
+/**
+ * A request as the system and user messages a chat model is given.
+ *
+ * `request.prompt` labels each line with its kind, which suits a log and not a
+ * model: nothing is trained on `NEGATIVE:`. This splits the same prompts the
+ * way every chat API takes them. The voice and the document's language go in
+ * the system message. The ask leads the user message, and the facts, the
+ * limits and the example follow it under plain headings.
+ *
+ * @param request Any request an {@linkcode AiClient} is handed.
+ * @returns The system message, empty when the node set no voice and the
+ *   document no language, and the user message.
+ *
+ * @example
+ * ```ts
+ * const aiClient: AiClient = {
+ *   async generateParagraph(request) {
+ *     const { system, user } = promptMessages(request);
+ *     return await askMyModel(system, user);
+ *   },
+ * };
+ * ```
+ */
+export function promptMessages(request: { prompts: PromptSpec[] }): { system: string; user: string } {
+  const system: string[] = [];
+  const user: string[] = [];
+
+  for (const { kind, text } of request.prompts) {
+    const written = text.trim();
+
+    if (written === "") {
+      continue;
+    }
+
+    if (kind === "system") {
+      system.push(written);
+      continue;
+    }
+
+    const heading = HEADINGS[kind];
+    user.push(heading === undefined ? written : `${heading}\n${written}`);
+  }
+
+  return { system: system.join("\n\n"), user: user.join("\n\n") };
 }
 
 /**
