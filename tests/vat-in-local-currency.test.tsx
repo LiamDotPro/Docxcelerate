@@ -180,7 +180,7 @@ test("advances keep their own rate and the bands are the remainder", () => {
     ["23%", "€884,750.00", "PLN 3,780,094.38", "PLN 869,421.71"].map((x) => x),
     ["8%", "€48,210.40", "PLN 205,978.93", "PLN 16,478.31"],
     ["0%", "€12,500.00", "PLN 53,406.25", "PLN 0.00"],
-  ].map((b) => b));
+  ]);
   assertEquals(r.advances, [{
     label: "Advance invoice FV/ZAL/2026/02/0147, chargeable 16 February 2026",
     rateLine: "1 EUR = 4.2187 PLN, NBP average rate of 13 February 2026",
@@ -212,6 +212,10 @@ test("advance problems throw or warn under the advance's own name", async () => 
     rate: { value: "0.85", base: "EUR", quote: "GBP", source: "market-selling", rateDate: "2026-03-05" },
   }] });
   assertEquals(warns(ukAdv), ["Advance invoice A1: The exchange rate is dated 5 March 2026, after the tax point of 2 March 2026."]);
+});
+
+test("issueDate is read only in PL", () => {
+  assertEquals(warns(uk({ issueDate: "2026-02-20" })), []);
 });
 
 test("no advances, or an empty list, is the same output", () => {
@@ -279,11 +283,20 @@ test("every arrangement prints the same figures, placed differently", async () =
     ...r.advances.flatMap((a: Obj) => [a.label, a.rateLine, a.net, a.vat, a.localNet, a.localVat]),
   ] as string[];
   for (const a of ARRANGEMENTS) {
-    const got = (await built(a, advanced)).length && texts(await built(a, advanced)).join("\n");
-    for (const f of figures) assertEquals((got as string).includes(f), true);
+    const got = texts(await built(a, advanced)).join("\n");
+    for (const f of figures) assertEquals(got.includes(f), true);
   }
   assertEquals(texts(await built("block", advanced)).includes(r.statement), true);
   assertEquals(texts(await built("columns", advanced)).includes(r.statement), true);
+});
+
+test("without advances the node prints no advances section", async () => {
+  for (const a of ARRANGEMENTS) {
+    for (const data of [uk(), uk({ advances: [] })]) {
+      const got = ids(await built(a, data));
+      assertEquals([got.includes("vat-local-advances-intro"), got.includes("vat-local-advances")], [false, false]);
+    }
+  }
 });
 
 const bundled = createDeriverBundle({ vatInLocalCurrency: mod.run });

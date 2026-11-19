@@ -293,7 +293,7 @@ export default deriver({
       }
       for (const t of out) warnings.push({ text: prefix + t });
     };
-    const issuedFirst = issue !== null && issue < taxPoint;
+    const issuedFirst = jurisdiction === "PL" && issue !== null && issue < taxPoint;
     check(rate, issuedFirst ? issue! : taxPoint, "", issuedFirst ? "the date of issue" : "the tax point");
     for (const a of advances) {
       check(a.rate, a.chargeable, "Advance invoice " + a.number + ": ", "the tax point");
