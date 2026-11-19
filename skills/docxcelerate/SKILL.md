@@ -138,7 +138,7 @@ Nothing leaves the machine, and the same build gives the same page every time.
 | `Text` | words, inside a `Paragraph`, `Cell` or `Shape` | **not a node** — no `id`. `bold`, `italic`, `underline`, `strike`, `href`. Never a colour or a size |
 | `Image` | `src`, `alt`, `width`, `height`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below |
 | `Graph` | `graphType`, `data`, `title`, `caption`, or prompts | packed as a real Word chart, never a picture of one — the numbers travel with it |
-| `Table` | `Row`s, and any `.map()` producing them | `columns` declared once, in mm or `"auto"`, with `align` |
+| `Table` | `Row`s, and any `.map()` producing them | `columns` declared once, in mm or `"auto"`, with `align`; `align` on the table (`"center"`/`"right"`) moves a narrow one across the column |
 | `Row` | `Cell`s | `header` marks a heading row; only *leading* ones repeat across pages |
 | `Cell` | text, or paragraphs when a line is not enough | `span`, and `align` when it departs from its column |
 | `TableOfContents` | nothing | a marker; renderers print the title and stop |

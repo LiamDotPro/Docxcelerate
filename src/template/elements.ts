@@ -267,6 +267,13 @@ export interface TableProps extends CommonElementProps {
    * A table whose columns do not line up is not a table.
    */
   columns: TableColumn[];
+  /**
+   * Where the table sits across the text column. Left unless it is said.
+   *
+   * Only a table narrower than the column can move: any `"auto"` column fills
+   * the column, and a `bleed` table spans the paper, so either ignores it.
+   */
+  align?: TableAlign;
   /** The rows, and any `.map()` producing them. */
   children?: Yield;
 }

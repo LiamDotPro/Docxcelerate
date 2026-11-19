@@ -1382,6 +1382,9 @@ function renderTable(node: TableNode, style: DocumentStyle, furniture: boolean):
     // width it was given, and `fixed` is what makes Word honour them.
     // `tables/column-widths` in the conformance suite holds this.
     layout: TableLayoutType.FIXED,
+    // Word ignores a table's indent once it is centred or ranged right, so a bleed
+    // (a negative indent out to the paper's edge) and an alignment cannot both hold.
+    alignment: bleed || node.align === undefined ? undefined : alignments[node.align],
     // Word indents a table from the text column's left edge, so reaching the
     // paper's edge means indenting back by the margin.
     indent: bleed

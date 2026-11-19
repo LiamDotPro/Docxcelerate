@@ -486,6 +486,7 @@ async function renderTable(
     id,
     kind: "table",
     columns: props.columns.map((column) => prune({ ...column })),
+    align: props.align,
     when,
     children: await renderYield(props.children, context, {
       path: `${frame.path}/${id}`,
