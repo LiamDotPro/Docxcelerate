@@ -31,7 +31,8 @@
  * @module
  */
 
-import type { GraphLegend, GraphType } from "../domain/types.ts";
+import type { GraphDataLabels, GraphLegend, GraphSeries, GraphTrendline, GraphType } from "../domain/types.ts";
+import { PRESET_DASH } from "./chart_part.ts";
 import { readPart } from "./docx_packed.ts";
 import { attribute, decodeEntities, element, elements, numberAttribute } from "./ooxml_read.ts";
 
@@ -43,6 +44,15 @@ export interface PreviewChartSeries {
   readonly values: readonly (number | null)[];
   /** The colour the file draws it in, as RGB hex without the `#`. */
   readonly color?: string;
+  /** The line of best fit the file draws over this series, where it has one. */
+  readonly trendline?: GraphTrendline;
+  /** Whether the file draws its line dashed or dotted. Absent where it is solid, which is every series that is not a line. */
+  readonly dash?: GraphSeries["dash"];
+  /**
+   * The colour the file paints each point in, by category, and `null` where the
+   * point takes the series' colour. Always as long as `values`.
+   */
+  readonly pointColors: readonly (string | null)[];
   /**
    * How big each point is drawn, on a bubble chart and nowhere else.
    *
@@ -76,8 +86,12 @@ export interface PreviewChart {
    * the word in front of every number on the axis.
    */
   readonly numberFormat?: string;
-  /** Whether each point prints its own figure, and which figure. */
-  readonly dataLabels: "none" | "value" | "percent";
+  /** Whether each point prints a label, and what it prints. */
+  readonly dataLabels: "none" | GraphDataLabels;
+  /** Whether the axes are drawn. False where the file writes them deleted; true for a chart with none to delete. */
+  readonly axes: boolean;
+  /** Whether the plot is ruled: whether the file carries any `c:majorGridlines`. */
+  readonly gridlines: boolean;
   /** Whether the file prints the figures in a grid under the plot. */
   readonly dataTable: boolean;
   /** What the category axis counts along. */
@@ -322,6 +336,14 @@ function graphTypeOf(xml: string): GraphType {
   return attribute(element(xml, "c:barDir") ?? "", "val") === "bar" ? "barHorizontal" : "bar";
 }
 
+/** The trendline a `c:trendline` states, read from the file rather than the model. */
+function trendlineOf(xml: string): GraphTrendline | undefined {
+  const type = attribute(element(xml, "c:trendlineType") ?? "", "val");
+  if (type === "linear") return "linear";
+  if (type === "movingAvg") return { movingAverage: numberAttribute(element(xml, "c:period") ?? "", "val") ?? 2 };
+  return undefined;
+}
+
 /** Whether a chart group stacks its series, and to a total or to a share. */
 function stackingOf(xml: string): boolean | "percent" {
   const grouping = attribute(element(xml, "c:grouping") ?? "", "val");
@@ -349,6 +371,21 @@ function readChart(xml: string): Omit<PreviewChart, "widthPt" | "heightPt"> {
   const series = elements(xml, "c:ser");
   const first = series[0] ?? "";
 
+  const plotted = series.map((entry) => {
+    const values = cachedNumbers(element(entry, "c:val") ?? element(entry, "c:yVal") ?? "");
+    return {
+      label: cachedText(element(entry, "c:tx") ?? "")[0],
+      values,
+      // The series' own paint, not a data point's: on a pie the two differ,
+      // and `c:spPr` is where the series states the one colour it has.
+      color: colorOf(element(entry, "c:spPr") ?? ""),
+      dash: dashOf(element(entry, "c:spPr") ?? ""),
+      trendline: trendlineOf(element(entry, "c:trendline") ?? ""),
+      pointColors: pointColorsOf(entry, values.length),
+      sizes: cachedNumbers(element(entry, "c:bubbleSize") ?? ""),
+    };
+  });
+
   return {
     graphType,
     title: titleOf(head),
@@ -357,6 +394,8 @@ function readChart(xml: string): Omit<PreviewChart, "widthPt" | "heightPt"> {
     numberFormat: formatOf(attribute(element(valueAxis, "c:numFmt") ?? "", "formatCode")),
     dataLabels: labelsOf(element(xml, "c:dLbls") ?? ""),
     dataTable: element(xml, "c:dTable") !== null,
+    axes: attribute(element(xml, "c:delete") ?? "", "val") !== "1",
+    gridlines: element(xml, "c:majorGridlines") !== null,
     categoryAxisTitle: titleOf(categoryAxis),
     valueAxisTitle: titleOf(valueAxis),
     valueAxisMin: numberAttribute(element(valueAxis, "c:min") ?? "", "val"),
@@ -368,23 +407,14 @@ function readChart(xml: string): Omit<PreviewChart, "widthPt" | "heightPt"> {
     categories: graphType === "scatter" || graphType === "bubble"
       ? cachedNumbers(element(first, "c:xVal") ?? "").map((value) => String(value ?? ""))
       : cachedText(element(first, "c:cat") ?? ""),
-    series: series.map((entry) => ({
-      label: cachedText(element(entry, "c:tx") ?? "")[0],
-      values: cachedNumbers(element(entry, "c:val") ?? element(entry, "c:yVal") ?? ""),
-      // The series' own paint, not a data point's: on a pie the two differ,
-      // and `c:spPr` is where the series states the one colour it has.
-      color: colorOf(element(entry, "c:spPr") ?? ""),
-      sizes: cachedNumbers(element(entry, "c:bubbleSize") ?? ""),
-    })),
+    series: plotted,
     // The slice colours, which a pie keeps on its data points rather than on
     // its one series.
     sliceColors: pie
-      ? elements(first, "c:dPt")
-        .map((point) => colorOf(element(point, "c:spPr") ?? ""))
-        .filter((color): color is string => color !== undefined)
+      ? (plotted[0]?.pointColors ?? []).filter((color): color is string => color !== null)
       : [],
     textColor: colorOf(element(xml, "c:txPr") ?? ""),
-    ruleColor: colorOf(element(xml, "c:majorGridlines") ?? ""),
+    ruleColor: colorOf(element(xml, "c:majorGridlines") ?? elements(categoryAxis, "c:spPr").at(-1) ?? ""),
     font: attribute(element(xml, "a:latin") ?? "", "typeface"),
   };
 }
@@ -402,12 +432,17 @@ function formatOf(format: string | undefined): string | undefined {
 }
 
 /** Whether each point prints its own figure, and which figure it prints. */
-function labelsOf(labels: string): "none" | "value" | "percent" {
+function labelsOf(labels: string): "none" | GraphDataLabels {
   const on = (name: string) => attribute(element(labels, name) ?? "", "val") === "1";
+  const figure = on("c:showPercent") ? "percent" : on("c:showVal") ? "value" : undefined;
 
-  if (on("c:showPercent")) return "percent";
+  if (!on("c:showCatName")) return figure ?? "none";
 
-  return on("c:showVal") ? "value" : "none";
+  return figure === undefined
+    ? "category"
+    : figure === "percent"
+    ? "categoryAndPercent"
+    : "categoryAndValue";
 }
 
 /** Where a key sits, as the model names it, or that the file declares none. */
@@ -432,9 +467,30 @@ function titleOf(xml: string): string | undefined {
   return runs.length === 0 ? undefined : runs.join("");
 }
 
+/** The colour each data point is painted in, `null` where it takes the series'. */
+function pointColorsOf(series: string, count: number): (string | null)[] {
+  const colors: (string | null)[] = new Array(count).fill(null);
+
+  for (const point of elements(series, "c:dPt")) {
+    const at = numberAttribute(element(point, "c:idx") ?? "", "val");
+
+    if (at !== undefined && at < count) {
+      colors[at] = colorOf(element(point, "c:spPr") ?? "") ?? null;
+    }
+  }
+
+  return colors;
+}
+
 /** The first colour stated in a run of XML. */
 function colorOf(xml: string): string | undefined {
   return /<a:srgbClr val="([0-9A-Fa-f]{6})"\s*\/>/.exec(xml)?.[1];
+}
+
+/** The series dash a line's preset stands for, or nothing where it is solid. */
+function dashOf(paint: string): GraphSeries["dash"] {
+  const preset = attribute(element(paint, "a:prstDash") ?? "", "val");
+  return (Object.keys(PRESET_DASH) as (keyof typeof PRESET_DASH)[]).find((name) => PRESET_DASH[name] === preset);
 }
 
 /** The strings a reference caches, in index order. */

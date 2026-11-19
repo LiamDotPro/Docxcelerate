@@ -21,6 +21,7 @@
 import type {
   DocumentStyle,
   GraphData,
+  GraphDataLabels,
   GraphLegend,
   GraphNode,
   GraphSeries,
@@ -51,6 +52,12 @@ export const DEFAULT_SERIES_COLORS: readonly string[] = [
   "4A3AA7",
   "E34948",
 ];
+
+/**
+ * The OOXML preset each series dash is drawn with: Word's "Dash" and its
+ * "Round Dot", which is `sysDot` under the round cap a series line already has.
+ */
+export const PRESET_DASH = { dashed: "dash", dotted: "sysDot" } as const;
 
 /** The ink a chart's own text is set in when the theme names none. */
 const DEFAULT_TEXT_COLOR = "595959";
@@ -419,39 +426,35 @@ function seriesXml(
   // checked side by side and reads as deliberate. A chart with nine series
   // wants fewer series, or a palette of its own.
   const fill = series.color ?? colors[index % colors.length];
+  // A stored model is data that travels, so a dash nobody defined draws solid rather than as a preset Word refuses.
+  const dash = series.dash !== undefined && Object.hasOwn(PRESET_DASH, series.dash)
+    ? `<a:prstDash val="${PRESET_DASH[series.dash]}"/>`
+    : "";
   const head = `<c:idx val="${index}"/><c:order val="${index}"/>` +
     nameXml(series.label, column);
 
-  // A line is drawn, not filled, so its colour belongs on the stroke. Filling
-  // a line series paints the area under it, which is a different chart. A
-  // radar is a line closed into a ring, and drawn the same way for the same
-  // reason.
-  const paint = type === "line" || type === "scatter" || type === "radar"
-    ? `<c:spPr><a:ln w="28575" cap="rnd"><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:round/></a:ln><a:effectLst/></c:spPr><c:marker><c:symbol val="circle"/><c:size val="5"/><c:spPr><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:marker>`
-    // A bubble is a disc a reader is meant to see the one behind, so its fill
-    // is let down to three quarters. Opaque, a big bubble simply deletes every
-    // small one it covers, which is the reading the chart exists to show.
-    : type === "bubble"
-    ? `<c:spPr><a:solidFill><a:srgbClr val="${fill}"><a:alpha val="75000"/></a:srgbClr></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill></a:ln></c:spPr>`
-    : `<c:spPr><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln><a:noFill/></a:ln></c:spPr>`;
+  const paint = drawnAsLine(type)
+    ? `<c:spPr><a:ln w="28575" cap="rnd"><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill>${dash}<a:round/></a:ln><a:effectLst/></c:spPr>${
+      markerXml(fill)
+    }`
+    : paintXml(type, fill);
 
-  // A pie has one series and many colours, so each slice is painted as its own
-  // data point. Every other chart paints the series and lets the points follow.
-  const points = type === "pie" || type === "doughnut"
-    ? data.categories
-      .map((_, slice) =>
-        `<c:dPt><c:idx val="${slice}"/><c:bubble3D val="0"/><c:spPr><a:solidFill><a:srgbClr val="${
-          colors[slice % colors.length]
-        }"/></a:solidFill><a:ln w="19050"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt>`
-      )
-      .join("")
-    : "";
+  // A pie paints every slice as its own data point, in the palette unless the
+  // series names a colour for it. Every other chart paints only the points the
+  // series names. An area is one filled shape with no points to paint apart.
+  const pie = type === "pie" || type === "doughnut";
+  const points = type === "area" ? "" : data.categories.map((_, at) => {
+    const pointFill = series.pointColors?.[at] ?? (pie ? colors[at % colors.length] : undefined);
+    return pointFill === undefined ? "" : pointXml(type, at, pointFill);
+  }).join("");
 
+  // Schema order: dPt*, dLbls?, trendline*, errBars?, cat. Labels are written per group, so the points come right before it.
+  const trend = trendlineXml(node, series, fill, rows);
   const categories = categoriesXml(data.categories, rows);
   const values = valuesXml(series.values, column, rows, node.numberFormat);
 
   if (type === "scatter") {
-    return `<c:ser>${head}${paint}${points}${
+    return `<c:ser>${head}${paint}${points}${trend}${
       xValuesXml(data.categories, rows)
     }${asYValues(values)}<c:smooth val="0"/></c:ser>`;
   }
@@ -460,7 +463,7 @@ function seriesXml(
     // `invertIfNegative` before the values, and `bubble3D` after them: a
     // bubble series is the one place the schema puts a flag on either side of
     // the numbers, and Word will not open a file that has them the other way.
-    return `<c:ser>${head}${paint}<c:invertIfNegative val="0"/>${points}${
+    return `<c:ser>${head}${paint}<c:invertIfNegative val="0"/>${points}${trend}${
       xValuesXml(data.categories, rows)
     }${asYValues(values)}${
       bubbleSizesXml(series.sizes ?? [], sizeColumn, rows)
@@ -468,7 +471,7 @@ function seriesXml(
   }
 
   if (type === "line" || type === "radar") {
-    return `<c:ser>${head}${paint}${points}${categories}${values}` +
+    return `<c:ser>${head}${paint}${points}${trend}${categories}${values}` +
       // A radar's ring is already closed, so it has no line to smooth and the
       // schema gives it nowhere to say so.
       (type === "line" ? `<c:smooth val="0"/>` : "") +
@@ -479,7 +482,70 @@ function seriesXml(
     return `<c:ser>${head}${paint}${points}${categories}${values}</c:ser>`;
   }
 
-  return `<c:ser>${head}${paint}<c:invertIfNegative val="0"/>${points}${categories}${values}</c:ser>`;
+  return `<c:ser>${head}${paint}<c:invertIfNegative val="0"/>${points}${trend}${categories}${values}</c:ser>`;
+}
+
+/**
+ * A series' line of best fit, or nothing where the chart cannot carry one.
+ *
+ * Word refuses a trendline on a pie, a doughnut, a radar or a stacked chart,
+ * and the first three have no slot for one in their series at all: writing
+ * one there is a file Word will not open, not a line it leaves out.
+ */
+function trendlineXml(node: GraphNode, series: GraphSeries, fill: string, rows: number): string {
+  const kind = series.trendline;
+  if (kind === undefined || isStacked(node) || ["pie", "doughnut", "radar"].includes(node.graphType)) return "";
+
+  let type: string;
+  if (kind === "linear") {
+    type = `<c:trendlineType val="linear"/>`;
+  } else if (typeof kind === "object" && kind !== null && Number.isFinite(kind.movingAverage)) {
+    // `ST_Period` is 2 to 255, and a window as long as the series has nothing to draw.
+    const period = Math.min(255, Math.max(2, Math.round(kind.movingAverage)));
+    if (period >= rows) return "";
+    type = `<c:trendlineType val="movingAvg"/><c:period val="${period}"/>`;
+  } else {
+    return "";
+  }
+
+  // Thinner and dashed in the series' own colour, so it re-themes with the series without reading as a second one.
+  return `<c:trendline><c:spPr><a:ln w="19050" cap="rnd"><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:prstDash val="sysDash"/></a:ln></c:spPr>${type}<c:dispRSqr val="0"/><c:dispEq val="0"/></c:trendline>`;
+}
+
+/** Whether a chart draws its series as a stroke rather than a fill. */
+function drawnAsLine(type: GraphNode["graphType"]): boolean {
+  return type === "line" || type === "scatter" || type === "radar";
+}
+
+/** The dot on a line's point, which is where a line takes a colour of its own. */
+function markerXml(fill: string): string {
+  return `<c:marker><c:symbol val="circle"/><c:size val="5"/><c:spPr><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:marker>`;
+}
+
+/** The fill of a bar, a bubble or a slice-less series; a line is stroked instead. */
+function paintXml(type: GraphNode["graphType"], fill: string): string {
+  // A bubble is a disc a reader is meant to see the one behind, so its fill
+  // is let down to three quarters. Opaque, a big bubble simply deletes every
+  // small one it covers, which is the reading the chart exists to show.
+  return type === "bubble"
+    ? `<c:spPr><a:solidFill><a:srgbClr val="${fill}"><a:alpha val="75000"/></a:srgbClr></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill></a:ln></c:spPr>`
+    : `<c:spPr><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln><a:noFill/></a:ln></c:spPr>`;
+}
+
+/**
+ * One data point in its own colour, in `CT_DPt` order.
+ *
+ * A line keeps the series stroke and takes the colour on its marker only. No
+ * `bubble3D` is written on a bar or a bubble: Word refuses a bubble file over
+ * it and the element is optional.
+ */
+function pointXml(type: GraphNode["graphType"], at: number, fill: string): string {
+  if (type === "pie" || type === "doughnut") {
+    return `<c:dPt><c:idx val="${at}"/><c:bubble3D val="0"/><c:spPr><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln w="19050"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt>`;
+  }
+  return drawnAsLine(type)
+    ? `<c:dPt><c:idx val="${at}"/>${markerXml(fill)}</c:dPt>`
+    : `<c:dPt><c:idx val="${at}"/><c:invertIfNegative val="0"/>${paintXml(type, fill)}</c:dPt>`;
 }
 
 /**
@@ -608,6 +674,15 @@ function valuesXml(
   }</c:formatCode><c:ptCount val="${rows}"/>${points}</c:numCache></c:numRef></c:val>`;
 }
 
+/** Which of OOXML's label flags each kind of label turns on. */
+const LABEL_FLAGS: Record<GraphDataLabels, { val: boolean; cat: boolean; percent: boolean }> = {
+  value: { val: true, cat: false, percent: false },
+  percent: { val: false, cat: false, percent: true },
+  category: { val: false, cat: true, percent: false },
+  categoryAndValue: { val: true, cat: true, percent: false },
+  categoryAndPercent: { val: false, cat: true, percent: true },
+};
+
 /**
  * Whether each point prints its own figure.
  *
@@ -615,23 +690,30 @@ function valuesXml(
  * depends on its type — a stacked bar takes `ctr` and a clustered one `outEnd`
  * — and a position the type does not allow is a file Word offers to repair.
  * Saying nothing takes the default, which is the right one for every type.
+ * What a label prints, by contrast, is the document's say: see {@linkcode GraphDataLabels}.
  */
 function dataLabelsXml(node: GraphNode): string {
-  if (node.dataLabels !== true) {
+  if (node.dataLabels === undefined || node.dataLabels === false) {
     return "";
   }
 
-  const percent = node.graphType === "pie" || node.graphType === "doughnut";
+  const pie = node.graphType === "pie" || node.graphType === "doughnut";
+  const flags =
+    LABEL_FLAGS[node.dataLabels === true ? (pie ? "percent" : "value") : node.dataLabels];
+  const bit = (on: boolean) => (on ? 1 : 0);
 
   return `<c:dLbls>${
     node.numberFormat === undefined
       ? ""
       : `<c:numFmt formatCode="${escapeXml(node.numberFormat)}" sourceLinked="0"/>`
   }<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr><c:showLegendKey val="0"/><c:showVal val="${
-    percent ? 0 : 1
-  }"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="${
-    percent ? 1 : 0
-  }"/><c:showBubbleSize val="0"/></c:dLbls>`;
+    bit(flags.val)
+  }"/><c:showCatName val="${bit(flags.cat)}"/><c:showSerName val="0"/><c:showPercent val="${
+    bit(flags.percent)
+  }"/><c:showBubbleSize val="0"/>${
+    // Stated rather than left to Word's default, so the preview and Word agree on it from the file.
+    flags.cat && (flags.val || flags.percent) ? "<c:separator>, </c:separator>" : ""
+  }</c:dLbls>`;
 }
 
 /** The axes a chart type has, ruled in the theme's own hairline. */
@@ -689,8 +771,8 @@ function categoryAxisXml(
 ): string {
   return `<c:catAx><c:axId val="${CATEGORY_AXIS_ID}"/><c:scaling><c:orientation val="${
     reversed ? "maxMin" : "minMax"
-  }"/></c:scaling><c:delete val="0"/><c:axPos val="${position}"/>` +
-    (webbed ? gridlinesXml(palette) : "") +
+  }"/></c:scaling>${deleteXml(node)}<c:axPos val="${position}"/>` +
+    (webbed ? gridlinesXml(node, palette) : "") +
     axisTitleXml(node.categoryAxisTitle, palette, position === "l") +
     `<c:numFmt formatCode="General" sourceLinked="1"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>` +
     axisLineXml(palette) +
@@ -704,7 +786,7 @@ function scatterCategoryAxisXml(
   palette: ChartPalette,
   position: string,
 ): string {
-  return `<c:valAx><c:axId val="${CATEGORY_AXIS_ID}"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="${position}"/>` +
+  return `<c:valAx><c:axId val="${CATEGORY_AXIS_ID}"/><c:scaling><c:orientation val="minMax"/></c:scaling>${deleteXml(node)}<c:axPos val="${position}"/>` +
     axisTitleXml(node.categoryAxisTitle, palette, position === "l") +
     `<c:numFmt formatCode="General" sourceLinked="1"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>` +
     axisLineXml(palette) +
@@ -731,8 +813,8 @@ function valueAxisXml(
   checkValueAxisBounds(node);
   const step = node.valueAxisStep;
 
-  return `<c:valAx><c:axId val="${VALUE_AXIS_ID}"/>${valueScalingXml(node)}<c:delete val="0"/><c:axPos val="${position}"/>` +
-    gridlinesXml(palette) +
+  return `<c:valAx><c:axId val="${VALUE_AXIS_ID}"/>${valueScalingXml(node)}${deleteXml(node)}<c:axPos val="${position}"/>` +
+    gridlinesXml(node, palette) +
     axisTitleXml(node.valueAxisTitle, palette, position === "l") +
     `<c:numFmt formatCode="${escapeXml(format ?? "General")}" sourceLinked="${
       format === undefined ? 1 : 0
@@ -797,8 +879,21 @@ function valueAxisFormat(node: GraphNode): string | undefined {
   return node.stacked === "percent" ? "0%" : undefined;
 }
 
-/** The grid a chart is ruled with, in the theme's own hairline. */
-function gridlinesXml(palette: ChartPalette): string {
+/**
+ * An axis's `c:delete`: how a chart drawn without axes says so.
+ *
+ * A deleted axis rather than a missing one. Every plot group names two
+ * `c:axId`s, and a part whose axes are not there is one Word will not open.
+ */
+function deleteXml(node: GraphNode): string {
+  return `<c:delete val="${node.axes === false ? 1 : 0}"/>`;
+}
+
+/** The grid a chart is ruled with, in the theme's own hairline; none where the document asked for none. */
+function gridlinesXml(node: GraphNode, palette: ChartPalette): string {
+  if (node.gridlines === false) {
+    return "";
+  }
   return `<c:majorGridlines><c:spPr><a:ln w="${GRIDLINE_WIDTH_EMU}" cap="flat"><a:solidFill><a:srgbClr val="${palette.rule}"/></a:solidFill></a:ln></c:spPr></c:majorGridlines>`;
 }
 

@@ -1,4 +1,4 @@
-import { buildDocument, createDocumentProjectArtifact } from "docxcelerate";
+import { buildProjectPreviewDocument, createDocumentProjectArtifact } from "docxcelerate";
 import type { DocumentModel, DocumentProject } from "docxcelerate/document";
 import {
   applyTabStops,
@@ -136,17 +136,7 @@ async function loadProject(path: string): Promise<DocumentProject<unknown>> {
 }
 
 async function buildPreviewDocument(project: DocumentProject<unknown>): Promise<DocumentModel> {
-  const document = await buildDocument(project.template, project.previewData, {
-    ...project.previewOptions,
-    locale: previewLocale(project),
-    dynamicMode: "placeholder",
-  });
-
-  return {
-    ...document,
-    style: project.style,
-    metadata: project.metadata ? { ...project.metadata, ...document.metadata } : document.metadata,
-  };
+  return await buildProjectPreviewDocument(project, { locale: previewLocale(project) });
 }
 
 function renderHome(paths: string[]): void {
