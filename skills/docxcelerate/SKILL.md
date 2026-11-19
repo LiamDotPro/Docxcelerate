@@ -135,7 +135,7 @@ Nothing leaves the machine, and the same build gives the same page every time.
 | `Document` | sections and nodes | `id` and `title` both required; one per template; `header`/`footer` take running furniture |
 | `Section` | any nodes, including sections | the **only** container; `title` required and becomes a heading |
 | `Paragraph` | text children, or prompts | `text` prop says the same as children; a `\n` in the text is a line break; `list="bullet"` or `"number"` makes it a list item, counted by the renderer |
-| `Text` | words, inside a `Paragraph`, `Cell` or `Shape` | **not a node** — no `id`. `bold`, `italic`, `underline`, `strike`, `href`. Never a colour or a size |
+| `Text` | words, inside a `Paragraph`, `Cell` or `Shape` | **not a node** — no `id`. `bold`, `italic`, `underline`, `strike`, `href`, `variant` (a theme block name: colour, shading, size, face, weight, caps, tracking). Never a colour or a size |
 | `Image` | `src`, `alt`, `width`, `height`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below |
 | `Graph` | `graphType`, `data`, `title`, `caption`, or prompts | packed as a real Word chart, never a picture of one — the numbers travel with it |
 | `Table` | `Row`s, and any `.map()` producing them | `columns` declared once, in mm or `"auto"`, with `align` |
@@ -157,6 +157,8 @@ appearance: `<Cell variant="badge">`, `<Paragraph variant="band">`. The colours
 live in the style's `blocks`, so a document restyles without a node changing,
 and a name the theme has not heard of draws as an ordinary block rather than
 failing. Never write a colour into a component.
+
+`<Text variant="amountDue">` sets a phrase from a theme block, for an amount due inside a sentence or a defined term. Only the block's `color`, `fill`, `fontSizePt`, `weight`, `font`, `transform` and `letterSpacingEm` reach the words. `bold` and the other marks said beside it win.
 
 A block style says `fill`, `color`, `border` (with `borderWidthPt`,
 `borderSides`), `paddingPt`, `fontSizePt`, `weight`, `transform`,

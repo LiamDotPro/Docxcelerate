@@ -56,7 +56,7 @@ interface PromptProps {
 | `Document` | `id` (required), `title` (required), `metadata?`, `header?`, `footer?`, `firstHeader?`, `firstFooter?`, `evenHeader?`, `evenFooter?`, `children?` |
 | `Section` | `title` (required), `children?` |
 | `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0) |
-| `Text` | `bold?`, `italic?`, `underline?`, `strike?`, `href?` (`https:`, `http:`, `mailto:` or `tel:`), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
+| `Text` | `bold?`, `italic?`, `underline?`, `strike?`, `href?` (`https:`, `http:`, `mailto:` or `tel:`), `variant?` (a block name; only its character settings apply), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` |
 | `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `caption?`, `width?`, `height?` (points), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `dataLabels?` |
 | `Table` | `columns` (required), `children?` |
@@ -77,7 +77,12 @@ Notes worth knowing:
 - `<Text>` sets some of a paragraph's words differently:
   `Due within <Text bold>thirty days</Text>.` One inside another takes both
   settings. It carries no colour or size — a link is drawn in the theme's
-  accent. A line end (`\n`) in a paragraph's text is a line break, not a new
+  accent. To make a phrase stand out, name a theme block:
+  `The amount due is <Text variant="amountDue">£1,240.00</Text>.` The block's
+  `color`, `fill` (shading behind the words), `fontSizePt`, `weight`, `font`,
+  `transform` and `letterSpacingEm` apply. Borders, padding and spacing do not.
+  An unknown name prints plain, and an inner `variant` replaces an outer one.
+  A line end (`\n`) in a paragraph's text is a line break, not a new
   paragraph, so an address is one `<Paragraph>` with `{"Flat 2\n14 Example Road"}`.
 - `Section` is the only *titled* container. Depth of a document is depth of its
   sections — but both shipped renderers print every section title at one level,

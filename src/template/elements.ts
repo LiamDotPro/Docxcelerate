@@ -155,7 +155,8 @@ export interface ParagraphProps extends CommonElementProps, PromptProps {
  * Every prop says what the words *are* — stressed, struck out, a way to
  * somewhere — and none says what that looks like. There is no colour and no
  * size here for the reason there is none on a node: a linked phrase is drawn
- * in the theme's accent, and re-themes with the document around it.
+ * in the theme's accent, and a `variant` names the theme's style for a phrase,
+ * so both re-theme with the document around them.
  */
 export interface TextProps {
   /** Set heavier than the words around it. `false` lightens a word in a bold block. */
@@ -171,6 +172,18 @@ export interface TextProps {
    * Anything else prints as the words alone.
    */
   href?: string;
+  /**
+   * Which block style the theme draws these words in: `"amountDue"`, `"term"`.
+   *
+   * A name, not an appearance, the same as `variant` on every element. Only the
+   * block's character settings reach a run: `color`, `fill` (drawn as shading
+   * behind the words), `fontSizePt`, `weight`, `font`, `transform` and
+   * `letterSpacingEm`. Borders, padding, spacing and alignment belong to a
+   * paragraph and are ignored here. An unknown name draws the words plain.
+   * `bold`, `italic`, `underline` and `strike` said beside it win over the
+   * block, and a link keeps the theme's accent colour.
+   */
+  variant?: string;
   /** The words, and any `<Text>` set differently again inside them. */
   children?: Yield;
 }

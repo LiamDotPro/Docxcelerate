@@ -229,6 +229,8 @@ function harnessHtml(bodyFont) {
           fontWeight: cs.fontWeight,
           fontStyle: cs.fontStyle,
           textDecoration: cs.textDecorationLine,
+          color: cs.color,
+          background: cs.backgroundColor,
           href: link === null ? null : link.getAttribute("href")
         };
       });
@@ -832,7 +834,7 @@ export function previewView(measure) {
       const wanted = anchor.toLowerCase();
       return measure.paragraphs.flatMap((p) => p.runs ?? [])
         .find((run) => run.text.toLowerCase().includes(wanted)) ??
-        { missing: true, anchor, text: "", fontWeight: null, fontStyle: null, textDecoration: null, href: null };
+        { missing: true, anchor, text: "", fontWeight: null, fontStyle: null, textDecoration: null, color: null, background: null, href: null };
     },
 
     /** Whether the named face resolved rather than falling back silently. */

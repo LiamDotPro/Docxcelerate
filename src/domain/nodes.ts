@@ -265,7 +265,7 @@ export interface ParagraphList {
 /**
  * A stretch of a paragraph's words, and how it is set.
  *
- * What a run says is emphasis and destination, never appearance: there is no
+ * What a run says is emphasis, destination and which named setting, never appearance: there is no
  * colour and no size here, for the reason there is none on a node. A linked
  * phrase is drawn in the theme's accent because the theme says what a link
  * looks like.
@@ -288,6 +288,12 @@ export interface ParagraphRun {
    * request, and a preview draws a link as something a reader can click.
    */
   href?: string;
+  /**
+   * Which block style the theme draws this run in. A name, never an appearance:
+   * the theme's `blocks` say what it looks like. Only the block's character
+   * settings apply, and an unknown name draws the run plain.
+   */
+  variant?: string;
 }
 
 /** A picture set in a paragraph's line, and where along the text it sits. */

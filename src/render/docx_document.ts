@@ -848,8 +848,8 @@ function runsOf(node: ParagraphNode): ParagraphRun[] {
 /**
  * One run of the node's, as Word is handed it.
  *
- * The run's own settings go over the block's, so a word can be lightened in a
- * bold block as well as stressed in a plain one. A link is drawn in the
+ * The run's variant goes over the block, and its own settings over that, so a
+ * word can be lightened in a bold block as well as stressed in a plain one. A link is drawn in the
  * theme's accent with a rule beneath: what a link looks like is the theme's
  * to say, and a link nobody can tell from the words around it is not one.
  */
@@ -858,8 +858,13 @@ function markedRun(
   base: Record<string, unknown>,
   style: DocumentStyle,
 ): TextRun | ExternalHyperlink {
+  const own = blockOf(style, run.variant);
+  // shortcut: tracking is worked out at the block's size or the body's, so a tracked variant with no size inside a larger paragraph is tracked at body size.
   const props = {
     ...base,
+    // A field the block leaves out has no opinion, so it must not blank the paragraph's.
+    ...Object.fromEntries(Object.entries(blockRun(own, style)).filter(([, value]) => value !== undefined)),
+    ...(own?.fill === undefined ? {} : { shading: { type: ShadingType.CLEAR, fill: own.fill } }),
     ...(run.bold === undefined ? {} : { bold: run.bold }),
     ...(run.italic === undefined ? {} : { italics: run.italic }),
     ...(run.underline ? { underline: {} } : {}),
