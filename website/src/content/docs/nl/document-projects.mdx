@@ -40,7 +40,7 @@ De opsplitsing is precies het punt. Elk bestand beantwoordt één vraag:
 | `preview-data.ts` | Eén invulling van dat contract, voor de preview |
 | `document.tsx` | Alleen structuur: welke nodes, in welke secties, in welke volgorde |
 | `nodes/` | Eén component per node, plus een `index.ts` die ze exporteert |
-| `document-style.ts` | Lettertypen, witruimte en marges voor de ingepakte `.docx` |
+| `document-style.ts` | Papier, lettertypen, witruimte en marges voor de ingepakte `.docx` |
 | `derivers/index.ts` | Benoemde functies die de engine per document uitvoert |
 | `document.project.ts` | Knoopt het bovenstaande aan elkaar en benoemt het document |
 
@@ -82,6 +82,26 @@ export default defineDocumentProject<DocumentData>({
 De preview-app vindt projecten door te globben op `document.project.ts`, dus een
 nieuw document verschijnt in de keuzelijst zodra het bestaat. Er wordt niets
 geregistreerd.
+
+## Papier en paginanummers
+
+`document-style.ts` bepaalt het vel. `page.size` is `"A4"`, `"LETTER"`,
+`"LEGAL"`, `"A5"`, `"A3"` of `{ widthMm, heightMm }` voor elk ander vel, staand
+opgegeven; `orientation: "landscape"` draait beide soorten, en tabellen,
+bleeds, vormen en grafieken zonder eigen breedte vullen de bredere kolom zonder
+dat je het zegt.
+
+`page.firstPageNumber` en `page.numberStyle` veranderen hoe `<PageNumber>`
+telt — een bijlage die doorloopt vanaf pagina 37, een voorwerk genummerd i, ii,
+iii. Alleen het eigen nummer van de pagina verschuift; een totaal blijft het
+aantal pagina's, zoals Word het afdrukt.
+
+```ts
+export const documentStyle: DocumentStyle = {
+  ...cleanMinimalDocumentStyle,
+  page: { ...cleanMinimalDocumentStyle.page, size: "A3", orientation: "landscape", firstPageNumber: 37 },
+};
+```
 
 ## Houd de previewdata eerlijk
 

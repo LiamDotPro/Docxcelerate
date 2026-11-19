@@ -311,6 +311,8 @@ export async function buildProjectEngineDocument<TData>(
     footer: doc.footer && removeEngineStandIns(doc.footer),
     firstHeader: doc.firstHeader && removeEngineStandIns(doc.firstHeader),
     firstFooter: doc.firstFooter && removeEngineStandIns(doc.firstFooter),
+    evenHeader: doc.evenHeader && removeEngineStandIns(doc.evenHeader),
+    evenFooter: doc.evenFooter && removeEngineStandIns(doc.evenFooter),
     style: project.style,
     metadata: project.metadata ? { ...project.metadata, ...doc.metadata } : doc.metadata,
   };

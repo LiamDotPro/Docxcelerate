@@ -13,6 +13,9 @@ import NodeVariants from "../../../../components/NodeVariants.astro";
 
 ## Cómo se escribe
 
+Una tabla necesita dos cosas de ti: las columnas y las filas. Declaras las
+columnas una vez en la `<Table>` y luego la llenas con `<Row>`s de `<Cell>`s.
+
 ```tsx
 import { Cell, Row, Table, useFormat, useState } from "docxcelerate/template";
 
@@ -23,8 +26,8 @@ export const VisitLog: Table = () => {
   return (
     <Table id="visit-log" columns={[{ width: "auto" }, { width: 28, align: "right" }]}>
       <Row header>
-        <Cell>Mes</Cell>
-        <Cell>Visitas</Cell>
+        <Cell>Month</Cell>
+        <Cell>Visits</Cell>
       </Row>
       {state.months.map((entry) => (
         <Row>
@@ -37,17 +40,111 @@ export const VisitLog: Table = () => {
 };
 ```
 
-**Las columnas pertenecen a la tabla**, en milímetros o `"auto"` para repartir lo que dejan las fijas, cada una con un `align` opcional. Se declaran una sola vez porque todas las filas las comparten: una tabla cuyas columnas no se alinean no es una tabla.
+Cada columna lleva un `width` — en milímetros, o `"auto"` para repartir lo que
+dejan las fijas — y un `align` opcional.
 
-**Todo lo demás es un nodo corriente.** Un `.map()` produce filas, una condición elimina alguna, y cada una se nombra sola. Eso es lo que permite que una factura publicada lleve un bucle que el motor recorre en lugar de una tabla llena de casos especiales.
+`align` en la `<Table>` mueve la tabla entera, no sus palabras: un bloque de
+totales de columnas fijas con `align="right"` queda pegado al margen derecho sin
+ninguna columna separadora que lo sujete allí. Solo puede moverse una tabla más
+estrecha que la columna — una columna `"auto"` o un `bleed` la llenan.
+
+**¿Por qué declarar las columnas en la tabla y no en cada celda?** Porque todas
+las filas las comparten, así que declararlas una vez es lo que hace que las filas
+se alineen. También significa que una celda solo tiene que decir qué contiene.
+
+Un ancho que das es un ancho que obtienes. La tabla se empaqueta con un diseño
+fijo, de modo que Word coloca las columnas donde tú las pones en lugar de
+redimensionarlas según lo que haya en las celdas — que es lo que hace que una
+columna de importes quede alineada con el total que tiene debajo. Eso se comprueba
+en lugar de darse por supuesto: la suite de conformidad empaqueta esta tabla, la
+abre en Word y exige que cada límite de columna quede a un milímetro de donde lo
+dibujó la vista previa.
+
+## Las filas son nodos corrientes
+
+Esta es la parte que vale la pena conocer, porque significa que hay menos que
+aprender de lo que cabría esperar.
+
+Las filas y las celdas son nodos, exactamente como un párrafo o una sección. Así
+que todo lo que ya sabes funciona con ellas:
+
+- `.map()` sobre tus datos produce una fila por entrada, como arriba.
+- Una condición elimina una fila, igual que elimina cualquier otro nodo.
+- Los ids se nombran solos, así que no tienes que inventar uno por fila.
+
+Nada de esto es un caso especial para las tablas. Es también la razón de que una
+factura publicada lleve un único bucle que el motor recorre, en lugar de una
+tabla llena de excepciones.
 
 ## Qué contiene una celda
 
-El texto entra directamente, así que `<Cell>{line.qty}</Cell>` es el caso habitual y se lee como tal. Dale párrafos a una celda cuando una línea no baste — una descripción sobre una nota atenuada — y se mantendrán en líneas separadas.
+La mayoría de las celdas contienen un valor, así que el texto entra directamente:
+
+```tsx
+<Cell>{line.qty}</Cell>
+```
+
+Un [`<Text>`](/es/docs/nodes/paragraph/#palabras-compuestas-de-otro-modo) entre
+las palabras aparta algunas de ellas, y la celda sigue siendo una sola línea de
+texto:
+
+```tsx
+<Cell>Total <Text bold>due</Text></Cell>
+```
+
+Cuando una línea no basta — una descripción con una nota más discreta debajo —
+dale a la celda párrafos, y se mantendrán en líneas separadas:
+
+```tsx
+<Cell>
+  <Paragraph>{line.desc}</Paragraph>
+  <Paragraph variant="muted">{line.meta}</Paragraph>
+</Cell>
+```
+
+Cada uno conserva su propio `align` y `variant` — la
+[página de párrafo](/es/docs/nodes/paragraph/#cómo-se-asienta-en-la-página)
+explica qué se hereda.
 
 ## Filas de cabecera
 
-`header` en una fila la dibuja como cabecera. Solo las filas con las que **empieza** una tabla se repiten en cada página nueva, así que una fila de totales marcada como `header` se dibuja como tal pero se queda donde está, bajo las cifras que suma.
+Marcar una fila como `header` la dibuja como un encabezado:
+
+```tsx
+<Row header>
+  <Cell>Description</Cell>
+  <Cell>Amount</Cell>
+</Row>
+```
+
+Solo las filas con las que **empieza** una tabla se repiten en cada página nueva.
+Eso importa si marcas una fila de totales como cabecera para darle énfasis: se
+dibuja igualmente como encabezado, pero se queda donde está, al pie, bajo las
+cifras que suma. No se subirá a lo alto de la página dos.
+
+La vista previa también la repite. Una tabla más larga que una página se rompe
+entre dos de sus filas — la misma juntura por la que rompe Word — y el encabezado
+se vuelve a dibujar en lo alto de cada trozo, de modo que una factura de cincuenta
+líneas se ve en pantalla como se imprime.
+
+## Filas que mantienen su forma
+
+Word parte una fila larga entre páginas donde termina la página, lo que deja media
+línea de factura al pie de una página y la otra media al comienzo de la siguiente.
+`keepTogether` pasa la fila entera a la página siguiente; ponlo en la fila que
+produce un `.map()` y todas las líneas lo tendrán. Una fila más alta que una
+página se parte igualmente.
+
+`height` da a una fila una altura propia, en puntos — un recuadro donde firmar, una
+línea de un formulario. Es un mínimo que la fila supera cuando sus celdas
+necesitan más; `heightRule="exact"` la fija, para una hoja de etiquetas donde la
+cuadrícula importa más que las palabras, y Word recorta lo que no cabe (la vista
+previa hace crecer la fila en vez de ocultarlo).
+
+```tsx
+{state.lines.map((line) => <Row keepTogether>…</Row>)}
+<Row height={56}><Cell>Signed</Cell><Cell>Date</Cell></Row>
+```
 
 ## Variantes
 
@@ -55,7 +152,11 @@ El texto entra directamente, así que `<Cell>{line.qty}</Cell>` es el caso habit
 
 ## Notas
 
-- Una celda vacía sigue siendo una celda. Word no acepta ninguna vacía, así que se empaqueta como un recuadro en blanco y no como una columna que falta.
-- `span` extiende una celda por varias columnas; `align` anula la alineación de su columna solo para esa celda.
-- Un `variant` en una celda gana al de su fila, que gana al de la tabla: la afirmación más concreta es la más deliberada.
-- Ambos renderizadores dibujan una tabla de verdad: una `<table>` en pantalla y una tabla de Word con los anchos de columna declarados en el `.docx`.
+- Una celda vacía sigue siendo una celda. Word no acepta ninguna vacía, así que
+  se empaqueta como un recuadro en blanco y no como una columna que falta.
+- `span` extiende una celda por varias columnas. `align` anula la alineación de su
+  columna solo para esa celda.
+- Si fijas un `variant` en una celda, gana al de la fila, que gana al de la tabla.
+  El más concreto suele ser el que querías decir.
+- Ambos renderizadores dibujan una tabla de verdad — una `<table>` en pantalla y
+  una tabla de Word con los anchos de columna declarados en el `.docx`.

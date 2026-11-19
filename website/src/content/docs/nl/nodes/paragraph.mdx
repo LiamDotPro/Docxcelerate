@@ -49,8 +49,8 @@ useSetPrompts({
 
 ## Vertakken
 
-Een document dat een van drie dingen zegt is één component met drie uitkomsten.
-Geef elke tak zijn eigen id:
+Een document dat een van drie dingen zegt is één component met drie uitkomsten,
+niet drie componenten. Geef elke tak zijn eigen id:
 
 ```tsx
 if (state.settled) {
@@ -76,6 +76,197 @@ const [state] = useState((data: MemberData) => ({
 return <Paragraph id="balance">{state.line}</Paragraph>;
 ```
 
+## Hoe het op de pagina staat
+
+`align` is de enige weergave die een alinea zelf vastlegt, omdat uitlijning vaak
+is wat de alinea *is* en niet hoe hij eruitziet — een datum staat in elk thema
+rechts uitgelijnd, zoals een bedragenkolom dat doet:
+
+```tsx
+<Paragraph id="issued" align="right">{state.issuedOn}</Paragraph>
+```
+
+Al het andere over hoe een alinea gezet wordt, hoort bij het thema, bereikt via
+`variant` op naam. Het blok beslist; de node zegt alleen welk blok hij is:
+
+```ts
+blocks: {
+  standfirst: { align: "center", spacingBeforePt: 4, spacingAfterPt: 14 },
+  quote:      { indentMm: 10, indentRightMm: 10 },
+  heading:    { keepWithNext: true },
+  contents:   { tabStopsMm: [{ at: 170, align: "right", leader: "dot" }] },
+}
+```
+
+```tsx
+<Paragraph id="lead" variant="standfirst">What this letter is about.</Paragraph>
+<Paragraph id="terms" variant="contents">{"What the agreement covers\t3"}</Paragraph>
+```
+
+Een node die zijn eigen `align` vastlegt wint van die van zijn blok, op dezelfde
+manier waarop een cel wint van zijn kolom. Wat een blok kan instellen, naast
+vulling, rand en lettertype:
+
+| | |
+| --- | --- |
+| `align` | hoe de regels in de kolom staan |
+| `spacingBeforePt`, `spacingAfterPt` | ruimte erboven en eronder, in punten |
+| `indentMm`, `indentRightMm` | inspringing vanaf de linker- en rechtermarge |
+| `firstLineIndentMm` | alleen de eerste regel — het alineateken van een boek |
+| `hangingIndentMm` | de eerste regel teruggetrokken ten opzichte van de rest |
+| `keepWithNext`, `keepLines` | nooit het laatste op een pagina; nooit over een pagina gesplitst |
+| `tabStopsMm` | `[{ at, align?, leader? }]` vanaf de linkermarge, of vanaf de binnenrand van een cel of vorm. Zet een `\t` in de tekst om er een te bereiken |
+| `lineHeight` | regelafstand, als veelvoud van de lettergrootte |
+
+Elk hiervan betekent op het scherm hetzelfde als in Word, en dat wordt gecontroleerd
+in plaats van aangenomen: elke eigenschap hier heeft een conformiteitstest die een
+document inpakt, het in Word opent en de preview tot op de millimeter houdt aan wat
+Word tekent. Twee beperkingen volgen uit Words eigen formaat en zijn goed om te
+weten — opvulling heeft een rand nodig om aan te hangen, en een linkerrand duwt de
+*lijn* naar buiten in plaats van de tekst naar binnen.
+
+Een alinea in een [`<Cell>`](/nl/docs/nodes/table/#wat-een-cel-bevat) of een
+[`<Shape>`](/nl/docs/nodes/shape/) behoudt dit alles — zijn eigen `align` boven die
+van de kolom, en de inspringingen, tabstops, rand en vulling van zijn variant — dus
+een handtekeningcel kan een gestippelde leader dragen en een kaart een omlijnd
+citaat. Daar meet een tabstop vanaf de binnenrand van de container, en doen `bleed`
+en `maxWidthMm`, die maten van de pagina zijn, niets.
+
+Een rand is één doorgetrokken lijn tenzij het blok anders zegt. `borderStyle`
+tekent Words eigen `"double"`, `"dashed"` of `"dotted"` lijn op elke rand die het
+blok tekent — een dubbele lijn onder een eindtotaal, een gestreepte afscheurlijn
+boven een betaalstrook — in plaats van blokken te stapelen om er een na te maken:
+
+```ts
+grandTotal: { border: "1C2340", borderSides: ["bottom"], borderStyle: "double", weight: "bold" },
+```
+
+## Lijsten
+
+Een lijst is een reeks alinea's die zeggen dat ze items zijn. `list="bullet"`
+markeert er een, `list="number"` telt hem mee:
+
+```tsx
+<Paragraph id="intro">To renew:</Paragraph>
+<Paragraph id="check" list="number">Check the plan and the price.</Paragraph>
+<Paragraph id="pay" list="number">Pay online, or at the desk.</Paragraph>
+<Paragraph id="pay-note" list="bullet" listLevel={1}>Card and direct debit are both accepted.</Paragraph>
+<Paragraph id="collect" list="number">Collect your new card.</Paragraph>
+```
+
+Items die na elkaar staan zijn één lijst, en de renderer doet het tellen — zoals
+hij pagina's telt. Dat is de hele reden om de nummers niet zelf te typen: een stap
+die voor één ontvanger wegvalt laat geen gat achter, en een lijst uit je data is
+een `.map()` zoals elke andere.
+
+```tsx
+{state.steps.map((step) => <Paragraph id="step" list="number">{step.text}</Paragraph>)}
+```
+
+Alles wat geen item is beëindigt de lijst, en een genummerde lijst erna begint
+weer bij één. `listLevel` zet een item onder het item erboven: `1` voor een punt
+onder een item, tot negen niveaus diep. Nummers gaan van cijfers naar letters naar
+Romeinse cijfers naarmate ze dieper komen, opsommingstekens van een gevulde stip
+naar een open stip naar een vierkant. Een punt met opsommingsteken onder een
+genummerde stap laat de stappen niet stoppen met tellen.
+
+Een genummerde lijst telt in cijfers, dan letters, dan Romeinse cijfers omdat dat
+de standaard is, niet omdat het moet. `listStyle` op het eerste item van een
+niveau kiest de nummering van dat niveau voor de hele lijst — de subartikelen van
+een contract zijn `(a)`:
+
+```tsx
+<Paragraph list="number">The tenant agrees:</Paragraph>
+<Paragraph list="number" listLevel={1} listStyle="lowerLetterParen">to pay the rent on time;</Paragraph>
+<Paragraph list="number" listLevel={1}>to keep the property in good order.</Paragraph>
+```
+
+`decimal`, `lowerLetter`, `upperLetter`, `lowerRoman` en `upperRoman` worden
+gevolgd door een punt; voeg `Paren` toe voor de variant met haakje. Opsommingstekens
+negeren het.
+
+Een item is nog steeds een alinea. Het heeft een id, een voorwaarde kan het
+weglaten, het neemt een `variant`, en een item dat een engine schrijft kan een
+item zijn zoals elk ander. Items staan bij elkaar, met de ruimte die een alinea
+onder zichzelf laat na de lijst in plaats van tussen de items — tenzij de eigen
+`variant` van het item een tussenruimte noemt, die dan wint.
+
+Twee beperkingen. Het teken van een opsommingsteken en de hang van elk item zijn
+van de renderer, niet van het thema — `listStyle` kiest de nummering van een
+nummer en verder niets. En een item op een `<Shape>` wordt als gewone alinea
+getekend: het vak houdt zijn woorden al van zijn rand met dezelfde inspringing die
+een hang nodig heeft.
+
+## Woorden anders gezet
+
+`<Text>` zet een deel van de woorden van een alinea apart van de rest — de term
+waar een mededeling om draait, een zin die ergens heen leidt:
+
+```tsx
+import { Paragraph, Text } from "docxcelerate/template";
+
+<Paragraph id="terms">
+  Payment is due within <Text bold>thirty days</Text>. You can{" "}
+  <Text href="https://example.com/pay">pay online</Text>.
+</Paragraph>
+```
+
+`bold`, `italic`, `underline` en `strike` zeggen hoe de woorden benadrukt worden;
+`script="superscript"` of `"subscript"` verhoogt of verlaagt ze — de 2 in m², de
+2 in CO₂, de e in 1e — zodat Word ze zet en jij geen `²` hoeft te typen; en `href`
+zegt waar ze heen leiden: een `https:`-, `http:`-, `mailto:`- of `tel:`-adres. Een
+`<Text>` binnen een andere neemt beide instellingen over. Het werkt hetzelfde
+tussen de woorden van een `<Cell>` of een `<Shape>`.
+
+Het is geen node. Het heeft geen id en niets adresseert het. Het legt nooit een
+kleur of grootte vast; moet een zin opvallen — een verschuldigd bedrag in een
+zin, een gedefinieerde term — noem dan een themablok, zoals een alinea dat doet:
+
+```tsx
+The amount due is <Text variant="amountDue">{state.due}</Text>.
+```
+
+Alleen de tekeninstellingen van het blok bereiken de woorden — `color`, `fill` als
+arcering, `fontSizePt`, `weight`, `font`, `transform`, `letterSpacingEm`; randen,
+opvulling en tussenruimte horen bij een alinea. Een ernaast opgegeven markering
+wint van het blok, en een link behoudt het accent van het thema. Een adres dat
+geen van de vier soorten is, wordt alleen als zijn woorden afgedrukt, omdat het
+adres uit je data kan komen en een preview een link tekent als iets waarop een
+lezer kan klikken.
+
+Een regeleinde in de tekst is een regelafbreking en geen nieuwe alinea, wat een
+adres wil — één node, drie regels, en niets van de ruimte die een alinea onder
+zichzelf laat:
+
+```tsx
+<Paragraph id="address">{"Flat 2\n14 Example Road\nLeeds LS1 4AB"}</Paragraph>
+```
+
+Alleen een statische alinea heeft runs. Een die een engine schrijft, wordt als
+gewone woorden geschreven.
+
+### Wat het publiceert
+
+De alinea bewaart zijn `text` heel, zodat alles wat de woorden van een alinea
+leest nog steeds één string leest. De instellingen reizen ernaast mee als `runs`,
+elk met zijn eigen woorden:
+
+```json
+{ "kind": "paragraph", "mode": "static", "id": "terms",
+  "text": "Payment is due within thirty days.",
+  "runs": [
+    { "text": "Payment is due within " },
+    { "text": "thirty days", "bold": true },
+    { "text": "." }
+  ] }
+```
+
+Een alinea waarin niets apart is gezet heeft helemaal geen `runs`, en publiceert
+precies wat hij eerder deed. Geïnterpoleerde waarden werken binnen een `<Text>`
+zoals overal elders: een gepubliceerde run bevat het token, en de engine lost het
+ter plekke op, dus `<Text bold>{state.name}</Text>` is vet voor elke ontvanger,
+hoe lang hun naam ook is.
+
 ## Dynamische alinea's
 
 Een dynamische alinea heeft geen eigen tekst; hij draagt in plaats daarvan
@@ -97,5 +288,5 @@ verplicht — de vierde variant hieronder laat zien waar de andere drie voor zij
 - Een lege string levert een lege alinea op, niet géén node. Wil je de node
   weglaten, geef dan niets terug — `false`, `null` en `undefined` worden allemaal
   overgeslagen.
-- Renderers escapen de tekst. Een alinea kan geen markup de pagina in smokkelen,
-  en is niet de plek voor opmaak.
+- Renderers escapen de tekst. Een alinea kan geen markup de pagina in smokkelen:
+  `<Text>` is de enige opmaak die er is, en het is een element, geen string.
