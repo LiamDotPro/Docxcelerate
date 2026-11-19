@@ -1128,6 +1128,76 @@ export const COMPONENTS: RegistryComponent[] = [
 
   {
     kind: "component",
+    id: "royalty-reserve-and-recoupment",
+    title: "Royalty reserve and advance recoupment",
+    summary:
+      "The settlement from royalties earned to the amount paid: reserves against returns, advance recoupment and the minimum payment.",
+    detail:
+      "The settlement from a period's earned royalties to the amount paid, reconciled " +
+      "line by line in integer minor units. A reserve against returns is held on " +
+      "physical formats only, never on e-books or digital audio, rounded once per " +
+      "title. Returns are charged against the reserves held for that title, oldest " +
+      "first; only returns beyond them reduce this period's royalties, and any " +
+      "reserve held for the contract's liquidation limit is released in full after " +
+      "returns are charged against it. The statement shows what was withheld and how " +
+      "each earlier reserve was applied or released. Recoupment pools only the " +
+      "titles an advance cross-collateralises; every other title recoups on its own, " +
+      "so one title's earnings never pay another's advance. Each advance is still " +
+      "unrecouped, earned out this period or already earned out, each in its own " +
+      "words, and an unrecouped advance is never called a debt. A total below the " +
+      "minimum payment is carried forward and the statement says so. All of it is one deriver.",
+    category: "Closing",
+    tags: ["money", "royalties", "publishing", "statement", "reserve", "table", "deriver", "branching", "section"],
+    exports: ["RoyaltyReserveAndRecoupment"],
+    dataFields: [
+      { path: "royalty.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required." },
+      { path: "royalty.periodIndex", type: "number", summary: "This statement's period number; reserve ages are measured from it. Required." },
+      { path: "royalty.periodLabel", type: "string | undefined", summary: 'How the period is named. Missing means "period N".' },
+      { path: "royalty.earned", type: "Array<{ title: string; physicalMinor?: number; digitalMinor?: number }>", summary: "Royalties earned per title this period, in minor units. A reserve is held on physical only." },
+      { path: "royalty.reservePercent", type: "number | undefined", summary: "Share of physical royalties held against returns. Missing means none." },
+      { path: "royalty.reserveLiquidationPeriods", type: "number | undefined", summary: "Periods a reserve may be held before release. Required when any reserve exists." },
+      { path: "royalty.openReserves", type: "Array<{ title: string; setInPeriod: number; amountMinor: number; label?: string }>", summary: "Earlier reserves still held, by title and the period that set them." },
+      { path: "royalty.returnsCharged", type: "Array<{ title: string; amountMinor: number }>", summary: "Royalties on copies returned this period, charged against the oldest reserve first." },
+      { path: "royalty.advances", type: "Array<{ titles: string[]; unrecoupedOpeningMinor: number }>", summary: "Each advance, its pooled titles and the unearned part at the start. Other titles settle alone." },
+      { path: "royalty.minimumPaymentMinor", type: "number | undefined", summary: "Smallest amount paid out; less is carried forward. Missing means no threshold." },
+      { path: "royalty.carriedForwardMinor", type: "number | undefined", summary: "Carried from the last statement under the minimum. Missing means 0." },
+    ],
+    files: node("royalty-reserve-and-recoupment", { deriver: true }),
+    previewData: {
+      royalty: {
+        currency: "USD",
+        periodIndex: 9,
+        periodLabel: "1 January to 30 June 2026",
+        reservePercent: 25,
+        reserveLiquidationPeriods: 4,
+        minimumPaymentMinor: 2500,
+        carriedForwardMinor: 1840,
+        earned: [
+          { title: "The Cartographer's Daughter: A Novel of the Hudson Valley, 1849–1863", physicalMinor: 4812365, digitalMinor: 1975040 },
+          { title: "Saltmarsh and Other Stories from the Eastern Seaboard", physicalMinor: 1236710, digitalMinor: 402385 },
+          { title: "A Field Guide to Disappearing Places (Illustrated Anniversary Edition)", physicalMinor: 2104900, digitalMinor: 0 },
+          { title: "Tidewater: Essays on Rivers, Memory and the Shoreline", physicalMinor: 0, digitalMinor: 312480 },
+        ],
+        openReserves: [
+          { title: "The Cartographer's Daughter: A Novel of the Hudson Valley, 1849–1863", setInPeriod: 5, amountMinor: 1184220, label: "the statement to 30 June 2024" },
+          { title: "The Cartographer's Daughter: A Novel of the Hudson Valley, 1849–1863", setInPeriod: 7, amountMinor: 965310, label: "the statement to 30 June 2025" },
+          { title: "A Field Guide to Disappearing Places (Illustrated Anniversary Edition)", setInPeriod: 8, amountMinor: 610000, label: "the statement to 31 December 2025" },
+        ],
+        returnsCharged: [
+          { title: "The Cartographer's Daughter: A Novel of the Hudson Valley, 1849–1863", amountMinor: 702560 },
+          { title: "A Field Guide to Disappearing Places (Illustrated Anniversary Edition)", amountMinor: 845900 },
+        ],
+        advances: [
+          { titles: ["The Cartographer's Daughter: A Novel of the Hudson Valley, 1849–1863", "Saltmarsh and Other Stories from the Eastern Seaboard"], unrecoupedOpeningMinor: 5250000 },
+          { titles: ["A Field Guide to Disappearing Places (Illustrated Anniversary Edition)"], unrecoupedOpeningMinor: 7500000 },
+        ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
     id: "commodity-code-summary",
     title: "Commodity code summary",
     summary: "Tariff code, origin and mass on every line, and the summary a customs declaration is split on.",
@@ -3484,6 +3554,77 @@ export const COMPONENTS: RegistryComponent[] = [
           { right: "Spanish-language translation (Latin America)", licensee: "Editorial Planeta Mexicana S.A. de C.V.", grossMinor: 4500000, foreignTaxWithheldMinor: 1125000, authorSharePercent: 80 },
           { right: "First serial rights", licensee: "Guardian News & Media Limited", grossMinor: 1800000, authorSharePercent: 90 },
         ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "marketplace-payout-statement",
+    title: "Marketplace payout statement",
+    summary: "A period's sales, refunds, fees, chargebacks and reserve, reconciled row by row to what reaches the seller's bank.",
+    detail:
+      "One reconciled row per step, in a fixed order, closing on a balance proved " +
+      "against the opening one. Sales tax the marketplace collected as facilitator " +
+      "is shown and taken straight back out, never counted as sales. A refund " +
+      "returns the commission less the platform's administration fee, and never " +
+      "the fulfilment fee. VAT on fees is rounded once per fee line, or replaced by " +
+      "a reverse-charge note. A won chargeback is the reversal of a deduction, not " +
+      "income, and its dispute fee stays deducted. New reserve holds come off, and " +
+      "matured ones come back. The outcome is a payout to an account shown by its " +
+      "last four digits only, nothing to pay, a negative balance carried forward, " +
+      "or a debit to the card on file, never a negative payout. Give it the " +
+      "platform's closing figure and it refuses a statement that does not tie. " +
+      "All of it is one deriver over integer minor units.",
+    category: "Body",
+    tags: ["money", "marketplace", "payout", "statement", "reconciliation", "vat", "table", "deriver", "branching", "section"],
+    exports: ["MarketplacePayoutStatement"],
+    dataFields: [
+      { path: "payout.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required." },
+      { path: "payout.openingBalance", type: "number", summary: "Last statement's unpaid balance in minor units; negative is owed. Required, 0 for a first statement." },
+      { path: "payout.orders", type: "Array<{ id: string; itemTotal: number; shipping?: number; facilitatorTax?: number }> | undefined", summary: "Orders settled in the period, minor units, tax excluded from the item total. Missing means no sales." },
+      { path: "payout.refunds", type: "Array<{ orderId: string; amount: number; commissionRefunded: number; adminFee: number }> | undefined", summary: "Refunds; the admin fee is required (0 if none) and cannot exceed the commission returned." },
+      { path: "payout.fees", type: "Array<{ label: string; amount: number; vatPercent?: number; reverseCharge?: boolean }> | undefined", summary: "Commission and fees before VAT. VAT is rounded per line; reverse-charged fees get a note instead." },
+      { path: "payout.chargebacks", type: 'Array<{ orderId: string; amount: number; disputeFee?: number; outcome: "open" | "won" | "lost"; raisedEarlier?: boolean }> | undefined', summary: "Deducted with their fee when raised this period; a win adds the amount back." },
+      { path: "payout.reserve", type: "{ held?: number; released?: number; days?: number } | undefined", summary: "New holds come off, matured holds come back. Missing means no reserve." },
+      { path: "payout.accountLast4", type: "string | undefined", summary: "Only its last four digits are printed. Missing prints 'your bank account'." },
+      { path: "payout.negativeBalanceMethod", type: '"carry" | "debit" | undefined', summary: "What a negative closing balance becomes. Missing means carry." },
+      { path: "payout.closingBalance", type: "number | undefined", summary: "The platform's own closing figure; the document fails when the rows do not sum to it." },
+    ],
+    arrangements: [
+      { id: "signed", title: "Signed", summary: "One amount column, every row signed, closing balance at the foot." },
+      { id: "columns", title: "In and out", summary: "Money in and money out in two unsigned columns, the way a bank statement reads." },
+    ],
+    files: node("marketplace-payout-statement", { deriver: true, arrangements: ["signed", "columns"] }),
+    previewData: {
+      payout: {
+        currency: "GBP",
+        openingBalance: -184250,
+        orders: [
+          { id: "206-4817725-9930714", itemTotal: 12849900, shipping: 245000, facilitatorTax: 2618980 },
+          { id: "206-9102384-5521036", itemTotal: 8734550, shipping: 189900, facilitatorTax: 1784890 },
+          { id: "206-3345120-0087412", itemTotal: 4412075, shipping: 0, facilitatorTax: 882415 },
+        ],
+        refunds: [
+          { orderId: "206-9102384-5521036", amount: 1249900, commissionRefunded: 187485, adminFee: 500 },
+          { orderId: "206-3345120-0087412", amount: 18990, commissionRefunded: 2849, adminFee: 570 },
+        ],
+        fees: [
+          { label: "Referral fees (Home & Kitchen, 15% up to £100 and 8% above)", amount: 2304617, vatPercent: 20 },
+          { label: "Fulfilment fees, oversize and standard-parcel tiers", amount: 1187340, vatPercent: 20 },
+          { label: "Monthly storage fees including aged-inventory surcharge", amount: 96215, vatPercent: 20 },
+          { label: "Sponsored Products advertising, invoiced from Luxembourg", amount: 845000, reverseCharge: true },
+        ],
+        chargebacks: [
+          { orderId: "206-4817725-9930714", amount: 349900, disputeFee: 1500, outcome: "lost" },
+          { orderId: "206-1188234-7765102", amount: 128450, disputeFee: 1500, outcome: "open" },
+          { orderId: "206-5520918-3349876", amount: 89999, disputeFee: 1500, outcome: "won", raisedEarlier: true },
+        ],
+        reserve: { held: 2570253, released: 1984120, days: 90 },
+        accountLast4: "4417",
+        negativeBalanceMethod: "carry",
+        closingBalance: 19039259,
       },
     },
     requires: [],

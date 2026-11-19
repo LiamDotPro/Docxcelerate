@@ -132,6 +132,7 @@ dxcl list components
 | `terms-notice` | Numbered small print, one paragraph and one stable id per clause. |
 | `invoice-document-type` | What an invoice may call itself, and the dates it has to carry. |
 | `commodity-code-summary` | Tariff codes kept as text and checked by length, and a summary by code and origin that adds up. |
+| `marketplace-payout-statement` | A period's marketplace activity reconciled row by row to the payout, with no negative payouts. |
 | `deposit-cancellation-outcome` | What a cancelled order refunds and keeps, and the VAT on each part. |
 | `tax-treatment-notice` | The mention an invoice's tax treatment requires, or a warning when its ID is missing. |
 | `payment-surcharge-line` | A payment-method surcharge only where it is lawful, capped, taxed with the supply, and disclosed. |
@@ -141,6 +142,7 @@ dxcl list components
 | `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
 | `royalty-earnings-by-format` | Royalty lines per format and price band, split where the period crosses an escalator. |
+| `royalty-reserve-and-recoupment` | The settlement from royalties earned to the amount paid: reserves against returns, advance recoupment and the minimum payment. |
 | `good-faith-estimate-comparison` | Each provider's bill against its own good faith estimate, and the dispute rights a $400 overrun gives a self-pay patient. |
 | `financial-assistance-notice` | The financial assistance notice a US tax-exempt hospital's bill must carry, and the dates collections may start and applications close. |
 | `preferential-origin-statement` | The statement on origin an agreement prescribes, or a warning when its exporter reference is missing. |
