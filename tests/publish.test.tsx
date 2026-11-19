@@ -1,4 +1,5 @@
 import { test } from "node:test";
+import { strict as assert } from "node:assert";
 import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
 import {
   buildDocument,
@@ -21,7 +22,9 @@ import {
   Cell,
   deriver,
   Document,
+  expr,
   Paragraph,
+  position,
   Row,
   Section,
   Table,
@@ -260,6 +263,118 @@ test("the index is bound alongside the entry", async () => {
     (loopOf(built.nodes).children[0] as ParagraphNode).text,
     "{{ctx.lines_index}}: {{ctx.lines.desc}}",
   );
+});
+
+const numbered = () => {
+  const [lines] = useState((data: InvoiceData) => data.lines);
+  return lines.map((line, i) => <Paragraph id="line">{position(i)}. {line.desc}</Paragraph>);
+};
+
+const numberedSurvivors = () => {
+  const [lines] = useState((data: InvoiceData) => data.lines);
+  return lines
+    .filter((line) => line.taxable)
+    .map((line, i) => <Paragraph id="line">{position(i)}. {line.desc}</Paragraph>);
+};
+
+const decidedNumbers = ["1. API build", "2. Disbursement", "3. Support retainer"];
+
+test("a position publishes as its own token, bound by the loop", async () => {
+  const built = await publish(numbered);
+
+  assertEquals(loopOf(built.nodes).positionAs, "lines_position");
+  assertEquals(
+    (loopOf(built.nodes).children[0] as ParagraphNode).text,
+    "{{ctx.lines_position}}. {{ctx.lines.desc}}",
+  );
+});
+
+test("a position counts from one in a decided build", async () => {
+  assertEquals(textsOf((await build(numbered)).nodes), decidedNumbers);
+});
+
+test("the engine and the build agree on a position", async () => {
+  const resolved = await resolveAgainst(await publish(numbered), invoice);
+
+  assertEquals(textsOf(resolved.nodes), decidedNumbers);
+});
+
+test("a filtered loop numbers its survivors on both paths", async () => {
+  const expected = ["1. API build", "2. Support retainer"];
+
+  assertEquals(textsOf((await resolveAgainst(await publish(numberedSurvivors), invoice)).nodes), expected);
+  assertEquals(textsOf((await build(numberedSurvivors)).nodes), expected);
+});
+
+test("a position numbers the rows of a table in the DOCX", async () => {
+  const resolved = await resolveAgainst(
+    await publish(() => {
+      const [lines] = useState((data: InvoiceData) => data.lines);
+      return (
+        <Table id="lines" columns={[{ width: "auto" }, { width: "auto" }]}>
+          {lines.map((line, i) => (
+            <Row id="line">
+              <Cell id="no">{position(i)}</Cell>
+              <Cell id="desc">{line.desc}</Cell>
+            </Row>
+          ))}
+        </Table>
+      );
+    }),
+    invoice,
+  );
+  const xml = await documentXml(resolved);
+
+  assertEquals((xml.match(/<w:tc>[\s\S]*?<\/w:tc>/g) ?? []).map(textOf), [
+    "1",
+    "API build",
+    "2",
+    "Disbursement",
+    "3",
+    "Support retainer",
+  ]);
+});
+
+test("a position reaches the engine as a ref", async () => {
+  let carried: unknown;
+
+  await publish(() => {
+    const [lines] = useState((data: InvoiceData) => data.lines);
+    return lines.map((_line, i) => {
+      carried = expr(position(i));
+      return <Paragraph id="line">x</Paragraph>;
+    });
+  });
+
+  assertEquals(carried, { type: "ref", ref: { scope: "ctx", path: "lines_position" } });
+});
+
+test("a position refuses anything but the index of a map", async () => {
+  const refusal = /position\(\) takes the index/;
+  const message = "position() takes the index";
+
+  await assertRejects(
+    () =>
+      publish(() => {
+        const [lines] = useState((data: InvoiceData) => data.lines);
+        return lines.map((line) => <Paragraph id="line">{position(line.qty)}</Paragraph>);
+      }),
+    undefined,
+    message,
+  );
+  await assertRejects(
+    () =>
+      publish(() => {
+        const [lines] = useState((data: InvoiceData) => data.lines);
+        return lines
+          .filter((_line, i) => position(i) as unknown as boolean)
+          .map((line) => <Paragraph id="line">{line.desc}</Paragraph>);
+      }),
+    undefined,
+    message,
+  );
+  assert.throws(() => position(-1), refusal);
+  assert.throws(() => position(1.5), refusal);
 });
 
 test("a map with real data walks the collection instead", async () => {
