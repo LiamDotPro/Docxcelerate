@@ -82,7 +82,10 @@ export interface AiImageGenerationRequest {
 
 /** The image an {@linkcode AiClient} produced. */
 export interface AiImageResult {
-  /** Where the image was written. */
+  /**
+   * The picture, as a `data:` URI carrying its bytes. Only that is packed into
+   * Word; a path or URL draws on screen but packs as a note naming the image.
+   */
   path: string;
   /** Alternative text describing it. */
   alt?: string;
@@ -125,9 +128,9 @@ export interface AiGraphResult {
 /**
  * What fills in the dynamic nodes of a document.
  *
- * Only paragraphs are required. A client that cannot draw or illustrate simply
- * leaves those methods off, and the resolver falls back to the node's
- * placeholder rather than failing the document.
+ * Only paragraphs are required. A client that cannot draw or illustrate leaves
+ * those methods off, and a document that reaches a generated chart or image
+ * then fails, naming the node, rather than packing an empty one.
  */
 export interface AiClient {
   /**
