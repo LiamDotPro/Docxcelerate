@@ -4,14 +4,35 @@ import {
   AiGenerationError,
   buildDocument,
   buildProjectEngineDocument,
+  createDeriverRegistry,
   defineDocumentProject,
   EchoAiClient,
   InMemoryDataProvider,
   resolveDocument,
   ScriptedAiClient,
 } from "docxcelerate";
-import type { DocumentModel, DocumentNode, GraphNode, ParagraphNode, PromptSpec } from "docxcelerate";
-import { Document, Graph, Image, Paragraph, Section, template, useAi, useState } from "docxcelerate/template";
+import type {
+  DocumentModel,
+  DocumentNode,
+  GraphNode,
+  ParagraphNode,
+  PromptSpec,
+  RuntimeState,
+} from "docxcelerate";
+import {
+  aiProps,
+  createPublishData,
+  deriver,
+  Document,
+  Graph,
+  Image,
+  Paragraph,
+  Section,
+  template,
+  useAi,
+  useDeriver,
+  useState,
+} from "docxcelerate/template";
 
 /**
  * One hook for a node an engine writes.
@@ -855,5 +876,237 @@ test("a generated paragraph that is not text names the node", async () => {
       }),
     Error,
     'Dynamic paragraph "summary" got an answer that is not text: it returned an object.',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// After a deriver: the same config, as props
+// ---------------------------------------------------------------------------
+
+/** Cheap, so it runs in a preview too. */
+const lineFacts = deriver({
+  name: "lineFacts",
+  run: (lines: Array<{ desc: string }>) => ({ count: lines.length, first: lines[0]?.desc ?? "" }),
+});
+
+const Reminder = async () => {
+  const [lines] = useState((data: InvoiceData) => data.lines);
+  const facts = await useDeriver(lineFacts, [lines]);
+
+  return (
+    <Paragraph
+      id="reminder"
+      {...aiProps({
+        ask: `Say that ${facts.count} line is billed.`,
+        placeholder: `A reminder about ${facts.count} line.`,
+        from: { first: facts.first },
+      })}
+    />
+  );
+};
+
+const RESOLVE = { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } } as const;
+
+function publishDoc(component: () => unknown): Promise<DocumentModel> {
+  const Body = component as () => never;
+
+  return buildDocument(
+    template<InvoiceData>(
+      <Document id="invoice" title="Invoice">
+        <Section id="body" title="Body">
+          <Body />
+        </Section>
+      </Document>,
+    ),
+    createPublishData() as InvoiceData,
+    {
+      branchMode: "publish",
+      deriverMode: "preserve",
+      dynamicMode: "resolve",
+      aiClient: { generateParagraph: () => "" },
+    },
+  );
+}
+
+function stateWith(aiClient: RuntimeState["aiClient"]): RuntimeState {
+  return {
+    ctx: { ...invoice },
+    derived: {},
+    dataProvider: new InMemoryDataProvider(invoice as unknown as Record<string, unknown>),
+    aiClient,
+  };
+}
+
+test("aiProps returns the prompts useAi would set, and nothing it was not given", () => {
+  assertEquals(aiProps({ ask: "Summarise.", placeholder: "A summary." }), {
+    generalPrompt: "Summarise.",
+    placeholder: "A summary.",
+  });
+});
+
+test("aiProps maps every field the way useAi does", () => {
+  assertEquals(
+    aiProps({
+      ask: "Summarise.",
+      placeholder: "A summary.",
+      voice: "Plain.",
+      from: { period: "August 2026", chaser: undefined },
+      avoid: "No totals.",
+      example: ["One.", "Two."],
+    }),
+    {
+      generalPrompt: "Summarise.",
+      placeholder: "A summary.",
+      systemPrompt: "Plain.",
+      negativePrompt: "No totals.",
+      infoPrompt: '{\n  "period": "August 2026"\n}',
+      examplePrompt: "Example 1:\nOne.\n\nExample 2:\nTwo.",
+    },
+  );
+});
+
+test("aiProps spread on an element makes the node generated", async () => {
+  const built = await buildWith(
+    () => <Paragraph id="summary" {...aiProps({ ask: "Summarise.", placeholder: "A summary.", voice: "Plain." })} />,
+    RESOLVE,
+  );
+  const node = paragraphOf(built.nodes);
+
+  assertEquals(node.mode, "dynamic");
+  assertEquals(promptOf(node.prompts, "general"), "Summarise.");
+  assertEquals(promptOf(node.prompts, "system"), "Plain.");
+});
+
+test("aiProps written after await useDeriver reads the deriver's result", async () => {
+  const built = await buildWith(Reminder, RESOLVE);
+  const node = paragraphOf(built.nodes);
+
+  assertEquals(promptOf(node.prompts, "general"), "Say that 1 line is billed.");
+  assertEquals(promptOf(node.prompts, "info"), '{\n  "first": "API build"\n}');
+});
+
+test("a preview shows the placeholder, filled from the deriver's result", async () => {
+  const built = await buildWith(Reminder, { dynamicMode: "placeholder" });
+
+  assertEquals(paragraphOf(built.nodes).text, "A reminder about 1 line.");
+});
+
+test("published, the prompts carry the tokens the stand-in wrote", async () => {
+  const published = await publishDoc(Reminder);
+  const node = paragraphOf(published.nodes);
+
+  assertEquals(promptOf(node.prompts, "general"), "Say that {{derived.lineFacts.count}} line is billed.");
+  assertEquals(promptOf(node.prompts, "info"), '{\n  "first": {{derived.lineFacts.first}}\n}');
+  assertEquals(node.derivers?.map((invocation) => invocation.name), ["lineFacts"]);
+});
+
+test("publishing then resolving asks the model what building directly asks", async () => {
+  const asked: PromptSpec[][] = [];
+  const client = {
+    generateParagraph: (request: { prompts: PromptSpec[] }) => (asked.push(request.prompts), "Written."),
+  };
+
+  const published = await publishDoc(Reminder);
+  const resolved = await resolveDocument(published, stateWith(client), {
+    derivers: createDeriverRegistry([lineFacts]),
+  });
+  const direct = await buildWith(Reminder, { dynamicMode: "resolve", aiClient: client });
+
+  assertEquals(asked.length, 2);
+  // A string filled in from request data is written unquoted, as main has always
+  // published it, so the only difference from a direct build is the quotes round it.
+  assertEquals(asked[0][0], asked[1][0]);
+  assertEquals(asked[0][1], { kind: "info", text: '{\n  "first": API build\n}' });
+  assertEquals(asked[1][1], { kind: "info", text: '{\n  "first": "API build"\n}' });
+  assertEquals(paragraphOf(resolved.nodes).text, "Written.");
+  assertEquals(paragraphOf(direct.nodes).text, "Written.");
+});
+
+test("a deriver's whole result as `from` publishes as its one token", async () => {
+  const published = await publishDoc(async () => {
+    const [lines] = useState((data: InvoiceData) => data.lines);
+    const facts = await useDeriver(lineFacts, [lines]);
+
+    return <Paragraph id="reminder" {...aiProps({ ask: "Remind.", placeholder: "A reminder.", from: facts })} />;
+  });
+
+  assertEquals(promptOf(paragraphOf(published.nodes).prompts, "info"), "{{derived.lineFacts}}");
+});
+
+test("useAi's facts from request data publish as tokens", async () => {
+  const published = await publishDoc(() => {
+    const [data] = useState((input: InvoiceData) => input);
+
+    useAi({ ask: "Summarise.", placeholder: "A summary.", from: { period: data.period } });
+
+    return <Paragraph id="summary" />;
+  });
+
+  assertEquals(promptOf(paragraphOf(published.nodes).prompts, "info"), '{\n  "period": {{data.period}}\n}');
+});
+
+test("aiProps refuses a missing placeholder, under its own name", () => {
+  let message = "";
+
+  try {
+    (aiProps as (config: unknown) => unknown)({ ask: "Summarise." });
+  } catch (error) {
+    message = (error as Error).message;
+  }
+
+  assertStringIncludes(message, "aiProps needs a placeholder");
+  assertStringIncludes(message, "skipped or failed");
+});
+
+test("aiProps refuses a blank ask", () => {
+  let message = "";
+
+  try {
+    aiProps({ ask: "  ", placeholder: "A summary." });
+  } catch (error) {
+    message = (error as Error).message;
+  }
+
+  assertStringIncludes(message, "aiProps needs an `ask`");
+});
+
+test("aiProps on the element wins over what a hook set around it", async () => {
+  const built = await buildWith(() => {
+    useAi({ ask: "House ask.", placeholder: "House.", voice: "House voice." });
+
+    return <Paragraph id="summary" {...aiProps({ ask: "Own ask.", placeholder: "Own.", voice: "Own voice." })} />;
+  }, RESOLVE);
+  const node = paragraphOf(built.nodes);
+
+  assertEquals(promptOf(node.prompts, "system"), "Own voice.");
+  assertEquals(promptOf(node.prompts, "general"), "Own ask.");
+});
+
+test("aiProps beside written text is the same contradiction as prompt props", async () => {
+  await assertRejects(
+    () =>
+      buildWith(() => (
+        <Paragraph id="summary" {...aiProps({ ask: "Summarise.", placeholder: "A summary." })}>
+          Already written.
+        </Paragraph>
+      )),
+    Error,
+    "supplies both its content and a prompt",
+  );
+});
+
+test("a client that throws while resolving an aiProps node fails the document", async () => {
+  const published = await publishDoc(Reminder);
+
+  const failing = {
+    generateParagraph: () => {
+      throw new Error("model down");
+    },
+  };
+
+  await assertRejects(
+    () => resolveDocument(published, stateWith(failing), { derivers: createDeriverRegistry([lineFacts]) }),
+    Error,
+    "model down",
   );
 });

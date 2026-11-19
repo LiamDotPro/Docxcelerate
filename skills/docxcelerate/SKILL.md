@@ -137,6 +137,30 @@ downstream names (`systemPrompt`, `generalPrompt`, `infoPrompt`,
 hook that adds house style to a node it does not own. The same names work as
 props on the element, and a prop wins over what any hook set.
 
+Hooks cannot run after an `await`, so a node whose ask or facts read a
+deriver's result uses `aiProps` instead of `useAi`: the same config, returned as
+props to spread on the element. It refuses a missing `placeholder` or `ask` the
+same way, and in a publish build the deriver's result writes its own
+`{{derived.…}}` token — interpolate it, never hand-write it.
+
+```tsx
+export const Reminder: Paragraph = async () => {
+  const [lines] = useState((data: InvoiceData) => data.lines);
+  const totals = await useDeriver(invoiceTotals, [lines]);
+
+  return (
+    <Paragraph
+      id="reminder"
+      {...aiProps({
+        ask: `One sentence reminding the reader that ${totals.due} is due.`,
+        placeholder: "A one-line reminder of the amount due.",
+        from: { due: totals.due },
+      })}
+    />
+  );
+};
+```
+
 Previews resolve dynamic nodes to their placeholder, never to generated prose.
 Nothing leaves the machine, and the same build gives the same page every time.
 

@@ -343,6 +343,15 @@ the per-document parts to be written. Give it as finished text, not a form with
 blanks in it. Pass an array when the shape legitimately varies by case — they
 travel numbered, and read as a pattern rather than a template.
 
+`aiProps(config: AiConfig) => PromptProps` is `useAi` for after an `await`. It
+is not a hook: it takes the same config, applies the same rules (`placeholder`
+and `ask` required), and returns `{ generalPrompt, placeholder, systemPrompt?,
+infoPrompt?, negativePrompt?, examplePrompt? }` to spread on the element. Use it
+when the ask or the facts read what `await useDeriver(...)` returned —
+interpolate the result, and publishing writes `{{derived.…}}` for you. Props on
+the element win over what a hook set around it. A deriver's whole result passed
+as `from` travels as one token and arrives as its JSON.
+
 What `aiClient.generateParagraph` returns is the paragraph itself, so return the
 text, not the provider's response object: anything but a string fails with an
 error naming the node. The answer is trimmed, so a model's trailing newline does
