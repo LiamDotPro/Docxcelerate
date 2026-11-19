@@ -306,6 +306,9 @@ decision that depends on request data has to travel to the engine instead:
   `<Graph>` and `generateImage` for a prompted `<Image>`; an engine without one
   fails on that node, naming it. A prompted `<Image>` among a paragraph's words
   cannot be published — give it its own place beside the paragraph.
+- **`generateParagraph` returns the text itself**, not a provider's response
+  object; anything else fails, naming the node. Return what the model wrote as
+  it is — the answer is trimmed and stripped of characters a `.docx` cannot hold.
 - **`.map()` over request data is how a loop is written.** It walks the list when
   the data is real and is published as a loop the engine walks when it is not.
   Never hand-write a `{{ctx.…}}` token inside one — the entry writes its own

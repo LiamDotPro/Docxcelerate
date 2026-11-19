@@ -134,7 +134,8 @@ export interface AiClient {
    * Writes the prose for a dynamic paragraph.
    *
    * @param request The node, its prompts and the state around it.
-   * @returns The paragraph text.
+   * @returns The paragraph text, as a string. It is trimmed and stripped of the
+   * characters XML cannot hold; anything that is not a string fails the node.
    */
   generateParagraph(request: AiGenerationRequest): Promise<string> | string;
   /**

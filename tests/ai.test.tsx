@@ -478,3 +478,23 @@ test("a preview of a dynamic chart carries its caption", async () => {
   assertEquals(graph.mode, "dynamic");
   assertEquals("data" in graph, false);
 });
+
+test("a generated paragraph is trimmed and stripped of characters Word cannot open", async () => {
+  const built = await buildWith(summary, {
+    dynamicMode: "resolve",
+    aiClient: { generateParagraph: () => "\n  Hello\u0001 world\u000b end\uffff \n" },
+  });
+  assertEquals(paragraphOf(built.nodes).text, "Hello world end");
+});
+
+test("a generated paragraph that is not text names the node", async () => {
+  await assertRejects(
+    () =>
+      buildWith(summary, {
+        dynamicMode: "resolve",
+        aiClient: { generateParagraph: () => ({ text: "hi" }) as never },
+      }),
+    Error,
+    'Dynamic paragraph "summary" got an answer that is not text: it returned an object.',
+  );
+});

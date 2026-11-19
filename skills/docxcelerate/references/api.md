@@ -255,6 +255,7 @@ Each of these is an error naming the position, not a quiet reinterpretation:
 | A dynamic node in a build with no `aiClient` | Only a preview build may resolve those to placeholders |
 | A prompted `<Image>` among a paragraph's words, published to an engine | An engine draws block nodes only — give the `<Image>` its own place beside the paragraph |
 | A generated chart whose answer is not a chart (`"twelve"` as a value, an unknown `graphType`) | Word would draw it empty; the error names the node and the field |
+| A generated paragraph whose answer is not a string (a provider's response object, `undefined`) | It would pack as `[object Object]` or nothing; the error names the node |
 
 ## Component types
 
@@ -323,6 +324,14 @@ holds still the opening, the order, the length and the register and leaves only
 the per-document parts to be written. Give it as finished text, not a form with
 blanks in it. Pass an array when the shape legitimately varies by case — they
 travel numbered, and read as a pattern rather than a template.
+
+What `aiClient.generateParagraph` returns is the paragraph itself, so return the
+text, not the provider's response object: anything but a string fails with an
+error naming the node. The answer is trimmed, so a model's trailing newline does
+not become a line break, and characters XML cannot hold — control characters
+other than tab, line feed and carriage return — are removed, so the `.docx`
+still opens. A line break or tab inside the answer is kept. An empty answer is
+an empty paragraph, not an error.
 
 The `useState` setter is not a re-render request — a build is a single pass. It
 updates the value this component reads later, and the value anything sharing it
