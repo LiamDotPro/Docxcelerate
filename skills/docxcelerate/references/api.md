@@ -60,8 +60,8 @@ interface PromptProps {
 
 | Element | Own props |
 | --- | --- |
-| `Document` | `id` (required), `title` (required), `metadata?`, `properties?`, `header?`, `footer?`, `firstHeader?`, `firstFooter?`, `evenHeader?`, `evenFooter?`, `trackChanges?`, `children?` |
-| `Section` | `title` (required), `children?` |
+| `Document` | `id?`, `title` (required), `metadata?`, `properties?`, `header?`, `footer?`, `firstHeader?`, `firstFooter?`, `evenHeader?`, `evenFooter?`, `trackChanges?`, `children?` |
+| `Section` | `title` (required), `showTitle?` (default `true`), `children?` |
 | `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0), `listStyle?` (`"decimal" \| "lowerLetter" \| "upperLetter" \| "lowerRoman" \| "upperRoman"`, or any of them with `Paren` appended: `"lowerLetterParen"` is (a); default by depth 1. a. i.) |
 | `Text` | `bold?`, `italic?`, `underline?`, `strike?`, `script?` (`"superscript" \| "subscript"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`), `variant?` (a block name; only its character settings apply), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` (points; give one and the other keeps the picture's proportions, neither is 120pt wide), `align?` (`"left" \| "center" \| "right"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`) |
@@ -130,8 +130,8 @@ Notes worth knowing:
 - **`align` on `Image` and `Graph` places the picture, not text around it.**
   Centred or ranged right in the column, nothing floats or wraps. A chart with
   no `width` already fills the column, so give it one. Inside a `Cell` or a
-  `Shape` the container decides, exactly as for a paragraph — set the column's
-  or cell's `align` instead.
+  `Shape` a picture or chart takes the column's or the shape's alignment, not
+  its own — set it there.
 - `Image` takes `src` and resolves to a node holding `path`. **Only a `data:`
   URI travels**: it carries the bytes, so an engine writing the document
   elsewhere still has the picture. A path or URL draws on screen, where a
@@ -153,7 +153,11 @@ Notes worth knowing:
   measured from the paper rather than the margin. A letterhead meant to appear
   once goes in the body. `PageNumber` belongs here; a build cannot know the
   count, so Word gets a field it recounts and the preview counts its own pages.
-- `PageNumber` counts in the page style's numbering: `page.firstPageNumber: 37` makes the first page 37, `page.numberStyle: "lowerRoman"` writes i, ii, iii. Only the current number moves — `total` is still the count of pages, as Word prints it. The whole document shares one numbering; roman front matter then a body from 1 is two documents.
+- `PageNumber` counts in the page style's numbering: `page.firstPageNumber: 37`
+  makes the first page 37, `page.numberStyle: "lowerRoman"` writes i, ii, iii.
+  Only the current number moves — `total` is still the count of pages, as Word
+  prints it. The whole document shares one numbering; roman front matter then a
+  body from 1 is two documents.
 - `firstHeader` / `firstFooter` are page one's own, for a letter whose letterhead
   *is* the top of the first page. `false` means the first page shows nothing
   where the others show the strip; absent means it is like every other page.
@@ -188,7 +192,16 @@ Notes worth knowing:
   chart reads as part of the document rather than as something pasted into it.
 - `numberFormat` is an OOXML format code — `"#,##0"`, `"0.0%"`, `"£#,##0"` —
   handed to the value axis and to the data labels verbatim.
-- `valueAxisMin` / `valueAxisMax` fix the ends of the value axis and `valueAxisStep` the distance between its gridlines — for data whose movement is the point, like uptime between 99% and 100%, which an axis starting at zero flattens into one line. Each is optional and Word picks whatever is left out. They set the y axis on `scatter`/`bubble`, the bottom axis on `barHorizontal`, are ignored on a pie, and on a percent stack are shares (`0.5` is 50%). A value outside the bounds is clipped. `min` must be below `max` and `step` above zero, or the build throws.
+- `valueAxisMin` / `valueAxisMax` fix the ends of the value axis and
+  `valueAxisStep` the distance between its gridlines — for data whose movement
+  is the point, like uptime between 99% and 100%, which an axis starting at zero
+  flattens into one line. Each is optional and Word picks whatever is left out.
+  They set the y axis on `scatter`/`bubble`, the bottom axis on `barHorizontal`,
+  are ignored on a pie, and on a percent stack are shares (`0.5` is 50%). A
+  value outside the bounds is clipped. `min` must be below `max` and `step`
+  above zero, or packing throws. A workspace scaffolded before 0.9.0 has an
+  older `preview/charts.ts` that ignores the bounds — the `.docx` is right
+  regardless.
 - `legend` defaults to a key under the plot for more than one series and none
   for one, because a key naming the only thing on the chart repeats the title.
   A pie always keeps one: its key names the slices.
@@ -267,7 +280,7 @@ before any `return`.
 | `usePlaceholderData` | `() => PlaceholderData` | Stand-in values, seeded from where the component sits. |
 | `useFormat` | `(locale?: string) => Formatters` | Locale-aware formatting; defaults to the build locale (`en-GB`). |
 | `useAvailableTokens` | `() => number` | The token budget this build allotted — `2000` by default. |
-| `useDeriver` | `(name: string) => (output, ...inputs) => Promise<unknown>` | Runs a registered deriver **now**, during the build. |
+| `useDeriver` | `(deriver, inputs) => Promise<result>` | Runs a `deriver({ name, run })` module **now** when the data is in hand. While publishing it travels on the node and the engine runs it per document, and what comes back is a stand-in. |
 
 `arrange(arrangement, { name: () => … })` is not a hook, but it is how a
 component offers more than one placement of the same lines: it builds the named
@@ -338,8 +351,8 @@ export const documentTemplate = template<DocumentData>(
 );
 ```
 
-Takes exactly one `<Document>` element, which must have both `id` and `title`.
-Nothing is rendered — evaluating the JSX only builds elements, which is what
+Takes exactly one `<Document>` element, which must have a `title`; `id` is taken
+from it unless written. Nothing is rendered — evaluating the JSX only builds elements, which is what
 lets a component decide what it is later, with data in hand. A template lives at
 module scope where no data exists, so structure that depends on data belongs in
 a component.
@@ -550,7 +563,13 @@ The paragraph properties above are held to Word by
 and compares the two against each other to the millimetre.
 
 A cell takes its block from its own `variant`, then its row's, then its table's
-— the narrower statement wins. A paragraph inside a cell or shape is set by its own `align` and variant over the container's: its alignment, indents, tab stops, border and fill all apply, so a signature cell can carry a dotted leader and a card can hold a ruled quote. Only the paragraph's own variant draws a border or fill on it; the cell's stays on the cell. A tab leader inside a `Shape` draws in Word; the preview shows the gap without the dots. That is how a muted note sits inside a filled row.
+— the narrower statement wins. A paragraph inside a cell or shape is set by its
+own `align` and variant over the container's: its alignment, indents, tab stops,
+border and fill all apply, so a signature cell can carry a dotted leader and a
+card can hold a ruled quote. That is how a muted note sits inside a filled row.
+Only the paragraph's own variant draws a border or fill on it; the cell's stays
+on the cell. A tab leader inside a `Shape` draws in Word; the preview shows the
+gap without the dots.
 
 A section's `variant` styles its printed heading, not its children. The heading takes the block's `fontSizePt`, `weight`, `transform`, `letterSpacingEm`, `color`, `font`, `align`, `border`/`borderWidthPt`/`borderSides`/`paddingPt`, `spacingBeforePt`, `spacingAfterPt`, `keepWithNext` and `keepLines`. Anything the block leaves out comes from `sectionHeading`, and it stays a Heading 1, so the contents still lists it. Fill, indents, bleed, measure, leading and tab stops are not applied to a heading. With `showTitle={false}` there is no heading and the variant does nothing.
 

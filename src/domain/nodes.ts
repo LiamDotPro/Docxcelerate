@@ -297,7 +297,7 @@ export interface ParagraphList {
 /**
  * A stretch of a paragraph's words, and how it is set.
  *
- * What a run says is emphasis, destination and which named setting, never appearance: there is no
+ * What a run says is emphasis, destination and a named theme block, never appearance: there is no
  * colour and no size here, for the reason there is none on a node. A linked
  * phrase is drawn in the theme's accent because the theme says what a link
  * looks like.
@@ -419,7 +419,7 @@ export interface GraphNode extends BaseNode {
   /**
    * Where the chart sits across the text column, when it is not flush left.
    *
-   * On the node for the same reason a paragraph's is: a centred picture is centred
+   * On the node for the same reason a paragraph's is: a centred chart is centred
    * in every theme. Absent writes no alignment at all.
    */
   align?: TableAlign;

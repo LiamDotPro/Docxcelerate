@@ -124,7 +124,7 @@ export interface DocumentProps extends CommonElementProps {
   children?: Yield;
 }
 
-/** Props for the `<Section>` element. */
+/** Props for the `<Section>` element; its `variant` styles the heading. */
 export interface SectionProps extends CommonElementProps {
   /** The heading printed above the section. */
   title: string;
@@ -246,7 +246,7 @@ export interface ImageProps extends CommonElementProps, PromptProps {
    *
    * Only the picture's own line moves; it is not floated, and text does not
    * wrap around it. Inside a table cell or a shape, the cell's or the shape's
-   * alignment governs, as it does for a paragraph there. A picture set in a
+   * alignment governs. A picture set in a
    * line of text sits where the text puts it, and this is ignored.
    */
   align?: TableAlign;

@@ -264,7 +264,7 @@ export interface DocumentBlockStyle {
    * remittance slip are both real Word borders, so they are drawn by the
    * border's own style rather than by stacking blocks. It applies to every
    * edge the block draws; it draws nothing without `border`. Defaults to
-   * `"single"`.
+   * `"single"`. A shape's outline is always solid.
    */
   borderStyle?: "single" | "double" | "dashed" | "dotted";
   /** Space between the block's edge and its content, in points. */
@@ -426,7 +426,7 @@ export interface DocumentBlockStyle {
  * `system` sets the standing instructions.
  */
 
-/** How a column's cells, a shape's words or a picture sit in the width they are given. */
+/** How a column's cells, a shape's words, or a table, picture or chart sit in the width they are given. */
 export type TableAlign = "left" | "center" | "right";
 
 /**

@@ -2,7 +2,9 @@ import { test } from "node:test";
 import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
 import {
   buildDocument,
+  createDeriverBundle,
   createDeriverRegistry,
+  createDeriverRegistryFromBundle,
   EchoAiClient,
   InMemoryDataProvider,
   resolveDocument,
@@ -17,12 +19,14 @@ import {
   branch,
   createPublishData,
   Cell,
+  deriver,
   Document,
   Paragraph,
   Row,
   Section,
   Table,
   template,
+  useDeriver,
   useState,
 } from "docxcelerate/template";
 
@@ -883,4 +887,55 @@ test("an even footer's token publishes, settles, and reaches the even footer par
   assertEquals(footers.includes("Ref INV-2026-0142"), true);
   assertEquals(footers.some((text) => text.includes("{{")), false);
   assertStringIncludes(await partXml(resolved, "word/settings.xml"), "<w:evenAndOddHeaders/>");
+});
+
+// ---------------------------------------------------------------------------
+// Loops over a deriver's result and over an entry's own list
+// ---------------------------------------------------------------------------
+
+test("a map over a deriver's rows and a map inside a map are walked per document", async () => {
+  const overdue = deriver({
+    name: "overdueLines",
+    run: (lines: Line[]) => lines.filter((line) => line.status === "overdue"),
+  });
+
+  const published = await publish(async () => {
+    const [lines] = useState((input: InvoiceData) => input.lines);
+    const [data] = useState((input: InvoiceData) => input);
+    const rows = await useDeriver(overdue, [lines]);
+    const groups = data as unknown as { groups: Array<{ rows: Array<{ label: string }> }> };
+
+    return [
+      rows.map((line) => <Paragraph id="od">{line.desc}</Paragraph>),
+      groups.groups.map((group) => group.rows.map((row) => <Paragraph id="row">{row.label}</Paragraph>)),
+    ];
+  });
+
+  const resolve = async (data: Record<string, unknown>) => {
+    const state: RuntimeState = {
+      ctx: { ...data },
+      derived: {},
+      dataProvider: new InMemoryDataProvider(data),
+      aiClient: new EchoAiClient(),
+    };
+    // Through a bundle, because that is the form the engine receives.
+    const derivers = await createDeriverRegistryFromBundle(createDeriverBundle({ overdueLines: overdue.run }));
+    const resolved = await resolveDocument(published, state, { derivers });
+
+    return textsOf(resolved.nodes);
+  };
+
+  const line = (desc: string, status: string) => ({ desc, qty: 1, taxable: true, archived: false, status });
+
+  assertEquals(
+    await resolve({
+      lines: [line("A", "overdue"), line("B", "paid"), line("C", "overdue")],
+      groups: [{ rows: [{ label: "g1r1" }, { label: "g1r2" }] }, { rows: [{ label: "g2r1" }] }],
+    }),
+    ["A", "C", "g1r1", "g1r2", "g2r1"],
+  );
+  assertEquals(
+    await resolve({ lines: [line("Z", "overdue")], groups: [{ rows: [{ label: "only" }] }] }),
+    ["Z", "only"],
+  );
 });

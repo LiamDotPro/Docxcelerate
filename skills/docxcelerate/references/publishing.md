@@ -31,11 +31,6 @@ Interpolating a value works — it becomes the token the engine substitutes:
 // published as: "Hello {{data.name}},"
 ```
 
-The same holds for a `variant`. `<Cell variant={line.status}>` publishes the
-token, and each recipient's rows take the block their own status names. A
-ternary choosing between names is computing, not interpolating: it publishes its
-true arm for everyone. Carry the name in the data, or derive it.
-
 Computing on one does not, because the value does not exist yet. Formatting a
 currency, totalling a list, comparing a date — those need a **deriver**:
 
@@ -50,10 +45,21 @@ import { dataRef, derive, Paragraph, useState } from "docxcelerate/document";
 </Paragraph>
 ```
 
-`useFormat` and `useDeriver` compute **during the build**, which is right whenever
-the value is already known. Reach for a `derivers` prop when it is not.
+`useFormat` computes during the build. `useDeriver(deriver, inputs)` runs now
+when the data is in hand, and while publishing it travels with the node and the
+engine runs it per document — so its result can be interpolated, or mapped, like
+request data.
 
-Tokens and `derivers` work the same in running furniture as in the body. `header`, `footer`, `firstHeader` / `firstFooter` and `evenHeader` / `evenFooter` are all settled per document, and a deriver used only in one of them is bundled with the rest. A reference on every page of a duplex statement is written once, in the strip, not repeated in the body.
+The same holds for a `variant`. `<Cell variant={line.status}>` publishes the
+token, and each recipient's rows take the block their own status names. A
+ternary choosing between names is computing, not interpolating: it publishes its
+true arm for everyone. Carry the name in the data, or derive it.
+
+Tokens and `derivers` work the same in running furniture as in the body.
+`header`, `footer`, `firstHeader` / `firstFooter` and `evenHeader` /
+`evenFooter` are all settled per document, and a deriver used only in one of
+them is bundled with the rest. A reference on every page of a duplex statement
+is written once, in the strip, not repeated in the body.
 
 ### 2. Loops are published as loops
 
@@ -72,6 +78,19 @@ collection immediately, so previews show the repetition rather than a descriptio
 of it. Publishing cannot walk it, so the stand-in intercepts the same call, runs
 the body once against a stand-in for one entry, and the loop reaches the engine
 intact.
+
+A loop over anything a stand-in can stand for publishes the same way: a list in
+the request, a list on an entry of an enclosing loop — `invoice.lines.map(...)`
+inside `invoices.map(...)` — or what a deriver returned. Whatever the loop
+needed computing first (sorted, grouped, filtered on a sum) becomes a deriver,
+and its result is what you map:
+
+```tsx
+const overdue = await useDeriver(overdueLines, [lines]);
+return overdue.map((line) => <Paragraph>{line.label}</Paragraph>);
+```
+
+The engine walks the rows the deriver produced for that recipient.
 
 **Never hand-write a `{{ctx.…}}` token in a loop body.** The entry the body was
 handed knows the path it stands for, so the reference writes itself. Passes are
@@ -182,7 +201,7 @@ or `NaN` would publish a document that is wrong for every recipient:
 | --- | --- |
 | `` `${data.name}` `` or `{state.name}` in text | fine — becomes `{{data.name}}` |
 | `data.total > 0`, `Number(data.total)`, arithmetic | throws — branch with an `if`, or use a deriver |
-| `.map` | fine — published as the loop the engine walks |
+| `.map` | fine — published as a loop the engine walks, over request data, an entry's field or a deriver's result |
 | `.filter`, `.sort`, `.length`, `.join`, `.at`, spread, `for…of` | throws — needs the entries; use a deriver |
 | `data.something()` | throws — request data holds values, not behaviour |
 | `await data.x` | resolves to `undefined` rather than hanging |
@@ -220,7 +239,7 @@ Two ways to invoke one, and the difference is *when*:
 
 | Route | Runs | Use for |
 | --- | --- | --- |
-| `useDeriver("name")(output, ...inputs)` | now, during this build | a value already known |
+| `useDeriver(deriver, [inputs])` | now with real data; per document when published | a value computed from data, in a component |
 | `derivers={[derive("name", { output, inputs })]}` prop | per document, on the engine | a value the request supplies |
 
 Value expressions for inputs: `dataRef(path)`, `ctxRef(path)`,
