@@ -140,6 +140,7 @@ dxcl list components
 | `advance-payment-invoice` | A deposit or prepayment against an order: the share, what's already requested, and what's left. |
 | `vat-place-of-supply` | Whose VAT applies and at what rate, decided before anything is printed. |
 | `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
+| `be-consumer-debt-reminder` | A Belgian payment reminder: free the first time, exact deadline, capped agreed costs after. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
 | `de-mahnung-fee` | When each invoice went into Verzug, and what this Mahnung may lawfully charge. |
 | `royalty-earnings-by-format` | Royalty lines per format and price band, split where the period crosses an escalator. |
