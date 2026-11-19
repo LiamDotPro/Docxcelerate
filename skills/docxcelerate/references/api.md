@@ -324,6 +324,15 @@ the per-document parts to be written. Give it as finished text, not a form with
 blanks in it. Pass an array when the shape legitimately varies by case — they
 travel numbered, and read as a pattern rather than a template.
 
+`from` takes request data as it is and survives publishing: write
+`from: { period: invoice.period, lines: invoice.lines }`, not a sentence built
+from them. Each value read from the data publishes as the token the engine fills
+per document, so the model is sent that recipient's period and every one of
+their lines. Once filled, a string arrives without quotes and a list or object as
+compact JSON; literals you write beside them stay as they are. Name the fields —
+handing over the whole request data, or the result of a `.map()`, is refused at
+publish.
+
 The `useState` setter is not a re-render request — a build is a single pass. It
 updates the value this component reads later, and the value anything sharing it
 through `useShared` will read.
