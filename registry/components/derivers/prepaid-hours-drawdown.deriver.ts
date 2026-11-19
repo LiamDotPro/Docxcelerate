@@ -270,7 +270,8 @@ export default deriver({
         const amount = round((remaining * rate) / 60);
         overs.push({ minutes: remaining, rate, amount });
         parts.push({ blockId: null, rolled: false, minutes: remaining, amount, name: "" });
-        if (live.length > eligible.length && e.role !== undefined && !excludedRoles.includes(e.role)) {
+        // Only an entry with nothing to draw on is told its role is excluded; one that drew a block was covered.
+        if (eligible.length === 0 && live.length > 0 && e.role !== undefined && !excludedRoles.includes(e.role)) {
           excludedRoles.push(e.role);
         }
       }

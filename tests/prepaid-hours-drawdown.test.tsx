@@ -139,6 +139,18 @@ test("9. role restriction", () => {
   assertEquals(go({ overageRate: 1, blocks, entries: [entry("2026-03-10", 60)] }).overageMinutes, 60);
 });
 
+test("9b. a role that drew its own block is not named as excluded", () => {
+  const blocks = [block("a", { opening: 1, allowedRoles: ["paralegal"] }), block("b", { opening: 5, allowedRoles: ["associate"] })];
+  const o = go({ blocks, entries: [entry("2026-03-10", 120, { role: "paralegal", standardRate: 1 })] });
+  assertEquals(parts(o), [["a", 60], [null, 60]]);
+  assertEquals(o.overageNote.includes("Paralegal"), false);
+});
+
+test("7c. a rolled pool burns before its receiver's own pool on an expiry tie", () => {
+  const o = go({ blocks: [giver(), receiver({ opening: 5 })], entries: [entry("2026-04-10", 60, { role: "associate" })] });
+  assertEquals(o.entries[0].parts[0].rolled, true);
+});
+
 test("10. overage rate fallback", () => {
   const blocks = [block("a", { opening: 0 })];
   const one = (more: Obj) => go({ blocks, entries: [entry("2026-03-10", 60, { standardRate: 30000 })], ...more });
