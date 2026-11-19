@@ -214,6 +214,8 @@ paragraphs — they stop being right the moment the text changes length. It
 applies to every page, so a short last page moves too; keep it for one-page
 documents.
 
+The page takes a border the same way a block does: `page.border: "1F3A5F"`, with `borderWidthPt`, `borderStyle` and `borderOffsetMm`, draws a rule round every page, set in from the paper's edge — the frame of a certificate, an award or a formal notice. It is Word's page border, so it takes up no room: keep the margins wider than the offset (8.5mm unless said, 0 to 11mm) or the text runs under the rule. Never fake a frame with a bordered table; it frames the text column, not the sheet, and breaks across pages.
+
 A paragraph keeps its own `align`, and its variant's indents, tab stops, border
 and fill, inside a `<Cell>` or `<Shape>` — a dotted `{"Signed\t"}` leader in a
 signature cell, a ruled quote inset inside a card. There, tab stops measure from

@@ -17,6 +17,7 @@ import {
   LevelFormat,
   LineRuleType,
   Packer,
+  PageBorderOffsetFrom,
   PageBreak,
   PageNumber,
   PageOrientation,
@@ -33,9 +34,10 @@ import {
   VerticalAlign,
   WidthType,
 } from "docx";
-import type { IParagraphStyleOptions, IParagraphStylePropertiesOptions } from "docx";
+import type { IPageBordersOptions, IParagraphStyleOptions, IParagraphStylePropertiesOptions } from "docx";
 import type {
   DocumentBlockStyle,
+  DocumentPageStyle,
   DocumentModel,
   DocumentNode,
   DocumentStyle,
@@ -57,7 +59,7 @@ import type {
 } from "../domain/types.ts";
 import { cleanMinimalDocumentStyle } from "../project/style.ts";
 import { hasChartData } from "./chart_part.ts";
-import { columnWidthMm, pageWidthMm, paperMm } from "./page_size.ts";
+import { columnWidthMm, pageBorderOffsetPt, pageWidthMm, paperMm } from "./page_size.ts";
 import { addChartsToPackage, chartRelationshipToken } from "./docx_charts.ts";
 import { type ImageSource, imageSourceOf, isSvg, pixelSizeOf, rasterTypeOf } from "./image_source.ts";
 
@@ -145,6 +147,7 @@ export function createDocxDocument(doc: DocumentModel): Document {
               start: firstPageNumberOf(style),
               formatType: style.page.numberStyle,
             },
+            borders: pageBorders(style.page),
           },
           titlePage: titlePage || undefined,
           verticalAlign: style.page.valign,
@@ -1173,15 +1176,22 @@ function blockLine(block: DocumentBlockStyle | undefined, style: DocumentStyle) 
  * @param on Which element the borders are for. A cell has margins of its own;
  * a paragraph does not.
  */
+/** One line of a border as Word measures it: its width in eighths of a point. */
+function borderLine(color: string, from: Pick<DocumentBlockStyle, "borderWidthPt" | "borderStyle">) {
+  return {
+    style: from.borderStyle ?? BorderStyle.SINGLE,
+    color,
+    size: Math.max(1, Math.round((from.borderWidthPt ?? 1) * 8)),
+  };
+}
+
 function blockBorders(block: DocumentBlockStyle | undefined, on: "paragraph" | "cell") {
   if (!block?.border) {
     return undefined;
   }
 
   const edge = {
-    style: block.borderStyle ?? BorderStyle.SINGLE,
-    color: block.border,
-    size: Math.max(1, Math.round((block.borderWidthPt ?? 1) * 8)),
+    ...borderLine(block.border, block),
     ...(on === "paragraph" ? { space: Math.min(31, Math.round(block.paddingPt ?? 0)) } : {}),
   };
   const sides = block.borderSides ?? ["top", "right", "bottom", "left"];
@@ -2262,6 +2272,19 @@ function firstPageNumberOf(style: DocumentStyle): number | undefined {
     throw new RangeError(`page.firstPageNumber must be a whole number from 0, not ${start}`);
   }
   return start;
+}
+
+/** The rule round every page, measured from the paper's edge as a certificate's frame is. */
+function pageBorders(page: DocumentPageStyle): IPageBordersOptions | undefined {
+  if (!page.border) return undefined;
+  const edge = { ...borderLine(page.border, page), space: pageBorderOffsetPt(page) };
+  return {
+    pageBorders: { offsetFrom: PageBorderOffsetFrom.PAGE },
+    pageBorderTop: edge,
+    pageBorderRight: edge,
+    pageBorderBottom: edge,
+    pageBorderLeft: edge,
+  };
 }
 
 function mmToTwips(value: number): number {

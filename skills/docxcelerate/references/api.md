@@ -580,7 +580,7 @@ from the *paper's* edge rather than from the margin, 12.5mm unless said —
 `valign`, `"top"` unless said, `"center"` or `"bottom"`, which is where the body
 sits between the top and bottom margins: Word's own vertical alignment, for a
 certificate or cover sheet set mid-page; it applies to every page, so a short
-last page is centred too — and `firstPageNumber` / `numberStyle`: where page numbering starts, a whole number
+last page is centred too — `border` (with `borderWidthPt`, `borderStyle` as on a block, and `borderOffsetMm`, how far in from the paper's edge to the rule's outer edge, 8.5mm unless said, 0–11mm, anything else throws), a rule round all four edges of every page: Word's page border, for a certificate or a formal notice; it moves no text, so the margins must be wider than the offset; nothing is drawn without `border` — and `firstPageNumber` / `numberStyle`: where page numbering starts, a whole number
 from 0 (default 1), and how it is written, `"decimal"` (default),
 `"lowerRoman"`, `"upperRoman"`, `"lowerLetter"` or `"upperLetter"`, for an
 appendix that continues its parent's numbering or front matter numbered
