@@ -214,6 +214,120 @@ export interface ParagraphNode extends BaseNode {
    * still reads all of them, in order.
    */
   inlineImages?: InlineImage[];
+  /**
+   * The same words as `text`, cut where the setting changes.
+   *
+   * Present only when some of the words are set differently from the rest — a
+   * term in bold, a phrase that links somewhere. `text` is still all of them,
+   * joined, so everything that reads a paragraph's words goes on reading one
+   * string.
+   *
+   * Each run carries its own words rather than a range over `text`, and that
+   * is the decision the field rests on. A published paragraph still has
+   * `{{tokens}}` in it, and whatever settles them changes its length: a range
+   * counted at build time would be pointing at different words by the time a
+   * document was written. A run's words are settled in place and joined again.
+   *
+   * A renderer honours the runs only while they still spell `text`. Something
+   * that rewrote the one without the other has made the runs stale, and stale
+   * words set in bold are worse than the right words set plain.
+   */
+  runs?: ParagraphRun[];
+  /**
+   * The paragraph's place in a list, when it is an item of one.
+   *
+   * On the paragraph rather than on a node around the items, so that an item
+   * is everything a paragraph already is: it has an id, a condition can drop
+   * it, a loop produces one per entry, an engine can write it. A list is its
+   * items standing next to one another — which is also what it is in Word —
+   * and a renderer counts them, the way it counts pages.
+   *
+   * Items that stand together are one list. Anything that is not an item
+   * ends it, and a numbered list after that starts again at one.
+   */
+  list?: ParagraphList;
+}
+
+/**
+ * How a row's stated height binds: `"atLeast"` is a floor the row grows past
+ * when its contents need more, `"exact"` is a fixed depth that clips them.
+ */
+export type RowHeightRule = "atLeast" | "exact";
+
+/** Which kind of list a paragraph is an item of: marked with a bullet, or counted. */
+export type ListKind = "bullet" | "number";
+
+/**
+ * The numerals a numbered list counts in at one level, and how they are set.
+ *
+ * The name is Word's own number format (`w:numFmt`), so `"lowerLetter"` counts
+ * a, b, c and is followed by a full stop. The `Paren` form puts the numeral in
+ * brackets with no stop, which is how a contract writes a sub-clause: (a), (i).
+ */
+export type ListStyle =
+  | "decimal"
+  | "lowerLetter"
+  | "upperLetter"
+  | "lowerRoman"
+  | "upperRoman"
+  | "decimalParen"
+  | "lowerLetterParen"
+  | "upperLetterParen"
+  | "lowerRomanParen"
+  | "upperRomanParen";
+
+/** A paragraph's place in a list. */
+export interface ParagraphList {
+  /** Whether the item is marked or counted. */
+  kind: ListKind;
+  /**
+   * How far under another item this one stands. Absent means not at all;
+   * `1` is a point under an item, and a renderer goes as deep as nine.
+   */
+  level?: number;
+  /**
+   * The numerals this item's level counts in, for a numbered item. The first
+   * item at a level in a list that says decides it for the whole list. Absent
+   * means the default: figures, then letters, then roman numerals by depth,
+   * each followed by a full stop. A bulleted item has none.
+   */
+  style?: ListStyle;
+}
+
+/**
+ * A stretch of a paragraph's words, and how it is set.
+ *
+ * What a run says is emphasis, destination and a named theme block, never appearance: there is no
+ * colour and no size here, for the reason there is none on a node. A linked
+ * phrase is drawn in the theme's accent because the theme says what a link
+ * looks like.
+ */
+export interface ParagraphRun {
+  /** The words. */
+  text: string;
+  /** Set heavier than the words around it — or, `false`, lighter than a bold block's. */
+  bold?: boolean;
+  /** Set in italics. */
+  italic?: boolean;
+  /** Set with a rule beneath. */
+  underline?: boolean;
+  /** Set struck through. */
+  strike?: boolean;
+  /** Raised above the line or dropped below it, smaller. Absent, the words sit on it. */
+  script?: "superscript" | "subscript";
+  /**
+   * An address the words link to: `https:`, `http:`, `mailto:` or `tel:`.
+   *
+   * Anything else prints as the words alone. The address may come out of a
+   * request, and a preview draws a link as something a reader can click.
+   */
+  href?: string;
+  /**
+   * Which block style the theme draws this run in. A name, never an appearance:
+   * the theme's `blocks` say what it looks like. Only the block's character
+   * settings apply, and an unknown name draws the run plain.
+   */
+  variant?: string;
 }
 
 /** A picture set in a paragraph's line, and where along the text it sits. */
@@ -247,10 +361,24 @@ export interface ImageNode extends BaseNode {
   fallbackPath?: string;
   /** Alternative text describing the image. */
   alt?: string;
-  /** Rendered width, in points. */
+  /** Rendered width, in points. Left out, it follows the picture's own proportions from `height`, or is 120pt when neither is given. */
   width?: number;
-  /** Rendered height, in points. */
+  /** Rendered height, in points. Left out, it follows the picture's own proportions from the width. */
   height?: number;
+  /**
+   * Where the picture sits across the text column, when it is not flush left.
+   *
+   * On the node for the same reason a paragraph's is: a centred picture is centred
+   * in every theme. Absent writes no alignment at all.
+   */
+  align?: TableAlign;
+  /**
+   * An address the picture links to: `https:`, `http:`, `mailto:` or `tel:`.
+   *
+   * Anything else draws the picture alone. The address may come out of a
+   * request, and a preview draws a link as something a reader can click.
+   */
+  href?: string;
   /** What to show while the image has not been produced yet. */
   placeholder?: string;
 }
@@ -275,12 +403,26 @@ export interface GraphNode extends BaseNode {
   data?: GraphData;
   /** A caption printed beneath the chart. */
   caption?: string;
+  /**
+   * What the chart shows, for a reader who cannot see it.
+   *
+   * Absent means the drawing is described by its title, then its caption, then
+   * its id — what every chart was described by before this existed.
+   */
+  alt?: string;
   /** What to show while the chart has no data yet. */
   placeholder?: string;
   /** How wide the chart is drawn, in points. The text column unless it is said. */
   width?: number;
   /** How deep it is drawn, in points. Seven twelfths of its width unless it is said. */
   height?: number;
+  /**
+   * Where the chart sits across the text column, when it is not flush left.
+   *
+   * On the node for the same reason a paragraph's is: a centred chart is centred
+   * in every theme. Absent writes no alignment at all.
+   */
+  align?: TableAlign;
   /**
    * Where the key sits.
    *
@@ -308,6 +450,23 @@ export interface GraphNode extends BaseNode {
   categoryAxisTitle?: string;
   /** What the value axis measures. */
   valueAxisTitle?: string;
+  /**
+   * Where the value axis starts, in the units of the values. Left out, Word
+   * picks it, which for most data is zero. A value below it is drawn clipped
+   * at the axis; on a percent stack the axis is a share, so `0.5` is 50%.
+   * Ignored on a pie and a doughnut, which have no axis.
+   */
+  valueAxisMin?: number;
+  /**
+   * Where the value axis ends, in the units of the values. Left out, Word
+   * picks it. Must be above `valueAxisMin` when both are given.
+   */
+  valueAxisMax?: number;
+  /**
+   * The distance between ticks and gridlines on the value axis. Left out, Word
+   * picks it. Must be greater than zero.
+   */
+  valueAxisStep?: number;
   /**
    * Whether each point prints its own figure.
    *
@@ -350,6 +509,8 @@ export interface TableNode extends BaseNode {
   kind: "table";
   /** The columns, left to right. */
   columns: TableColumn[];
+  /** Where the table sits across the text column. Left unless it is said. */
+  align?: TableAlign;
   /** The rows, and any loops that produce them. */
   children: DocumentNode[];
 }
@@ -367,6 +528,24 @@ export interface TableRowNode extends BaseNode {
    * words in the wrong place.
    */
   header?: boolean;
+  /**
+   * Whether the row stays whole on one page rather than breaking across two.
+   *
+   * For a row holding several lines — an invoice line with a wrapped
+   * description, a clause in a schedule — where a break through the middle
+   * leaves half a row at the foot of one page and half at the head of the next.
+   * Word moves the whole row over instead. A row taller than a page breaks
+   * anyway, having nowhere else to go.
+   * Left out, Word may break the row wherever the page ends.
+   */
+  keepTogether?: boolean;
+  /** The row's stated height, in points. Absent, the row is as tall as its contents. */
+  height?: number;
+  /**
+   * How `height` binds. Absent means `"atLeast"`; only `"exact"` is carried,
+   * so the model says only what departs from the default.
+   */
+  heightRule?: RowHeightRule;
   /** The cells, left to right. */
   children: DocumentNode[];
 }
@@ -471,7 +650,7 @@ export interface PageNumberNode extends BaseNode {
  * A build cannot unroll this the way it unrolls a branch: the length of
  * `source` is not known until a document is written. So the loop itself is
  * what gets published, and the engine walks it. Each pass binds the entry under
- * `as` and its position under `indexAs`, both readable through `ctx`, and
+ * `as` and its position under `indexAs`, and its one-based place among the entries that pass `where` under `positionAs`, both readable through `ctx`, and
  * suffixes child ids with the index so they stay unique across passes.
  */
 export interface RepeatNode extends BaseNode {
@@ -483,6 +662,14 @@ export interface RepeatNode extends BaseNode {
   as: string;
   /** The `ctx` key each entry's zero-based position is bound to. */
   indexAs: string;
+  /**
+   * The `ctx` key each walked entry's position, counting from one, is bound to.
+   *
+   * Counted over the entries that pass `where`, so a filtered loop numbers what
+   * the recipient sees. Absent on a loop published before positions existed,
+   * which binds none.
+   */
+  positionAs?: string;
   /**
    * A test each entry has to pass to be walked at all.
    *
@@ -511,6 +698,31 @@ export type DocumentNode =
   | RepeatNode;
 
 /**
+ * What a document says about itself to the software that files it — Word's
+ * File > Info, Explorer and Finder, and any DMS that indexes on properties.
+ *
+ * Written to `docProps/core.xml` and `docProps/custom.xml`. None of it is
+ * printed. The title is not here: it is the document's own `title`, and is
+ * written as the file's title whether or not it is printed.
+ */
+export interface DocumentProperties {
+  /** Who the document is from — Word's Author, and its Last Modified By. */
+  author?: string;
+  /** What the document is about, in a phrase. */
+  subject?: string;
+  /** Words to find it by, as one string — Word shows them as Tags. */
+  keywords?: string;
+  /** A longer note about the document — Word's Comments. */
+  description?: string;
+  /**
+   * Named values a DMS can index and filter on, such as an invoice number.
+   * Every value is text. One that comes out empty is left out of the file,
+   * rather than filed as a blank.
+   */
+  custom?: Record<string, string>;
+}
+
+/**
  * A built document: the JSON an engine is handed to write one copy from.
  *
  * @example Rendering a built document to a DOCX blob
@@ -537,8 +749,26 @@ export interface DocumentModel {
   title: string;
   /** How the document looks; a renderer default applies when absent. */
   style?: DocumentStyle;
+  /**
+   * The language the document is written in, as a BCP 47 tag such as `fr-FR`.
+   *
+   * Absent on a document that never said, which renders as it always has. When
+   * present, Word proofs the text in this language, derivers are told it, and
+   * dynamic nodes are asked to be written in it.
+   */
+  locale?: string;
+  /**
+   * Whether Word opens the document with Track Changes on.
+   *
+   * Absent on a document that never asked, which packs as it always has. It is
+   * a setting, not content: there is nothing to draw until someone edits the
+   * file in Word, so a preview shows the document exactly as it is.
+   */
+  trackChanges?: boolean;
   /** Anything the caller wants to carry alongside the document. */
   metadata?: JsonObject;
+  /** What the file says about itself, beyond its title. Absent writes only the title. */
+  properties?: DocumentProperties;
   /** The body of the document, in order. */
   nodes: DocumentNode[];
   /**

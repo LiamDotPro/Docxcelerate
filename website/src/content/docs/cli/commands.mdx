@@ -115,6 +115,11 @@ than a fork. What it does not do is edit your data type, so the fields the
 component reads are printed for you to add. Placing it in `document.tsx` is
 yours too, for the same reason the node generator leaves that alone.
 
+A component that offers [arrangements](/docs/essentials/arrangements/) also
+brings one file per arrangement, under `arrangements/<name>/`, beside the
+`lines.ts` that types what its node hands them. `dxcl show` lists them, and the
+install's follow-up names the `arrangement` values it takes.
+
 **A theme** is written out as the project's `document-style.ts`, which
 `document.project.ts` already passes through — so the next preview is themed.
 The file imports the theme and spreads it, so overriding one margin is a line

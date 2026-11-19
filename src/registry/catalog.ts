@@ -35,6 +35,26 @@ export interface RegistryDataField {
   summary: string;
 }
 
+/**
+ * One way a component can place what it prints, chosen with its `arrangement`
+ * prop.
+ *
+ * Arrangements change where the lines sit, never which lines print: every one
+ * of a component's arrangements prints the same lines under the same
+ * conditions. The component picks between them with `arrange()` from
+ * `docxcelerate/template`, which treats the first as the default, the same
+ * order these are listed in. Each one is a file of its own, installed under
+ * `arrangements/<component id>/`.
+ */
+export interface RegistryArrangement {
+  /** The value the `arrangement` prop takes. */
+  id: string;
+  /** Its name, as it is printed. */
+  title: string;
+  /** One line: where things sit, and when you would want that. */
+  summary: string;
+}
+
 /** One file an install copies. */
 export interface RegistryFile {
   /** Path under `registry/`, inside the package. */
@@ -63,6 +83,11 @@ export interface RegistryComponent {
   exports: string[];
   /** What it reads, so a project knows what to add to its data type. */
   dataFields: RegistryDataField[];
+  /**
+   * The placements its `arrangement` prop chooses between, the default first.
+   * Missing for a component that has only the one.
+   */
+  arrangements?: RegistryArrangement[];
   /** The files copied in. */
   files: RegistryFile[];
   /** Data the previews on the site are built against, and a project can crib. */
@@ -85,11 +110,25 @@ export interface RegistryComponent {
  * sits in a `derivers/` folder in the registry too, so the node's
  * `../derivers/<id>.deriver.ts` import resolves the same before and after it is
  * copied.
+ *
+ * A component with arrangements keeps each one in its own file, laid out the
+ * same way and for the same reason: `arrangements/<id>/<name>.arrangement.tsx`,
+ * beside `arrangements/<id>/lines.ts`, the type of what the node hands every
+ * one of them. The node imports them from `../arrangements/<id>/`, so it reads
+ * as what it decides, and each file reads as where things sit.
  */
-function node(id: string, options: { deriver?: boolean } = {}): RegistryFile[] {
+function node(id: string, options: { deriver?: boolean; arrangements?: string[] } = {}): RegistryFile[] {
+  const arranged = (file: string) => ({
+    source: `components/arrangements/${id}/${file}`,
+    target: `arrangements/${id}/${file}`,
+  });
+
   return [
     { source: `components/${id}/${id}.node.tsx`, target: `nodes/${id}.node.tsx` },
     ...(options.deriver ? [{ source: `components/derivers/${id}.deriver.ts`, target: `derivers/${id}.deriver.ts` }] : []),
+    ...(options.arrangements
+      ? [arranged("lines.ts"), ...options.arrangements.map((name) => arranged(`${name}.arrangement.tsx`))]
+      : []),
   ];
 }
 
@@ -241,7 +280,7 @@ export const COMPONENTS: RegistryComponent[] = [
       "oddly at zero is the point — somebody who owes nothing should not be " +
       "given a payment deadline.",
     category: "Body",
-    tags: ["money", "branching", "section"],
+    tags: ["money", "branching", "section", "localised"],
     exports: ["PaymentSummary"],
     dataFields: [
       {
@@ -873,7 +912,24 @@ export const COMPONENTS: RegistryComponent[] = [
       { path: "seller.vatNumber", type: "string | undefined", summary: "Required when registered; the document fails without it." },
       { path: "seller.simplifiedAllowed", type: "boolean | undefined", summary: "Whether simplified invoices are issued at all. Missing means no." },
     ],
-    files: node("invoice-document-type", { deriver: true }),
+    arrangements: [
+      {
+        id: "stacked",
+        title: "Stacked",
+        summary: "One labelled line under another, down the text column.",
+      },
+      {
+        id: "table",
+        title: "Table",
+        summary: "Labels in a narrow column with the values beside them, so the values line up.",
+      },
+      {
+        id: "split",
+        title: "Split",
+        summary: "Number, purchase order and VAT number on the left; the dates ranged right.",
+      },
+    ],
+    files: node("invoice-document-type", { deriver: true, arrangements: ["stacked", "table", "split"] }),
     previewData: {
       invoice: {
         number: "SI-2026-11-004817/REV-2",
@@ -961,6 +1017,65 @@ export const COMPONENTS: RegistryComponent[] = [
       customer: {
         vatNumber: "NL123456789B01",
         resaleCertificate: { number: "SR EAA 102-345678", state: "California" },
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "plan-change-proration",
+    title: "Plan change proration",
+    summary: "The credit and charge lines a mid-period plan change causes, and what the net means.",
+    detail:
+      "Every change made partway through a billing period becomes a credit for " +
+      "the unused time on the old plan and a charge for the remaining time on " +
+      "the new one, counted on the days the period actually has, never 30, with " +
+      "an inclusive end date. Each line is rounded once in minor units, not built " +
+      "from a rounded daily rate, so the pennies agree. The credit is what the " +
+      "customer actually paid after discounts, not the list price, and a second " +
+      "change in the same period credits the first change's plan rather than the " +
+      "original one again. A change on the renewal date, a metered item or a line " +
+      "worth nothing prints nothing. The net picks the sentence: a charge on this " +
+      "invoice, a credit carried to the balance and stated as not refunded unless " +
+      "the refund policy says otherwise, or a lateral change that only says so. " +
+      "All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "invoice", "subscription", "proration", "table", "deriver", "branching", "section"],
+    exports: ["PlanChangeProration"],
+    dataFields: [
+      { path: "subscription.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required." },
+      { path: "subscription.period", type: "{ start: string; end: string }", summary: "ISO 8601 billing period; end is inclusive. Required." },
+      {
+        path: "subscription.changes",
+        type:
+          "Array<{ at: string; item?: string; metered?: boolean; from: { label: string; quantity?: number; paidMinor: number }; to: { label: string; quantity?: number; periodAmountMinor: number } }>",
+        summary: "Every change in the period, amounts in integer minor units after discount. Missing or empty prints nothing.",
+      },
+      { path: "subscription.refundPolicy", type: '"balance" | "refund" | undefined', summary: "What a net credit becomes. Missing means balance: not refunded." },
+    ],
+    files: node("plan-change-proration", { deriver: true }),
+    previewData: {
+      subscription: {
+        currency: "EUR",
+        period: { start: "2026-12-01", end: "2026-12-31" },
+        refundPolicy: "balance",
+        changes: [
+          {
+            at: "2026-12-09", item: "platform",
+            from: { label: "Business Analytics Suite (Annual, billed monthly)", quantity: 1, paidMinor: 1249900 },
+            to: { label: "Enterprise Analytics Suite with Extended Data Retention", quantity: 1, periodAmountMinor: 2499900 },
+          },
+          {
+            at: "2026-12-17", item: "seats",
+            from: { label: "Named analyst seats", quantity: 1180, paidMinor: 5428000 },
+            to: { label: "Named analyst seats", quantity: 1450, periodAmountMinor: 6670000 },
+          },
+          {
+            at: "2026-12-23", item: "platform",
+            from: { label: "Enterprise Analytics Suite with Extended Data Retention", quantity: 1, paidMinor: 2499900 },
+            to: { label: "Enterprise Analytics Suite with Extended Data Retention and Dedicated Support", quantity: 1, periodAmountMinor: 3149900 },
+          },
+        ],
       },
     },
     requires: [],

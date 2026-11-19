@@ -1,5 +1,6 @@
 import type {
   Condition,
+  DocumentProperties,
   DeriverInvocation,
   DocumentNode,
   GraphData,
@@ -9,7 +10,9 @@ import type {
   JsonObject,
   PageBreakNode,
   PageNumberNode,
+  ParagraphList,
   ParagraphNode,
+  ParagraphRun,
   RepeatNode,
   SectionNode,
   ShapeNode,
@@ -20,6 +23,7 @@ import type {
 } from "../domain/types.ts";
 import { evaluateCondition, invertCondition } from "../runtime/conditions.ts";
 import { runDerivers } from "../runtime/derivers.ts";
+import { renderProperties } from "../runtime/templates.ts";
 import type { BranchProps } from "./branch.ts";
 import {
   type RenderContext,
@@ -46,12 +50,13 @@ import type {
   TableProps,
 } from "./elements.ts";
 import type { LoopProps } from "./loop.ts";
+import { generateGraph, generateImage, generateParagraph } from "../runtime/ai_request.ts";
 import {
-  formatPromptText,
   isDynamic,
   joinText,
   type InlineImageElement,
   jsonText,
+  markedRuns,
   mergePrompts,
   placeholderText,
   promptSpecs,
@@ -76,6 +81,23 @@ export async function renderDocumentChildren(
   context: RenderContext,
 ): Promise<DocumentNode[]> {
   return await renderYield(props.children, context, { path: "" });
+}
+
+/**
+ * The document's properties, settled against the build's data.
+ *
+ * A function is called once, like a `useState` initializer, and its strings go
+ * through `requiredText` so a published value becomes a token the engine fills.
+ */
+export async function renderDocumentProperties(
+  props: DocumentProps,
+  context: RenderContext,
+): Promise<DocumentProperties | undefined> {
+  if (props.properties === undefined) return undefined;
+  const properties = typeof props.properties === "function"
+    ? (props.properties as (data: unknown) => DocumentProperties)(context.data)
+    : props.properties;
+  return await renderProperties(properties, (value) => requiredText(value, context));
 }
 
 /**
@@ -303,6 +325,16 @@ async function renderHost(
   frame: Frame,
 ): Promise<DocumentNode | DocumentNode[]> {
   const kind = hostKindOf(element.type);
+
+  // Reaching here means it was written beside the nodes rather than among a
+  // paragraph's words, where there is no paragraph for it to be part of.
+  if (kind === "text") {
+    throw new Error(
+      `A <Text> at ${describe(frame)} is not inside any words. It sets some of the words of a ` +
+        "<Paragraph>, a <Cell> or a <Shape>; on its own it is a <Paragraph>.",
+    );
+  }
+
   const props = element.props as CommonElementProps;
   const id = claimId(context, props, frame, kind ?? "node");
   const when = allOf(frame.when, props.when);
@@ -310,7 +342,10 @@ async function renderHost(
   await runNodeDerivers(props, context);
 
   return withDerivers(
-    withVariant(await renderHostKind(kind, element, context, frame, id, when), props.variant),
+    withVariant(
+      await renderHostKind(kind, element, context, frame, id, when),
+      await text(props.variant, context),
+    ),
     [...(frame.derivers ?? []), ...(props.derivers ?? [])],
   );
 }
@@ -473,6 +508,7 @@ async function renderTable(
     id,
     kind: "table",
     columns: props.columns.map((column) => prune({ ...column })),
+    align: props.align,
     when,
     children: await renderYield(props.children, context, {
       path: `${frame.path}/${id}`,
@@ -494,6 +530,10 @@ async function renderRow(
     id,
     kind: "tableRow",
     header: props.header ? true : undefined,
+    keepTogether: props.keepTogether ? true : undefined,
+    height: props.height,
+    // Only `exact` is carried: absent is a floor, and a rule with no height says nothing.
+    heightRule: props.height !== undefined && props.heightRule === "exact" ? "exact" : undefined,
     when,
     children: await renderYield(props.children, context, {
       path: `${frame.path}/${id}`,
@@ -566,7 +606,8 @@ async function cellText(
   frame: Frame,
   id: string,
 ): Promise<DocumentNode[]> {
-  const body = joinText(children, frame);
+  const pieces: ParagraphRun[] = [];
+  const body = joinText(children, frame, undefined, pieces);
 
   if (body === "") {
     return [];
@@ -576,11 +617,44 @@ async function cellText(
     id: `${id}-text`,
     kind: "paragraph",
     mode: "static",
-    text: await requiredText(body, context),
+    ...await words(body, pieces, context),
   })];
 }
 
-/** Whether a cell was given nodes rather than something to print. */
+/**
+ * A static paragraph's words, and its runs when some are set differently.
+ *
+ * Each run is settled on its own and `text` is joined from the results, rather
+ * than the two being settled separately: a template filled in changes length,
+ * and the runs have to go on spelling exactly what `text` says.
+ */
+async function words(
+  body: string,
+  pieces: readonly ParagraphRun[],
+  context: RenderContext,
+): Promise<Pick<ParagraphNode, "text" | "runs">> {
+  const marked = markedRuns(pieces);
+
+  if (marked === undefined) {
+    return { text: await requiredText(body, context) };
+  }
+
+  const runs = await Promise.all(marked.map(async (run) =>
+    prune({
+      ...run,
+      text: await requiredText(run.text, context),
+      href: await text(run.href, context),
+    })
+  ));
+
+  return { text: runs.map((run) => run.text).join(""), runs };
+}
+
+/**
+ * Whether a cell was given nodes rather than something to print.
+ *
+ * A `<Text>` is something to print: it is words with a setting, not a node.
+ */
 function holdsElements(children: Yield): boolean {
   let found = false;
 
@@ -594,7 +668,7 @@ function holdsElements(children: Yield): boolean {
       return;
     }
 
-    if (isTemplateElement(value)) {
+    if (isTemplateElement(value) && hostKindOf(value.type) !== "text") {
       found = true;
     }
   };
@@ -627,6 +701,7 @@ async function renderLoop(
     source: { scope: props.overScope, path: props.over },
     as: props.as,
     indexAs: props.indexAs,
+    positionAs: props.positionAs,
     where: props.where,
     when,
     children: await renderYield(props.children, context, {
@@ -646,7 +721,8 @@ async function renderParagraph(
   when: Condition | undefined,
 ): Promise<ParagraphNode> {
   const inlineElements: InlineImageElement[] = [];
-  const body = props.text ?? joinText(props.children, frame, inlineElements);
+  const pieces: ParagraphRun[] = [];
+  const body = props.text ?? joinText(props.children, frame, inlineElements, pieces);
 
   // Pictures are rendered as the nodes they are, then carried on the
   // paragraph rather than emitted beside it.
@@ -670,7 +746,8 @@ async function renderParagraph(
       mode: "static",
       when,
       align: props.align,
-      text: await requiredText(body, context),
+      list: listOf(props),
+      ...await words(body, pieces, context),
       inlineImages: inlineImages.length === 0 ? undefined : inlineImages,
     };
 
@@ -684,6 +761,7 @@ async function renderParagraph(
       mode: "dynamic",
       when,
       align: props.align,
+      list: listOf(props),
       text: await placeholderText(prompts, id, context),
     });
   }
@@ -695,22 +773,26 @@ async function renderParagraph(
     mode: "dynamic",
     when,
     align: props.align,
+    list: listOf(props),
     prompts: specs,
   };
 
-  if (!context.aiClient) {
-    throw new Error(`Dynamic paragraph "${id}" requires an aiClient.`);
-  }
-
   return prune({
     ...node,
-    text: await context.aiClient.generateParagraph({
-      node,
-      prompt: formatPromptText(specs),
-      prompts: specs,
-      state: context.state,
-    }),
+    text: await generateParagraph(context.aiClient, node, specs, context.state),
   });
+}
+
+/** A paragraph's place in a list, as the model says it. A first-level item says no level. */
+function listOf(props: ParagraphProps): ParagraphList | undefined {
+  return props.list === undefined
+    ? undefined
+    : prune({
+      kind: props.list,
+      level: props.listLevel || undefined,
+      // Bullets count nothing, so a style on one would only be noise in the model.
+      style: props.list === "number" ? props.listStyle : undefined,
+    });
 }
 
 async function renderImage(
@@ -721,6 +803,13 @@ async function renderImage(
   when: Condition | undefined,
 ): Promise<ImageNode> {
   const prompts = settled(props.src, props, frame, id);
+  const drawn = {
+    alt: await text(props.alt, context),
+    href: await text(props.href, context),
+    width: props.width,
+    height: props.height,
+    align: props.align,
+  };
 
   if (!isDynamic(prompts)) {
     if (props.src === undefined) {
@@ -736,9 +825,7 @@ async function renderImage(
       when,
       path: await requiredText(props.src, context),
       fallbackPath: await text(props.fallbackSrc, context),
-      alt: await text(props.alt, context),
-      width: props.width,
-      height: props.height,
+      ...drawn,
     });
   }
 
@@ -751,9 +838,7 @@ async function renderImage(
       kind: "image",
       mode: "dynamic",
       when,
-      alt: await text(props.alt, context),
-      width: props.width,
-      height: props.height,
+      ...drawn,
       placeholder: await placeholderText(prompts, id, context),
     });
   }
@@ -764,22 +849,11 @@ async function renderImage(
     kind: "image",
     mode: "dynamic",
     when,
-    alt: await text(props.alt, context),
-    width: props.width,
-    height: props.height,
+    ...drawn,
     prompts: specs,
   };
 
-  if (!context.aiClient?.generateImage) {
-    throw new Error(`Dynamic image "${id}" requires an aiClient.generateImage method.`);
-  }
-
-  const result = await context.aiClient.generateImage({
-    node,
-    prompt: formatPromptText(specs),
-    prompts: specs,
-    state: context.state,
-  });
+  const result = await generateImage(context.aiClient, node, specs, context.state);
 
   return prune({ ...node, ...result, path: result.path });
 }
@@ -798,6 +872,7 @@ async function renderGraph(
   // node this returns.
   const drawn = {
     title: await text(props.title, context),
+    alt: await text(props.alt, context),
     width: props.width,
     height: props.height,
     legend: props.legend,
@@ -805,7 +880,11 @@ async function renderGraph(
     numberFormat: props.numberFormat,
     categoryAxisTitle: props.categoryAxisTitle,
     valueAxisTitle: props.valueAxisTitle,
+    valueAxisMin: props.valueAxisMin,
+    valueAxisMax: props.valueAxisMax,
+    valueAxisStep: props.valueAxisStep,
     dataLabels: props.dataLabels,
+    align: props.align,
   };
 
   if (!isDynamic(prompts)) {
@@ -835,6 +914,7 @@ async function renderGraph(
       when,
       graphType,
       ...drawn,
+      caption: await text(props.caption, context),
       placeholder: await placeholderText(prompts, id, context),
     });
   }
@@ -847,25 +927,17 @@ async function renderGraph(
     when,
     graphType,
     ...drawn,
+    caption: await text(props.caption, context),
     prompts: specs,
   };
 
-  if (!context.aiClient?.generateGraph) {
-    throw new Error(`Dynamic graph "${id}" requires an aiClient.generateGraph method.`);
-  }
-
-  const result = await context.aiClient.generateGraph({
-    node,
-    prompt: formatPromptText(specs),
-    prompts: specs,
-    state: context.state,
-  });
+  const result = await generateGraph(context.aiClient, node, specs, context.state);
 
   return prune({
     ...node,
     graphType: result.graphType ?? graphType,
-    data: result.data,
-    caption: result.caption,
+    data: result.data ?? node.data,
+    caption: result.caption ?? node.caption,
   });
 }
 

@@ -202,10 +202,21 @@ function readParagraph(xml, index) {
   const ind = pPr === null ? null : element(pPr, "w:ind");
   const pBdr = pPr === null ? null : element(pPr, "w:pBdr");
   const tabs = pPr === null ? null : element(pPr, "w:tabs");
+  const numPr = pPr === null ? null : element(pPr, "w:numPr");
 
   return {
     index,
     text: textOf(xml),
+
+    /**
+     * The list this paragraph is an item of: how deep, and which numbering it
+     * counts in. The marker itself is not here — it is in the numbering part,
+     * which `list()` on the view follows this through to.
+     */
+    numPr: numPr === null ? null : {
+      ilvl: childNum(numPr, "w:ilvl", "w:val"),
+      numId: childNum(numPr, "w:numId", "w:val"),
+    },
 
     /** The named style, when the paragraph takes one. */
     style: childAttr(pPr, "w:pStyle", "w:val"),
@@ -269,6 +280,13 @@ function readParagraph(xml, index) {
       spacing: childNum(rPr, "w:spacing", "w:val"),
     },
 
+    /**
+     * Every run, in order. `run` above answers for a paragraph set in one
+     * style; a sentence with one bold word in it is three runs, and the fact a
+     * case wants is which words are in which.
+     */
+    runs: scanElements(xml, "w:r").map(readRun),
+
     /** Whether the paragraph holds a picture. */
     hasDrawing: xml.includes("<w:drawing"),
     /** Whether the paragraph holds a field — PAGE, NUMPAGES, TOC. */
@@ -279,6 +297,104 @@ function readParagraph(xml, index) {
     /** The paragraph's own XML, for the assertions no field anticipates. */
     xml,
   };
+}
+
+/** One run: the words it prints, and the marks it prints them in. */
+function readRun(xml) {
+  // Anchored to the run's first child, which is where OOXML puts its
+  // properties. A first match anywhere would let a text box drawn inside the
+  // run answer for the run that holds it.
+  const rPr = /^<w:r(?:\s[^>]*)?>\s*(<w:rPr>[\s\S]*?<\/w:rPr>)/.exec(xml)?.[1] ?? null;
+
+  return {
+    text: textOf(xml),
+    bold: toggle(rPr, "w:b"),
+    italics: toggle(rPr, "w:i"),
+    /** The rule's kind — `single`, `double` — or null for none. */
+    underline: childAttr(rPr, "w:u", "w:val"),
+    strike: toggle(rPr, "w:strike"),
+    vertAlign: childAttr(rPr, "w:vertAlign", "w:val"),
+    color: childAttr(rPr, "w:color", "w:val"),
+    shd: childAttr(rPr, "w:shd", "w:fill"),
+    hasBreak: xml.includes("<w:br"),
+  };
+}
+
+/**
+ * Every numbering the package defines, each with the levels it resolves to.
+ *
+ * A list is three hops in the file. The paragraph names a `w:num`; the num
+ * names a `w:abstractNum`; the abstract one holds the levels, and a level is
+ * where the marker, its format and the indent it hangs in actually are. Read
+ * flat here, one entry per `w:num`, so a case is one lookup from a paragraph
+ * to what Word will print in front of it.
+ */
+function readNumbering(zip, parts) {
+  if (!parts.includes("word/numbering.xml")) {
+    return [];
+  }
+
+  const xml = partText(zip, "word/numbering.xml");
+  const abstracts = new Map(
+    elements(xml, "w:abstractNum").map((entry) => [attr(entry, "w:abstractNumId"), entry]),
+  );
+
+  return elements(xml, "w:num").map((num) => {
+    const abstractNumId = childAttr(num, "w:abstractNumId", "w:val");
+
+    return {
+      numId: numAttr(num, "w:numId"),
+      abstractNumId: abstractNumId === null ? null : Number(abstractNumId),
+      levels: elements(abstracts.get(abstractNumId) ?? "", "w:lvl").map((level) => {
+        const ind = element(level, "w:ind");
+
+        return {
+          ilvl: numAttr(level, "w:ilvl"),
+          start: childNum(level, "w:start", "w:val"),
+          /** `bullet`, `decimal`, `lowerLetter`, `lowerRoman` … */
+          format: childAttr(level, "w:numFmt", "w:val"),
+          /** The marker: a glyph for a bullet, a pattern such as `%1.` for a number. */
+          text: childAttr(level, "w:lvlText", "w:val"),
+          leftTwips: ind === null ? null : numAttr(ind, "w:left"),
+          hangingTwips: ind === null ? null : numAttr(ind, "w:hanging"),
+        };
+      }),
+    };
+  });
+}
+
+/**
+ * Every hyperlink in the body, followed through to where it points.
+ *
+ * The address is not in `document.xml`: the element names a relationship, and
+ * the relationship holds the target. `TargetMode="External"` is the half that
+ * matters most — without it Word reads the address as a part of the package,
+ * finds no such part, and refuses the file.
+ */
+function readLinks(zip, body) {
+  let relationships = "";
+  try {
+    relationships = partText(zip, "word/_rels/document.xml.rels");
+  } catch {
+    // No relationships part: every link below reads as pointing nowhere,
+    // which is the measurement.
+  }
+
+  const byId = new Map(
+    elements(relationships, "Relationship").map((entry) => [attr(entry, "Id"), entry]),
+  );
+
+  return elements(body, "w:hyperlink").map((link) => {
+    const relationship = byId.get(attr(link, "r:id")) ?? "";
+
+    return {
+      text: textOf(link),
+      target: attr(relationship, "Target"),
+      external: attr(relationship, "TargetMode") === "External",
+      /** A bookmark in this document, when the link points inside it. */
+      anchor: attr(link, "w:anchor"),
+    };
+  });
 }
 
 function numAttr(xml, name) {
@@ -627,6 +743,10 @@ export function measureOoxml(zip) {
     /** The body's tables, in order, each holding its own rows and cells. */
     tableCount: tables.length,
     tables,
+    /** Every hyperlink in the body, each with the address it resolves to. */
+    links: readLinks(zip, body),
+    /** Every numbering the package defines, for `list()` to follow a paragraph into. */
+    numbering: readNumbering(zip, parts),
     section: {
       widthTwips: pgSz === null ? null : numAttr(pgSz, "w:w"),
       heightTwips: pgSz === null ? null : numAttr(pgSz, "w:h"),
@@ -637,6 +757,8 @@ export function measureOoxml(zip) {
         bottom: numAttr(pgMar, "w:bottom"),
         left: numAttr(pgMar, "w:left"),
       },
+      // Where the body sits between the top and bottom margins; null is Word's top.
+      vAlign: sectPr === null ? null : childAttr(sectPr, "w:vAlign", "w:val"),
       titlePg: sectPr === null ? null : toggle(sectPr, "w:titlePg"),
       // How far the running strips stand from the paper, in twips. A
       // different distance from the margin, and the one a document has no
@@ -948,6 +1070,52 @@ export function ooxmlView(measure) {
     paras(anchor) {
       return measure.paragraphs.filter((p) => p.text.includes(anchor));
     },
+
+    /**
+     * The run that prints this anchor, in the body's own paragraphs.
+     *
+     * A sentence packed as one run answers for every anchor inside it, so a
+     * case asserts the run's `text` as well as its marks — "these two words
+     * are bold" is two facts, and the first is that they are a run at all.
+     */
+    run(anchor) {
+      const wanted = anchor.toLowerCase();
+      return measure.paragraphs.flatMap((p) => p.runs)
+        .find((run) => run.text.toLowerCase().includes(wanted)) ??
+        { missing: true, anchor, text: "", bold: null, italics: null, underline: null, strike: null, vertAlign: null, color: null, shd: null, hasBreak: false };
+    },
+
+    /**
+     * The list the paragraph holding this anchor is an item of, followed
+     * through the numbering part to the level it stands at.
+     *
+     * A paragraph that is not an item comes back with every field null, so a
+     * case asserting on a list the packer did not write records the miss.
+     */
+    list(anchor) {
+      const numPr = this.para(anchor).numPr;
+      const num = measure.numbering.find((entry) => entry.numId === numPr?.numId);
+      const level = num?.levels.find((entry) => entry.ilvl === numPr?.ilvl);
+
+      return {
+        missing: level === undefined,
+        numId: num?.numId ?? null,
+        abstractNumId: num?.abstractNumId ?? null,
+        level: level?.ilvl ?? null,
+        start: level?.start ?? null,
+        format: level?.format ?? null,
+        text: level?.text ?? null,
+        leftTwips: level?.leftTwips ?? null,
+        hangingTwips: level?.hangingTwips ?? null,
+      };
+    },
+
+    /** The hyperlink whose words contain this anchor. */
+    link(anchor) {
+      const wanted = anchor.toLowerCase();
+      return measure.links.find((link) => link.text.toLowerCase().includes(wanted)) ??
+        { missing: true, text: "", target: null, external: null, anchor: null };
+    },
     /**
      * One of the body's tables, wrapped so a row and a cell are one step away.
      *
@@ -1133,6 +1301,7 @@ function missingParagraph(anchor) {
     missing: true,
     anchor,
     text: "",
+    numPr: null,
     style: null,
     jc: null,
     ind: null,
@@ -1153,6 +1322,7 @@ function missingParagraph(anchor) {
       caps: null,
       spacing: null,
     },
+    runs: [],
     hasDrawing: false,
     hasField: false,
     hasBreak: false,

@@ -24,6 +24,7 @@
 
 import type { DocumentModel } from "../domain/types.ts";
 import { fillPageFields } from "./docx_fields.ts";
+import { columnWidthMm } from "./page_size.ts";
 import type { PackedParagraph, PackedTable } from "./docx_packed.ts";
 
 export { fillPageFields } from "./docx_fields.ts";
@@ -60,15 +61,12 @@ export {
 /** A millimetre, in points. */
 const PT_PER_MM = 72 / 25.4;
 
-/** How close to the paper's edge a page's own margin sits, by page size. */
-const PAGE_WIDTH_MM: Record<string, number> = { A4: 210, Letter: 215.9 };
-
 /**
  * Finishes docx-preview's reading of a document it has already laid out.
  *
  * @param container The element `renderAsync` rendered into.
  * @param model The document that was packed, for the facts the DOM cannot
- * supply on its own — page size and margins.
+ * supply on its own — page size, margins, and where the body sits on the page.
  * @param packed What the file says about its own paragraphs, from
  * {@linkcode readPackedParagraphs}. Two of docx-preview's omissions can only be
  * put back from the file itself; without this they stay omitted, and the
@@ -97,12 +95,15 @@ export function settleDocxPreview(
   tables?: readonly PackedTable[],
 ): void {
   inlinePictureWrappers(container);
+  applyDoubleBorders(container);
   liftShapeText(container);
-  fillPageFields(container);
+  fillPageFields(container, model?.style?.page);
   seatFooters(container);
+  hangListMarkers(container);
 
   if (model !== undefined) {
     applyTableIndents(container, model);
+    alignPageBodies(container, model);
   }
 
   if (packed !== undefined) {
@@ -197,6 +198,35 @@ function seatFooters(container: Element): void {
     style.display = "flex";
     style.flexDirection = "column";
     style.justifyContent = "flex-end";
+  }
+}
+
+/**
+ * A list item's words, started where its hang says rather than wherever its
+ * marker happens to end.
+ *
+ * Word follows a marker with a tab to the hanging indent, so the words of an
+ * item's first line start exactly above the words of its second. docx-preview
+ * writes the same tab — the marker is the paragraph's `::before`, and its
+ * content ends in one — but into a paragraph where white space collapses, so
+ * the tab draws as a space and the first line starts wherever a bullet and a
+ * space come to: about 3mm left of the lines under it, for every item.
+ *
+ * Both halves of the repair are already in the DOM. The tab is there, and so
+ * is the hang: it is the paragraph's own `text-indent`, written inline from
+ * the indent the file states on it. Letting the tab be a tab and setting one
+ * tab stop per hang puts the words where Word does. Read as text off the
+ * attribute rather than through `style`, because a DOM without a layout
+ * engine behind it does not parse every property it is handed.
+ */
+function hangListMarkers(container: Element): void {
+  for (const item of container.querySelectorAll('p[class*="docx-num-"]')) {
+    const style = (item.getAttribute("style") ?? "").replace(/;\s*$/, "");
+    const hang = /text-indent:\s*-([\d.]+pt)/.exec(style)?.[1];
+
+    if (hang !== undefined) {
+      item.setAttribute("style", `${style}; white-space: pre-wrap; tab-size: ${hang};`);
+    }
   }
 }
 
@@ -329,9 +359,12 @@ function applyBorderPadding(element: HTMLElement, packed: PackedParagraph): void
 
     element.style[`padding${capitalised}`] = `${gap}pt`;
 
-    // Left and right: the border steps out, the text stays where it was.
+    // Left and right: the border steps out, the text stays where it was. The
+    // paragraph's own indent is already on the inline margin, and a physical
+    // `margin-left` would replace it rather than add to it.
     if (side === "left" || side === "right") {
-      element.style[`margin${capitalised}`] = `-${gap}pt`;
+      const indent = element.style[side === "left" ? "marginInlineStart" : "marginInlineEnd"] || "0pt";
+      element.style[`margin${capitalised}`] = `calc(${indent} - ${gap}pt)`;
     }
   }
 }
@@ -366,6 +399,27 @@ export function inlinePictureWrappers(container: Element): void {
 
 
 /**
+ * Widens every double border to the three widths Word draws it across.
+ *
+ * Word draws a double border as two lines of the border's width with a gap of
+ * the same width between them, so three widths overall, which is exactly the
+ * geometry of CSS `double`. docx-preview writes the file's single width, which
+ * CSS needs at least 3px to show as two lines, so a 1pt rule would read as one
+ * solid line. Widening it also keeps the rows below in step with Word, where
+ * the full width takes up layout space too.
+ */
+function applyDoubleBorders(container: Element): void {
+  for (const el of container.querySelectorAll<HTMLElement>("p, td")) {
+    for (const side of ["Top", "Right", "Bottom", "Left"] as const) {
+      if (el.style[`border${side}Style`] === "double") {
+        // docx-preview writes border widths in pt, from LengthUsage.Border.
+        el.style[`border${side}Width`] = `${parseFloat(el.style[`border${side}Width`]) * 3}pt`;
+      }
+    }
+  }
+}
+
+/**
  * A shape's words, moved somewhere SVG will paint them.
  *
  * docx-preview renders a VML shape by walking it and nesting each child inside
@@ -394,6 +448,27 @@ export function liftShapeText(container: Element): void {
     }
   }
 }
+
+/**
+ * The body set where `w:vAlign` puts it on the page.
+ *
+ * docx-preview reads the section's size, margins and furniture and skips its
+ * vertical alignment, so a centred certificate drew at the top of its sheet.
+ * Its own stylesheet already lays a page out as a flex column whose article
+ * has `margin-bottom: auto` (that is what holds the footer down), so taking
+ * up the slack above the article as well is all centring is.
+ */
+function alignPageBodies(container: Element, model: DocumentModel): void {
+  const valign = model.style?.page?.valign;
+  if (valign !== "center" && valign !== "bottom") return;
+
+  for (const article of container.querySelectorAll("section.docx > article")) {
+    const style = (article as HTMLElement).style;
+    style.marginTop = "auto";
+    if (valign === "bottom") style.marginBottom = "0px";
+  }
+}
+
 /**
  * The indent a bleeding table declares, put back.
  *
@@ -413,8 +488,7 @@ export function applyTableIndents(container: Element, model: DocumentModel): voi
     return;
   }
 
-  const pageMm = PAGE_WIDTH_MM[model.style?.page?.size ?? "A4"] ?? PAGE_WIDTH_MM.A4;
-  const columnPt = (pageMm - margins.leftMm - margins.rightMm) * PT_PER_MM;
+  const columnPt = columnWidthMm(model.style!.page) * PT_PER_MM;
 
   for (const table of [...container.querySelectorAll("table")]) {
     const element = table as HTMLElement;

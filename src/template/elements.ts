@@ -8,12 +8,16 @@
  */
 
 import type {
+  DocumentProperties,
   GraphData,
   GraphLegend,
   GraphStacking,
   GraphType,
   JsonObject,
+  ListKind,
+  ListStyle,
   PageNumberFormat,
+  RowHeightRule,
   TableAlign,
   TableColumn,
   TextAlign,
@@ -62,6 +66,17 @@ export interface DocumentProps extends CommonElementProps {
   /** Anything to carry alongside the document. */
   metadata?: JsonObject;
   /**
+   * What the file says about itself — author, subject, keywords, description,
+   * and named custom values a DMS can index.
+   *
+   * Give a function of the data when a value differs per document: it is
+   * called once per build, like a `useState` initializer, so interpolating a
+   * value publishes it as a token the engine fills in.
+   */
+  // `never` so that any `(data: YourData) => …` is accepted, while an
+  // unannotated parameter cannot be read without saying what it is.
+  properties?: DocumentProperties | ((data: never) => DocumentProperties);
+  /**
    * Nodes drawn at the top of every page.
    *
    * Running furniture, not the first thing in the body. A letterhead meant to
@@ -95,11 +110,21 @@ export interface DocumentProps extends CommonElementProps {
   evenHeader?: Yield;
   /** The foot of a left-hand page, when it differs from `footer`. */
   evenFooter?: Yield;
+  /**
+   * Opens the document in Word with Track Changes on.
+   *
+   * For a document sent out to be negotiated — a contract, an NDA, a tenancy
+   * agreement — so every edit the other side makes is recorded from the first
+   * keystroke rather than only once someone remembers to switch it on. It is
+   * the reviewer's switch, not a lock: Word lets them turn it off again.
+   * Absent or `false` packs the document exactly as before.
+   */
+  trackChanges?: boolean;
   /** The body of the document. */
   children?: Yield;
 }
 
-/** Props for the `<Section>` element. */
+/** Props for the `<Section>` element; its `variant` styles the heading. */
 export interface SectionProps extends CommonElementProps {
   /** The heading printed above the section. */
   title: string;
@@ -121,7 +146,7 @@ export interface ParagraphProps extends CommonElementProps, PromptProps {
   /** Text children say the same thing; this is for when interpolation reads better. */
   text?: string;
   /**
-   * How the paragraph's lines sit in the text column.
+   * How the paragraph's lines sit in the text column, or in the cell or shape it sits in.
    *
    * Say it here when the alignment is what the paragraph *is* — a date ranged
    * right, a standfirst centred over the piece it opens. Leave it out and let
@@ -129,8 +154,74 @@ export interface ParagraphProps extends CommonElementProps, PromptProps {
    * of block looks like. Saying both is allowed, and this wins.
    */
   align?: TextAlign;
+  /**
+   * Makes the paragraph an item of a list: `"bullet"` marks it, `"number"`
+   * counts it.
+   *
+   * Items written one after another are one list, and the renderer does the
+   * counting — so a step dropped for one recipient leaves no gap in the
+   * numbers. Anything between two items ends the list, and a numbered list
+   * after it starts again at one.
+   *
+   * On a `<Shape>` an item is drawn as a plain paragraph: the box holds its
+   * words off its edge with the same indent a hang needs.
+   */
+  list?: ListKind;
+  /** How far under another item this one stands: `1` for a point under an item. */
+  listLevel?: number;
+  /**
+   * The numerals a numbered list counts in at this item's level:
+   * `"lowerLetterParen"` for (a), `"upperRoman"` for I., and so on. Say it on
+   * the first item at that level; the rest of the list follows it. Omitted,
+   * a level counts 1., a., i. by depth as it always has. Ignored on a bullet.
+   */
+  listStyle?: ListStyle;
   /** The paragraph's text, as children. */
   children?: Yield<"paragraph">;
+}
+
+/**
+ * Props for the `<Text>` element.
+ *
+ * Every prop says what the words *are* — stressed, struck out, a way to
+ * somewhere — and none says what that looks like. There is no colour and no
+ * size here for the reason there is none on a node: a linked phrase is drawn
+ * in the theme's accent, and a `variant` names the theme's style for a phrase,
+ * so both re-theme with the document around them.
+ */
+export interface TextProps {
+  /** Set heavier than the words around it. `false` lightens a word in a bold block. */
+  bold?: boolean;
+  /** Set in italics. */
+  italic?: boolean;
+  /** Set with a rule beneath. */
+  underline?: boolean;
+  /** Set struck through. */
+  strike?: boolean;
+  /**
+   * Raised above the line or dropped below it, smaller: the 2 in m², the 2 in
+   * CO₂, the "st" in 1st, a `[1]` marker. Left out, the words sit on the line.
+   */
+  script?: "superscript" | "subscript";
+  /**
+   * An address the words link to: `https:`, `http:`, `mailto:` or `tel:`.
+   * Anything else prints as the words alone.
+   */
+  href?: string;
+  /**
+   * Which block style the theme draws these words in: `"amountDue"`, `"term"`.
+   *
+   * A name, not an appearance, the same as `variant` on every element. Only the
+   * block's character settings reach a run: `color`, `fill` (drawn as shading
+   * behind the words), `fontSizePt`, `weight`, `font`, `transform` and
+   * `letterSpacingEm`. Borders, padding, spacing and alignment belong to a
+   * paragraph and are ignored here. An unknown name draws the words plain.
+   * `bold`, `italic`, `underline` and `strike` said beside it win over the
+   * block, and a link keeps the theme's accent colour.
+   */
+  variant?: string;
+  /** The words, and any `<Text>` set differently again inside them. */
+  children?: Yield;
 }
 
 /** Props for the `<Image>` element. */
@@ -146,10 +237,25 @@ export interface ImageProps extends CommonElementProps, PromptProps {
   fallbackSrc?: string;
   /** Alternative text describing the image. */
   alt?: string;
-  /** Rendered width, in points. */
+  /** Rendered width, in points. Left out, it follows the picture's own proportions from `height`, or is 120pt when neither is given. */
   width?: number;
-  /** Rendered height, in points. */
+  /** Rendered height, in points. Left out, it follows the picture's own proportions from the width. */
   height?: number;
+  /**
+   * Where the picture sits across the text column. Flush left unless it is said.
+   *
+   * Only the picture's own line moves; it is not floated, and text does not
+   * wrap around it. Inside a table cell or a shape, the cell's or the shape's
+   * alignment governs. A picture set in a
+   * line of text sits where the text puts it, and this is ignored.
+   */
+  align?: TableAlign;
+  /**
+   * An address the picture links to: `https:`, `http:`, `mailto:` or `tel:`.
+   * Anything else draws the picture alone. Give a linked picture `alt` text
+   * that says where it goes — that is what a screen reader announces.
+   */
+  href?: string;
 }
 
 /**
@@ -181,6 +287,15 @@ export interface GraphProps extends CommonElementProps, PromptProps {
    * chart with no title at all is one Word will invent a heading for.
    */
   title?: string;
+  /**
+   * What the chart shows, for a reader who cannot see it.
+   *
+   * Written as the drawing's description, which is what a screen reader
+   * announces and what Word's accessibility checker looks for. Say what the
+   * numbers mean rather than what the chart is called — the title already says
+   * that. Left out, the title stands in, then the caption, then the id.
+   */
+  alt?: string;
   /** Which chart to draw. Defaults to `bar`. */
   graphType?: GraphType;
   /** The numbers to plot, when they are known at build time. */
@@ -191,6 +306,15 @@ export interface GraphProps extends CommonElementProps, PromptProps {
   width?: number;
   /** How deep it is drawn, in points. Seven twelfths of its width unless it is said. */
   height?: number;
+  /**
+   * Where the chart sits across the text column. Flush left unless it is said.
+   *
+   * Only matters for a chart narrower than the column: a chart with no `width`
+   * fills the column already. The caption follows the chart, so a chart ranged
+   * right has its caption ranged right under it. Inside a table cell or a shape,
+   * the cell's or the shape's alignment governs.
+   */
+  align?: TableAlign;
   /**
    * Where the key sits.
    *
@@ -212,6 +336,25 @@ export interface GraphProps extends CommonElementProps, PromptProps {
   categoryAxisTitle?: string;
   /** What the value axis measures. */
   valueAxisTitle?: string;
+  /**
+   * Where the value axis starts, in the units of the values.
+   *
+   * Left out, Word picks it, which for most data is zero. Set it when the
+   * movement is the point and zero is not: an uptime chart that starts at 0
+   * draws 99.4% and 99.9% as the same line. A value below it is drawn clipped
+   * at the axis. On a percent stack the axis is a share, so 0.5 means 50%.
+   */
+  valueAxisMin?: number;
+  /**
+   * Where the value axis ends, in the units of the values. Left out, Word picks
+   * it. Must be above `valueAxisMin` when both are given.
+   */
+  valueAxisMax?: number;
+  /**
+   * The distance between ticks and gridlines on the value axis. Left out, Word
+   * picks it. Must be greater than zero.
+   */
+  valueAxisStep?: number;
   /** Whether each point prints its own figure. Worth it on a pie, rarely elsewhere. */
   dataLabels?: boolean;
 }
@@ -225,6 +368,13 @@ export interface TableProps extends CommonElementProps {
    * A table whose columns do not line up is not a table.
    */
   columns: TableColumn[];
+  /**
+   * Where the table sits across the text column. Left unless it is said.
+   *
+   * Only a table narrower than the column can move: any `"auto"` column fills
+   * the column, and a `bleed` table spans the paper, so either ignores it.
+   */
+  align?: TableAlign;
   /** The rows, and any `.map()` producing them. */
   children?: Yield;
 }
@@ -233,6 +383,30 @@ export interface TableProps extends CommonElementProps {
 export interface RowProps extends CommonElementProps {
   /** Whether this row heads the table, and repeats onto each new page. */
   header?: boolean;
+  /**
+   * Whether the row stays whole on one page rather than breaking across two.
+   *
+   * For a row holding several lines — an invoice line with a wrapped
+   * description, a clause in a schedule — where a break through the middle
+   * leaves half a row at the foot of one page and half at the head of the next.
+   * Word moves the whole row over instead. A row taller than a page breaks
+   * anyway, having nowhere else to go.
+   */
+  keepTogether?: boolean;
+  /**
+   * How tall the row is, in points. As tall as its contents unless it is said.
+   *
+   * For a row whose depth is the point — a box to sign in, a line of a form to
+   * write on, a label on a sheet — rather than one that wraps its text.
+   */
+  height?: number;
+  /**
+   * Whether `height` is a floor or a fixed depth. `"atLeast"` unless it is said.
+   *
+   * `"exact"` clips whatever does not fit, in Word; reach for it when the grid
+   * matters more than the words, as on a label sheet. Ignored without `height`.
+   */
+  heightRule?: RowHeightRule;
   /** The cells, left to right. */
   children?: Yield;
 }
@@ -323,6 +497,22 @@ export const Paragraph: HostElementType<ParagraphProps, "paragraph"> = host(
   "paragraph",
   "Paragraph",
 );
+/**
+ * Some of a paragraph's words, set differently from the rest of it.
+ *
+ * Written among the words of a `<Paragraph>`, a `<Cell>` or a `<Shape>`, and
+ * nowhere else: it is not a node, has no id, and nothing can address it. One
+ * inside another takes both settings.
+ *
+ * @example A term in bold, and a phrase that links somewhere
+ * ```tsx
+ * <Paragraph id="terms">
+ *   Payment is due within <Text bold>thirty days</Text>. You can{" "}
+ *   <Text href="https://example.com/pay">pay online</Text>.
+ * </Paragraph>
+ * ```
+ */
+export const Text: HostElementType<TextProps, "text"> = host("text", "Text");
 /** A picture, either pointed at a file or left for the engine to produce. */
 export const Image: HostElementType<ImageProps, "image"> = host("image", "Image");
 /** A chart, either given its data or left for the engine to produce one. */

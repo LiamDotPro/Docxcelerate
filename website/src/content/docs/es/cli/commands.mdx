@@ -117,6 +117,11 @@ campos que el componente lee se imprimen para que los añadas. Colocarlo en
 `document.tsx` también es cosa tuya, por la misma razón por la que el generador
 de nodos no lo toca.
 
+Un componente que ofrece [disposiciones](/es/docs/essentials/arrangements/)
+trae además un archivo por disposición, en `arrangements/<name>/`, junto al
+`lines.ts` que tipa lo que su nodo les entrega. `dxcl show` las lista, y las
+indicaciones tras instalar nombran los valores que acepta `arrangement`.
+
 **Un tema** se escribe como el `document-style.ts` del proyecto, que
 `document.project.ts` ya pasa a través — así que la siguiente vista previa sale
 con el tema puesto. El archivo importa el tema y lo expande, de modo que

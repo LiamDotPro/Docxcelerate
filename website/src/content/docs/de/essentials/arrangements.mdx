@@ -1,0 +1,148 @@
+---
+title: Anordnungen
+description: Dieselben Zeilen auf mehr als eine Art platzieren — untereinander, als Tabelle, links und rechts geteilt — ohne anzufassen, was sie entscheidet.
+group: Essentials
+order: 6
+---
+
+Was eine Komponente druckt und wo sie es hinsetzt, sind zwei verschiedene
+Entscheidungen. Die erste hängt von den Daten ab und fällt für jedes Dokument
+neu. Die zweite ist Ihre, einmal getroffen dort, wo Sie die Komponente
+verwenden. Eine **Anordnung** hält beides auseinander: Eine Komponente, die
+mehrere anbietet, nimmt eine Prop `arrangement`, und jeder Wert platziert
+dieselben Zeilen auf eine andere Art.
+
+## Eine verwenden
+
+```tsx
+<InvoiceDocumentType />                       // stacked, the default
+<InvoiceDocumentType arrangement="table" />   // labels in a column, values beside them
+<InvoiceDocumentType arrangement="split" />   // identifiers left, dates ranged right
+```
+
+Jede Anordnung druckt dieselben Zeilen unter denselben Bedingungen. Eine
+Proforma-Rechnung sagt in allen dreien, dass sie keine Umsatzsteuerrechnung
+ist, und ein Lieferdatum, das dem Ausstellungsdatum entspricht, fehlt in allen
+dreien. Es ändert sich nur, wo die Zeilen stehen.
+
+Ohne die Prop gilt die erste Anordnung. Ein Name, den die Komponente nicht hat,
+bricht den Build mit den Namen ab, die sie hat — ein Tippfehler druckt also nie
+stillschweigend die Standardanordnung.
+
+`dxcl show` listet auf, was eine Registry-Komponente anbietet, und ihre Seite in
+der [Registry](/de/registry/) zeigt eine Vorschau jeder Anordnung:
+
+```sh
+dxcl show invoice-document-type
+```
+
+## Wie eine Komponente aufgebaut ist
+
+Eine Komponente mit Anordnungen wird als ein Node und eine Datei pro Anordnung
+installiert:
+
+```
+nodes/invoice-document-type.node.tsx
+derivers/invoice-document-type.deriver.ts
+arrangements/invoice-document-type/lines.ts
+arrangements/invoice-document-type/stacked.arrangement.tsx
+arrangements/invoice-document-type/table.arrangement.tsx
+arrangements/invoice-document-type/split.arrangement.tsx
+```
+
+Der Node entscheidet jede Zeile. `lines.ts` ist der Typ dessen, was er jeder
+Anordnung übergibt, und jede Anordnungsdatei platziert nur diese Zeilen. Der
+Node importiert sie oben in der Datei, so liest er sich als das, was er
+entscheidet, und jede Anordnung als das, wo die Dinge stehen:
+
+```tsx
+import { arrange, Section, useDeriver, useState } from "docxcelerate/template";
+import type { InvoiceDocumentTypeLines } from "../arrangements/invoice-document-type/lines.ts";
+import { split } from "../arrangements/invoice-document-type/split.arrangement.tsx";
+import { stacked } from "../arrangements/invoice-document-type/stacked.arrangement.tsx";
+import { table } from "../arrangements/invoice-document-type/table.arrangement.tsx";
+
+export const InvoiceDocumentType: Section<{ arrangement?: "stacked" | "table" | "split" }> = async (
+  { arrangement },
+) => {
+  // ...useState and useDeriver, as before...
+  const lines: InvoiceDocumentTypeLines = { number: invoice.number, supplyLine: type.supplyLine /* ... */ };
+
+  return (
+    <Section id="invoice-type" title={type.heading}>
+      {arrange(arrangement, {
+        stacked: () => stacked(lines),
+        table: () => table(lines),
+        split: () => split(lines),
+      })}
+    </Section>
+  );
+};
+```
+
+Eine Anordnung ist eine Funktion von den Zeilen auf das, was sie liefert:
+
+```tsx
+import { Cell, Row, Table, type Yield } from "docxcelerate/template";
+import type { InvoiceDocumentTypeLines } from "./lines.ts";
+
+export const table = (lines: InvoiceDocumentTypeLines): Yield => (
+  <Table id="invoice-type-details" columns={[{ width: 45 }, { width: "auto" }]}>
+    <Row id="invoice-type-number">
+      <Cell>Invoice number</Cell>
+      <Cell>{lines.number}</Cell>
+    </Row>
+    {lines.purchaseOrder && (
+      <Row id="invoice-type-purchase-order">
+        <Cell>Purchase order</Cell>
+        <Cell>{lines.purchaseOrder}</Cell>
+      </Row>
+    )}
+  </Table>
+);
+```
+
+## Eigene hinzufügen
+
+Eine installierte Komponente ist Ihre Datei, eine vierte Anordnung sind also
+zwei Änderungen: `arrangements/invoice-document-type/strip.arrangement.tsx`
+schreiben, sie dann im Node importieren und sie zu den Namen, die `arrange`
+bekommt, und zum Typ der Prop hinzufügen. Sonst muss nichts davon wissen.
+
+Bei einer eigenen Komponente geht es genauso: den Zeilentyp schreiben, eine
+Datei pro Anordnung, und mit `arrange` wählen.
+
+## Die Regeln
+
+**Mit `arrange` wählen, nicht mit einem Vergleich.**
+`arrangement === "table" ? … : …` sieht gleichwertig aus und ist es nicht. Beim
+Veröffentlichen macht der Compiler aus jedem Vergleich eine Entscheidung, die
+die Engine pro Dokument trifft, selbst aus einem Vergleich zweier fester
+Strings — jede Anordnung würde also als Zweig ausgeliefert und auf das
+[Zweiglimit](/de/docs/essentials/templates/#verzweigungen-multiplizieren) angerechnet.
+`arrange` schlägt den Namen stattdessen nach, und gebaut wird nur die
+angeforderte Anordnung.
+
+**Anordnungen platzieren, der Node entscheidet.** Alles, was von den Daten
+abhängt — eine Überschrift, ein formatiertes Datum, ob eine Zeile überhaupt
+gedruckt wird — wird im Node (oder seinem Deriver) ermittelt und in den Zeilen
+übergeben. Eine Anordnung, die selbst etwas entschiede, würde an verschiedenen
+Stellen Verschiedenes drucken, und genau das versprechen Anordnungen nicht zu
+tun.
+
+**Eine Zeile im JSX prüfen.** Schreiben Sie `{lines.supplyLine && <Paragraph … />}`
+in der Anordnung, nicht in einer Variablen darüber. Im JSX wird die Prüfung zu
+einer Bedingung kompiliert, die die Engine pro Dokument klärt. Außerhalb des JSX
+ist ein Platzhalterwert beim Veröffentlichen immer wahr, und die Zeile würde für
+jeden Empfänger gedruckt.
+
+**Die IDs behalten.** Eine Zeile behält ihre ID in jeder Anordnung, wie
+`invoice-type-number` oben. Gebaut wird immer nur eine Anordnung, die IDs
+kollidieren also nie, und alles, was einen Node über seine ID anspricht, findet
+ihn, welche Anordnung auch gewählt wurde.
+
+## Wie es weitergeht
+
+- [Templates](/de/docs/essentials/templates/) — Bedingungen, Schleifen und Veröffentlichen
+- [Nodes schreiben](/de/docs/writing-nodes/) — das Komponentenmodell, eine Datei pro Node
+- [Die Registry](/de/registry/) — Komponenten zum Installieren, mit einer Vorschau jeder Anordnung
