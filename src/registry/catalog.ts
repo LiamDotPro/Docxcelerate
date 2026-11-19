@@ -1127,6 +1127,67 @@ export const COMPONENTS: RegistryComponent[] = [
   },
   {
     kind: "component",
+    id: "commitment-drawdown",
+    title: "Commitment drawdown",
+    summary: "Prepaid commitment and credit drawn down line by line before tax, with what is left and any true-up.",
+    detail:
+      "Applies prepaid commitment and credit grants to each usage line in invoice " +
+      "order, before tax, and splits the line where a balance runs out into a " +
+      "covered part and an overage part, exact in minor units. A grant counts if " +
+      "it was live on the usage date, not the invoice date, so usage from the last " +
+      "days of a period still draws on a grant that expired before the invoice. " +
+      "Rollover burns first, then paid commitment, then promotional credit, and " +
+      "within each by priority then earliest expiry, so the credit closest to " +
+      "lapsing is used first. Unit grants such as minutes cover only the prices " +
+      "they name, and their overage is priced at the line's unit price. On the " +
+      "invoice that ends the term, the minimum commitment is trued up against " +
+      "eligible spend, which excludes promotional credit, less true-ups already " +
+      "billed. Credits expiring soon are named, with what is projected to go " +
+      "unused. The tax basis decides whether only the overage carries VAT or the " +
+      "full usage does, with the credit deducted after tax. All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "invoice", "subscription", "usage", "credits", "commitment", "tax", "table", "deriver", "branching", "section"],
+    exports: ["CommitmentDrawdown"],
+    dataFields: [
+      { path: "drawdown.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required." },
+      { path: "drawdown.invoiceDate", type: "string", summary: "ISO 8601 issue date. Drives expiry warnings only. Required." },
+      { path: "drawdown.period", type: "{ start: string; end: string }", summary: "ISO 8601 usage period, end inclusive. Required." },
+      { path: "drawdown.term", type: "{ start: string; end: string; commitment: number; eligibleSpendToDate?: number; trueUpsBilled?: number } | undefined", summary: "Minimum-commitment term in minor units. Missing means no true-up." },
+      { path: "drawdown.lines", type: "Array<{ key?: string; description: string; usageDate?: string; quantity: number; quantityDecimals?: number; unit?: string; unitPrice?: number; amount: number; priceId?: string }>", summary: "Priced usage lines in invoice order, amounts in integer minor units." },
+      { path: "drawdown.grants", type: "Array<{ id: string; name: string; kind: \"rollover\" | \"commit\" | \"promotional\"; denomination: \"money\" | \"units\"; unit?: string; balance: number; priority?: number; effective: string; expires?: string; created?: string; priceIds?: string[]; dailyBurn?: number }>", summary: "Grants with a balance, any order. Units grants need priceIds." },
+      { path: "drawdown.creditTaxBasis", type: "\"taxed-at-purchase\" | \"multi-purpose\"", summary: "How paid credit was taxed. Decides the VAT base. Required." },
+      { path: "drawdown.warnDays", type: "number | undefined", summary: "Days ahead an expiring credit is warned about. Missing means 30." },
+    ],
+    files: node("commitment-drawdown", { deriver: true }),
+    previewData: {
+      drawdown: {
+        currency: "USD",
+        invoiceDate: "2026-07-02",
+        period: { start: "2026-06-01", end: "2026-06-30" },
+        term: { start: "2025-07-01", end: "2026-06-30", commitment: 300000000, eligibleSpendToDate: 198450000, trueUpsBilled: 2500000 },
+        creditTaxBasis: "multi-purpose",
+        warnDays: 30,
+        lines: [
+          { key: "L1", description: "Inference API: frontier model, input tokens (EU data residency)", usageDate: "2026-06-30", quantity: 18400000000, unit: "tokens", unitPrice: 0.0003, amount: 5520000, priceId: "price_frontier_input_eu" },
+          { key: "L2", description: "Inference API: frontier model, output tokens (EU data residency)", usageDate: "2026-06-30", quantity: 2950000000, unit: "tokens", unitPrice: 0.0015, amount: 4425000, priceId: "price_frontier_output_eu" },
+          { key: "L3", description: "Speech-to-text transcription, enhanced accuracy tier", usageDate: "2026-06-30", quantity: 1284750.5, unit: "minutes", unitPrice: 2.4, amount: 3083401, priceId: "price_stt_enhanced" },
+          { key: "L4", description: "Vector storage, GB-months (multi-region replicated)", usageDate: "2026-06-30", quantity: 48250.75, unit: "GB-months", unitPrice: 23, amount: 1109767, priceId: "price_vector_storage" },
+          { key: "L5", description: "Dedicated capacity reservation: 8 accelerator nodes, eu-west", usageDate: "2026-06-30", quantity: 720, unit: "hours", unitPrice: 98000, amount: 70560000, priceId: "price_dedicated_capacity" },
+          { key: "L6", description: "Batch inference: frontier model, input tokens (batch discount)", usageDate: "2026-06-30", quantity: 9200000000, unit: "tokens", unitPrice: 0.00015, amount: 1380000, priceId: "price_frontier_batch_input" },
+          { key: "L7", description: "Premium support: 24/7 enterprise response (monthly)", usageDate: "2026-06-30", quantity: 1, unitPrice: 4500000, amount: 4500000, priceId: "price_support_enterprise" },
+        ],
+        grants: [
+          { id: "g-roll", name: "Rollover from the 2024–25 annual commitment", kind: "rollover", denomination: "money", balance: 12500000, priority: 1, effective: "2025-07-01", expires: "2026-07-01" },
+          { id: "g-commit", name: "Annual prepaid commitment 2025–26 (enterprise platform agreement)", kind: "commit", denomination: "money", balance: 48000000, priority: 1, effective: "2025-07-01", expires: "2026-07-31", dailyBurn: 1600000 },
+          { id: "g-minutes", name: "Prepaid transcription minutes bundle, enhanced tier", kind: "commit", denomination: "units", unit: "minutes", balance: 1000000, priority: 0, effective: "2025-07-01", expires: "2026-07-15", priceIds: ["price_stt_enhanced"], dailyBurn: 9500 },
+          { id: "g-promo", name: "Launch partner promotional credit (frontier models)", kind: "promotional", denomination: "money", balance: 2500000, effective: "2026-01-01", expires: "2026-12-31", priceIds: ["price_frontier_input_eu", "price_frontier_output_eu"] },
+        ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
     id: "timesheet-fee-summary",
     title: "Timesheet fee summary",
     summary: "Billed fees per timekeeper from raw time entries, rounded per entry and rated by date.",
