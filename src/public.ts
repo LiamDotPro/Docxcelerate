@@ -39,6 +39,9 @@ export * from "./project/style.ts";
 // renderer should do differently from another.
 export * from "./render/image_source.ts";
 export * from "./runtime/ai.ts";
+// Only the error: the rest of ai_request.ts is how a build and a resolve ask,
+// not something a caller calls.
+export { AiGenerationError } from "./runtime/ai_request.ts";
 // An engine resolving a published document evaluates its conditions, so the
 // two functions that do it are part of the surface rather than an internal.
 export * from "./runtime/conditions.ts";
