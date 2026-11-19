@@ -137,7 +137,7 @@ Nothing leaves the machine, and the same build gives the same page every time.
 | `Paragraph` | text children, or prompts | `text` prop says the same as children; a `\n` in the text is a line break; `list="bullet"` or `"number"` makes it a list item, counted by the renderer; on a numbered item, `listStyle="lowerLetterParen"` (or `upperRoman`, `lowerRomanParen`, …) sets that level's numerals: (a), I., (i) |
 | `Text` | words, inside a `Paragraph`, `Cell` or `Shape` | **not a node** — no `id`. `bold`, `italic`, `underline`, `strike`, `script` (`"superscript"` \| `"subscript"`), `href`, `variant` (a theme block name: colour, shading, size, face, weight, caps, tracking). Never a colour or a size of its own — `variant` names a theme block that has them |
 | `Image` | `src`, `alt`, `width`, `height`, `align`, `href`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below; give one of `width`/`height` and the other keeps the picture's proportions; `align` (`left`/`center`/`right`) places it in the column; `href` makes the picture a link |
-| `Graph` | `graphType`, `data`, `title`, `alt`, `caption`, `align`, or prompts | packed as a real Word chart, never a picture of one — the numbers travel with it; `align` places a chart narrower than the column, and its caption follows; `alt` is what a screen reader hears; `valueAxisMin`/`valueAxisMax`/`valueAxisStep` fix the value axis when small changes must show |
+| `Graph` | `graphType`, `data`, `title`, `alt`, `caption`, `align`, or prompts | packed as a real Word chart, never a picture of one — the numbers travel with it; `align` places a chart narrower than the column, and its caption follows; `alt` is what a screen reader hears; `valueAxisMin`/`valueAxisMax`/`valueAxisStep` fix the value axis when small changes must show. With prompts, the `caption` written here stays unless the model sends its own |
 | `Table` | `Row`s, and any `.map()` producing them | `columns` declared once, in mm or `"auto"`, with `align`; `align` on the table (`"center"`/`"right"`) moves a narrow one across the column |
 | `Row` | `Cell`s | `header` marks a heading row; only *leading* ones repeat across pages. `keepTogether` keeps a multi-line row whole on one page. `height` (pt) is a floor; `heightRule="exact"` fixes it and clips what overflows |
 | `Cell` | text, or paragraphs when a line is not enough | `span`, and `align` when it departs from its column |
@@ -196,6 +196,13 @@ in the `.docx`** — a fill is shading, a border is a real border, a bleed is a
 negative indent past the margin. If a property cannot be expressed in Word it
 does not exist here, because a style that quietly did nothing in the format the
 framework produces is worse than one that was never offered.
+
+The page takes one setting of the same kind: `page.valign: "center"` in
+`document-style.ts` sets a one-page certificate or cover sheet mid-page, and
+`"bottom"` rests it on the bottom margin. Never push text down with empty
+paragraphs — they stop being right the moment the text changes length. It
+applies to every page, so a short last page moves too; keep it for one-page
+documents.
 
 A paragraph keeps its own `align`, and its variant's indents, tab stops, border
 and fill, inside a `<Cell>` or `<Shape>` — a dotted `{"Signed\t"}` leader in a
@@ -294,10 +301,17 @@ decision that depends on request data has to travel to the engine instead:
   stand in rather than run. Cheap derivers still run, so the figures are real.
   Give any deriver that renders, reads or fetches a `placeholder`; leave it off
   for a total or a currency format.
+- **A generated chart or picture publishes as its prompts.** The engine's own
+  `AiClient` writes it per document, so it needs `generateGraph` for a prompted
+  `<Graph>` and `generateImage` for a prompted `<Image>`; an engine without one
+  fails on that node, naming it. A prompted `<Image>` among a paragraph's words
+  cannot be published — give it its own place beside the paragraph.
 - **`.map()` over request data is how a loop is written.** It walks the list when
   the data is real and is published as a loop the engine walks when it is not.
   Never hand-write a `{{ctx.…}}` token inside one — the entry writes its own
-  references. Anything needing the entries first (`.filter`, `.length`, `for…of`)
+  references. Number what a map produces with `position(i)` from
+  `docxcelerate/template`: 1, 2, 3 on both paths, counted over what a `.filter()`
+  kept. `i + 1` does not publish. Anything needing the entries first (`.filter`, `.length`, `for…of`)
   belongs in a deriver. `.map()` over what a deriver returns is published as a
   loop too, and the engine walks the rows it returns for each document; a
   `.map()` inside a `.map()` publishes the same way.

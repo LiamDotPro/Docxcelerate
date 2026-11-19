@@ -48,6 +48,12 @@ test("themeById refuses an id nothing carries", () => {
   }
 });
 
+test("a theme override reaches the page's alignment without dropping its margins", () => {
+  const style = themeStyle(slateReportTheme, { page: { valign: "center" } });
+
+  assertEquals(style.page, { ...slateReportTheme.style.page, valign: "center" });
+});
+
 test("overriding one margin keeps the other three", () => {
   const style = themeStyle(slateReportTheme, { page: { margins: { topMm: 40 } } });
 

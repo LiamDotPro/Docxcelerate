@@ -757,6 +757,8 @@ export function measureOoxml(zip) {
         bottom: numAttr(pgMar, "w:bottom"),
         left: numAttr(pgMar, "w:left"),
       },
+      // Where the body sits between the top and bottom margins; null is Word's top.
+      vAlign: sectPr === null ? null : childAttr(sectPr, "w:vAlign", "w:val"),
       titlePg: sectPr === null ? null : toggle(sectPr, "w:titlePg"),
       // How far the running strips stand from the paper, in twips. A
       // different distance from the margin, and the one a document has no
