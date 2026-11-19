@@ -511,6 +511,7 @@ async function renderTable(
     kind: "table",
     columns: props.columns.map((column) => prune({ ...column })),
     align: props.align,
+    keepTogether: props.keepTogether ? true : undefined,
     when,
     children: await renderYield(props.children, context, {
       path: `${frame.path}/${id}`,
@@ -567,6 +568,7 @@ async function renderCell(
     kind: "tableCell",
     span: props.span,
     align: props.align,
+    textDirection: props.textDirection,
     when,
     children: holdsElements(props.children)
       ? await renderYield(props.children, context, childFrame)
@@ -800,6 +802,7 @@ function listOf(props: ParagraphProps, id: string): ParagraphList | undefined {
       // Bullets count nothing, so a style on one would only be noise in the model.
       style: props.list === "number" ? props.listStyle : undefined,
       start: props.list === "number" ? start : undefined,
+      marker: props.list === "bullet" ? props.listMarker : undefined,
     });
 }
 

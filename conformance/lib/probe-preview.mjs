@@ -134,6 +134,7 @@ function harnessHtml(bodyFont) {
       var padBottom = parseFloat(cs.paddingBottom) + parseFloat(cs.borderBottomWidth);
       return {
         el: s,
+        cs: cs,
         page: { x: rect.x, y: rect.y, w: rect.width, h: rect.height },
         content: {
           x: rect.x + padLeft, y: rect.y + padTop,
@@ -296,6 +297,7 @@ function harnessHtml(bodyFont) {
           color: rcs.color,
           letterSpacing: rcs.letterSpacing === "normal" ? 0 : r2(parseFloat(rcs.letterSpacing)),
           textTransform: rcs.textTransform,
+          fontVariantCaps: rcs.fontVariantCaps,
           runs: runsOf(el),
           // What is drawn in front of a list item. docx-preview draws it as
           // the paragraph's ::before, so it is in no text node and no range:
@@ -395,6 +397,8 @@ function harnessHtml(bodyFont) {
 
                   background: cs.backgroundColor,
                   verticalAlign: cs.verticalAlign,
+                  writingMode: cs.writingMode,
+                  transform: cs.transform,
                   textAlign: pcs === null ? null : pcs.textAlign,
 
                   paddingLeft: r2(parseFloat(cs.paddingLeft) || 0),
@@ -589,7 +593,8 @@ function harnessHtml(bodyFont) {
       sections: boxes.map(function (b) {
         return {
           page: { w: r2(b.page.w), h: r2(b.page.h), x: r2(b.page.x), y: r2(b.page.y) },
-          content: { w: r2(b.content.w), h: r2(b.content.h) }
+          content: { w: r2(b.content.w), h: r2(b.content.h) },
+          outline: { style: b.cs.outlineStyle, width: r2(parseFloat(b.cs.outlineWidth)), offset: r2(parseFloat(b.cs.outlineOffset)) }
         };
       }),
       furniture: furniture,
@@ -1140,6 +1145,8 @@ function missingCell(anchor) {
     h: null,
     background: null,
     verticalAlign: null,
+    writingMode: null,
+    transform: null,
     textAlign: null,
     paddingLeft: null,
     paddingTop: null,
@@ -1181,6 +1188,7 @@ function missingParagraph(anchor) {
     background: null,
     letterSpacing: null,
     textTransform: null,
+    fontVariantCaps: null,
     textIndent: null,
     computedLineHeight: null,
     marginTop: null,

@@ -27,8 +27,11 @@ export interface RuntimeState {
   derived: JsonObject;
   /** Where caller data is read from. */
   dataProvider: DataProvider;
-  /** What writes the content of dynamic nodes. */
-  aiClient: AiClient;
+  /**
+   * What writes the content of dynamic nodes. Absent when none was given, so a
+   * dynamic node fails naming itself rather than inside a stand-in client.
+   */
+  aiClient?: AiClient;
   /**
    * The document's locale, as a BCP 47 tag, when it declared one.
    *
@@ -134,6 +137,10 @@ export interface AiGraphResult {
  * reached without its method fails the build or the resolve with an error
  * naming the node. A placeholder is only what a preview build shows instead of
  * asking at all; it never stands in for a missing method.
+ *
+ * A method that throws or rejects fails the build or resolve with an
+ * `AiGenerationError` carrying the node's id and kind, and the method's own
+ * error as `cause`.
  *
  * Every request's `node` arrives with its prompts and the words its template
  * wrote on it already resolved against the request data, on a build and on an

@@ -1,6 +1,7 @@
 import { test } from "node:test";
-import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
+import { assertEquals, assertRejects, assertStringIncludes, rejectionOf } from "./assert.ts";
 import {
+  AiGenerationError,
   type AiGraphResult,
   createDeriverRegistry,
   createRuntimeState,
@@ -547,29 +548,37 @@ test("a generated chart that cannot be plotted names the node and the field", as
   }
 });
 
-test("a chart client that throws is not caught", async () => {
+test("a chart client that throws fails as an AiGenerationError naming the node", async () => {
   const state = engineState({});
+  const down = new Error("model down");
   state.aiClient = {
     generateParagraph: () => "",
     generateGraph: () => {
-      throw new Error("model down");
+      throw down;
     },
   };
 
-  await assertRejectsWith(
-    () =>
-      resolveDocument(
-        published([{
-          id: "trend",
-          kind: "graph",
-          mode: "dynamic",
-          graphType: "bar",
-          prompts: [{ kind: "general", text: "Plot it." }],
-        } as DocumentNode]),
-        state,
-      ),
-    "model down",
+  const error = await rejectionOf(() =>
+    resolveDocument(
+      published([{
+        id: "trend",
+        kind: "graph",
+        mode: "dynamic",
+        graphType: "bar",
+        prompts: [{ kind: "general", text: "Plot it." }],
+      } as DocumentNode]),
+      state,
+    )
   );
+
+  assertEquals(error instanceof AiGenerationError, true);
+  const failed = error as AiGenerationError;
+  assertEquals(failed.nodeId, "trend");
+  assertEquals(failed.kind, "graph");
+  assertEquals(failed.cause === down, true);
+  assertEquals(failed.message, 'Dynamic graph "trend" failed to generate: model down');
+  assertEquals(failed.name, "AiGenerationError");
+  assertEquals(Object.keys(failed).sort(), ["kind", "name", "nodeId"]);
 });
 
 function generatedParagraph(answer: unknown): Promise<DocumentModel> {
@@ -619,27 +628,32 @@ test("a generated paragraph that is not text names the node", async () => {
   }
 });
 
-test("a paragraph client that throws is not caught", async () => {
+test("a paragraph client that rejects keeps the provider's error on cause", async () => {
   const state = engineState({});
+  const limited = Object.assign(new Error("Rate limit exceeded"), { status: 429 });
   state.aiClient = {
-    generateParagraph: () => {
-      throw new Error("model down");
-    },
+    generateParagraph: () => Promise.reject(limited),
   };
 
-  await assertRejectsWith(
-    () =>
-      resolveDocument(
-        published([{
-          id: "note",
-          kind: "paragraph",
-          mode: "dynamic",
-          prompts: [{ kind: "general", text: "Write it." }],
-        } as DocumentNode]),
-        state,
-      ),
-    "model down",
+  const error = await rejectionOf(() =>
+    resolveDocument(
+      published([{
+        id: "note",
+        kind: "paragraph",
+        mode: "dynamic",
+        prompts: [{ kind: "general", text: "Write it." }],
+      } as DocumentNode]),
+      state,
+    )
   );
+
+  assertEquals(error instanceof AiGenerationError, true);
+  const failed = error as AiGenerationError;
+  assertEquals(failed.nodeId, "note");
+  assertEquals(failed.kind, "paragraph");
+  assertEquals(failed.cause === limited, true);
+  assertEquals((failed.cause as { status: number }).status, 429);
+  assertEquals(failed.message, 'Dynamic paragraph "note" failed to generate: Rate limit exceeded');
 });
 
 test("a variant resolves per entry of a repeat", async () => {
@@ -754,6 +768,110 @@ const summary: DocumentNode = {
   mode: "dynamic",
   prompts: [{ kind: "general", text: "Summarise." }],
 } as DocumentNode;
+
+test("an image client that throws a non-Error still fails as an AiGenerationError", async () => {
+  const state = engineState({});
+  state.aiClient = {
+    generateParagraph: () => "",
+    generateImage: () => {
+      throw "socket hang up";
+    },
+  };
+
+  const error = await rejectionOf(() =>
+    resolveDocument(
+      published([{
+        id: "portrait",
+        kind: "image",
+        mode: "dynamic",
+        prompts: [{ kind: "general", text: "Draw it." }],
+      } as DocumentNode]),
+      state,
+    )
+  );
+
+  assertEquals(error instanceof AiGenerationError, true);
+  const failed = error as AiGenerationError;
+  assertEquals(failed.nodeId, "portrait");
+  assertEquals(failed.kind, "image");
+  assertEquals(failed.cause, "socket hang up");
+  assertEquals(failed.message, 'Dynamic image "portrait" failed to generate: socket hang up');
+});
+
+test("a repeated node that fails names its suffixed id, and nothing after it is asked", async () => {
+  const asked: string[] = [];
+  const aiClient = {
+    generateParagraph: (request: { node: { id: string } }) => {
+      asked.push(request.node.id);
+      if (request.node.id === "note-1") throw new Error("boom");
+      return "ok";
+    },
+  };
+  const state = createRuntimeState({ data: { notes: [{}, {}, {}] }, aiClient });
+
+  const error = await rejectionOf(() =>
+    resolveDocument(
+      published([{
+        id: "notes",
+        kind: "repeat",
+        source: { scope: "data", path: "notes" },
+        as: "note",
+        indexAs: "index",
+        children: [{
+          id: "note",
+          kind: "paragraph",
+          mode: "dynamic",
+          prompts: [{ kind: "general", text: "Write note {{ctx.index}}." }],
+        }],
+      } as DocumentNode]),
+      state,
+    )
+  );
+
+  assertEquals(error instanceof AiGenerationError, true);
+  assertEquals((error as AiGenerationError).nodeId, "note-1");
+  assertEquals(asked, ["note-0", "note-1"]);
+});
+
+test("docxcelerate's own refusals are not AiGenerationErrors and keep their wording", async () => {
+  const cases: Array<[() => Promise<unknown>, string]> = [
+    [
+      () => resolveDocument(published([summary]), createRuntimeState({ data: {} })),
+      'Dynamic paragraph "summary" requires an aiClient.',
+    ],
+    [
+      () => generatedParagraph({ text: "hi" }),
+      'Dynamic paragraph "note" got an answer that is not text: it returned an object.',
+    ],
+    [
+      () => generatedChart({ graphType: "pyramid" }),
+      'graphType "pyramid" is not a chart type.',
+    ],
+    [
+      () => {
+        const state = engineState({});
+        state.aiClient = { generateParagraph: () => "" };
+        return resolveDocument(
+          published([{
+            id: "trend",
+            kind: "graph",
+            mode: "dynamic",
+            graphType: "bar",
+            prompts: [{ kind: "general", text: "Plot it." }],
+          } as DocumentNode]),
+          state,
+        );
+      },
+      'Dynamic graph "trend" requires an aiClient.generateGraph method.',
+    ],
+  ];
+
+  for (const [fn, includes] of cases) {
+    const error = await rejectionOf(fn);
+    assertEquals(error instanceof AiGenerationError, false);
+    assertStringIncludes((error as Error).message, includes);
+  }
+});
 
 test("createRuntimeState seeds ctx.availableTokens the way a build does", async () => {
   const doc = published([paragraph("budget", "{{data.name}} has {{ctx.availableTokens}} tokens.")]);

@@ -254,6 +254,13 @@ export interface ParagraphNode extends BaseNode {
  */
 export type RowHeightRule = "atLeast" | "exact";
 
+/**
+ * Which way a cell's words run when they are turned on their side: `"up"` reads
+ * from the foot of the cell to its head, as a spine label does, and `"down"`
+ * from the head to the foot.
+ */
+export type CellTextDirection = "up" | "down";
+
 /** Which kind of list a paragraph is an item of: marked with a bullet, or counted. */
 export type ListKind = "bullet" | "number";
 
@@ -276,6 +283,15 @@ export type ListStyle =
   | "lowerRomanParen"
   | "upperRomanParen";
 
+/**
+ * The glyph a bulleted item is marked with, in place of the bullet.
+ *
+ * `"dash"` is an en dash (–), `"tick"` a check mark (✓), `"cross"` a ballot
+ * x (✗) and `"square"` a small square (▪). Each is a plain Unicode glyph in
+ * the paragraph's own face, like the bullet, so no symbol font is needed.
+ */
+export type ListMarker = "dash" | "tick" | "cross" | "square";
+
 /** A paragraph's place in a list. */
 export interface ParagraphList {
   /** Whether the item is marked or counted. */
@@ -297,6 +313,12 @@ export interface ParagraphList {
    * the level in its list. Absent means 1. A bulleted item has none.
    */
   start?: number;
+  /**
+   * The glyph this item is marked with, for a bulleted item. Each item says its
+   * own, so ticks and crosses can stand in one list. Absent means the bullet:
+   * •, ◦, ▪ by depth. A numbered item has none.
+   */
+  marker?: ListMarker;
 }
 
 /**
@@ -519,6 +541,17 @@ export interface TableNode extends BaseNode {
   columns: TableColumn[];
   /** Where the table sits across the text column. Left unless it is said. */
   align?: TableAlign;
+  /**
+   * Whether the whole table stays on one page rather than breaking between rows.
+   *
+   * For a short table that reads as one thing — a totals box, bank details, a
+   * signature block — where a page break between two of its rows leaves a
+   * subtotal on one page and the total it leads to on the next. Word moves the
+   * whole table over instead. Every row is also kept whole, as `keepTogether`
+   * on a row does. A table taller than a page breaks anyway, having nowhere
+   * else to go. Left out, Word may break the table between any two rows.
+   */
+  keepTogether?: boolean;
   /** The rows, and any loops that produce them. */
   children: DocumentNode[];
 }
@@ -566,6 +599,8 @@ export interface TableCellNode extends BaseNode {
   span?: number;
   /** Alignment, when this cell departs from its column's. */
   align?: TableAlign;
+  /** Turns the cell's words on their side. Absent, they run across. */
+  textDirection?: CellTextDirection;
   /** What the cell holds — paragraphs, usually, but any node fits. */
   children: DocumentNode[];
 }
