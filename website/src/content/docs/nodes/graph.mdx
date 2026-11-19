@@ -128,6 +128,22 @@ stacked. Pass the raw figures either way: Word works the shares out itself and
 labels the axis 0% to 100%, so a payload that pre-divided would hand it shares
 of shares.
 
+### Fixing the value axis
+
+Word starts the value axis where it likes, usually at zero. When the movement is
+the point and zero is not — uptime between 99% and 100% — that flattens the data
+into one line. Fix the ends and the gridline step:
+
+```tsx
+<Graph graphType="line" numberFormat="0.0%" valueAxisMin={0.99} valueAxisMax={1} valueAxisStep={0.002}
+  data={{ categories: state.months, series: [{ label: "Uptime", values: state.uptime }] }} />
+```
+
+Each is optional, and Word picks whatever is left out. A value outside the bounds
+is clipped at the axis; on a percent stack the axis is a share, so `0.5` is 50%;
+a pie has no axis and ignores them. `valueAxisMin` above `valueAxisMax`, or a
+step of zero, fails the pack rather than drawing nonsense.
+
 ## Deriving in state
 
 Running totals, percentages and rebasing belong in the state initializer rather
@@ -144,7 +160,8 @@ preview paginating like Word. A scaffolded workspace fills that frame with
 
 The frame is exact. The plot inside it is another renderer's drawing of the same
 data, not a screenshot of Word — open the `.docx` when the plot itself has to be
-right.
+right. A workspace scaffolded before 0.9.0 has a `preview/charts.ts` that does
+not read fixed axis bounds; the file is still right.
 
 ## What draws it
 
@@ -171,6 +188,12 @@ depends on is the frame, and the frame is Word's.
 - `graphType` defaults to `bar` in both modes.
 - `title` is drawn *on* the chart and travels with it if the reader copies it
   elsewhere; `caption` is a paragraph printed underneath.
+- `alt` is the drawing's description, what a screen reader announces and Word's
+  accessibility checker looks for. Say what the numbers show ("Visits doubled
+  after March"), not what the chart is called. Left out, the title stands in,
+  then the caption.
+- `align="center"` or `"right"` places a chart narrower than the column, and its
+  caption follows it. A chart with no `width` already fills the column.
 - `legend` defaults to a key under the plot for more than one series and none
   for one — a key naming the only thing on a chart repeats its title. A pie
   always keeps one, because its key names the slices.

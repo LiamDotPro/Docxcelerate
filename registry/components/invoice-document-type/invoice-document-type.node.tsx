@@ -1,4 +1,8 @@
-import { Paragraph, Section, type Section as SectionComponent, useDeriver, useState } from "docxcelerate/template";
+import { arrange, Section, type Section as SectionComponent, useDeriver, useState } from "docxcelerate/template";
+import type { InvoiceDocumentTypeLines } from "../arrangements/invoice-document-type/lines.ts";
+import { split } from "../arrangements/invoice-document-type/split.arrangement.tsx";
+import { stacked } from "../arrangements/invoice-document-type/stacked.arrangement.tsx";
+import { table } from "../arrangements/invoice-document-type/table.arrangement.tsx";
 import invoiceDocumentType from "../derivers/invoice-document-type.deriver.ts";
 
 /**
@@ -32,6 +36,11 @@ import invoiceDocumentType from "../derivers/invoice-document-type.deriver.ts";
  * sixteen published arms, half the default `branchLimit` of 32 spent before
  * the rest of the invoice, and dates from request data cannot be formatted at
  * publish time without a deriver anyway.
+ *
+ * Arrangement: where the lines sit is a separate choice from what they say,
+ * made with the `arrangement` prop. This file decides every line; each
+ * arrangement, in `arrangements/invoice-document-type/`, only places them, so
+ * all of them print the same lines under the same conditions.
  *
  * Installed by `dxcl add invoice-document-type`, which also installs its deriver.
  */
@@ -114,23 +123,47 @@ export interface InvoiceDocumentTypeData {
   };
 }
 
-export const InvoiceDocumentType: SectionComponent = async () => {
+/**
+ * Where the lines sit.
+ *
+ * - `stacked`: one line under another, each with its label. The default.
+ * - `table`: labels in a narrow column, values beside them, so the values
+ *   line up down the page.
+ * - `split`: what identifies the invoice on the left (number, purchase order,
+ *   VAT number), its dates ranged right, the way an invoice head often faces
+ *   the letterhead.
+ */
+export type InvoiceDocumentTypeArrangement = "stacked" | "table" | "split";
+
+/** Props for {@linkcode InvoiceDocumentType}. */
+export interface InvoiceDocumentTypeProps {
+  /** Where the lines sit. Defaults to `"stacked"`. */
+  arrangement?: InvoiceDocumentTypeArrangement;
+}
+
+export const InvoiceDocumentType: SectionComponent<InvoiceDocumentTypeProps> = async ({ arrangement }) => {
   const [invoice] = useState((data: InvoiceDocumentTypeData) => data.invoice);
   const [seller] = useState((data: InvoiceDocumentTypeData) => data.seller);
   const type = await useDeriver(invoiceDocumentType, [invoice, seller]);
 
+  const lines: InvoiceDocumentTypeLines = {
+    statement: type.statement,
+    number: invoice.number,
+    issueDate: type.issueDate,
+    supplyLine: type.supplyLine,
+    supplyLabel: type.supplyLabel,
+    supplyValue: type.supplyValue,
+    purchaseOrder: invoice.purchaseOrder,
+    vatNumber: type.vatNumber,
+  };
+
   return (
     <Section id="invoice-type" title={type.heading}>
-      {type.statement && <Paragraph id="invoice-type-statement">{type.statement}</Paragraph>}
-      <Paragraph id="invoice-type-number">Invoice number: {invoice.number}</Paragraph>
-      <Paragraph id="invoice-type-issue-date">Date of issue: {type.issueDate}</Paragraph>
-      {type.supplyLine && <Paragraph id="invoice-type-supply">{type.supplyLine}</Paragraph>}
-      {invoice.purchaseOrder && (
-        <Paragraph id="invoice-type-purchase-order">
-          Purchase order: {invoice.purchaseOrder}
-        </Paragraph>
-      )}
-      {type.vatNumber && <Paragraph id="invoice-type-vat-number">VAT number: {type.vatNumber}</Paragraph>}
+      {arrange(arrangement, {
+        stacked: () => stacked(lines),
+        table: () => table(lines),
+        split: () => split(lines),
+      })}
     </Section>
   );
 };

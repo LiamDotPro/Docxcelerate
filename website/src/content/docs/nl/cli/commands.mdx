@@ -117,6 +117,11 @@ datatype bewerken, dus de velden die de component leest worden afgedrukt zodat
 jij ze toevoegt. Hem in `document.tsx` plaatsen is ook aan jou, om dezelfde
 reden waarom de nodegenerator dat met rust laat.
 
+Een component met [opstellingen](/nl/docs/essentials/arrangements/) brengt
+daarnaast één bestand per opstelling mee, onder `arrangements/<name>/`, naast de
+`lines.ts` die typeert wat de node ze aanreikt. `dxcl show` somt ze op, en de
+aanwijzingen na het installeren noemen de waarden die `arrangement` aanneemt.
+
 **Een thema** wordt weggeschreven als de `document-style.ts` van het project,
 die `document.project.ts` al doorgeeft — de volgende preview is dus getypeerd
 volgens het thema. Het bestand importeert het thema en spreidt het uit, zodat

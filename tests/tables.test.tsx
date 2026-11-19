@@ -1,9 +1,16 @@
 import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
-import { buildDocument } from "docxcelerate";
-import { createDocxDocument } from "docxcelerate/docx";
-import { documentXml } from "./docx.ts";
-import type { DocumentModel, DocumentNode, TableNode, TableRowNode } from "docxcelerate";
+import { buildDocument, cleanMinimalDocumentStyle } from "docxcelerate";
+import { createDocxBlob, createDocxDocument } from "docxcelerate/docx";
+import { readPackedParagraphs } from "docxcelerate/preview";
+import { documentXml, paragraphOf } from "./docx.ts";
+import type {
+  DocumentModel,
+  DocumentNode,
+  DocumentStyle,
+  TableNode,
+  TableRowNode,
+} from "docxcelerate";
 import { Cell, Document, Paragraph, Row, Section, Table, template } from "docxcelerate/template";
 
 /**
@@ -206,6 +213,147 @@ test("the heading a table opens with is the one that repeats across pages", asyn
   assertStringIncludes(rows[2], '<w:tblHeader w:val="false"/>');
 });
 
+test("the model carries an exact height", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }]}>
+      <Row height={40} heightRule="exact">
+        <Cell>x</Cell>
+      </Row>
+    </Table>
+  ));
+  const row = rowsOf(tableOf(doc as DocumentModel))[0];
+
+  assertEquals(row.height, 40);
+  assertEquals(row.heightRule, "exact");
+});
+
+test("the default rule is not carried", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }]}>
+      <Row height={40}>
+        <Cell>x</Cell>
+      </Row>
+    </Table>
+  ));
+  const row = rowsOf(tableOf(doc as DocumentModel))[0];
+
+  assertEquals(row.height, 40);
+  assertEquals("heightRule" in row, false);
+});
+
+test("a rule with no height, and a plain row, carry nothing", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }]}>
+      <Row heightRule="exact">
+        <Cell>x</Cell>
+      </Row>
+      <Row>
+        <Cell>y</Cell>
+      </Row>
+    </Table>
+  ));
+
+  for (const row of rowsOf(tableOf(doc as DocumentModel))) {
+    assertEquals("height" in row, false);
+    assertEquals("heightRule" in row, false);
+  }
+});
+
+test("a row's height is written in twips, with its rule", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }]}>
+      <Row height={40} heightRule="exact">
+        <Cell>a</Cell>
+      </Row>
+      <Row height={56.7}>
+        <Cell>b</Cell>
+      </Row>
+      <Row>
+        <Cell>c</Cell>
+      </Row>
+    </Table>
+  ));
+  const rows = (await documentXml(doc as DocumentModel)).split("<w:tr>");
+
+  assertStringIncludes(rows[1], '<w:trHeight w:val="800" w:hRule="exact"/>');
+  assertStringIncludes(rows[2], '<w:trHeight w:val="1134" w:hRule="atLeast"/>');
+  assertEquals(rows[3].includes("w:trHeight"), false);
+});
+
+test("a header row keeps both its repeat and its height", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }]}>
+      <Row header height={30}>
+        <Cell>h</Cell>
+      </Row>
+    </Table>
+  ));
+  const rows = (await documentXml(doc as DocumentModel)).split("<w:tr>");
+
+  assertStringIncludes(rows[1], "<w:tblHeader/>");
+  assertStringIncludes(rows[1], '<w:trHeight w:val="600" w:hRule="atLeast"/>');
+});
+
+// ---------------------------------------------------------------------------
+// Rows that stay whole
+// ---------------------------------------------------------------------------
+
+test("the model carries keepTogether only when asked", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }]}>
+      <Row keepTogether>
+        <Cell>Kept</Cell>
+      </Row>
+      <Row>
+        <Cell>Free</Cell>
+      </Row>
+    </Table>
+  ));
+
+  assertEquals(rowsOf(tableOf(doc))[0].keepTogether, true);
+  assertEquals("keepTogether" in rowsOf(tableOf(doc))[1], false);
+});
+
+test("w:cantSplit is written on the marked rows and on no other", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }]}>
+      <Row header keepTogether>
+        <Cell>Description</Cell>
+      </Row>
+      <Row keepTogether>
+        <Cell>API build</Cell>
+      </Row>
+      <Row>
+        <Cell>Support</Cell>
+      </Row>
+    </Table>
+  ));
+
+  const rows = (await documentXml(doc as DocumentModel)).split("<w:tr>");
+
+  assertStringIncludes(rows[1], "<w:cantSplit/>");
+  assertStringIncludes(rows[1], "<w:tblHeader/>");
+  assertStringIncludes(rows[2], "<w:cantSplit/>");
+  assertEquals(rows[3].includes("w:cantSplit"), false);
+});
+
+test("a row produced by a `.map()` carries keepTogether to every pass", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }, { width: 26 }]}>
+      {lines.map((line) => (
+        <Row keepTogether>
+          <Cell>{line.desc}</Cell>
+          <Cell>{line.amount}</Cell>
+        </Row>
+      ))}
+    </Table>
+  ));
+
+  assertEquals(rowsOf(tableOf(doc)).every((row) => row.keepTogether === true), true);
+  const xml = await documentXml(doc as DocumentModel);
+  assertEquals(xml.split("<w:cantSplit/>").length - 1, lines.length);
+});
+
 // ---------------------------------------------------------------------------
 // What comes out the other end
 // ---------------------------------------------------------------------------
@@ -260,4 +408,217 @@ test("a cell with nothing in it still packs, because Word will not take an empty
   ));
 
   assertEquals(typeof createDocxDocument(doc), "object");
+});
+
+// ---------------------------------------------------------------------------
+// Where a table sits across the column
+// ---------------------------------------------------------------------------
+
+function narrow(align?: "left" | "center" | "right") {
+  return build(() => (
+    <Table id="t" align={align} columns={[{ width: 60 }]}>
+      <Row>
+        <Cell id="c">Sixty millimetres</Cell>
+      </Row>
+    </Table>
+  ));
+}
+
+async function tblPrOf(align?: "left" | "center" | "right"): Promise<string> {
+  const xml = await documentXml(await narrow(align));
+
+  return xml.match(/<w:tblPr>[\s\S]*?<\/w:tblPr>/)?.[0] ?? "";
+}
+
+test("a table keeps the align it was given", async () => {
+  assertEquals(tableOf(await narrow("right")).align, "right");
+});
+
+test("a table that does not say where it sits carries no align", async () => {
+  assertEquals("align" in tableOf(await narrow()), false);
+});
+
+test("a centred table writes w:jc on the table's own properties", async () => {
+  assertStringIncludes(await tblPrOf("center"), '<w:tblW w:type="dxa" w:w="3402"/><w:jc w:val="center"/>');
+});
+
+test("a table ranged right writes w:jc right", async () => {
+  assertStringIncludes(await tblPrOf("right"), '<w:jc w:val="right"/>');
+});
+
+test("a table with no align writes no w:jc", async () => {
+  assertEquals((await tblPrOf()).includes("<w:jc"), false);
+});
+
+// ---------------------------------------------------------------------------
+// A paragraph keeps its own layout inside a cell
+// ---------------------------------------------------------------------------
+
+const inset = {
+  indentMm: 10,
+  indentRightMm: 10,
+  border: "2F5FBD",
+  borderSides: ["left"],
+  borderWidthPt: 2,
+  paddingPt: 6,
+  fill: "EEF2FF",
+} as const;
+
+const cellStyle: DocumentStyle = {
+  ...cleanMinimalDocumentStyle,
+  blocks: {
+    ...cleanMinimalDocumentStyle.blocks,
+    signLine: { tabStopsMm: [{ at: 60, align: "right", leader: "dot" }] },
+    inset: { ...inset, borderSides: ["left"] },
+    standfirst: { align: "center" },
+    bleeding: { bleed: true },
+    measured: { maxWidthMm: 40 },
+    badge: { fill: "1F2933", border: "2F5FBD" },
+  },
+};
+
+const signature = () => (
+  <Table id="sign" columns={[{ width: 80 }, { width: 80 }]}>
+    <Row>
+      <Cell id="supplier">
+        <Paragraph id="s-line" variant="signLine">{"Signed\t"}</Paragraph>
+        <Paragraph id="s-date" align="right">19 November 2026</Paragraph>
+      </Cell>
+      <Cell id="client">
+        <Paragraph id="c-quote" variant="inset">Accepted on the terms above.</Paragraph>
+      </Cell>
+    </Row>
+  </Table>
+);
+
+async function cellXml(body: () => unknown): Promise<string> {
+  return documentXml({ ...(await build(body)), style: cellStyle });
+}
+
+test("a paragraph's own align wins over its column", async () => {
+  const xml = await cellXml(() => (
+    <Table id="t" columns={[{ width: 80 }]}>
+      <Row>
+        <Cell>
+          <Paragraph align="right">Ranged right</Paragraph>
+        </Cell>
+      </Row>
+    </Table>
+  ));
+
+  assertStringIncludes(paragraphOf(xml, "Ranged right"), '<w:jc w:val="right"/>');
+});
+
+test("a variant's align beats the column, and the node's beats the variant", async () => {
+  const xml = await cellXml(() => (
+    <Table id="t" columns={[{ width: 80, align: "right" }]}>
+      <Row>
+        <Cell>
+          <Paragraph variant="standfirst">Centred</Paragraph>
+          <Paragraph variant="standfirst" align="left">Left again</Paragraph>
+        </Cell>
+      </Row>
+    </Table>
+  ));
+
+  assertStringIncludes(paragraphOf(xml, "Centred"), '<w:jc w:val="center"/>');
+  assertStringIncludes(paragraphOf(xml, "Left again"), '<w:jc w:val="left"/>');
+});
+
+test("a plain paragraph in a cell is set by the column alone", async () => {
+  const xml = await cellXml(() => (
+    <Table id="t" columns={[{ width: 80, align: "right" }]}>
+      <Row>
+        <Cell>Plain</Cell>
+      </Row>
+    </Table>
+  ));
+  const found = paragraphOf(xml, "Plain");
+
+  assertStringIncludes(found, '<w:jc w:val="right"/>');
+  for (const absent of ["<w:ind", "<w:tabs>", "<w:pBdr>", "<w:shd"]) {
+    assertEquals(found.includes(absent), false);
+  }
+});
+
+test("a variant's tab stops and a tab in the text reach a cell", async () => {
+  const found = paragraphOf(await cellXml(signature), "Signed");
+
+  assertStringIncludes(found, '<w:tab w:val="right" w:pos="3402" w:leader="dot"/>');
+  assertStringIncludes(found, "<w:tab/>");
+});
+
+test("a variant's indents, border and fill reach a cell paragraph", async () => {
+  const found = paragraphOf(await cellXml(signature), "Accepted");
+
+  assertStringIncludes(found, '<w:ind w:left="567" w:right="567"/>');
+  assertStringIncludes(found, "<w:pBdr>");
+  assertStringIncludes(found, 'w:color="2F5FBD"');
+  assertStringIncludes(found, 'w:sz="16"');
+  assertStringIncludes(found, 'w:space="6"');
+  assertStringIncludes(found, 'w:fill="EEF2FF"');
+});
+
+test("a cell's own block stays on the cell and does not shade its paragraphs", async () => {
+  const xml = await cellXml(() => (
+    <Table id="t" columns={[{ width: 80 }]}>
+      <Row>
+        <Cell variant="badge">
+          <Paragraph>Inside the badge</Paragraph>
+        </Cell>
+      </Row>
+    </Table>
+  ));
+  const found = paragraphOf(xml, "Inside the badge");
+
+  assertEquals(found.includes("<w:shd"), false);
+  assertEquals(found.includes("<w:pBdr>"), false);
+});
+
+test("bleed and a measure are page measures and do nothing in a cell", async () => {
+  const xml = await cellXml(() => (
+    <Table id="t" columns={[{ width: 80 }]}>
+      <Row>
+        <Cell>
+          <Paragraph variant="bleeding">Bleeds</Paragraph>
+          <Paragraph variant="measured">Measured</Paragraph>
+        </Cell>
+      </Row>
+    </Table>
+  ));
+
+  assertEquals(paragraphOf(xml, "Bleeds").includes("<w:ind"), false);
+  assertEquals(paragraphOf(xml, "Measured").includes("<w:ind"), false);
+});
+
+test("a list item in a cell keeps the indent its list gives it", async () => {
+  const xml = await cellXml(() => (
+    <Table id="t" columns={[{ width: 80 }]}>
+      <Row>
+        <Cell>
+          <Paragraph list="bullet">An item</Paragraph>
+        </Cell>
+      </Row>
+    </Table>
+  ));
+
+  assertStringIncludes(paragraphOf(xml, "An item"), '<w:ind w:left="360" w:hanging="360"/>');
+});
+
+test("the preview reader finds a cell's tab stops, and the body after the table", async () => {
+  const doc = await build(() => (
+    <>
+      {signature()}
+      <Paragraph id="after">After the table</Paragraph>
+    </>
+  ));
+  const blob = await createDocxBlob({ ...doc, style: cellStyle });
+  const read = await readPackedParagraphs(new Uint8Array(await blob.arrayBuffer()));
+  const signed = read.find((entry) => entry.text.includes("Signed"));
+  const stop = signed?.tabStops[0];
+
+  assertEquals(stop?.align, "right");
+  assertEquals(stop?.leader, "dot");
+  assertEquals(Math.abs((stop?.positionPt ?? 0) - 60 * 72 / 25.4) < 0.1, true);
+  assertEquals(read.at(-1)?.text.includes("After the table"), true);
 });

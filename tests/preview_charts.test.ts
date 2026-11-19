@@ -4,6 +4,7 @@ import { renderDocxBytes } from "docxcelerate/docx";
 import {
   type ChartDrawer,
   type PreviewChart,
+  applyTableIndents,
   readPackedCharts,
   settleDocxPreviewCharts,
 } from "docxcelerate/preview";
@@ -343,4 +344,38 @@ test("more frames than charts leaves the spare frames alone", async () => {
 
   assertEquals(settleDocxPreviewCharts(body, charts, () => "<svg></svg>"), 1);
   assertEquals(frames[1].childElementCount, 0);
+});
+
+test("a landscape table the width of the turned column is not a bleed", () => {
+  const margins = { topMm: 20, rightMm: 20, bottomMm: 20, leftMm: 20 };
+  const model = (orientation: "portrait" | "landscape") =>
+    ({
+      style: { page: { size: "A4", orientation, margins } },
+    }) as unknown as DocumentModel;
+  const indent = (orientation: "portrait" | "landscape") => {
+    const body = page().document.createElement("div");
+
+    // 728pt is 257mm: the landscape column, and wider than the portrait one.
+    body.innerHTML = '<table style="width: 728pt"></table>';
+    applyTableIndents(body, model(orientation));
+
+    return body.querySelector("table")!.style.marginInlineStart;
+  };
+
+  assertEquals(indent("landscape"), "");
+  assertEquals(indent("portrait"), "-20mm");
+});
+
+test("the value axis's fixed bounds are read from the file, and absent where Word picks", async () => {
+  const [bounded] = await readBack([
+    chart({ valueAxisMin: 90, valueAxisMax: 100, valueAxisStep: 2 }),
+  ]);
+  const [plain] = await readBack([chart()]);
+
+  assertEquals(bounded.valueAxisMin, 90);
+  assertEquals(bounded.valueAxisMax, 100);
+  assertEquals(bounded.valueAxisStep, 2);
+  assertEquals(plain.valueAxisMin, undefined);
+  assertEquals(plain.valueAxisMax, undefined);
+  assertEquals(plain.valueAxisStep, undefined);
 });

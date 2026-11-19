@@ -1,0 +1,145 @@
+---
+title: Disposiciones
+description: Colocar las mismas líneas de más de una forma — apiladas, en una tabla, repartidas a izquierda y derecha — sin tocar lo que las decide.
+group: Essentials
+order: 6
+---
+
+Lo que imprime un componente y dónde lo pone son dos decisiones distintas. La
+primera depende de los datos, así que se toma de nuevo en cada documento. La
+segunda es tuya, y la tomas una vez donde usas el componente. Una
+**disposición** las mantiene separadas: un componente que ofrece varias acepta
+una prop `arrangement`, y cada valor coloca las mismas líneas de otra forma.
+
+## Usar una
+
+```tsx
+<InvoiceDocumentType />                       // stacked, the default
+<InvoiceDocumentType arrangement="table" />   // labels in a column, values beside them
+<InvoiceDocumentType arrangement="split" />   // identifiers left, dates ranged right
+```
+
+Todas las disposiciones imprimen las mismas líneas en las mismas condiciones.
+Una factura proforma dice que no es una factura con IVA en las tres, y una
+fecha de suministro igual a la de emisión se omite en las tres. Solo cambia
+dónde quedan las líneas.
+
+Sin la prop se usa la primera disposición. Un nombre que el componente no tiene
+detiene el build con los nombres que sí tiene, así que una errata nunca imprime
+la predeterminada sin avisar.
+
+`dxcl show` lista lo que ofrece un componente del registro, y su página en el
+[registro](/es/registry/) tiene una vista previa de cada una:
+
+```sh
+dxcl show invoice-document-type
+```
+
+## Cómo se organiza un componente
+
+Un componente con disposiciones se instala como un nodo y un archivo por
+disposición:
+
+```
+nodes/invoice-document-type.node.tsx
+derivers/invoice-document-type.deriver.ts
+arrangements/invoice-document-type/lines.ts
+arrangements/invoice-document-type/stacked.arrangement.tsx
+arrangements/invoice-document-type/table.arrangement.tsx
+arrangements/invoice-document-type/split.arrangement.tsx
+```
+
+El nodo decide cada línea. `lines.ts` es el tipo de lo que entrega a cada
+disposición, y cada archivo de disposición solo coloca esas líneas. El nodo las
+importa al principio, así se lee como lo que decide, y cada disposición como
+dónde va cada cosa:
+
+```tsx
+import { arrange, Section, useDeriver, useState } from "docxcelerate/template";
+import type { InvoiceDocumentTypeLines } from "../arrangements/invoice-document-type/lines.ts";
+import { split } from "../arrangements/invoice-document-type/split.arrangement.tsx";
+import { stacked } from "../arrangements/invoice-document-type/stacked.arrangement.tsx";
+import { table } from "../arrangements/invoice-document-type/table.arrangement.tsx";
+
+export const InvoiceDocumentType: Section<{ arrangement?: "stacked" | "table" | "split" }> = async (
+  { arrangement },
+) => {
+  // ...useState and useDeriver, as before...
+  const lines: InvoiceDocumentTypeLines = { number: invoice.number, supplyLine: type.supplyLine /* ... */ };
+
+  return (
+    <Section id="invoice-type" title={type.heading}>
+      {arrange(arrangement, {
+        stacked: () => stacked(lines),
+        table: () => table(lines),
+        split: () => split(lines),
+      })}
+    </Section>
+  );
+};
+```
+
+Una disposición es una función de las líneas a lo que produce:
+
+```tsx
+import { Cell, Row, Table, type Yield } from "docxcelerate/template";
+import type { InvoiceDocumentTypeLines } from "./lines.ts";
+
+export const table = (lines: InvoiceDocumentTypeLines): Yield => (
+  <Table id="invoice-type-details" columns={[{ width: 45 }, { width: "auto" }]}>
+    <Row id="invoice-type-number">
+      <Cell>Invoice number</Cell>
+      <Cell>{lines.number}</Cell>
+    </Row>
+    {lines.purchaseOrder && (
+      <Row id="invoice-type-purchase-order">
+        <Cell>Purchase order</Cell>
+        <Cell>{lines.purchaseOrder}</Cell>
+      </Row>
+    )}
+  </Table>
+);
+```
+
+## Añadir las tuyas
+
+Un componente instalado es tu archivo, así que una cuarta disposición son dos
+cambios: escribir `arrangements/invoice-document-type/strip.arrangement.tsx`, y
+luego importarla en el nodo y añadirla a los nombres que recibe `arrange` y al
+tipo de la prop. Nada más necesita saberlo.
+
+Con un componente propio funciona igual: escribe el tipo de las líneas, un
+archivo por disposición, y elige con `arrange`.
+
+## Las reglas
+
+**Elige con `arrange`, no con una comparación.** Escribir
+`arrangement === "table" ? … : …` parece equivalente y no lo es. Al publicar un
+documento, el compilador convierte cada comparación en una decisión que el
+motor toma por documento, incluso una comparación de dos cadenas fijas, así que
+cada disposición viajaría como una rama y contaría para el
+[límite de ramas](/es/docs/essentials/templates/#las-bifurcaciones-multiplican). `arrange`
+busca el nombre en su lugar, y solo se construye la disposición pedida.
+
+**Las disposiciones colocan; el nodo decide.** Todo lo que depende de los datos
+— un encabezado, una fecha con formato, si una línea se imprime o no — se
+resuelve en el nodo (o en su deriver) y se entrega en las líneas. Una
+disposición que decidiera algo por su cuenta imprimiría cosas distintas en
+sitios distintos, que es justo lo que las disposiciones prometen no hacer.
+
+**Comprueba una línea en el JSX.** Escribe `{lines.supplyLine && <Paragraph … />}`
+dentro de la disposición, no en una variable encima. Dentro del JSX la
+comprobación se compila en una condición que el motor resuelve por documento.
+Fuera del JSX, al publicar, un valor sustituto siempre es verdadero, y la línea
+se imprimiría para todos los destinatarios.
+
+**Conserva los ids.** Una línea conserva su id en todas las disposiciones, como
+`invoice-type-number` arriba. Solo se construye una disposición, así que los ids
+nunca chocan, y todo lo que se dirige a un nodo por su id lo encuentra sea cual
+sea la disposición elegida.
+
+## Siguientes pasos
+
+- [Plantillas](/es/docs/essentials/templates/) — condiciones, bucles y publicación
+- [Escribir nodos](/es/docs/writing-nodes/) — el modelo de componentes, un archivo cada uno
+- [El registro](/es/registry/) — componentes para instalar, con una vista previa de cada disposición

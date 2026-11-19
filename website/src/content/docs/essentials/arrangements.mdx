@@ -1,0 +1,144 @@
+---
+title: Arrangements
+description: Place the same lines more than one way — stacked, in a table, split left and right — without touching what decides them.
+group: Essentials
+order: 6
+---
+
+What a component prints and where it puts it are two different decisions. The
+first depends on the data, so it is made again for every document. The second
+is yours, made once where you use the component. An **arrangement** keeps them
+apart: a component that offers several takes an `arrangement` prop, and each
+value places the same lines a different way.
+
+## Using one
+
+```tsx
+<InvoiceDocumentType />                       // stacked, the default
+<InvoiceDocumentType arrangement="table" />   // labels in a column, values beside them
+<InvoiceDocumentType arrangement="split" />   // identifiers left, dates ranged right
+```
+
+Every arrangement prints the same lines under the same conditions. A pro forma
+says it is not a VAT invoice in all three, and a supply date the same as the
+issue date is left out of all three. Only where the lines sit changes.
+
+Leaving the prop out gives the first arrangement. A name the component does not
+have stops the build with the names it does have, so a typo never quietly
+prints the default.
+
+`dxcl show` lists what a registry component offers, and its page in the
+[registry](/registry/) has a preview of each:
+
+```sh
+dxcl show invoice-document-type
+```
+
+## How a component is laid out
+
+A component with arrangements is installed as one node and a file per
+arrangement:
+
+```
+nodes/invoice-document-type.node.tsx
+derivers/invoice-document-type.deriver.ts
+arrangements/invoice-document-type/lines.ts
+arrangements/invoice-document-type/stacked.arrangement.tsx
+arrangements/invoice-document-type/table.arrangement.tsx
+arrangements/invoice-document-type/split.arrangement.tsx
+```
+
+The node decides every line. `lines.ts` is the type of what it hands each
+arrangement, and each arrangement file only places those lines. The node
+imports them at the top, so it reads as what it decides, and each arrangement
+reads as where things sit:
+
+```tsx
+import { arrange, Section, useDeriver, useState } from "docxcelerate/template";
+import type { InvoiceDocumentTypeLines } from "../arrangements/invoice-document-type/lines.ts";
+import { split } from "../arrangements/invoice-document-type/split.arrangement.tsx";
+import { stacked } from "../arrangements/invoice-document-type/stacked.arrangement.tsx";
+import { table } from "../arrangements/invoice-document-type/table.arrangement.tsx";
+
+export const InvoiceDocumentType: Section<{ arrangement?: "stacked" | "table" | "split" }> = async (
+  { arrangement },
+) => {
+  // ...useState and useDeriver, as before...
+  const lines: InvoiceDocumentTypeLines = { number: invoice.number, supplyLine: type.supplyLine /* ... */ };
+
+  return (
+    <Section id="invoice-type" title={type.heading}>
+      {arrange(arrangement, {
+        stacked: () => stacked(lines),
+        table: () => table(lines),
+        split: () => split(lines),
+      })}
+    </Section>
+  );
+};
+```
+
+An arrangement is a function from the lines to what it yields:
+
+```tsx
+import { Cell, Row, Table, type Yield } from "docxcelerate/template";
+import type { InvoiceDocumentTypeLines } from "./lines.ts";
+
+export const table = (lines: InvoiceDocumentTypeLines): Yield => (
+  <Table id="invoice-type-details" columns={[{ width: 45 }, { width: "auto" }]}>
+    <Row id="invoice-type-number">
+      <Cell>Invoice number</Cell>
+      <Cell>{lines.number}</Cell>
+    </Row>
+    {lines.purchaseOrder && (
+      <Row id="invoice-type-purchase-order">
+        <Cell>Purchase order</Cell>
+        <Cell>{lines.purchaseOrder}</Cell>
+      </Row>
+    )}
+  </Table>
+);
+```
+
+## Adding your own
+
+An installed component is your file, so a fourth arrangement is two edits:
+write `arrangements/invoice-document-type/strip.arrangement.tsx`, then import
+it in the node and add it to the names `arrange` is given and to the prop's
+type. Nothing else needs to know.
+
+The same works for a component of your own. Write the lines type, one file per
+arrangement, and pick with `arrange`.
+
+## The rules
+
+**Pick with `arrange`, not with a comparison.** Writing
+`arrangement === "table" ? … : …` looks equivalent and is not. When a document
+is published, the compiler turns every comparison into a decision the engine
+makes per document, even a comparison of two fixed strings, so every
+arrangement would ship as a branch and count against the
+[branch limit](/docs/essentials/templates/#branches-multiply). `arrange` looks
+the name up instead, and only the arrangement asked for is ever built.
+
+**Arrangements place; the node decides.** Anything that depends on the data,
+whether a heading, a formatted date or whether a line prints at all, is worked
+out in the node (or its deriver) and handed over in the lines. An arrangement
+that decided something for itself would print different things in different
+places, which is the one thing arrangements promise not to do.
+
+**Test a line in the JSX.** Write `{lines.supplyLine && <Paragraph … />}`
+inside the arrangement, not in a variable above it. Inside JSX the test is
+compiled into a condition the engine settles per document. Outside JSX, at
+publish time, a stand-in is always truthy, so the line would print for every
+recipient.
+
+**Keep the ids.** A line keeps its id in every arrangement, as
+`invoice-type-number` does above. Only one arrangement is ever built, so the ids
+never collide, and anything that addresses a node by id finds it whichever
+arrangement was chosen.
+
+## Where to go next
+
+- [Templates](/docs/essentials/templates/) — conditions, loops and publishing
+- [Writing nodes](/docs/writing-nodes/) — the component model, one file each
+- [The registry](/registry/) — components to install, with a preview of every arrangement
