@@ -3485,6 +3485,82 @@ export const COMPONENTS: RegistryComponent[] = [
 
   {
     kind: "component",
+    id: "royalty-earnings-by-format",
+    title: "Royalty earnings by format",
+    summary: "Royalty lines per format and price band, split where the period crosses an escalator.",
+    detail:
+      "Escalator tiers are counted on life-to-date copies, so a period that " +
+      "crosses a threshold is split into two lines at the copy where the rate " +
+      "changes, never paid at one rate. Each format is priced on its own basis, " +
+      "list price or net receipts. A high-discount sale earns a fraction of the " +
+      "rate, or the full rate on net receipts where the contract switches the " +
+      "base. Returns are charged at the highest rate reached and never pull the " +
+      "life-to-date count back below a tier. Subsidiary-rights income is shared " +
+      "after the licensee's withholding tax, which is shown once and not " +
+      "deducted again. Each line is rounded once in minor units and the total is " +
+      "the sum of the lines, the way a publisher's ledger adds up. A tier list " +
+      "that does not ascend, or a format with no basis, fails the document. All " +
+      "of it is one deriver.",
+    category: "Body",
+    tags: ["money", "royalty", "publishing", "statement", "table", "deriver", "section"],
+    exports: ["RoyaltyEarningsByFormat"],
+    dataFields: [
+      { path: "royalty.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required." },
+      { path: "royalty.formats", type: 'Array<{ format: "hardback" | "paperback" | "ebook" | "audio"; label?: string; basis: "list" | "net"; listPriceMinor?: number; tiers: Array<{ fromUnit: number; percent: number }>; lifeToDateUnitsBefore: number; sales?: Array<{ units: number; discountPercent?: number; netReceiptsMinor?: number }>; returns?: { units: number; netReceiptsMinor?: number } }> | undefined', summary: "One per format, amounts in integer minor units. Tiers start at copy 1 and ascend; the life-to-date count is required. Missing prints no format lines." },
+      { path: "royalty.highDiscount", type: '{ thresholdPercent?: number; treatment?: "fraction" | "net"; fraction?: { numerator: number; denominator: number }; deeper?: Array<{ thresholdPercent: number; numerator: number; denominator: number }> } | undefined', summary: "The high-discount clause for list-price formats. Threshold defaults to 55, the fraction to 4/5. Missing means no clause." },
+      { path: "royalty.subRights", type: "Array<{ right: string; licensee: string; grossMinor: number; foreignTaxWithheldMinor?: number; authorSharePercent: number }> | undefined", summary: "Licence income before withholding, shared after the tax. Missing prints none." },
+    ],
+    files: node("royalty-earnings-by-format", { deriver: true }),
+    previewData: {
+      royalty: {
+        currency: "GBP",
+        highDiscount: {
+          thresholdPercent: 55, treatment: "fraction", fraction: { numerator: 4, denominator: 5 },
+          deeper: [{ thresholdPercent: 62.5, numerator: 3, denominator: 5 }],
+        },
+        formats: [
+          {
+            format: "hardback", label: "Hardback (slipcased collector's edition with illustrated endpapers)",
+            basis: "list", listPriceMinor: 2500,
+            tiers: [{ fromUnit: 1, percent: 10 }, { fromUnit: 2501, percent: 12.5 }, { fromUnit: 5001, percent: 15 }],
+            lifeToDateUnitsBefore: 1850,
+            sales: [
+              { units: 2400, discountPercent: 45 },
+              { units: 38600, discountPercent: 52 },
+              { units: 9200, discountPercent: 60 },
+            ],
+            returns: { units: 3150 },
+          },
+          {
+            format: "paperback", label: "B-format paperback (export and open market edition)",
+            basis: "list", listPriceMinor: 1099,
+            tiers: [{ fromUnit: 1, percent: 7.5 }, { fromUnit: 150001, percent: 10 }],
+            lifeToDateUnitsBefore: 112480,
+            sales: [{ units: 184300, discountPercent: 50 }, { units: 41900, discountPercent: 63 }],
+            returns: { units: 22750 },
+          },
+          {
+            format: "ebook", basis: "net", tiers: [{ fromUnit: 1, percent: 25 }],
+            lifeToDateUnitsBefore: 63210, sales: [{ units: 58420, netReceiptsMinor: 23368000 }],
+          },
+          {
+            format: "audio", label: "Unabridged audiobook (download and streaming)", basis: "net",
+            tiers: [{ fromUnit: 1, percent: 25 }], lifeToDateUnitsBefore: 9400,
+            sales: [{ units: 21800, netReceiptsMinor: 9810000 }],
+            returns: { units: 140, netReceiptsMinor: 63000 },
+          },
+        ],
+        subRights: [
+          { right: "Spanish-language translation (Latin America)", licensee: "Editorial Planeta Mexicana S.A. de C.V.", grossMinor: 4500000, foreignTaxWithheldMinor: 1125000, authorSharePercent: 80 },
+          { right: "First serial rights", licensee: "Guardian News & Media Limited", grossMinor: 1800000, authorSharePercent: 90 },
+        ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
     id: "marketplace-payout-statement",
     title: "Marketplace payout statement",
     summary: "A period's sales, refunds, fees, chargebacks and reserve, reconciled row by row to what reaches the seller's bank.",
