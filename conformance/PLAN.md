@@ -247,7 +247,7 @@ the paragraph can vary. Everything in this block is a single design decision
 | --- | --- | --- |
 | Bold / italic / underline / strike in a sentence | **yes — added**; file and preview, Word not yet run | `runs/bold-span` |
 | A coloured or differently-sized span | no | `runs/coloured-span` |
-| Superscript / subscript | no | `runs/superscript` |
+| Superscript / subscript | **yes — added**; file and preview, Word not yet run | `runs/superscript` |
 | Hyperlink, external | **yes — added**; file and preview, no Word tier yet | `runs/external-hyperlink` |
 | Hyperlink, internal | no — needs bookmarks | `runs/internal-hyperlink` |
 | Line break within a paragraph | **yes — added**; file and preview, Word not yet run | `runs/soft-break` |

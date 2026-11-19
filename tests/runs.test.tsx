@@ -19,7 +19,7 @@ import {
   Text,
   useState,
 } from "docxcelerate/template";
-import { documentXml, partXml } from "./docx.ts";
+import { documentXml, partXml, textOf } from "./docx.ts";
 
 /**
  * Some of a paragraph's words set differently from the rest.
@@ -254,4 +254,142 @@ test("a <Text> standing beside the nodes says where it belongs", async () => {
     Error,
     "on its own it is a <Paragraph>",
   );
+});
+
+const SUP = '<w:vertAlign w:val="superscript"/>';
+const SUB = '<w:vertAlign w:val="subscript"/>';
+
+function count(xml: string, fragment: string): number {
+  return xml.split(fragment).length - 1;
+}
+
+test("a raised word is a run of its own", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        84 m<Text script="superscript">2</Text>.
+      </Paragraph>
+    </Document>,
+  );
+  const xml = await documentXml(doc);
+
+  assertEquals(paragraph(doc).runs, [
+    { text: "84 m" },
+    { text: "2", script: "superscript" },
+    { text: "." },
+  ]);
+  assertStringIncludes(xml, `${SUP}</w:rPr><w:t xml:space="preserve">2</w:t>`);
+  assertEquals(count(xml, "w:vertAlign"), 1);
+});
+
+test("a lowered word is a run of its own", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        CO<Text script="subscript">2</Text>
+      </Paragraph>
+    </Document>,
+  );
+
+  assertEquals(paragraph(doc).runs, [{ text: "CO" }, { text: "2", script: "subscript" }]);
+  assertStringIncludes(await documentXml(doc), `${SUB}</w:rPr><w:t xml:space="preserve">2</w:t>`);
+});
+
+test("nested <Text> takes both marks, and the inner script wins", async () => {
+  const bold = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        <Text bold>1<Text script="superscript">st</Text></Text>
+      </Paragraph>
+    </Document>,
+  );
+  assertEquals(paragraph(bold).runs, [
+    { text: "1", bold: true },
+    { text: "st", bold: true, script: "superscript" },
+  ]);
+
+  const both = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        <Text script="superscript">a<Text script="subscript">b</Text></Text>
+      </Paragraph>
+    </Document>,
+  );
+  const xml = await documentXml(both);
+  assertEquals(paragraph(both).runs, [
+    { text: "a", script: "superscript" },
+    { text: "b", script: "subscript" },
+  ]);
+  assertEquals(count(xml, SUP), 1);
+  assertEquals(count(xml, SUB), 1);
+});
+
+test("a paragraph without script has no vertical alignment", async () => {
+  const plain = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">Due soon.</Paragraph>
+    </Document>,
+  );
+  assertEquals(paragraph(plain).runs, undefined);
+  assertEquals((await documentXml(plain)).includes("w:vertAlign"), false);
+
+  const bold = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        Pay <Text bold>due</Text>
+      </Paragraph>
+    </Document>,
+  );
+  assertEquals(paragraph(bold).runs?.[1], { text: "due", bold: true });
+  assertEquals((await documentXml(bold)).includes("w:vertAlign"), false);
+});
+
+test("a raised word in a cell", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Table id="t" columns={[{}]}>
+        <Row id="r">
+          <Cell id="c">
+            Area m<Text script="superscript">2</Text>
+          </Cell>
+        </Row>
+      </Table>
+    </Document>,
+  );
+  const table = doc.nodes[0] as { children: Array<{ children: TableCellNode[] }> };
+  const words = table.children[0].children[0].children[0] as ParagraphNode;
+
+  assertEquals(words.runs, [{ text: "Area m" }, { text: "2", script: "superscript" }]);
+  assertStringIncludes(await documentXml(doc), SUP);
+});
+
+test("a raised link is the footnote-style marker", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        statute<Text script="superscript" href="https://example.com/act">[1]</Text>.
+      </Paragraph>
+    </Document>,
+  );
+
+  assertEquals(
+    /<w:hyperlink[^>]*>[\s\S]*?<w:vertAlign w:val="superscript"\/>[\s\S]*?>\[1\]<\/w:t><\/w:r><\/w:hyperlink>/
+      .test(await documentXml(doc)),
+    true,
+  );
+});
+
+test("a stored model with an unknown script prints plain", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        84 m<Text script="superscript">2</Text>.
+      </Paragraph>
+    </Document>,
+  );
+  paragraph(doc).runs![1].script = "middle" as never;
+  const xml = await documentXml(doc);
+
+  assertEquals(xml.includes("w:vertAlign"), false);
+  assertStringIncludes(textOf(xml), "84 m2.");
 });

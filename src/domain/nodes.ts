@@ -281,6 +281,8 @@ export interface ParagraphRun {
   underline?: boolean;
   /** Set struck through. */
   strike?: boolean;
+  /** Raised above the line or dropped below it, smaller. Absent, the words sit on it. */
+  script?: "superscript" | "subscript";
   /**
    * An address the words link to: `https:`, `http:`, `mailto:` or `tel:`.
    *

@@ -219,7 +219,7 @@ function harnessHtml(bodyFont) {
     function runsOf(el) {
       return [].slice.call(el.querySelectorAll("span")).filter(function (span) {
         return [].some.call(span.childNodes, function (node) {
-          return node.nodeType === 3 && node.nodeValue !== "";
+          return (node.nodeType === 3 && node.nodeValue !== "") || node.nodeName === "SUP" || node.nodeName === "SUB";
         });
       }).map(function (span) {
         var cs = view.getComputedStyle(span);
@@ -228,6 +228,7 @@ function harnessHtml(bodyFont) {
           text: span.textContent,
           fontWeight: cs.fontWeight,
           fontStyle: cs.fontStyle,
+          verticalAlign: view.getComputedStyle(span.querySelector(":scope > sup, :scope > sub") || span).verticalAlign,
           textDecoration: cs.textDecorationLine,
           href: link === null ? null : link.getAttribute("href")
         };
@@ -832,7 +833,7 @@ export function previewView(measure) {
       const wanted = anchor.toLowerCase();
       return measure.paragraphs.flatMap((p) => p.runs ?? [])
         .find((run) => run.text.toLowerCase().includes(wanted)) ??
-        { missing: true, anchor, text: "", fontWeight: null, fontStyle: null, textDecoration: null, href: null };
+        { missing: true, anchor, text: "", fontWeight: null, fontStyle: null, textDecoration: null, verticalAlign: null, href: null };
     },
 
     /** Whether the named face resolved rather than falling back silently. */

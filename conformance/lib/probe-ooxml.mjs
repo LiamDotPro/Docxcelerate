@@ -313,6 +313,7 @@ function readRun(xml) {
     /** The rule's kind — `single`, `double` — or null for none. */
     underline: childAttr(rPr, "w:u", "w:val"),
     strike: toggle(rPr, "w:strike"),
+    vertAlign: childAttr(rPr, "w:vertAlign", "w:val"),
     hasBreak: xml.includes("<w:br"),
   };
 }
@@ -1077,7 +1078,7 @@ export function ooxmlView(measure) {
       const wanted = anchor.toLowerCase();
       return measure.paragraphs.flatMap((p) => p.runs)
         .find((run) => run.text.toLowerCase().includes(wanted)) ??
-        { missing: true, anchor, text: "", bold: null, italics: null, underline: null, strike: null, hasBreak: false };
+        { missing: true, anchor, text: "", bold: null, italics: null, underline: null, strike: null, vertAlign: null, hasBreak: false };
     },
 
     /**
