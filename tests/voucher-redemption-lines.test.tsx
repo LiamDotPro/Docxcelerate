@@ -169,6 +169,8 @@ test("invalid input throws, naming the field", async () => {
     [uk([L("a", 1, 0), L("b", 1, 8.8751)]), "sale.lines[1].ratePercent"],
     [uk([L("a", 1, 101)]), "sale.lines[0].ratePercent"],
     [{ ...uk(ok), currency: "XX" }, "sale.currency"],
+    [{ ...uk(ok), currency: "ABC" }, "sale.currency"],
+    [red({ appliesToLineKeys: ["a", "a"] }), "appliesToLineKeys[1]"],
     [{ ...uk(ok), jurisdiction: "GB" }, "sale.jurisdiction"],
     [red({ amountMinor: -1 }), "redemptions[0].amountMinor"],
     [red({ amountMinor: 1.5 }), "redemptions[0].amountMinor"],
@@ -186,6 +188,11 @@ test("invalid input throws, naming the field", async () => {
   for (const [sale, field] of bad) {
     await assertRejects(() => Promise.resolve().then(() => run(sale)), Error, field);
   }
+});
+
+test("ties in largest remainder go to the earlier sale line whatever order the keys are listed", () => {
+  const sale = (keys: string[]) => uk([L("a", 1000, 20), L("b", 1000, 5)], [{ kind: "discount-coupon", amountMinor: 1, appliesToLineKeys: keys }]);
+  assertEquals(run(sale(["b", "a"])), run(sale(["a", "b"])));
 });
 
 test("four discounts, four bands and four payments fill every slot", () => {

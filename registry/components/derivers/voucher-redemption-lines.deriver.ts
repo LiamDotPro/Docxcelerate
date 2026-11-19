@@ -71,6 +71,7 @@ export default deriver({
     let money: Intl.NumberFormat;
     try {
       if (typeof currency !== "string" || !/^[A-Za-z]{3}$/.test(currency)) throw new Error();
+      if (!(Intl as any).supportedValuesOf("currency").includes(currency.toUpperCase())) throw new Error();
       money = new Intl.NumberFormat(us ? "en-US" : "en-GB", { style: "currency", currency });
     } catch {
       throw new Error("sale.currency must be an ISO 4217 code");
@@ -117,6 +118,10 @@ export default deriver({
           if (at < 0) throw new Error(f + ".appliesToLineKeys[" + k + "] is not a line key on the sale: " + String(key));
           return at;
         });
+        const dup = eligible.findIndex((at, k) => eligible.indexOf(at) !== k);
+        if (dup >= 0) throw new Error(f + ".appliesToLineKeys[" + dup + "] is a duplicate");
+        // Ties in the allocation go to the earlier sale line, not the earlier listed key.
+        eligible.sort((a, b) => a - b);
       }
       let rate = 0;
       if (r.kind === "spv") {
