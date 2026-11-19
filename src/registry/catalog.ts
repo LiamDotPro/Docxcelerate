@@ -1125,6 +1125,53 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+
+  {
+    kind: "component",
+    id: "commodity-code-summary",
+    title: "Commodity code summary",
+    summary: "Tariff code, origin and mass on every line, and the summary a customs declaration is split on.",
+    detail:
+      "Prints each goods line's tariff code, origin, preference claim, quantity, " +
+      "supplementary unit, net mass and value, then one summary row per tariff " +
+      "code, origin and preference, which is how customs splits a declaration. " +
+      "Codes are text, so 0901 stays 0901, and each is checked against the " +
+      "destination's length: 6 for HS, 8 for EU CN, 10 for UK and US. A short " +
+      "or missing code warns on its line. Masses in lb are converted, summed " +
+      "exactly and rounded once per group, and the total is the sum of the " +
+      "groups, so the summary always adds up. Net mass above the declared gross " +
+      "mass prints a warning. All of it is one deriver.",
+    category: "Body",
+    tags: ["customs", "trade", "tariff", "invoice", "deriver", "table", "section"],
+    exports: ["CommodityCodeSummary"],
+    dataFields: [
+      { path: "customs.currency", type: "string", summary: "ISO 4217 code the values are in. Required." },
+      { path: "customs.destinationCodeLength", type: "6 | 8 | 10", summary: "Digits the destination's tariff needs: HS 6, EU CN 8, UK and US 10. Required." },
+      { path: "customs.grossMassKg", type: "number | undefined", summary: "Declared gross mass in kg. Missing means no gross line and no net-over-gross check." },
+      { path: "customs.lines", type: 'Array<{ ref?; description?; tariffCode: string; origin: string; preference?: boolean; quantity: number; supplementaryUnit?: { code: string; quantity: number }; netMass: { value: number; unit: "kg" | "g" | "lb" }; valueMinor: number }>', summary: "The goods lines, in invoice order. Empty prints one sentence and no tables." },
+    ],
+    arrangements: [
+      { id: "lines-then-summary", title: "Lines, then summary", summary: "Every goods line, with the summary by tariff code and origin under it." },
+      { id: "summary-first", title: "Summary first", summary: "The summary and its warnings first, the lines after, for a long invoice." },
+    ],
+    files: node("commodity-code-summary", { deriver: true, arrangements: ["lines-then-summary", "summary-first"] }),
+    // The tariff codes are illustrative, not checked against a live tariff.
+    previewData: {
+      customs: {
+        currency: "GBP",
+        destinationCodeLength: 10,
+        grossMassKg: 27850.5,
+        lines: [
+          { ref: "INV-2026-004817/0001", description: "Roasted arabica coffee beans, not decaffeinated, in 1 kg one-way valve bags", tariffCode: "0901210000", origin: "CO", preference: true, quantity: 12000, netMass: { value: 12000, unit: "kg" }, valueMinor: 15600000 },
+          { ref: "INV-2026-004817/0002", description: "Roasted arabica coffee beans, not decaffeinated, in 1 kg one-way valve bags", tariffCode: "0901210000", origin: "BR", quantity: 6000, netMass: { value: 6000, unit: "kg" }, valueMinor: 7245000 },
+          { ref: "INV-2026-004817/0003", description: "Men's leather lace-up boots with vulcanised rubber soles, assorted sizes UK 6 to 13", tariffCode: "6403919800", origin: "PT", preference: true, quantity: 2400, supplementaryUnit: { code: "pa", quantity: 2400 }, netMass: { value: 1420.5, unit: "kg" }, valueMinor: 10080000 },
+          { ref: "INV-2026-004817/0004", description: "Men's leather lace-up boots with vulcanised rubber soles, assorted sizes UK 6 to 13", tariffCode: "6403919800", origin: "PT", preference: true, quantity: 1500, supplementaryUnit: { code: "pa", quantity: 1500 }, netMass: { value: 1850.75, unit: "lb" }, valueMinor: 6300000 },
+          { ref: "INV-2026-004817/0005", description: "Red wine of fresh grapes with a protected designation of origin, in 75 cl glass bottles", tariffCode: "2204214200", origin: "FR", preference: true, quantity: 4800, supplementaryUnit: { code: "l", quantity: 3600 }, netMass: { value: 5280, unit: "kg" }, valueMinor: 2052500 },
+        ],
+      },
+    },
+    requires: [],
+  },
   {
     kind: "component",
     id: "preferential-origin-statement",
