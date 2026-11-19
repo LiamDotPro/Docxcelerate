@@ -1,6 +1,7 @@
 import { test } from "node:test";
-import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
+import { assertEquals, assertRejects, assertStringIncludes, rejectionOf } from "./assert.ts";
 import {
+  AiGenerationError,
   buildDocument,
   buildProjectEngineDocument,
   createDeriverRegistry,
@@ -639,6 +640,71 @@ test("ScriptedAiClient answers a chart and an image by their ids", async () => {
   }
 
   assertEquals(ai.requests.map((r) => [r.id, r.kind]), [["revenue", "graph"], ["portrait", "image"]]);
+});
+
+test("a build whose client throws fails as an AiGenerationError naming the node", async () => {
+  const down = new TypeError("fetch failed");
+
+  const paragraphError = await rejectionOf(() =>
+    buildWith(summary, { dynamicMode: "resolve", aiClient: { generateParagraph: () => { throw down; } } })
+  );
+  assertEquals(paragraphError instanceof AiGenerationError, true);
+  const paragraphFailed = paragraphError as AiGenerationError;
+  assertEquals(paragraphFailed.nodeId, "summary");
+  assertEquals(paragraphFailed.kind, "paragraph");
+  assertEquals(paragraphFailed.cause === down, true);
+  assertEquals(paragraphFailed.message, 'Dynamic paragraph "summary" failed to generate: fetch failed');
+
+  const graphError = await rejectionOf(() =>
+    buildWith(() => <Graph id="revenue" generalPrompt="Plot revenue." placeholder="Revenue." />, {
+      dynamicMode: "resolve",
+      aiClient: { generateParagraph: () => "", generateGraph: () => Promise.reject(down) },
+    })
+  );
+  assertEquals(graphError instanceof AiGenerationError, true);
+  assertEquals((graphError as AiGenerationError).nodeId, "revenue");
+  assertEquals((graphError as AiGenerationError).kind, "graph");
+  assertEquals((graphError as AiGenerationError).cause === down, true);
+
+  const imageError = await rejectionOf(() =>
+    buildWith(() => <Image id="portrait" generalPrompt="Draw it." placeholder="A portrait." />, {
+      dynamicMode: "resolve",
+      aiClient: { generateParagraph: () => "", generateImage: () => { throw down; } },
+    })
+  );
+  assertEquals(imageError instanceof AiGenerationError, true);
+  assertEquals((imageError as AiGenerationError).nodeId, "portrait");
+  assertEquals((imageError as AiGenerationError).kind, "image");
+  assertEquals((imageError as AiGenerationError).cause === down, true);
+});
+
+test("a preview never calls the client, so a failing client cannot fail it", async () => {
+  const built = await buildWith(summary, {
+    dynamicMode: "placeholder",
+    aiClient: { generateParagraph: () => { throw new Error("never"); } },
+  });
+
+  assertEquals(paragraphOf(built.nodes).text, "A short summary of the work this invoice covers.");
+});
+
+test("a ScriptedAiClient with no answer fails as an AiGenerationError, its own message on cause", async () => {
+  const error = await rejectionOf(() =>
+    buildWith(summary, { dynamicMode: "resolve", aiClient: new ScriptedAiClient({}) })
+  );
+
+  assertEquals(error instanceof AiGenerationError, true);
+  const failed = error as AiGenerationError;
+  assertEquals(failed.nodeId, "summary");
+  assertEquals((failed.cause as Error).message, 'ScriptedAiClient has no answer for paragraph "summary". Known ids: (none).');
+});
+
+test("an answer that is not text is docxcelerate's refusal, not an AiGenerationError", async () => {
+  const error = await rejectionOf(() =>
+    buildWith(summary, { dynamicMode: "resolve", aiClient: { generateParagraph: () => ({ text: "hi" }) as never } })
+  );
+
+  assertEquals(error instanceof AiGenerationError, false);
+  assertStringIncludes((error as Error).message, 'Dynamic paragraph "summary" got an answer that is not text');
 });
 
 test("ScriptedAiClient matches a repeat's suffixed ids by their base id, and an exact id wins", async () => {

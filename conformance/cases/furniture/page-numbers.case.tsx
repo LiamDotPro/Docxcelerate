@@ -11,8 +11,10 @@ import { withBlocks } from "../_support/style.ts";
  * that is the PAGE and NUMPAGES fields, re-evaluated on every repagination.
  *
  * docx-preview drops a field run on the floor: its `renderRun` returns null for
- * one, so a footer Word prints as "1 / 5" arrives as the bare separator left
- * between the two dropped fields. `fillPageFields` puts the numbers back from
+ * one, so a footer Word prints as "Page 1 of 5" arrives as the words left
+ * between the dropped fields. The words the document itself wrote — here the
+ * separator — are the anchor, where the bare "/" used to be the only one.
+ * `fillPageFields` puts the numbers back from
  * the pagination that just happened — which, until the preview paginated, meant
  * putting back "1 / 1" for a document Word printed on five sheets. This case
  * is the one that could not be honest before, and is the reason it is here now.
@@ -28,7 +30,7 @@ const lines = Array.from({ length: 90 }, (_, index) => (
 export default defineCase({
   id: "furniture/page-numbers",
   feature: "furniture.pageNumbers",
-  title: "A page number the renderer counts, not the build",
+  title: "A labelled page number the renderer counts, not the build",
   word: "Insert → Page Number (PAGE and NUMPAGES fields)",
 
   claim: "supported",
@@ -39,13 +41,13 @@ export default defineCase({
     <Document
       id="page-numbers"
       title="Page numbers"
-      footer={<PageNumber id="foot" variant="strip" format="currentOfTotal" separator=" / " />}
+      footer={<PageNumber id="foot" variant="strip" prefix="Page " separator=" of " align="right" />}
     >
       {lines}
     </Document>
   ),
 
-  regions: [{ id: "foot", anchor: "/" }],
+  regions: [{ id: "foot", anchor: "Page" }],
 
   expect: {
     ooxml: (a, is) => {
@@ -58,19 +60,19 @@ export default defineCase({
       // Word has evaluated the fields, so the strip reads as a number rather
       // than as an instruction.
       is.equal(
-        /\d+\s*\/\s*\d+/.test(c.furniture("primary", "footer").text ?? ""),
+        /Page \d+ of \d+/.test(c.furniture("primary", "footer").text ?? ""),
         true,
-        "whose text is a number over a number",
+        "whose text is a labelled number of a total",
       );
     },
 
     preview: (b, is) => {
-      // Not the bare separator docx-preview leaves behind, and not "1 / 1".
-      is.equal(/^\s*\/\s*$/.test(b.footerText(1)), false, "the preview's footer is more than a separator");
-      is.includes(b.footerText(1), `1 / ${b.pageCount()}`, "page one says one of however many there are");
+      // Not the bare words docx-preview leaves behind, and not "1 of 1".
+      is.equal(/^\s*Page\s+of\s*$/.test(b.footerText(1)), false, "the preview's footer is more than its words");
+      is.includes(b.footerText(1), `Page 1 of ${b.pageCount()}`, "page one says one of however many there are");
       is.includes(
         b.footerText(b.pageCount()),
-        `${b.pageCount()} / ${b.pageCount()}`,
+        `Page ${b.pageCount()} of ${b.pageCount()}`,
         "and the last page says the last of them",
       );
     },
@@ -79,7 +81,7 @@ export default defineCase({
       is.equal(p.previewPages(), p.wordPages(), "both engines count the same number of pages");
       is.includes(
         p.preview.footerText(1),
-        `1 / ${p.wordPages()}`,
+        `Page 1 of ${p.wordPages()}`,
         "so the preview's total is the total Word will print",
       );
     },
