@@ -6,7 +6,7 @@ import {
   InMemoryDataProvider,
   resolveDocument,
 } from "docxcelerate";
-import type { RuntimeState } from "docxcelerate";
+import type { DocumentNode, RuntimeState } from "docxcelerate";
 import { createPublishData, Document, template } from "docxcelerate/template";
 import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
 import { loadRegistryModule } from "./registry_support.ts";
@@ -232,36 +232,49 @@ const publish = () =>
     aiClient: { generateParagraph: () => "" },
   });
 
-test("publishing keeps every arm and a derived basis prompt", async () => {
-  const published = await publish();
-  const text = textOf(published.nodes);
-  for (const id of [
-    "pay-less-notice-late",
-    "pay-less-notice-in-time",
-    "pay-less-notice-excess",
-    ...Array.from({ length: 12 }, (_, i) => `pay-less-notice-line-${i + 1}`),
-  ]) assertStringIncludes(text, id);
-  assertStringIncludes(text, "pay-less-notice-basis");
-  assertStringIncludes(text, "{{derived.payLessNotice.basisFacts}}");
+function collect(nodes: DocumentNode[], into: DocumentNode[] = []): DocumentNode[] {
+  for (const n of nodes) {
+    into.push(n);
+    const children = (n as { children?: DocumentNode[] }).children;
+    if (children) collect(children, into);
+  }
+  return into;
+}
+
+test("publishing keeps 15 arms, one deriver call and a dynamic basis prompt", async () => {
+  const all = collect((await publish()).nodes);
+  assertEquals(all.filter((n) => (n as { when?: unknown }).when !== undefined).length, 15);
+  const basis = all.find((n) => n.id === "pay-less-notice-basis") as Obj;
+  assertEquals(basis.mode, "dynamic");
+  assertStringIncludes(textOf(basis), "{{derived.payLessNotice.basisFacts}}");
+  const section = all.find((n) => n.id === "pay-less-notice") as unknown as { derivers: unknown[] };
+  assertEquals(section.derivers.length, 1);
+  assertEquals(JSON.parse(JSON.stringify(section.derivers[0])).inputs, [
+    { type: "ref", ref: { scope: "data", path: "payLess" } },
+  ]);
 });
 
 test("publish, bundle and resolve match a direct build", async () => {
-  const data = { payLess: preview };
   const published = await publish();
-  const state: RuntimeState = {
-    ctx: { ...data },
-    derived: {},
-    dataProvider: new InMemoryDataProvider(data),
-    aiClient: { generateParagraph: () => "generated" },
-  };
-  const resolved = await resolveDocument(published, state, {
-    derivers: await createDeriverRegistryFromBundle(createDeriverBundle({ payLessNotice: mod.run })),
-  });
-  const direct = await buildDocument(wrap(), data, { dynamicMode: "placeholder" });
-  const rows = (v: unknown) => textOf(v).match(/pay-less-notice-line-\d+/g);
-  assertEquals(rows(resolved.nodes), rows(direct.nodes));
-  for (const s of ["Served in time.", "£4,029,543.77", "CC-0201", "From Northgate"]) {
-    assertStringIncludes(textOf(resolved.nodes), s);
-    assertStringIncludes(textOf(direct.nodes), s);
+  const derivers = { derivers: await createDeriverRegistryFromBundle(createDeriverBundle({ payLessNotice: mod.run })) };
+  const cases: Obj[] = [
+    preview,
+    { ...base, servedDate: "2026-11-25" },
+    { ...base, deductions: [ded("contra", 2_000_000)] },
+  ];
+  // The generated basis paragraph differs by design (stand-in vs. the AI client), so leave it out.
+  const seen = (nodes: DocumentNode[]) =>
+    collect(nodes).filter((n) => n.id !== "pay-less-notice-basis").map((n) => [n.kind, (n as { text?: string }).text]);
+  for (const payLess of cases) {
+    const data = { payLess };
+    const state: RuntimeState = {
+      ctx: { ...data },
+      derived: {},
+      dataProvider: new InMemoryDataProvider(data),
+      aiClient: { generateParagraph: () => "generated" },
+    };
+    const resolved = await resolveDocument(published, state, derivers);
+    const direct = await buildDocument(wrap(), data, { dynamicMode: "placeholder" });
+    assertEquals(seen(resolved.nodes), seen(direct.nodes));
   }
 });
