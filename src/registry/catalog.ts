@@ -1125,6 +1125,56 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "final-invoice-settlement",
+    title: "Final invoice settlement",
+    summary: "The final invoice after advances: the whole supply by VAT rate, each advance deducted, and the balance.",
+    detail:
+      "A final invoice restates the whole supply, then takes off what the advance " +
+      "invoices already covered. This one prints the full supply net and VAT per " +
+      "rate band, deducts each advance on its own row with the net and VAT printed " +
+      "on that advance invoice, never re-derived from its gross, and ends on the " +
+      "balance, so VAT already declared is not charged twice. Only advances " +
+      "received are deducted: one invoiced but unpaid is listed as not yet " +
+      "received and stays in the amount due, except in the UK, where an issued " +
+      "VAT invoice is already a tax point. When the rate changed in between, the " +
+      "UK keeps each deposit at its own rate and prints two bands; Germany and " +
+      "France tax the whole supply at the rate on completion and show the " +
+      "re-rating as an 'of which' line. Advances that exceed the total print as " +
+      "overpaid, to be refunded or credited, with a note that a credit note is " +
+      "needed, never as a negative amount due. A small business prints no VAT " +
+      "columns. Up to four rates and eight deducted advances; more fails the " +
+      "document. All of it is one deriver, in integer minor units.",
+    category: "Body",
+    tags: ["invoice", "vat", "tax", "money", "advance-payment", "table", "deriver", "branching", "section"],
+    exports: ["FinalInvoiceSettlement"],
+    dataFields: [
+      { path: "invoice.jurisdiction", type: '"UK" | "EU" | "DE" | "FR" | "US"', summary: "Whose rate-change and deduction rules apply. Anything else fails the document." },
+      { path: "invoice.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required." },
+      { path: "invoice.lines", type: "Array<{ net: number; vatRate?: number }>", summary: "The whole supply in integer minor units, each line at its rate on completion. Required." },
+      { path: "invoice.advances", type: "Array<{ number: string; issueDate: string; net: number; vat?: number; vatRate?: number; received: boolean; supplyRate?: number }> | undefined", summary: "Every advance invoiced, amounts exactly as printed on it, in minor units. Missing means none." },
+      { path: "seller.smallBusinessExempt", type: "boolean | undefined", summary: "True for a seller who charges no VAT: no VAT columns. Missing means VAT is shown." },
+    ],
+    files: node("final-invoice-settlement", { deriver: true }),
+    previewData: {
+      invoice: {
+        jurisdiction: "DE",
+        currency: "EUR",
+        lines: [
+          { net: 487654321, vatRate: 16 },
+          { net: 12345678, vatRate: 5 },
+        ],
+        advances: [
+          { number: "AR-2020-000147/BAU-NORD-01", issueDate: "2020-05-29", net: 150000000, vat: 28500000, vatRate: 19, received: true, supplyRate: 16 },
+          { number: "AR-2020-000163/BAU-NORD-02", issueDate: "2020-08-31", net: 120000000, vat: 19200000, vatRate: 16, received: true },
+          { number: "AR-2020-000171/BAU-NORD-03", issueDate: "2020-09-30", net: 80000000, vat: 12800000, vatRate: 16, received: false },
+        ],
+      },
+      seller: { smallBusinessExempt: false },
+    },
+    requires: [],
+  },
 
   {
     kind: "component",
