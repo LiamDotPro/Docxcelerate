@@ -17,6 +17,7 @@ import {
   LevelFormat,
   LineRuleType,
   Packer,
+  PageBorderOffsetFrom,
   PageBreak,
   PageNumber,
   PageOrientation,
@@ -29,18 +30,27 @@ import {
   TableLayoutType,
   TableRow,
   TabStopType,
+  TextDirection,
   TextRun,
   UnderlineType,
   VerticalAlign,
   WidthType,
 } from "docx";
-import type { IFontAttributesProperties, IParagraphStyleOptions, IParagraphStylePropertiesOptions } from "docx";
 import type {
+  IFontAttributesProperties,
+  IPageBordersOptions,
+  IParagraphStyleOptions,
+  IParagraphStylePropertiesOptions,
+} from "docx";
+import type {
+  CellTextDirection,
   DocumentBlockStyle,
+  DocumentPageStyle,
   DocumentModel,
   DocumentNode,
   DocumentStyle,
   DocumentTextBlockStyle,
+  DocumentTextTransform,
   GraphNode,
   ImageNode,
   ListMarker,
@@ -59,7 +69,7 @@ import type {
 } from "../domain/types.ts";
 import { cleanMinimalDocumentStyle } from "../project/style.ts";
 import { hasChartData } from "./chart_part.ts";
-import { columnWidthMm, pageWidthMm, paperMm } from "./page_size.ts";
+import { columnWidthMm, pageBorderOffsetPt, pageWidthMm, paperMm } from "./page_size.ts";
 import { addChartsToPackage, chartRelationshipToken } from "./docx_charts.ts";
 import { type ImageSource, imageSourceOf, isSvg, pixelSizeOf, rasterTypeOf } from "./image_source.ts";
 
@@ -147,6 +157,7 @@ export function createDocxDocument(doc: DocumentModel): Document {
               start: firstPageNumberOf(style),
               formatType: style.page.numberStyle,
             },
+            borders: pageBorders(style.page),
           },
           titlePage: titlePage || undefined,
           verticalAlign: style.page.valign,
@@ -428,6 +439,8 @@ type CellContext = {
    * against the box's edge on screen while Word indents them properly.
    */
   indent?: { left: number; right: number };
+  /** Whether every paragraph keeps with the next row, for a table kept together. */
+  keepNext?: boolean;
 };
 
 /** The paragraph options a cell context contributes, or none outside a cell. */
@@ -436,6 +449,7 @@ function inCell(cell: CellContext | undefined) {
     alignment: cell.alignment,
     spacing: { after: 0, line: cell.line },
     ...(cell.indent ? { indent: cell.indent } : {}),
+    ...(cell.keepNext ? { keepNext: true } : {}),
   };
 }
 
@@ -643,6 +657,8 @@ function blockRun(
   size?: number;
   color?: string;
   allCaps?: boolean;
+  smallCaps?: boolean;
+  italics?: boolean;
   characterSpacing?: number;
   font?: IFontAttributesProperties;
 } {
@@ -656,12 +672,28 @@ function blockRun(
     bold: block.weight === undefined ? undefined : block.weight === "bold",
     size: block.fontSizePt === undefined ? undefined : ptToHalfPoints(block.fontSizePt),
     color: block.color,
-    allCaps: block.transform === undefined ? undefined : block.transform === "uppercase",
+    ...caseOf(block.transform),
+    italics: block.italic,
     characterSpacing: block.letterSpacingEm === undefined
       ? undefined
       : Math.round(block.letterSpacingEm * sizePt * 20),
     font: block.font === undefined ? undefined : runFonts(block.font, style),
   };
+}
+
+/**
+ * A casing as docx's two case fields, always both keys.
+ *
+ * docx writes `w:smallCaps` whenever `smallCaps` is defined and then drops
+ * `allCaps`, so the field a casing does not use has to be there as undefined
+ * to replace whatever casing it is laid over.
+ *
+ * shortcut: a heading variant cannot undo the other casing its Heading 1 style carries; set the casing on sectionHeading instead.
+ */
+function caseOf(transform: DocumentTextTransform | undefined): { allCaps?: boolean; smallCaps?: boolean } {
+  return transform === "smallCaps"
+    ? { allCaps: undefined, smallCaps: true }
+    : { allCaps: transform === undefined ? undefined : transform === "uppercase", smallCaps: undefined };
 }
 
 /** The numbering every bulleted item counts in. Bullets do not count, so one serves them all. */
@@ -956,6 +988,8 @@ function markedRun(
     // A field the block leaves out has no opinion, so it must not blank the paragraph's.
     ...Object.fromEntries(Object.entries(blockRun(own, style)).filter(([, value]) => value !== undefined)),
     ...(own?.fill === undefined ? {} : { shading: { type: ShadingType.CLEAR, fill: own.fill } }),
+    // A run variant's casing replaces the paragraph's as a pair — see caseOf.
+    ...(own?.transform === undefined ? {} : caseOf(own.transform)),
     ...(run.bold === undefined ? {} : { bold: run.bold }),
     ...(run.italic === undefined ? {} : { italics: run.italic }),
     ...(underline === undefined ? {} : { underline }),
@@ -1162,6 +1196,15 @@ function blockLine(block: DocumentBlockStyle | undefined, style: DocumentStyle) 
   };
 }
 
+/** One line of a border as Word measures it: its width in eighths of a point. */
+function borderLine(color: string, from: Pick<DocumentBlockStyle, "borderWidthPt" | "borderStyle">) {
+  return {
+    style: from.borderStyle ?? BorderStyle.SINGLE,
+    color,
+    size: Math.max(1, Math.round((from.borderWidthPt ?? 1) * 8)),
+  };
+}
+
 /**
  * The borders a block draws, as Word measures them.
  *
@@ -1188,9 +1231,7 @@ function blockBorders(block: DocumentBlockStyle | undefined, on: "paragraph" | "
   }
 
   const edge = {
-    style: block.borderStyle ?? BorderStyle.SINGLE,
-    color: block.border,
-    size: Math.max(1, Math.round((block.borderWidthPt ?? 1) * 8)),
+    ...borderLine(block.border, block),
     ...(on === "paragraph" ? { space: Math.min(31, Math.round(block.paddingPt ?? 0)) } : {}),
   };
   const sides = block.borderSides ?? ["top", "right", "bottom", "left"];
@@ -1576,7 +1617,15 @@ function renderTable(node: TableNode, style: DocumentStyle, furniture: boolean):
     // grey band in the empty spacer beside the totals panel: a stripe of
     // nothing, next to the figures rather than under them.
     rows: rows.map((row, index) =>
-      renderRow(row, node, style, index < headers, furniture, headers === 0 ? -1 : index - headers)),
+      renderRow(
+        row,
+        node,
+        style,
+        index < headers,
+        furniture,
+        node.keepTogether === true && index < rows.length - 1,
+        headers === 0 ? -1 : index - headers,
+      )),
   });
 }
 
@@ -1989,6 +2038,7 @@ function renderRow(
   style: DocumentStyle,
   repeats: boolean,
   furniture: boolean,
+  keepNext: boolean,
   bodyIndex = -1,
 ): TableRow {
   // F8: striping is the renderer's to do, counted as the rows are drawn. A
@@ -2041,6 +2091,7 @@ function renderRow(
       new TableCell({
         columnSpan: span > 1 ? span : undefined,
         verticalAlign: verticalAlignOf(block),
+        textDirection: child.textDirection === undefined ? undefined : textDirections[child.textDirection],
         shading: fill === undefined ? undefined : { type: ShadingType.CLEAR, fill },
         borders: blockBorders(block, "cell") ??
           (block?.borderSides?.length === 0
@@ -2055,7 +2106,7 @@ function renderRow(
           left: ptToTwips(inset.left),
           right: ptToTwips(inset.right),
         },
-        children: cellContent(child, align, row.header === true, block, style, furniture),
+        children: cellContent(child, align, row.header === true, block, style, furniture, keepNext),
       }),
     );
     column += span;
@@ -2064,7 +2115,7 @@ function renderRow(
   // Only when asked: `false` would write `w:cantSplit w:val="false"`, a statement rather than silence.
   return new TableRow({
     tableHeader: repeats,
-    cantSplit: row.keepTogether === true ? true : undefined,
+    cantSplit: row.keepTogether === true || table.keepTogether === true ? true : undefined,
     height: row.height === undefined
       ? undefined
       : { value: ptToTwips(row.height), rule: row.heightRule ?? "atLeast" },
@@ -2090,7 +2141,10 @@ function cellContent(
   block: DocumentBlockStyle | undefined,
   style: DocumentStyle,
   furniture: boolean,
+  keepNext: boolean,
 ): (Paragraph | Table)[] {
+  // Word keeps a row with the next one when its paragraphs say so: every one, not just the first.
+  const keep = keepNext ? { keepNext: true } : {};
   const content = cell.children.flatMap((child): (Paragraph | Table)[] => {
     // A picture in a cell is a picture, not a paragraph of prose: Word gives
     // it a line and a space after out of the body style, which drops a
@@ -2101,6 +2155,7 @@ function cellContent(
         new Paragraph({
           alignment: alignments[align],
           spacing: { after: 0, line: 240 },
+          ...keep,
           children: [imageRunOf(child)],
         }),
       ];
@@ -2116,6 +2171,7 @@ function cellContent(
       return renderNode(child, style, furniture, false, {
         alignment: alignments[align],
         ...blockLine(block, style),
+        ...keep,
       });
     }
 
@@ -2133,6 +2189,7 @@ function cellContent(
     return [
       new Paragraph({
         ...frame,
+        ...keep,
         // The paragraph's own alignment, then the column's.
         alignment: frame.alignment ?? alignments[align],
         numbering: item?.numbering,
@@ -2147,6 +2204,8 @@ function cellContent(
           size,
           font: run.font,
           allCaps: run.allCaps ?? heading.allCaps,
+          italics: run.italics,
+          smallCaps: run.smallCaps,
           characterSpacing: run.characterSpacing ??
             (heading.trackedEm === undefined
               ? undefined
@@ -2156,7 +2215,7 @@ function cellContent(
     ];
   });
 
-  return content.length === 0 ? [new Paragraph({})] : content;
+  return content.length === 0 ? [new Paragraph(keep)] : content;
 }
 
 /**
@@ -2197,6 +2256,11 @@ function trackingOf(em: number, size: number | undefined, style: DocumentStyle):
   return Math.round(em * sizePt * 20);
 }
 
+const textDirections: Record<CellTextDirection, (typeof TextDirection)[keyof typeof TextDirection]> = {
+  up: TextDirection.BOTTOM_TO_TOP_LEFT_TO_RIGHT,
+  down: TextDirection.TOP_TO_BOTTOM_RIGHT_TO_LEFT,
+};
+
 const alignments: Record<TableAlign, (typeof AlignmentType)[keyof typeof AlignmentType]> = {
   left: AlignmentType.LEFT,
   center: AlignmentType.CENTER,
@@ -2221,14 +2285,31 @@ function columnWidths(
   const pageTwips = mmToTwips(pageWidthMm(style.page));
   const available = bleed ? pageTwips : pageTwips -
     mmToTwips(style.page.margins.leftMm + style.page.margins.rightMm);
-  const fixed = columns.map((column) =>
-    typeof column.width === "number" ? mmToTwips(column.width) : 0
-  );
+  const fixed = columns.map((column) => declaredTwips(column.width, available));
   const autos = fixed.filter((width) => width === 0).length;
   const spare = Math.max(available - fixed.reduce((total, width) => total + width, 0), 0);
   const each = autos > 0 ? Math.floor(spare / autos) : 0;
 
   return fixed.map((width) => (width === 0 ? each : width));
+}
+
+/** A column's own width in twips; 0 means it shares out what is left. */
+function declaredTwips(width: TableColumn["width"], available: number): number {
+  if (typeof width === "number") {
+    return mmToTwips(width);
+  }
+  if (typeof width !== "string" || !width.endsWith("%")) {
+    return 0;
+  }
+  const share = Number(width.slice(0, -1));
+  if (!Number.isFinite(share) || share <= 0 || share > 100) {
+    throw new RangeError(
+      `a table column's width must be a share from 0% to 100%, like "30%", not "${width}"`,
+    );
+  }
+  // Floored like the auto share below, so columns that add up to 100% never
+  // overhang the margin by a twip of rounding.
+  return Math.floor(available * share / 100);
 }
 
 /**
@@ -2302,7 +2383,8 @@ function textBlockStyle(style: DocumentStyle, block: DocumentTextBlockStyle) {
       size: ptToHalfPoints(block.fontSizePt),
       bold: block.weight === "bold",
       color: headingColor(style, block),
-      allCaps: block.transform === "uppercase",
+      ...caseOf(block.transform ?? "none"),
+      italics: block.italic,
       characterSpacing: trackingPt(block.letterSpacingEm, block.fontSizePt),
     },
     paragraph: {
@@ -2337,6 +2419,19 @@ function firstPageNumberOf(style: DocumentStyle): number | undefined {
     throw new RangeError(`page.firstPageNumber must be a whole number from 0, not ${start}`);
   }
   return start;
+}
+
+/** The rule round every page, measured from the paper's edge as a certificate's frame is. */
+function pageBorders(page: DocumentPageStyle): IPageBordersOptions | undefined {
+  if (!page.border) return undefined;
+  const edge = { ...borderLine(page.border, page), space: pageBorderOffsetPt(page) };
+  return {
+    pageBorders: { offsetFrom: PageBorderOffsetFrom.PAGE },
+    pageBorderTop: edge,
+    pageBorderRight: edge,
+    pageBorderBottom: edge,
+    pageBorderLeft: edge,
+  };
 }
 
 function mmToTwips(value: number): number {

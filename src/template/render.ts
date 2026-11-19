@@ -511,6 +511,7 @@ async function renderTable(
     kind: "table",
     columns: props.columns.map((column) => prune({ ...column })),
     align: props.align,
+    keepTogether: props.keepTogether ? true : undefined,
     when,
     children: await renderYield(props.children, context, {
       path: `${frame.path}/${id}`,
@@ -567,6 +568,7 @@ async function renderCell(
     kind: "tableCell",
     span: props.span,
     align: props.align,
+    textDirection: props.textDirection,
     when,
     children: holdsElements(props.children)
       ? await renderYield(props.children, context, childFrame)
