@@ -126,7 +126,7 @@ const codeThemes = { light: "github-light", dark: "github-dark-dimmed" } as cons
   <section class="band-dark relative overflow-hidden bg-ledger-950 text-white">
     <div class="glow pointer-events-none absolute inset-0" aria-hidden="true"></div>
     <div
-      class="relative mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)] gap-12 px-5 pt-16 sm:px-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:pt-22"
+      class="relative mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] gap-12 px-5 pt-16 sm:px-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:pt-22"
     >
       <div class="flex flex-col gap-6 pb-16 lg:pb-20">
         <h1
@@ -226,15 +226,16 @@ const codeThemes = { light: "github-light", dark: "github-dark-dimmed" } as cons
     </div>
   </section>
 
-  <!-- The split preview. It is the argument, so it runs wider than the prose. -->
-  <section class="mx-auto max-w-7xl px-5 pt-16 pb-16 sm:px-8">
+  <!-- The split preview. Every band on the page sits on the nav's measure, so
+       the wordmark, the hero copy and each section start on one edge. -->
+  <section class="mx-auto max-w-6xl px-5 pt-16 pb-16 sm:px-8">
     <HeroDemo />
   </section>
 
   <!-- §1 Source. Preview. Document. One paragraph, followed from the file to
        the page. -->
   <section class="border-b border-default">
-    <div class="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+    <div class="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
       <div class="clause mb-14">
         <span class="clause-no">§1</span>
         <div class="grid gap-6 lg:grid-cols-2 lg:items-end lg:gap-14">
@@ -283,7 +284,7 @@ const codeThemes = { light: "github-light", dark: "github-dark-dimmed" } as cons
 
   <!-- §2 and §3, the two claims about how documents are written and kept. -->
   <section class="border-b border-default bg-surface">
-    <div class="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+    <div class="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
       <div class="clause clause-3 border-b border-default pb-16">
         <span class="clause-no">§2</span>
         <div class="flex flex-col gap-4 lg:pr-8">
@@ -349,7 +350,7 @@ const codeThemes = { light: "github-light", dark: "github-dark-dimmed" } as cons
   <!-- §4 The engine: one template fanned out into five clients' reviews,
        then the three stations a document passes through. -->
   <section class="border-b border-default">
-    <div class="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+    <div class="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
       <div class="clause clause-3">
         <span class="clause-no">§4</span>
         <div class="flex flex-col gap-4 lg:pr-8">
@@ -433,7 +434,7 @@ const codeThemes = { light: "github-light", dark: "github-dark-dimmed" } as cons
   <!-- §5 The registry: what installing writes, and three themes as the paper
        they produce. -->
   <section class="bg-surface">
-    <div class="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+    <div class="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
       <div class="clause clause-3 lg:items-center">
         <span class="clause-no lg:self-start">§5</span>
         <div class="flex flex-col gap-4 lg:pr-8">
