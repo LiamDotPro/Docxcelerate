@@ -6,8 +6,10 @@
  * have the components any more. They differ in everything except this — how the
  * client is checked, what it is handed, and what it is told when the method it
  * needs is not there. Both had their own copy of that, down to the wording of
- * the errors. A paragraph's and a chart's answers are checked here too, for the
- * same reason: both places would otherwise pack whatever came back.
+ * the errors. A paragraph's, a chart's and an image's answers are checked here too, for the
+ * same reason: both places would otherwise pack whatever came back. A client's
+ * own failure is wrapped here too, in an {@linkcode AiGenerationError}, so both
+ * places name the failed node the same way.
  *
  * Shaping the answer back onto the node stays with the caller, because a build
  * is assembling a node and a resolve is replacing one.
@@ -25,9 +27,11 @@ import type {
   GraphType,
   ImageNode,
   ParagraphNode,
+  PromptKind,
   PromptSpec,
   RuntimeState,
 } from "../domain/types.ts";
+import { imageSourceOf, rasterTypeOf } from "../render/image_source.ts";
 
 /**
  * A node's prompts as one instruction.
@@ -40,6 +44,109 @@ export function formatPromptText(prompts: PromptSpec[]): string {
 }
 
 /**
+ * The heading each part of a request is read under. The ask has none: it is
+ * the request, and everything after it qualifies it.
+ */
+const HEADINGS: Partial<Record<PromptKind, string>> = {
+  info: "Facts:",
+  negative: "Avoid:",
+  example: "What a good answer looks like:",
+};
+
+/**
+ * A request as the system and user messages a chat model is given.
+ *
+ * `request.prompt` labels each line with its kind, which suits a log and not a
+ * model: nothing is trained on `NEGATIVE:`. This splits the same prompts the
+ * way every chat API takes them. The voice and the document's language go in
+ * the system message. The ask leads the user message, and the facts, the
+ * limits and the example follow it under plain headings.
+ *
+ * @param request Any request an {@linkcode AiClient} is handed.
+ * @returns The system message, empty when the node set no voice and the
+ *   document no language, and the user message.
+ *
+ * @example
+ * ```ts
+ * const aiClient: AiClient = {
+ *   async generateParagraph(request) {
+ *     const { system, user } = promptMessages(request);
+ *     return await askMyModel(system, user);
+ *   },
+ * };
+ * ```
+ */
+export function promptMessages(request: { prompts: PromptSpec[] }): { system: string; user: string } {
+  const system: string[] = [];
+  const user: string[] = [];
+
+  for (const { kind, text } of request.prompts) {
+    const written = text.trim();
+
+    if (written === "") {
+      continue;
+    }
+
+    if (kind === "system") {
+      system.push(written);
+      continue;
+    }
+
+    const heading = HEADINGS[kind];
+    user.push(heading === undefined ? written : `${heading}\n${written}`);
+  }
+
+  return { system: system.join("\n\n"), user: user.join("\n\n") };
+}
+
+/**
+ * An {@linkcode AiClient} method threw or rejected while writing a node.
+ *
+ * The client's own error is kept whole on `cause`, so a service can tell a
+ * rate limit from an outage the way its provider reports it. The message names
+ * the node and repeats the cause's message. Nothing from the request is kept:
+ * the prompts and the data they were written from stay out of logs.
+ *
+ * Only a client's failure is wrapped. A node docxcelerate itself refuses (no
+ * client, a missing method, an answer that is not text or not a chart) fails
+ * with its own error, as before.
+ *
+ * @example
+ * ```ts
+ * try {
+ *   await resolveDocument(model, createRuntimeState({ data, aiClient }));
+ * } catch (err) {
+ *   if (err instanceof AiGenerationError) console.error(err.nodeId, err.kind, err.cause);
+ *   throw err;
+ * }
+ * ```
+ */
+export class AiGenerationError extends Error {
+  /** Always `"AiGenerationError"`, so a log line says what failed. */
+  override name: string = "AiGenerationError";
+  /** The id the client was handed on `request.node.id`, repeat suffix included, such as `note-1`. */
+  readonly nodeId: string;
+  /** Which kind of node was being written. */
+  readonly kind: "paragraph" | "image" | "graph";
+
+  /**
+   * Wraps a client's failure.
+   *
+   * @param nodeId The id of the node the client was writing.
+   * @param kind Which kind of node it was.
+   * @param cause What the client threw or rejected with, kept as `cause`.
+   */
+  constructor(nodeId: string, kind: "paragraph" | "image" | "graph", cause: unknown) {
+    super(
+      `Dynamic ${kind} "${nodeId}" failed to generate: ${cause instanceof Error ? cause.message : String(cause)}`,
+      { cause },
+    );
+    this.nodeId = nodeId;
+    this.kind = kind;
+  }
+}
+
+/**
  * Asks for a dynamic paragraph's prose.
  *
  * @param client The client to ask, if there is one.
@@ -48,7 +155,9 @@ export function formatPromptText(prompts: PromptSpec[]): string {
  * @param state Everything reachable while this document is being written.
  * @returns The paragraph text, trimmed and stripped of the characters XML
  * cannot hold.
- * @throws If there is no client, or it answers with something that is not text.
+ * @throws If there is no client, or it answers with something that is not
+ * text, or with text that is empty once trimmed; an {@linkcode AiGenerationError}
+ * if the client throws or rejects.
  */
 export async function generateParagraph(
   client: AiClient | undefined,
@@ -62,15 +171,19 @@ export async function generateParagraph(
 
   const asked = inDocumentLanguage(prompts, state);
 
-  return writable(
-    node,
-    await client.generateParagraph({
+  let answer: unknown;
+  try {
+    answer = await client.generateParagraph({
       node,
       prompt: formatPromptText(asked),
       prompts: asked,
       state,
-    }),
-  );
+    });
+  } catch (cause) {
+    throw new AiGenerationError(node.id, "paragraph", cause);
+  }
+
+  return writable(node, answer);
 }
 
 // What XML 1.0 cannot hold, bar tab, line feed and carriage return: one of
@@ -80,8 +193,9 @@ const XML_INVALID = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g;
 
 /**
  * A model's paragraph as text the renderer can pack. An SDK response handed
- * back whole would otherwise pack as "[object Object]", and a trailing newline
- * as a line break nobody wrote.
+ * back whole would otherwise pack as "[object Object]", a trailing newline as
+ * a line break nobody wrote, and an empty answer as a blank where the document
+ * promised prose, with nothing having failed.
  */
 function writable(node: ParagraphNode, answer: unknown): string {
   if (typeof answer !== "string") {
@@ -90,7 +204,13 @@ function writable(node: ParagraphNode, answer: unknown): string {
     );
   }
 
-  return answer.replace(XML_INVALID, "").trim();
+  const text = answer.replace(XML_INVALID, "").trim();
+
+  if (text === "") {
+    throw new Error(`Dynamic paragraph "${node.id}" got an empty answer.`);
+  }
+
+  return text;
 }
 
 function kindOf(value: unknown): string {
@@ -106,8 +226,10 @@ function kindOf(value: unknown): string {
  * @param node The image being filled.
  * @param prompts Its resolved prompts.
  * @param state Everything reachable while this document is being written.
- * @returns Where the image was written, and how to lay it out.
- * @throws If the client cannot draw.
+ * @returns The picture as a `data:` URI on `path`, with only the `alt`, `width`
+ * and `height` the client gave.
+ * @throws If the client cannot draw, or answers with a picture Word cannot
+ * embed; an {@linkcode AiGenerationError} if it throws or rejects.
  */
 export async function generateImage(
   client: AiClient | undefined,
@@ -119,12 +241,92 @@ export async function generateImage(
     throw new Error(`Dynamic image "${node.id}" requires an aiClient.generateImage method.`);
   }
 
-  return await client.generateImage({
-    node,
-    prompt: formatPromptText(prompts),
-    prompts,
-    state,
-  });
+  // Images are still not told the language: they have no words to write.
+  let answer: unknown;
+  try {
+    answer = await client.generateImage({
+      node,
+      prompt: formatPromptText(prompts),
+      prompts,
+      state,
+    });
+  } catch (cause) {
+    throw new AiGenerationError(node.id, "image", cause);
+  }
+
+  return drawable(node, answer);
+}
+
+/**
+ * A client's picture as the `data:` URI the packer embeds, or an error saying
+ * why there is none. Anything else packed as a note where the picture should
+ * be, with nothing having failed. Only the fields the client gave are kept, so
+ * a build spreading this over its node keeps the size the template stated.
+ */
+function drawable(node: ImageNode, answer: unknown): AiImageResult {
+  if (!isRecord(answer)) {
+    cannotDraw(node, "it is not an object");
+  }
+
+  const { path, bytes, mediaType, alt, width, height } = answer;
+
+  if (path != null && bytes != null) {
+    cannotDraw(node, "it has both a path and bytes");
+  }
+
+  let uri: unknown = path;
+
+  if (bytes != null) {
+    if (!(bytes instanceof Uint8Array)) {
+      cannotDraw(node, "bytes is not a Uint8Array");
+    }
+    if (typeof mediaType !== "string" || mediaType === "") {
+      cannotDraw(node, "bytes came without a mediaType");
+    }
+    uri = `data:${mediaType};base64,${base64Of(bytes)}`;
+  }
+
+  if (typeof uri !== "string" || uri === "") {
+    cannotDraw(node, "it has neither a data: path nor bytes");
+  }
+
+  const source = imageSourceOf(uri);
+
+  // The path is not repeated: a signed URL carries its credentials in it.
+  if (source.kind === "url") {
+    cannotDraw(node, "its path is not a data: URI; return the picture's bytes instead");
+  }
+
+  if (source.kind === "none" || source.bytes.length === 0) {
+    cannotDraw(node, "it carries no picture");
+  }
+
+  if (!rasterTypeOf(source.mediaType)) {
+    cannotDraw(
+      node,
+      `${describe(source.mediaType)} is not a picture Word embeds; use image/png, image/jpeg, image/gif or image/bmp`,
+    );
+  }
+
+  return {
+    path: uri,
+    ...(alt == null ? {} : { alt: alt as string }),
+    ...(width == null ? {} : { width: width as number }),
+    ...(height == null ? {} : { height: height as number }),
+  };
+}
+
+/** Base64 in chunks: spreading a multi-megabyte picture into one call overflows the stack. */
+function base64Of(bytes: Uint8Array): string {
+  let binary = "";
+  for (let at = 0; at < bytes.length; at += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(at, at + 0x8000));
+  }
+  return btoa(binary);
+}
+
+function cannotDraw(node: ImageNode, detail: string): never {
+  throw new Error(`Dynamic image "${node.id}" got an answer it cannot draw: ${detail}.`);
 }
 
 /**
@@ -137,7 +339,8 @@ export async function generateImage(
  * @returns The answer in the shape the renderer reads: numbers as numbers,
  * categories as text, and only the fields the client actually gave.
  * @throws If the client cannot illustrate, or answers with something that is
- * not a chart.
+ * not a chart, or leaves the chart with no value to plot; an
+ * {@linkcode AiGenerationError} if it throws or rejects.
  */
 export async function generateGraph(
   client: AiClient | undefined,
@@ -151,15 +354,19 @@ export async function generateGraph(
 
   const asked = inDocumentLanguage(prompts, state);
 
-  return plottable(
-    node,
-    await client.generateGraph({
+  let answer: unknown;
+  try {
+    answer = await client.generateGraph({
       node,
       prompt: formatPromptText(asked),
       prompts: asked,
       state,
-    }),
-  );
+    });
+  } catch (cause) {
+    throw new AiGenerationError(node.id, "graph", cause);
+  }
+
+  return plottable(node, answer);
 }
 
 /** The chart types a model may name, as a record so a new {@linkcode GraphType} cannot be added without this hearing of it. */
@@ -176,10 +383,80 @@ const GRAPH_TYPES: Record<GraphType, true> = {
 };
 
 /**
+ * The {@linkcode AiGraphResult} a chart client returns, as a JSON Schema a
+ * model's structured output can be held to.
+ *
+ * Pass it as the schema of the provider's structured-output or forced tool
+ * call — OpenAI's `response_format` `json_schema` with `strict: true`, an
+ * Anthropic tool's `input_schema`, Gemini's `responseJsonSchema` — and return
+ * the parsed answer from `generateGraph` as it is. It is written for the
+ * strictest of those modes: every field is required, and a field the model
+ * has nothing to say for is `null`, which is read as "keep the node's own".
+ * The chart types are taken from the same list the answer is checked against,
+ * so the two cannot drift. A series' `color` is left out on purpose: a colour
+ * a model picks is one the theme can no longer change.
+ */
+export const aiGraphResultSchema: { readonly type: "object"; readonly [key: string]: unknown } = {
+  type: "object",
+  additionalProperties: false,
+  required: ["graphType", "data", "caption"],
+  properties: {
+    graphType: {
+      description: "The chart to draw, or null to keep the one the document chose.",
+      anyOf: [{ type: "string", enum: Object.keys(GRAPH_TYPES) }, { type: "null" }],
+    },
+    data: {
+      type: "object",
+      additionalProperties: false,
+      required: ["categories", "series"],
+      properties: {
+        categories: {
+          description:
+            "What the values are counted against, in order, or null to count by position. For a scatter or bubble chart, the x values written as text.",
+          type: ["array", "null"],
+          items: { type: "string" },
+        },
+        series: {
+          description: "The runs of numbers to plot, in the order they are drawn.",
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["label", "values", "sizes"],
+            properties: {
+              label: {
+                description: "The name printed in the key, or null for none.",
+                type: ["string", "null"],
+              },
+              values: {
+                description: "One number per category, in the same order; null is a gap, not a zero.",
+                type: "array",
+                items: { type: ["number", "null"] },
+              },
+              sizes: {
+                description: "A bubble chart's point sizes, one per value; null for every other chart.",
+                type: ["array", "null"],
+                items: { type: ["number", "null"] },
+              },
+            },
+          },
+        },
+      },
+    },
+    caption: {
+      description: "A caption printed beneath the chart, or null to keep the document's.",
+      type: ["string", "null"],
+    },
+  },
+};
+
+/**
  * A model's chart in the shape the renderer reads, or an error saying where it
  * is not. Model JSON writes numbers as text often enough that a chart packed
  * from it raw is empty in Word with nothing having failed, and it writes `null`
- * where it means "nothing to say", so `null` is read as absent.
+ * where it means "nothing to say", so `null` is read as absent. A chart left
+ * with no value to plot — no data of the answer's or the node's own, no series,
+ * or every value `null` — would pack as a note where the chart should be.
  */
 function plottable(node: GraphNode, answer: unknown): AiGraphResult {
   if (!isRecord(answer)) {
@@ -207,6 +484,16 @@ function plottable(node: GraphNode, answer: unknown): AiGraphResult {
     result.caption = caption;
   }
 
+  const plotted = result.data ?? node.data;
+
+  if (!plotted) {
+    refuse(node, "it has no data");
+  }
+
+  if (!plotted.series.some((series) => series.values.some((value) => value !== null))) {
+    refuse(node, "no series has a value to plot");
+  }
+
   return result;
 }
 
@@ -231,10 +518,15 @@ function graphData(node: GraphNode, data: unknown): GraphData {
         refuse(node, `${where} is not an object`);
       }
 
-      const { values, sizes, ...described } = entry;
+      const { values, sizes, label, ...described } = entry;
+
+      if (label != null && typeof label !== "string") {
+        refuse(node, `${where}.label is not text`);
+      }
 
       return {
         ...described,
+        ...(label == null ? {} : { label }),
         values: numbers(node, values, `${where}.values`),
         ...(sizes == null ? {} : { sizes: numbers(node, sizes, `${where}.sizes`) }),
       } as unknown as GraphSeries;

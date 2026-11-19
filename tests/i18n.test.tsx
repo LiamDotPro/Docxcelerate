@@ -1,12 +1,16 @@
+import assert from "node:assert/strict";
 import { test } from "node:test";
 import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
 import {
   buildDocument,
+  buildProjectFinalDocument,
+  cleanMinimalDocumentStyle,
   createDeriverRegistryFromBundle,
   createDocumentProjectArtifact,
   defineDocumentProject,
   type DocumentModel,
   type DocumentNode,
+  type DocumentStyle,
   InMemoryDataProvider,
   resolveDocument,
 } from "docxcelerate";
@@ -14,6 +18,8 @@ import {
   defineMessages,
   deriver,
   Document,
+  Graph,
+  Image,
   matchLocale,
   messagesFor,
   Paragraph,
@@ -25,7 +31,7 @@ import {
   useMessages,
   useState,
 } from "docxcelerate/template";
-import { documentXml, partXml } from "./docx.ts";
+import { documentXml, paragraphOf, partXml } from "./docx.ts";
 import { loadRegistryModule } from "./registry_support.ts";
 
 const { PaymentSummary } = await loadRegistryModule<
@@ -149,6 +155,54 @@ test("Word is told the document's language, and only when it has one", async () 
   assertStringIncludes(await documentXml(french), "Chère Avery,");
 });
 
+test("a locale reaches the language slot Word proofs its script against", async () => {
+  const lang = async (locale: string) =>
+    partXml(await buildDocument(greeting, {}, { locale }), "word/styles.xml");
+  assertStringIncludes(await lang("ja-JP"), '<w:lang w:val="ja-JP" w:eastAsia="ja-JP"/>');
+  assertStringIncludes(await lang("zh-TW"), '<w:lang w:val="zh-TW" w:eastAsia="zh-TW"/>');
+  assertStringIncludes(await lang("ar-SA"), '<w:lang w:val="ar-SA" w:bidi="ar-SA"/>');
+  assertStringIncludes(await lang("fr-FR"), '<w:lang w:val="fr-FR"/>');
+});
+
+test("a stored model's unparseable locale keeps w:val and does not throw", async () => {
+  const stored = { ...(await buildDocument(greeting, {})), locale: "not a tag" };
+  assertStringIncludes(await partXml(stored, "word/styles.xml"), '<w:lang w:val="not a tag"/>');
+});
+
+test("the theme names faces for East Asian and complex-script text, and a block's face leaves them be", async () => {
+  const style = {
+    ...cleanMinimalDocumentStyle,
+    typography: { ...cleanMinimalDocumentStyle.typography, eastAsiaFont: "Yu Mincho", complexScriptFont: "Arial" },
+    blocks: { money: { font: "Consolas" } },
+  };
+  const built = await buildDocument(
+    template(
+      <Document id="d" title="D">
+        <Paragraph id="p">請求書</Paragraph>
+        <Paragraph id="m" variant="money">¥12,000</Paragraph>
+      </Document>,
+    ),
+    {},
+  );
+  const doc = { ...built, style };
+  const styles = await partXml(doc, "word/styles.xml");
+  assertStringIncludes(styles, '<w:rFonts w:ascii="Aptos" w:cs="Arial" w:eastAsia="Yu Mincho" w:hAnsi="Aptos"/>');
+  assertStringIncludes(styles, '<w:rFonts w:ascii="Cambria" w:cs="Arial" w:eastAsia="Yu Mincho" w:hAnsi="Cambria"/>');
+  assertStringIncludes(
+    paragraphOf(await documentXml(doc), "¥12,000"),
+    '<w:rFonts w:ascii="Consolas" w:cs="Arial" w:eastAsia="Yu Mincho" w:hAnsi="Consolas"/>',
+  );
+  assertEquals(doc.style.typography.eastAsiaFont, "Yu Mincho");
+});
+
+test("omitted, every slot names the Latin face, as it always did", async () => {
+  const built = await buildDocument(greeting, {});
+  assertStringIncludes(
+    await partXml({ ...built, style: cleanMinimalDocumentStyle }, "word/styles.xml"),
+    '<w:rFonts w:ascii="Aptos" w:cs="Aptos" w:eastAsia="Aptos" w:hAnsi="Aptos"/>',
+  );
+});
+
 test("a dynamic node is asked to write in the document's language, at build and in the engine", async () => {
   const asked: string[] = [];
   const aiClient = {
@@ -175,6 +229,40 @@ test("a dynamic node is asked to write in the document's language, at build and 
   assertStringIncludes(asked[0], "SYSTEM: Write in French (France), the language of this document.");
   assertEquals(asked[1].includes("Write in"), false);
   assertStringIncludes(asked[2], "French (France)");
+});
+
+test("a chart is told the document's language and an image is not", async () => {
+  const asked: Record<string, string> = {};
+  const aiClient = {
+    generateParagraph: () => "",
+    generateGraph({ node, prompt }: { node: { id: string }; prompt: string }) {
+      asked[node.id] = prompt;
+      return { data: { series: [{ values: [1] }] } };
+    },
+    generateImage({ node, prompt }: { node: { id: string }; prompt: string }) {
+      asked[node.id] = prompt;
+      return { path: "data:image/png;base64,iVBORw0KGgo=" };
+    },
+  };
+  const Trend: Graph = () => {
+    useAi({ ask: "Plot it.", placeholder: "A chart." });
+    return <Graph id="trend" graphType="bar" />;
+  };
+  const Portrait: Image = () => {
+    useAi({ ask: "Draw a portrait.", placeholder: "A portrait." });
+    return <Image id="portrait" />;
+  };
+
+  await buildDocument(
+    template(<Document id="d" title="D"><Trend /><Portrait /></Document>),
+    {},
+    { locale: "fr-FR", aiClient },
+  );
+
+  assertEquals(asked, {
+    trend: "SYSTEM: Write in French (France), the language of this document.\nGENERAL: Plot it.",
+    portrait: "GENERAL: Draw a portrait.",
+  });
 });
 
 test("the registry's payment summary is translated, figures and all", async () => {
@@ -229,4 +317,70 @@ test("a deriver handed the locale formats for it, through the engine's own bundl
     texts((await resolve(artifact.localizedDocuments!["de-DE"].engineDocument)).nodes).map(plain),
     ["1.234,50 €"],
   );
+});
+
+const a4 = cleanMinimalDocumentStyle;
+const letter: DocumentStyle = { ...a4, page: { ...a4.page, size: "LETTER" } };
+const paper = template(<Document id="d" title="D"><Paragraph id="p">x</Paragraph></Document>);
+const paperProject = (locales: string[]) =>
+  defineDocumentProject({
+    id: "p",
+    name: "p",
+    template: paper,
+    previewData: {},
+    style: a4,
+    locales,
+    localeStyles: { "en-US": letter },
+  });
+
+test("each locale's documents are on its own style, and the rest on style", async () => {
+  const artifact = await createDocumentProjectArtifact(paperProject(["en-GB", "en-US"]), { builtAt: "x" });
+  const us = artifact.localizedDocuments!["en-US"];
+  assertEquals(artifact.previewDocument.style, a4);
+  assertEquals(artifact.engineDocument.style, a4);
+  assertEquals(us.previewDocument.style, letter);
+  assertEquals(us.engineDocument.style, letter);
+  const usXml = await documentXml(us.previewDocument);
+  assertStringIncludes(usXml, 'w:w="12240"');
+  assertStringIncludes(usXml, 'w:h="15840"');
+  const gbXml = await documentXml(artifact.previewDocument);
+  assertStringIncludes(gbXml, 'w:w="11906"');
+  assertStringIncludes(gbXml, 'w:h="16838"');
+  assertEquals(artifact.manifest.style, a4);
+  assertEquals(artifact.manifest.localizedDocuments, {
+    "en-US": { previewDocument: "preview.en-US.json", engineDocument: "document.en-US.json", style: letter },
+  });
+
+  const plain = await createDocumentProjectArtifact(
+    defineDocumentProject({ id: "p", name: "p", template: paper, previewData: {}, style: a4, locales: ["en-GB", "fr-FR"] }),
+    { builtAt: "x" },
+  );
+  assertEquals(plain.localizedDocuments!["fr-FR"].engineDocument.style, a4);
+  assertEquals("style" in plain.manifest.localizedDocuments!["fr-FR"], false);
+});
+
+test("the default locale can have a style of its own", async () => {
+  const artifact = await createDocumentProjectArtifact(paperProject(["en-US", "en-GB"]), { builtAt: "x" });
+  assertEquals(artifact.previewDocument.style, letter);
+  assertEquals(artifact.manifest.style, letter);
+  assertEquals(artifact.manifest.localizedDocuments!["en-GB"], {
+    previewDocument: "preview.en-GB.json",
+    engineDocument: "document.en-GB.json",
+    style: a4,
+  });
+});
+
+test("a final document follows the locale it is written in, ignoring case, with no fallback", async () => {
+  const project = paperProject(["en-GB", "en-US"]);
+  assertEquals((await buildProjectFinalDocument(project, { locale: "en-us" })).style, letter);
+  assertEquals((await buildProjectFinalDocument(project, { locale: "en-GB" })).style, a4);
+  assertEquals((await buildProjectFinalDocument(project, {})).style, a4);
+  assertEquals((await buildProjectFinalDocument(project, { locale: "en-CA" })).style, a4);
+});
+
+test("a style for a locale the project does not build is refused", () => {
+  const define = (locales?: string[], tag = "en_US") =>
+    defineDocumentProject({ id: "p", name: "p", template: paper, previewData: {}, locales, localeStyles: { [tag]: letter } });
+  assert.throws(() => define(["en-GB", "en-US"]), /"en_US", which is not one of its locales/);
+  assert.throws(() => define(undefined, "en-US"), /not one of its locales/);
 });

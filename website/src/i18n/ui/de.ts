@@ -61,14 +61,32 @@ export const de: UiStrings = {
       "in großem Umfang zu erzeugen.",
     ctaStart: "Loslegen →",
     ctaHowItWorks: "So funktioniert es",
-    copyInstall: "Installationsbefehl kopieren",
-    copy: "Kopieren",
     copied: "Kopiert",
     copyFallback: "⌘C drücken",
     integrityTitle: "{hash} · zum Kopieren klicken",
     /** Accessible name for the registry marks beside the version. */
     onNpm: "Docxcelerate auf npm",
     onJsr: "Docxcelerate auf JSR",
+
+    /** The hero's switch between the two builds of the document it shows. */
+    builds: {
+      label: "Eine Vorlage · zwei Builds",
+      engine: "Engine",
+      preview: "Vorschau",
+      engineCaption: "Engine: Die hervorgehobenen Teile hat ein Modell für diesen Kunden geschrieben, und die Entscheidung hat es selbst getroffen. Jede Zahl wird berechnet, nie generiert.",
+      previewCaption: "Vorschau: dieselbe Vorlage auf Ihrem Rechner. Generierte Teile zeigen ihre Platzhalter, nichts wird irgendwohin gesendet, und die Seite sieht bei jedem Speichern gleich aus.",
+    },
+
+    /** §1: one paragraph followed from source to preview to the engine. */
+    source: {
+      title: "Quelle. Vorschau. Dokument.",
+      lead: "Ein Absatz der Portfolioübersicht, verfolgt von der Datei, die Sie schreiben, bis zur Seite, die Ihr Kunde öffnet. Die Vorschau wartet nie auf ein Modell, und nichts verlässt Ihren Rechner; die Engine schreibt den echten Satz für jede Person.",
+      sourceLabel: "Quelle",
+      previewLabel: "Vorschau",
+      sourceNote: "Einmal geschrieben, in Ihrem Repo. Der Prompt steht neben dem Node, den er füllt.",
+      previewNote: "Bei jedem Speichern neu gebaut. Generierte Nodes zeigen ihren Platzhalter.",
+      engineNote: "Für jeden Empfänger geschrieben. Die Sätze drumherum bleiben, wie sie sind.",
+    },
 
     points: {
       authoring: {
@@ -80,16 +98,6 @@ export const de: UiStrings = {
           "kleine Dateien. Frontend-Entwicklerinnen und -Entwickler sind schon am " +
           "ersten Nachmittag produktiv, statt erst eine Templatesprache lernen " +
           "zu müssen.",
-      },
-      ai: {
-        label: "KI",
-        title: "KI auf Komponentenebene",
-        body:
-          "KI kommt über Hooks herein, in den Komponenten, die Sie ohnehin " +
-          "schreiben. Eine Komponente gibt dem Modell ihren Kontext und das, was " +
-          "geschrieben werden soll, damit es genau diesen einen Teil des Dokuments " +
-          "erzeugt, während alles darum herum deterministisch bleibt. Wie viel " +
-          "erzeugt wird, entscheiden Sie, Komponente für Komponente.",
       },
       changeControl: {
         label: "Änderungskontrolle",
@@ -132,6 +140,8 @@ export const de: UiStrings = {
         "kostenlose nicht hat, und kommt bald.",
       ctaHow: "So arbeitet die Engine →",
       ctaCloud: "Verwaltete Cloud",
+      /** {count} is a number of documents. */
+      volume: "{count} Übersichten in diesem Quartal",
       steps: {
         build: {
           title: "Bauen",
@@ -151,71 +161,7 @@ export const de: UiStrings = {
       },
     },
 
-    scale: {
-      eyebrow: "Enterprise",
-      title: "Gebaut für die Berichte, die Sie heute von Hand schreiben",
-      lead:
-        "Ein Unternehmen, das denselben Bericht hunderte Male im Monat erstellt, " +
-        "hat das Layout und die meisten Formulierungen längst. Was sich ändert, ist " +
-        "die Person, für die er geschrieben wird. Bauen Sie diesen Bericht aus " +
-        "Komponenten neu, halten Sie jeden Durchlauf identisch, und geben Sie einem " +
-        "Modell nur die Teile, die davon abhängen, wer ihn liest.",
-      traits: {
-        volume: {
-          title: "Ein Template, jede Empfängerin und jeder Empfänger",
-          body:
-            "Das Template einmal veröffentlichen, dann pro Person aufrufen. Ein " +
-            "Bericht oder hunderttausend sind derselbe Aufruf, wiederholt.",
-        },
-        determinism: {
-          title: "Jedes Mal dasselbe Dokument",
-          body:
-            "Alles, was Sie nicht als generiert markiert haben, rendert bei jedem " +
-            "Lauf identisch. Variieren dürfen nur die Teile, die Sie ausgewählt haben.",
-        },
-        integration: {
-          title: "Aufgerufen von den Systemen, die Sie betreiben",
-          body:
-            "Ihr CRM, Ihre Fallverwaltung oder Ihr Abrechnungssystem schickt seine " +
-            "Daten und bekommt eine .docx zurück. Niemand exportiert eine Tabelle " +
-            "oder öffnet Word.",
-        },
-        reproducibility: {
-          title: "Noch ein Jahr später reproduzierbar",
-          body:
-            "Templates sind versioniert, jedes Dokument lässt sich also aus " +
-            "demselben Template und denselben Daten neu bauen. Eine Prüfung bekommt " +
-            "einen Build, kein Archiv.",
-        },
-      },
-    },
 
-    openSource: {
-      eyebrow: "Open Source",
-      title: "Open Source, und darauf angelegt, es zu bleiben",
-      bodyOne:
-        "Das Framework, die Renderer, das Node-Modell und die CLI sind MIT-lizenziert " +
-        "und werden offen entwickelt. Lesen Sie den Code, der Ihre Dokumente " +
-        "schreibt, forken Sie ihn oder nehmen Sie ihn in Ihren eigenen Build auf.",
-      bodyTwo:
-        "Die Engine lässt sich kostenlos selbst hosten. Dokumente im großen Maßstab " +
-        "zu erzeugen hängt damit nie daran, dass ein Anbieter am Markt bleibt oder " +
-        "eine Preisliste gleich bleibt. Unsere kostenpflichtige Cloud legt die " +
-        "Premium-Funktionen auf denselben freien Kern, sodass Hosting und Skalierung " +
-        "ab dem ersten Dokument bereitstehen. Sie ist die Bequemlichkeit, nicht der " +
-        "Weg hinein.",
-      ctaSource: "Zum Quellcode →",
-      ctaNpm: "Auf npm ansehen",
-
-      licence: {
-        pages: "1 von 1",
-        copyright: "Copyright (c) {year} Docxcelerate",
-        fork: "Forken",
-        vendor: "Einbetten",
-        ship: "Ausliefern",
-        read: "Lesen →",
-      },
-    },
 
     docs: {
       eyebrow: "Dokumentation",
@@ -253,36 +199,6 @@ export const de: UiStrings = {
       },
     },
 
-    agentSkill: {
-      eyebrow: "Agent Skills",
-      title: "Geben Sie Ihrem Agenten das Ganze",
-      lead:
-        "Eine einzige Markdown-Datei bringt einem Coding-Agenten bei, wie Dokumente " +
-        "hier aufgebaut sind: das Komponentenmodell, die Regeln, über die Agenten " +
-        "stolpern, und jeder Befehl. Legen Sie sie ab und fragen Sie nach einem " +
-        "Dokument, statt das erste selbst zu schreiben.",
-      where: "Wohin die Datei gehört",
-      copySkill: "Skill kopieren",
-      references:
-        "Es ist schlichtes Markdown, und vier Referenzdateien liegen daneben in " +
-        "skills/docxcelerate/.",
-      agents: {
-        "claude-code":
-          "Kopieren Sie den Ordner nach .claude/skills/ für ein Projekt oder nach " +
-          "~/.claude/skills/ für alle. Er lädt sich selbst, sobald ein " +
-          "Dokumentprojekt auftaucht.",
-        "cursor":
-          "Als Rules-Datei ablegen, dann liest Cursor sie in diesem Projekt. Oder die " +
-          "Datei im Chat per @ erwähnen, wenn Sie sie brauchen.",
-        "copilot":
-          "In .github/copilot-instructions.md einfügen, dann wendet Copilot sie im " +
-          "ganzen Repository an.",
-        "agents-md":
-          "Codex, Gemini CLI, Aider und Cline lesen alle AGENTS.md im Wurzelverzeichnis " +
-          "des Repos. Fügen Sie sie ein oder verweisen Sie darauf, wenn Ihr Agent " +
-          "Dateien öffnet.",
-      },
-    },
   },
 
   demo: {
@@ -300,13 +216,13 @@ export const de: UiStrings = {
       "Eine echte Dokumentvorschau, live gerendert. Keine Screenshots und keine versteckten Tricks.",
     counts: "{documents} Dokumente · {files} Dateien",
     sectors: {
-      education: "Bildung",
       housing: "Wohnen",
       insurance: "Versicherung",
       consulting: "Dienstleistungen",
+      finance: "Finanzen",
     },
     documents: {
-      "offer-of-admission": "Zulassungsbescheid",
+      "portfolio-review": "Quartalsübersicht zum Portfolio",
       "repairs-appointment": "Reparaturtermin",
       "policy-renewal": "Vertragsverlängerung",
       invoice: "Rechnung",
@@ -319,6 +235,12 @@ export const de: UiStrings = {
     onThisPage: "Auf dieser Seite",
     editOnGithub: "Diese Seite auf GitHub bearbeiten ↗",
     viewAsMarkdown: "Diese Seite als Markdown lesen",
+    /** {version} is the release the page was built against. */
+    renderedAgainst: "Gerendert mit {version}",
+    previous: "Zurück",
+    next: "Weiter",
+    /** Names the previous/next links at the foot of a page. */
+    pagination: "Vorherige und nächste Seite",
     untranslatedNote:
       "Diese Seite ist noch nicht übersetzt und wird deshalb auf Englisch angezeigt.",
 
@@ -426,20 +348,25 @@ export const de: UiStrings = {
       heading: "Registry",
       lead:
         "Fertige Themes und Komponenten für Ihre Dokumentprojekte. Mit einem einzigen Befehl installieren und dann wie eigenen Code bearbeiten.",
-      filterByTag: "Nach Tag filtern",
       allTags: "Alle",
       themesNote: "Ein Theme zu installieren schreibt document-style.ts",
-      componentsNote: "Eine Komponente zu installieren schreibt ihre Datei nach nodes/",
       nodes: "Nodes",
       noPreview: "Keine Vorschau",
       /** Leitet die Datenpfade einer Komponentenzeile ein; verbindet Filter-Tags. */
       readsPrefix: "liest",
-      andJoin: "und",
-      /** {tag} is the tag that matched nothing. */
-      noMatches: "Keine Einträge passen zu {tag}.",
-      noMatchesTitle: "Keine Treffer",
-      noMatchesNote: "Probieren Sie ein anderes Tag oder setzen Sie den Filter zurück.",
-      clearFilter: "Filter zurücksetzen",
+      /** The page's headline; `heading` is the short name the nav uses. */
+      headline: "Fangen Sie mit Papier an, das schon funktioniert.",
+      /** {themes} and {components} are counts. */
+      counts: "{themes} Themes · {components} Komponenten",
+      useTheme: "Theme verwenden",
+      selected: "✓ Ausgewählt",
+      add: "+ Hinzufügen",
+      added: "✓ Hinzugefügt",
+      familyLabel: "Was sie zeichnet",
+      familyNote: "Gruppiert danach, worin eine Komponente aufgelöst wird, aus dem Build gelesen — kein Etikett, das jemand pflegt.",
+      /** {count} is how many themes and components are picked. */
+      trayCount: "Ihre Installation · {count} ausgewählt",
+      trayEmpty: "ein Theme oder eine Komponente wählen",
     },
     themes: {
       title: "Themes",

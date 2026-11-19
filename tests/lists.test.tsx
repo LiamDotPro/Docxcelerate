@@ -488,3 +488,94 @@ test("a listStart that is not a whole number from one is refused, except on a bu
     </Document>,
   );
 });
+
+/** A document's numbering part and body, with the numbering each anchored item counts in. */
+async function packed(doc: DocumentModel) {
+  const xml = await documentXml(doc);
+  const n = await partXml(doc, "word/numbering.xml");
+  const id = (anchor: string) => numberingOf(xml, anchor)?.numId ?? "";
+
+  return { xml, n, id };
+}
+
+test("listMarker is recorded on a bulleted item and dropped from a numbered one", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="a" list="bullet" listMarker="tick">A</Paragraph>
+      <Paragraph id="between">Between</Paragraph>
+      <Paragraph id="b" list="number" listMarker="cross">B</Paragraph>
+    </Document>,
+  );
+  const [a, , b] = doc.nodes as ParagraphNode[];
+
+  assertEquals(a.list, { kind: "bullet", marker: "tick" });
+  assertEquals(b.list, { kind: "number" });
+});
+
+test("each marker is drawn at every level of its own numbering", async () => {
+  const { xml, n, id } = await packed(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a" list="bullet" listMarker="tick">Tick</Paragraph>
+        <Paragraph id="b" list="bullet" listMarker="tick" listLevel={1}>Tick under</Paragraph>
+        <Paragraph id="c" list="bullet" listMarker="cross">Cross</Paragraph>
+        <Paragraph id="d" list="bullet" listMarker="dash">Dash</Paragraph>
+        <Paragraph id="e" list="bullet" listMarker="square">Square</Paragraph>
+      </Document>,
+    ),
+  );
+
+  assertEquals(markerOf(n, id("Tick"), 0), { format: "bullet", text: "\u2713" });
+  assertEquals(markerOf(n, id("Tick"), 1).text, "\u2713");
+  assertEquals(id("Tick under"), id("Tick"));
+  assertEquals(numberingOf(xml, "Tick under")?.level, "1");
+  assertEquals(markerOf(n, id("Cross")).text, "\u2717");
+  assertEquals(markerOf(n, id("Dash")).text, "\u2013");
+  assertEquals(markerOf(n, id("Square")).text, "\u25AA");
+  assertEquals(id("Cross") !== id("Tick"), true);
+});
+
+test("without listMarker a bullet is \u2022, \u25E6, \u25AA by depth, as it always was", async () => {
+  const { n, id } = await packed(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a" list="bullet">Plain</Paragraph>
+      </Document>,
+    ),
+  );
+
+  assertEquals(markerOf(n, id("Plain"), 0), { format: "bullet", text: "\u2022" });
+  assertEquals(markerOf(n, id("Plain"), 1).text, "\u25E6");
+  assertEquals(markerOf(n, id("Plain"), 2).text, "\u25AA");
+});
+
+test("a marker used twice shares one numbering, and only markers used are written", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="a" list="bullet" listMarker="tick">First tick</Paragraph>
+      <Paragraph id="b">Break</Paragraph>
+      <Paragraph id="c" list="bullet" listMarker="tick">Second tick</Paragraph>
+      <Paragraph id="d" list="bullet" listMarker="cross">A cross</Paragraph>
+    </Document>,
+  );
+  const { id } = await packed(doc);
+
+  assertEquals(id("First tick"), id("Second tick"));
+  // The library's own, the default bullet, tick and cross.
+  assertEquals([...(await partXml(doc, "word/numbering.xml")).matchAll(/<w:abstractNum /g)].length, 4);
+});
+
+test("a marked point under a numbered step does not stop the steps counting", async () => {
+  const { xml, n } = await packed(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a" list="number">First step</Paragraph>
+        <Paragraph id="b" list="bullet" listMarker="tick" listLevel={1}>A tick under it</Paragraph>
+        <Paragraph id="c" list="number">Second step</Paragraph>
+      </Document>,
+    ),
+  );
+
+  assertEquals(numberingOf(xml, "Second step")?.numId, numberingOf(xml, "First step")?.numId);
+  assertEquals(markerOf(n, numberingOf(xml, "A tick under it")!.numId, 1).text, "\u2713");
+});

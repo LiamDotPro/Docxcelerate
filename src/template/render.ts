@@ -429,7 +429,9 @@ async function renderHostKind(
       id,
       kind: "pageNumber",
       format: pageProps.format,
+      prefix: pageProps.prefix,
       separator: pageProps.separator,
+      align: pageProps.align,
       when,
     });
   }
@@ -509,6 +511,7 @@ async function renderTable(
     kind: "table",
     columns: props.columns.map((column) => prune({ ...column })),
     align: props.align,
+    keepTogether: props.keepTogether ? true : undefined,
     when,
     children: await renderYield(props.children, context, {
       path: `${frame.path}/${id}`,
@@ -565,6 +568,7 @@ async function renderCell(
     kind: "tableCell",
     span: props.span,
     align: props.align,
+    textDirection: props.textDirection,
     when,
     children: holdsElements(props.children)
       ? await renderYield(props.children, context, childFrame)
@@ -775,6 +779,7 @@ async function renderParagraph(
     align: props.align,
     list: listOf(props, id),
     prompts: specs,
+    aiOptions: prompts.aiOptions,
   };
 
   return prune({
@@ -798,6 +803,7 @@ function listOf(props: ParagraphProps, id: string): ParagraphList | undefined {
       // Bullets count nothing, so a style on one would only be noise in the model.
       style: props.list === "number" ? props.listStyle : undefined,
       start: props.list === "number" ? start : undefined,
+      marker: props.list === "bullet" ? props.listMarker : undefined,
     });
 }
 
@@ -857,6 +863,7 @@ async function renderImage(
     when,
     ...drawn,
     prompts: specs,
+    aiOptions: prompts.aiOptions,
   };
 
   const result = await generateImage(context.aiClient, node, specs, context.state);
@@ -873,6 +880,14 @@ async function renderGraph(
 ): Promise<GraphNode> {
   const prompts = settled(props.data === undefined ? undefined : "data", props, frame, id);
   const graphType = props.graphType ?? "bar";
+  const pie = graphType === "pie" || graphType === "doughnut";
+
+  if (!pie && (props.dataLabels === "percent" || props.dataLabels === "categoryAndPercent")) {
+    throw new Error(
+      `<Graph id="${id}"> asks its labels for a percentage, which only a pie or a doughnut has.`,
+    );
+  }
+
   // How the chart is drawn is the same whether its numbers were written here
   // or are still to be produced, so it is settled once and spread onto every
   // node this returns.
@@ -884,12 +899,15 @@ async function renderGraph(
     legend: props.legend,
     stacked: props.stacked,
     numberFormat: props.numberFormat,
-    categoryAxisTitle: props.categoryAxisTitle,
-    valueAxisTitle: props.valueAxisTitle,
+    categoryAxisTitle: await text(props.categoryAxisTitle, context),
+    valueAxisTitle: await text(props.valueAxisTitle, context),
     valueAxisMin: props.valueAxisMin,
     valueAxisMax: props.valueAxisMax,
     valueAxisStep: props.valueAxisStep,
     dataLabels: props.dataLabels,
+    dataTable: props.dataTable,
+    axes: props.axes,
+    gridlines: props.gridlines,
     align: props.align,
   };
 
@@ -935,6 +953,7 @@ async function renderGraph(
     ...drawn,
     caption: await text(props.caption, context),
     prompts: specs,
+    aiOptions: prompts.aiOptions,
   };
 
   const result = await generateGraph(context.aiClient, node, specs, context.state);

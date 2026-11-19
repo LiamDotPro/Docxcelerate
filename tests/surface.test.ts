@@ -21,6 +21,7 @@ import { assertEquals } from "./assert.ts";
 
 const surface: Record<string, string[]> = {
   ".": [
+    "AiGenerationError",
     "COMPONENTS",
     "COMPONENT_CATEGORIES",
     "DEFAULT_SERIES_COLORS",
@@ -32,6 +33,7 @@ const surface: Record<string, string[]> = {
     "ScriptedAiClient",
     "THEMES",
     "THEME_IDS",
+    "aiGraphResultSchema",
     "boldBriefTheme",
     "buildDocument",
     "buildProjectEngineDocument",
@@ -63,6 +65,7 @@ const surface: Record<string, string[]> = {
     "literalValue",
     "normalizeDeriverDefinitions",
     "pixelSizeOf",
+    "promptMessages",
     "rasterTypeOf",
     "registryEntry",
     "resolveDocument",
@@ -97,6 +100,7 @@ const surface: Record<string, string[]> = {
     "__not",
     "__or",
     "__test",
+    "aiProps",
     "and",
     "arrange",
     "branch",
@@ -213,6 +217,7 @@ const surface: Record<string, string[]> = {
     "__not",
     "__or",
     "__test",
+    "aiProps",
     "and",
     "arrange",
     "branch",
