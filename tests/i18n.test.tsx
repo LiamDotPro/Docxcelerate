@@ -14,6 +14,8 @@ import {
   defineMessages,
   deriver,
   Document,
+  Graph,
+  Image,
   matchLocale,
   messagesFor,
   Paragraph,
@@ -175,6 +177,40 @@ test("a dynamic node is asked to write in the document's language, at build and 
   assertStringIncludes(asked[0], "SYSTEM: Write in French (France), the language of this document.");
   assertEquals(asked[1].includes("Write in"), false);
   assertStringIncludes(asked[2], "French (France)");
+});
+
+test("a chart is told the document's language and an image is not", async () => {
+  const asked: Record<string, string> = {};
+  const aiClient = {
+    generateParagraph: () => "",
+    generateGraph({ node, prompt }: { node: { id: string }; prompt: string }) {
+      asked[node.id] = prompt;
+      return { data: { series: [{ values: [1] }] } };
+    },
+    generateImage({ node, prompt }: { node: { id: string }; prompt: string }) {
+      asked[node.id] = prompt;
+      return { path: "data:image/png;base64," };
+    },
+  };
+  const Trend: Graph = () => {
+    useAi({ ask: "Plot it.", placeholder: "A chart." });
+    return <Graph id="trend" graphType="bar" />;
+  };
+  const Portrait: Image = () => {
+    useAi({ ask: "Draw a portrait.", placeholder: "A portrait." });
+    return <Image id="portrait" />;
+  };
+
+  await buildDocument(
+    template(<Document id="d" title="D"><Trend /><Portrait /></Document>),
+    {},
+    { locale: "fr-FR", aiClient },
+  );
+
+  assertEquals(asked, {
+    trend: "SYSTEM: Write in French (France), the language of this document.\nGENERAL: Plot it.",
+    portrait: "GENERAL: Draw a portrait.",
+  });
 });
 
 test("the registry's payment summary is translated, figures and all", async () => {

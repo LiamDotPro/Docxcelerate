@@ -647,6 +647,21 @@ export interface PageNumberNode extends BaseNode {
   format?: PageNumberFormat;
   /** What sits between the two numbers in `currentOfTotal`. Defaults to ` / `. */
   separator?: string;
+  /**
+   * Words printed before the number: `"Page "` for "Page 3 of 10".
+   *
+   * Printed as written, spaces included, and set in the same type as the
+   * numbers. Absent prints nothing before them.
+   */
+  prefix?: string;
+  /**
+   * How the line sits across the column, the same as a paragraph's.
+   *
+   * Absent writes no `w:jc`, so the line inherits whatever the style around it
+   * decides, which is what a page number did before it could say. A theme can
+   * also say it through `variant`, and when both do the node wins.
+   */
+  align?: TextAlign;
 }
 
 /**

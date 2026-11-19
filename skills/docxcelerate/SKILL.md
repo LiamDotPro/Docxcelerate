@@ -93,10 +93,11 @@ computing on request data needs a deriver. See
 
 ## A node whose prose is generated
 
-Set prompts instead of text, and a placeholder so previews stay readable.
+Call `useAi` instead of giving the node text. One call says what to ask for and
+what stands in its place until something has written it.
 
 ```tsx
-import { Paragraph, useSetPlaceholders, useSetPrompts, useState } from "docxcelerate/template";
+import { Paragraph, useAi, useState } from "docxcelerate/template";
 import type { OfferData } from "../types.ts";
 
 export const TutorNote: Paragraph = () => {
@@ -105,25 +106,36 @@ export const TutorNote: Paragraph = () => {
     interviewer: data.interviewer,
   }));
 
-  useSetPrompts({
-    systemPrompt: "You are an admissions tutor. Warm, never effusive. Promise nothing.",
-    generalPrompt: `Write two specific sentences from ${state.interviewer} about ` +
-      `${state.applicant}'s interview.`,
-    negativePrompt: "Do not restate the offer, the conditions, or the reply deadline.",
+  useAi({
+    ask: "Two specific sentences from the interviewer about the applicant's interview.",
+    placeholder: `A short note from ${state.interviewer}.`,
+    voice: "An admissions tutor. Warm, never effusive. Promise nothing.",
+    from: { applicant: state.applicant, interviewer: state.interviewer },
+    avoid: "Do not restate the offer, the conditions, or the reply deadline.",
   });
-  useSetPlaceholders(`A short note from ${state.interviewer}.`);
 
   return <Paragraph id="tutor-note" />;
 };
 ```
 
-Only `generalPrompt` is required. `infoPrompt` is context the model should have
-but not restate; `negativePrompt` is what to avoid; `systemPrompt` is role and
-tone; `examplePrompt` is a finished answer to match rather than a description of
-one, which is the cheapest way to pin down an opening, an order and a length. All
-six slots (those five plus `placeholder`) can also be given as props, which reads
-better when they are short — and props win over the hook, so a caller can
-override what a shared hook set around it.
+`ask` and `placeholder` are required, and `useAi` throws without either. The
+placeholder is what every preview, every proof and every document whose
+generation was skipped shows, so write it as a line a reader can live with.
+`voice` is how it sounds, `from` the facts to write from (hand over the data,
+not a sentence about it), `avoid` what it must not say, and `example` a
+finished answer to match, which is the cheapest way to pin an opening, an order
+and a length. The same call makes an `<Image>` or a `<Graph>` generated: return
+`<Graph id="trend" graphType="bar" />` with no `data`, or `<Image id="hero" />`
+with no `src`.
+
+Everything in `useAi` is published in the engine document, so never put a key,
+a token or anything secret in it.
+
+`useSetPrompts` and `useSetPlaceholders` are the same slots under their
+downstream names (`systemPrompt`, `generalPrompt`, `infoPrompt`,
+`negativePrompt`, `examplePrompt`, `placeholder`). Use them only for a shared
+hook that adds house style to a node it does not own. The same names work as
+props on the element, and a prop wins over what any hook set.
 
 Previews resolve dynamic nodes to their placeholder, never to generated prose.
 Nothing leaves the machine, and the same build gives the same page every time.
@@ -150,7 +162,7 @@ keeps every request on `.requests` so a test can assert what each node asked.
 | `Cell` | text, or paragraphs when a line is not enough | `span`, and `align` when it departs from its column |
 | `TableOfContents` | nothing | a marker; renderers print the title and stop |
 | `PageBreak` | nothing | for a break that is part of what the document *is* |
-| `PageNumber` | nothing | `format` (`current`/`total`/`currentOfTotal`) and `separator`; counted by the renderer, from `style.page.firstPageNumber` in `style.page.numberStyle` (roman, letters) when set |
+| `PageNumber` | nothing | `format` (`current`/`total`/`currentOfTotal`), `prefix` and `separator` for "Page 3 of 10", `align`; a `variant` sets it in the theme's type, numbers included; counted by the renderer, from `style.page.firstPageNumber` in `style.page.numberStyle` (roman, letters) when set |
 
 **An `<Image>` only travels if it carries its bytes.** A `data:` URI does; a
 path or a URL draws on screen, where a browser can fetch it, but packs into Word
@@ -303,6 +315,11 @@ decision that depends on request data has to travel to the engine instead:
   document. Never hand-write a `{{data.…}}` token; interpolation produces it.
   This holds in every header and footer, the first-page and even-page ones
   included.
+- **A chart's words publish like any others.** Interpolate into a `<Graph>`'s
+  `title`, `alt`, `caption`, `categoryAxisTitle` and `valueAxisTitle` —
+  ``valueAxisTitle={`Spend (${state.currency})`}`` — and each is filled per
+  document, on a generated chart before the client is asked. A caption the
+  model writes back is printed as written.
 - **`useAi({ from: { … } })` takes request data as it is.** Each field you name
   publishes as its token, so the model is sent the recipient's facts — a list
   arrives whole, as JSON. Name the fields (`from: { period: data.period }`), never
@@ -318,11 +335,17 @@ decision that depends on request data has to travel to the engine instead:
 - **A generated chart or picture publishes as its prompts.** The engine's own
   `AiClient` writes it per document, so it needs `generateGraph` for a prompted
   `<Graph>` and `generateImage` for a prompted `<Image>`; an engine without one
-  fails on that node, naming it. A prompted `<Image>` among a paragraph's words
-  cannot be published — give it its own place beside the paragraph.
+  fails on that node, naming it. `generateImage` returns `{ path }` as a `data:`
+  URI: anything else draws on screen but packs into Word as a note. A prompted
+  `<Image>` among a paragraph's words cannot be published — give it its own
+  place beside the paragraph.
 - **`generateParagraph` returns the text itself**, not a provider's response
   object; anything else fails, naming the node. Return what the model wrote as
   it is — the answer is trimmed and stripped of characters a `.docx` cannot hold.
+- **A client that fails, fails the document.** A throw or a rejected promise
+  from the client rejects `resolveDocument` with that error. Nothing falls back
+  to the placeholder, nothing retries, and nothing times out. Retry, fall back
+  or bound the call (`AbortSignal.timeout`) inside your client.
 - **`.map()` over request data is how a loop is written.** It walks the list when
   the data is real and is published as a loop the engine walks when it is not.
   Never hand-write a `{{ctx.…}}` token inside one — the entry writes its own
@@ -340,9 +363,10 @@ decision that depends on request data has to travel to the engine instead:
   `docxcelerateEsbuildTransform()` for esbuild, from `docxcelerate/transform`.
   Without it the decision is made once, at build time, for every recipient.
 - **An engine fills the artifact with one call:**
-  `resolveDocument(artifact.engineDocument, createRuntimeState({ data, aiClient }))`.
+  `resolveDocument(artifact.engineDocument, createRuntimeState({ data, aiClient }), { derivers: await createDeriverRegistryFromBundle(artifact.derivers) })`.
   Never build a `RuntimeState` by hand — `createRuntimeState` seeds `ctx` the way
   the build did, including the `availableTokens` a published document reads.
+  Without `derivers` only the built-in `sum`, `join` and `count` exist.
 
 Read [references/publishing.md](references/publishing.md) before touching a
 document that ships to an engine, or when a document is right in preview and
