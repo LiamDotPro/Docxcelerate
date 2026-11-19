@@ -27,8 +27,9 @@ const derivers = await createDeriverRegistryFromBundle(createDeriverBundle({ exe
 // The section's arm is in the node; the sixteen row arms are in an arrangement.
 const countBranches = async (source: string) =>
   transformDocumentSource(await readFile(join(registryRoot(), source), "utf8"), { fileName: source }).branches;
-const branches = (await countBranches(nodeSource)) +
-  (await countBranches("components/arrangements/exemption-certificate-check/table.arrangement.tsx"));
+const branchesOf = async (arrangement: "table" | "stacked") =>
+  (await countBranches(nodeSource)) +
+  (await countBranches(`components/arrangements/exemption-certificate-check/${arrangement}.arrangement.tsx`));
 
 // deno-lint-ignore no-explicit-any
 type Obj = Record<string, any>;
@@ -274,9 +275,10 @@ function state(data: Obj): RuntimeState {
 
 const preview = () => (COMPONENTS.find((c) => c.id === "exemption-certificate-check")!.previewData as { exemption: Obj }).exemption;
 
-test("a publish build carries 17 arms and one deriver call", async () => {
-  assertEquals(branches, 17);
-  const published = await buildDocument(templateOf(), createPublishData() as Obj, {
+for (const arrangement of ["table", "stacked"] as const) {
+test(`a publish build carries 17 arms and one deriver call (${arrangement})`, async () => {
+  assertEquals(await branchesOf(arrangement), 17);
+  const published = await buildDocument(templateOf(arrangement), createPublishData() as Obj, {
     branchMode: "publish",
     deriverMode: "preserve",
     dynamicMode: "resolve",
@@ -291,11 +293,12 @@ test("a publish build carries 17 arms and one deriver call", async () => {
 
   const registry = await createDeriverRegistryFromBundle(createDeriverBundle({ exemptionCertificateCheck: mod.run }));
   for (const exemption of [preview(), base({ lines: [] })]) {
-    const direct = await buildDocument(templateOf(), { exemption }, opts());
+    const direct = await buildDocument(templateOf(arrangement), { exemption }, opts());
     const resolved = await resolveDocument(published, state({ exemption }), { derivers: registry });
     assertEquals(seen(resolved.nodes), seen(direct.nodes));
   }
 });
+}
 
 test("both arrangements print the same rows and texts", async () => {
   const get = async (a: "table" | "stacked") => {
