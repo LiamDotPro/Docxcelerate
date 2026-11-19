@@ -50,7 +50,26 @@ way at any depth, and its id gains no prefix.
 
 `title` is required, and it isn't decoration. It becomes the heading above the
 children and the entry a contents list is built from. A group that wants no
-heading wants no section; put the nodes in the document directly.
+heading wants `showTitle={false}`, which keeps the title as the section's name
+and prints nothing.
+
+A heading is never left as the last thing on a page, and never split across one:
+Word moves it over with what it heads. That is on without asking, because a
+heading stranded at the foot of a page is one nobody notices in a preview of
+page one; a theme that wants headings to fall where they fall sets
+`sectionHeading: { keepWithNext: false }`.
+
+`variant` on a section restyles its heading, not its children. The block's
+size, weight, `transform`, tracking, colour, `align`, border, spacing and keeps
+are laid over the theme's `sectionHeading`, and it stays a Heading 1, so a
+contents list still finds it. That is how a schedule's heading is centred
+capitals while the clause headings stay as they are:
+
+```tsx
+<Section title="Schedule 1: Services" variant="schedule">…</Section>
+```
+
+`transform: "none"` on the block undoes capitals the theme's headings ask for.
 
 ## Variants
 
