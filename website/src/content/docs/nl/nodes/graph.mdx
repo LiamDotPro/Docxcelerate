@@ -1,6 +1,6 @@
 ---
 title: Graph
-description: Echte Word-grafieken — staaf, lijn, vlak, taart, ring of spreiding — als data gedeclareerd in plaats van als plaatje getekend.
+description: Echte Word-grafieken — staaf, lijn, vlak, taart, ring, spreiding, radar of bubbel — als data gedeclareerd in plaats van als plaatje getekend.
 group: Nodes
 subgroup: Node types
 order: 13
@@ -41,37 +41,146 @@ export const VisitsByMonth: Graph = () => {
 Wat in de `.docx` belandt is een **echte Word-grafiek** — een
 DrawingML-chartdeel met alle waarden erin, plus de werkmap die „Gegevens
 bewerken" opent. De lezer kan hem selecteren, opnieuw vormgeven, van type
-veranderen en zijn cijfers openen, en Word tekent hem als vectoren op elk
-formaat. Niets hiervan wordt gerasterd.
+veranderen en zijn cijfers openen, en Word tekent hem als vectoren op elk formaat
+dat de pagina en de printer nodig hebben.
+
+Dat is de hele reden dat de node cijfers draagt in plaats van een plaatje. Een
+grafiek die bij het bouwen tot pixels is platgeslagen is een grafiek waar
+niemand verderop iets mee kan: hij kan niet opnieuw worden vormgegeven met een
+thema, hij wordt afgedrukt met de resolutie die de build heeft geraden, en hij is
+onzichtbaar voor alles wat het document leest. Niets hiervan wordt gerasterd, wat
+ook is waarom grafieken het pakket geen extra dependency en geen native module
+kosten.
 
 ## De vorm van de data
-
-`data` is getypeerd: categorieën en series, elke serie met een label, zijn
-waarden en optioneel een kleur.
 
 ```ts
 interface GraphData {
   categories?: string[];
-  series: Array<{ label?: string; values: (number | null)[]; color?: string }>;
+  series: Array<{
+    label?: string;
+    values: (number | null)[];
+    color?: string;
+    /** A bubble's third figure, and read by no other form. */
+    sizes?: (number | null)[];
+  }>;
 }
 ```
 
-Een `null` is een gat, geen nul. Een maand die nog niet is afgelezen is geen
-maand waarin niets is gemeten — Word laat het punt weg in plaats van de lijn te
-laten inzakken.
+Een `null` is een **gat, geen nul**. Een maand die nog niemand heeft afgelezen is
+geen maand waarin niets is gemeten, en hem als nul tekenen zet een afgrond in de
+lijn die er nooit was. Word krijgt te horen het punt weg te laten.
 
-Kleuren komen uit het thema (`palette.series`, een vaste reeks die op
-kleurenblindheid is getoetst), zodat een document opnieuw kan worden vormgegeven
-zonder dat de grafieken uit de pas gaan lopen.
+Een serie die korter is dan de categorieën wordt aangevuld met gaten; een serie
+zonder categorieën wordt op positie geteld. Strings in de payload gaan door de
+templaterenderer net als alineatekst, dus een label met `{{derived.total}}` wordt
+opgelost.
 
-Eén ding gebeurt er wel met de data: stringwaarden gaan door de templaterenderer
-heen, net als proza. Een label met `{{derived.total}}` erin wordt opgelost.
+`scatter` en `bubble` lezen de categorieën als hun **x-waarden**, dus dat zijn
+getallen als tekst geschreven; alles wat niet te parsen is telt als zijn positie.
+
+## Kleuren horen bij het thema
+
+Series nemen de `palette.series` van het thema in volgorde — een vaste, gevalideerde
+reeks die op kleurenblindheid is getoetst — zodat een document opnieuw een thema
+kan krijgen zonder dat zijn grafieken uit de pas gaan lopen. Rasterlijnen nemen
+`palette.rule` en de tekst van assen en legenda `palette.muted`, zodat een grafiek
+leest als onderdeel van het document en niet als iets dat erin is geplakt.
+
+Noem een `color` op een serie alleen wanneer de kleur is wat de serie *betekent* —
+een rode lijn voor de grens waaronder hij moet blijven — en nooit om een mooier
+blauw te kiezen.
+
+## Vormen
+
+| `graphType` | Waar het voor dient |
+| --- | --- |
+| `bar` | Categorieën vergelijken. De standaard, en meestal het juiste antwoord. |
+| `barHorizontal` | Hetzelfde, voor categorienamen die te lang zijn om onder een kolom te passen. |
+| `line` | Verandering in de tijd. |
+| `area` | Verandering in de tijd waar de hoeveelheid onder de lijn de kern is. |
+| `pie` | Een aandeel van een geheel, en alleen met weinig genoeg plakken om ze uit elkaar te houden. |
+| `doughnut` | Hetzelfde, met het midden eruit. |
+| `scatter` | Twee maten tegen elkaar, om te laten zien of ze samen bewegen. |
+| `bubble` | Hetzelfde met een derde cijfer als grootte van het punt — `sizes` op de serie. |
+| `radar` | Meerdere maten tegelijk, gelezen als een vorm: sterk waar, niet hoeveel. |
+
+Begin met `bar`. Boven ongeveer zes plakken is een taart moeilijker te lezen dan de
+staafgrafiek van dezelfde cijfers, en een radar beantwoordt een andere vraag dan
+alle andere — hij vergelijkt profielen, en een lezer kan de oppervlakten van twee
+ringen niet vergelijken, dus vraag het niet van hen.
+
+Twee maten met verschillende schalen zijn twee grafieken. Een tweede as laat het
+snijpunt eruitzien als een bevinding terwijl het een artefact is van de schalen die
+je koos.
+
+### Stapelen
+
+Stapelen is een eigenschap en geen eigen vorm, dus het geldt voor staven, lijnen
+en vlakken en kan niet van een taart worden gevraagd:
+
+```tsx
+<Graph graphType="bar" stacked data={…} />              // to a total
+<Graph graphType="bar" stacked="percent" data={…} />    // to a share
+```
+
+`stacked` maakt de bovenkant van elke stapel het totaal. `stacked="percent"` tekent
+elke kolom even hoog, zodat wat gelezen wordt het aandeel van elke serie in zijn
+kolom is en de totalen bewust worden weggegooid — de grafiek die Word 100%
+gestapeld noemt. Geef in beide gevallen de ruwe cijfers door: Word rekent de
+aandelen zelf uit en labelt de as 0% tot 100%, dus een payload die vooraf had
+gedeeld zou hem aandelen van aandelen geven.
+
+### De waardeas vastzetten
+
+Word begint de waardeas waar het wil, meestal bij nul. Wanneer de beweging de kern
+is en nul dat niet is — uptime tussen 99% en 100% — drukt dat de data plat tot één
+lijn. Zet de uiteinden en de stap van de rasterlijnen vast:
+
+```tsx
+<Graph graphType="line" numberFormat="0.0%" valueAxisMin={0.99} valueAxisMax={1} valueAxisStep={0.002}
+  data={{ categories: state.months, series: [{ label: "Uptime", values: state.uptime }] }} />
+```
+
+Elk is optioneel, en Word kiest wat je weglaat. Een waarde buiten de grenzen wordt
+bij de as afgekapt; op een procentuele stapeling is de as een aandeel, dus `0.5` is
+50%; een taart heeft geen as en negeert ze. `valueAxisMin` boven `valueAxisMax`, of
+een stap van nul, laat het inpakken falen in plaats van onzin te tekenen.
 
 ## Afleiden in de state
 
-Lopende totalen, percentages en herbasering horen in de `data`-functie thuis en
-niet stroomopwaarts. De grafiek en de tekst ernaast worden dan uit één bron
-berekend, zodat ze het niet oneens kunnen zijn.
+Lopende totalen, percentages en herbasering horen in de state-initializer thuis en
+niet in de data die je aanlevert. De grafiek en de tekst ernaast worden dan uit één
+bron berekend, zodat ze het niet oneens kunnen zijn.
+
+## In de preview
+
+`docx-preview` heeft helemaal geen lezing van een chartdeel, dus het laat een leeg
+kader achter op precies het formaat dat het bestand de grafiek gaf — wat de preview
+laat pagineren zoals Word. Een aangemaakte workspace vult dat kader met
+[ECharts](https://echarts.apache.org), tekenend uit dezelfde ingepakte bytes; zie
+`preview/charts.ts` in je workspace.
+
+Het kader is exact. De plot erin is de tekening van een andere renderer van
+dezelfde data, geen schermafbeelding van Word — open de `.docx` wanneer de plot
+zelf goed moet zijn. Een workspace die vóór 0.9.0 is aangemaakt heeft een
+`preview/charts.ts` die vaste asgrenzen niet leest; het bestand is nog steeds goed.
+
+## Wat het tekent
+
+Twee renderers, en het is goed om te weten welke welke is:
+
+- **In het bestand** — [OOXML DrawingML](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/),
+  het chartformaat dat Words eigen Invoegen → Grafiek schrijft: een
+  `c:chartSpace`-deel met alle waarden erin, plus een kleine ingebedde `.xlsx`
+  voor „Gegevens bewerken". Docxcelerate schrijft dat deel rechtstreeks, dus **Word
+  doet het tekenen** — geen grafiekbibliotheek, geen canvas, geen native module.
+- **In de preview** — [ECharts](https://echarts.apache.org), dat dezelfde
+  ingepakte bytes terugleest. Het tekent de plot op het scherm; het kader eromheen
+  komt nog steeds uit het bestand.
+
+Daarom kunnen de twee een pixel verschillen en de pagina niet: waar de lay-out van
+afhangt is het kader, en het kader is dat van Word.
 
 ## Varianten
 
@@ -79,7 +188,23 @@ berekend, zodat ze het niet oneens kunnen zijn.
 
 ## Aantekeningen
 
-- `graphType` staat op beide helpers standaard op `bar`.
+- `graphType` staat in beide modi standaard op `bar`.
+- `title` wordt *op* de grafiek getekend en reist met hem mee als de lezer hem
+  elders kopieert; `caption` is een alinea die eronder wordt afgedrukt.
+- `alt` is de beschrijving van de tekening, wat een schermlezer voorleest en waar
+  Words toegankelijkheidscontrole naar zoekt. Zeg wat de cijfers laten zien
+  („Bezoeken verdubbelden na maart"), niet hoe de grafiek heet. Weggelaten springt
+  de titel erin, dan het bijschrift.
+- `align="center"` of `"right"` plaatst een grafiek die smaller is dan de kolom,
+  en zijn bijschrift volgt hem. Een grafiek zonder `width` vult de kolom al.
+- `legend` staat standaard op een legenda onder de plot bij meer dan één serie en
+  geen bij één — een legenda die het enige op een grafiek noemt herhaalt zijn
+  titel. Een taart houdt er altijd een, omdat zijn legenda de plakken noemt.
+- `numberFormat` is een OOXML-formaatcode — `"#,##0"`, `"0.0%"`, `"£#,##0"` —
+  ongewijzigd doorgegeven aan de waardeas en de datalabels.
+- `barHorizontal` leest van boven naar beneden in de volgorde waarin de
+  categorieën zijn geschreven, in plaats van van onder naar boven zoals Words
+  eigen staafgrafieken.
 - Bij een dynamische graph ligt de vorm nog steeds lokaal vast. Het endpoint
-levert de cijfers en mag `graphType` en `caption` in zijn antwoord
-overschrijven.
+  levert de cijfers en mag `graphType` en `caption` in zijn antwoord
+  overschrijven.

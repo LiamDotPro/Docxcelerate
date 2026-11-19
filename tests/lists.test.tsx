@@ -21,7 +21,7 @@ import {
   useState,
 } from "docxcelerate/template";
 import { JSDOM } from "jsdom";
-import { documentXml, partXml } from "./docx.ts";
+import { documentXml, paragraphOf, partXml } from "./docx.ts";
 
 /**
  * A paragraph that is an item of a list.
@@ -42,13 +42,6 @@ function build(node: unknown): Promise<DocumentModel> {
   });
 }
 
-/** The `<w:p>` holding this anchor. */
-function paragraphOf(xml: string, anchor: string): string {
-  return [...xml.matchAll(/<w:p>[\s\S]*?<\/w:p>/g)]
-    .map((match) => match[0])
-    .find((candidate) => candidate.includes(anchor)) ?? "";
-}
-
 /** Which numbering a paragraph counts in, and how deep, or null when it is no item. */
 function numberingOf(xml: string, anchor: string): { numId: string; level: string } | null {
   const found = /<w:numPr><w:ilvl w:val="(\d+)"\/><w:numId w:val="(\d+)"\/><\/w:numPr>/.exec(
@@ -63,15 +56,19 @@ function spaceAfter(xml: string, anchor: string): string | undefined {
   return /<w:spacing [^>]*w:after="(\d+)"/.exec(paragraphOf(xml, anchor))?.[1];
 }
 
-/** The format of a numbering's first level, followed from the `w:num` to its abstract one. */
-function formatOf(numbering: string, numId: string): string | undefined {
+/** A numbering level's format and text, followed from the `w:num` to its abstract one. */
+function markerOf(numbering: string, numId: string, level = 0): { format?: string; text?: string } {
   const abstract = new RegExp(
     `<w:num w:numId="${numId}"[^>]*><w:abstractNumId w:val="(\\d+)"`,
   ).exec(numbering)?.[1];
+  const block = new RegExp(
+    `<w:abstractNum [^>]*w:abstractNumId="${abstract}"[\\s\\S]*?</w:abstractNum>`,
+  ).exec(numbering)?.[0] ?? "";
+  const found = new RegExp(
+    `<w:lvl w:ilvl="${level}"[^>]*>[\\s\\S]*?<w:numFmt w:val="(\\w+)"/>[\\s\\S]*?<w:lvlText w:val="([^"]*)"/>`,
+  ).exec(block);
 
-  return new RegExp(
-    `<w:abstractNum [^>]*w:abstractNumId="${abstract}"[\\s\\S]*?<w:numFmt w:val="(\\w+)"`,
-  ).exec(numbering)?.[1];
+  return { format: found?.[1], text: found?.[2] };
 }
 
 test("a list prop puts the paragraph's place in the model, and nothing else changes", async () => {
@@ -88,6 +85,80 @@ test("a list prop puts the paragraph's place in the model, and nothing else chan
   assertEquals(a.list, { kind: "bullet" });
   assertEquals(b.list, { kind: "number", level: 1 });
   assertEquals("list" in c, false);
+});
+
+test("listStyle is recorded on a numbered item and dropped from a bullet", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="a" list="number" listStyle="lowerLetterParen">A</Paragraph>
+      <Paragraph id="b" list="bullet" listStyle="upperRoman">B</Paragraph>
+    </Document>,
+  );
+  const [a, b] = doc.nodes as ParagraphNode[];
+
+  assertEquals(a.list, { kind: "number", style: "lowerLetterParen" });
+  assertEquals(b.list, { kind: "bullet" });
+});
+
+test("a sub-clause is numbered in the style given at its own level", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="c1" list="number">The Supplier shall:</Paragraph>
+      <Paragraph id="c1a" list="number" listLevel={1} listStyle="lowerLetterParen">deliver the Goods;</Paragraph>
+      <Paragraph id="c1a1" list="number" listLevel={2} listStyle="lowerRomanParen">on the Delivery Date;</Paragraph>
+      <Paragraph id="c1b" list="number" listLevel={1}>invoice monthly.</Paragraph>
+    </Document>,
+  );
+  const xml = await documentXml(doc);
+  const n = await partXml(doc, "word/numbering.xml");
+  const id = numberingOf(xml, "The Supplier")?.numId ?? "";
+
+  assertEquals(markerOf(n, id, 0), { format: "decimal", text: "%1." });
+  assertEquals(markerOf(n, id, 1), { format: "lowerLetter", text: "(%2)" });
+  assertEquals(markerOf(n, id, 2), { format: "lowerRoman", text: "(%3)" });
+  assertEquals(numberingOf(xml, "deliver the Goods")?.level, "1");
+  for (const anchor of ["deliver the Goods", "on the Delivery Date", "invoice monthly"]) {
+    assertEquals(numberingOf(xml, anchor)?.numId, id);
+  }
+});
+
+test("the first item at a level decides it, and styles are per list", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="a" list="number" listStyle="upperRoman">One</Paragraph>
+      <Paragraph id="b" list="number" listStyle="decimal">Two</Paragraph>
+      <Paragraph id="x">Between</Paragraph>
+      <Paragraph id="c" list="number">Again</Paragraph>
+    </Document>,
+  );
+  const xml = await documentXml(doc);
+  const n = await partXml(doc, "word/numbering.xml");
+  const one = numberingOf(xml, "One")?.numId ?? "";
+
+  assertEquals(markerOf(n, one, 0), { format: "upperRoman", text: "%1." });
+  assertEquals(numberingOf(xml, "Two")?.numId, one);
+  assertEquals(markerOf(n, numberingOf(xml, "Again")?.numId ?? "", 0), { format: "decimal", text: "%1." });
+});
+
+test("without listStyle the levels count as they always have, and bullets ignore it", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="a" list="number">L0</Paragraph>
+      <Paragraph id="b" list="number" listLevel={1}>L1</Paragraph>
+      <Paragraph id="c" list="number" listLevel={2}>L2</Paragraph>
+      <Paragraph id="x">Between</Paragraph>
+      <Paragraph id="d" list="bullet" listStyle="upperRoman">Dot</Paragraph>
+    </Document>,
+  );
+  const xml = await documentXml(doc);
+  const n = await partXml(doc, "word/numbering.xml");
+  const id = numberingOf(xml, "L0")?.numId ?? "";
+
+  assertEquals(markerOf(n, id, 0), { format: "decimal", text: "%1." });
+  assertEquals(markerOf(n, id, 1), { format: "lowerLetter", text: "%2." });
+  assertEquals(markerOf(n, id, 2), { format: "lowerRoman", text: "%3." });
+  assertEquals(markerOf(n, id, 3).format, "decimal");
+  assertEquals(markerOf(n, numberingOf(xml, "Dot")?.numId ?? "", 0).format, "bullet");
 });
 
 test("items standing together are one list, and a numbered list after a break starts its own", async () => {
@@ -107,15 +178,15 @@ test("items standing together are one list, and a numbered list after a break st
   const point = numberingOf(xml, "A point under it");
   const again = numberingOf(xml, "Another list");
 
-  assertEquals(formatOf(numbering, first?.numId ?? ""), "decimal");
-  assertEquals(formatOf(numbering, point?.numId ?? ""), "bullet");
+  assertEquals(markerOf(numbering, first?.numId ?? "").format, "decimal");
+  assertEquals(markerOf(numbering, point?.numId ?? "").format, "bullet");
   assertEquals(point?.level, "1");
   // The bulleted point between them does not stop the steps counting.
   assertEquals(second?.numId, first?.numId);
   // A paragraph that is no item does, and the next list is a numbering of its own.
   assertEquals(numberingOf(xml, "Something that is not"), null);
   assertEquals(again !== null && again.numId !== first?.numId, true);
-  assertEquals(formatOf(numbering, again?.numId ?? ""), "decimal");
+  assertEquals(markerOf(numbering, again?.numId ?? "").format, "decimal");
 });
 
 test("each numbered list has an abstract numbering of its own, for the preview's sake", async () => {

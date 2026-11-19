@@ -1,9 +1,11 @@
 import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
 import {
+  type AiGraphResult,
   createDeriverRegistry,
   type DocumentModel,
   type DocumentNode,
+  type GraphNode,
   InMemoryDataProvider,
   resolveDocument,
   type RuntimeState,
@@ -64,6 +66,22 @@ test("tokens resolve against the request data", async () => {
   assertEquals(texts(doc.nodes), ["Hello Avery, of Leeds."]);
 });
 
+test("a chart's alt resolves its tokens against the request data", async () => {
+  const doc = await resolveDocument(
+    published([{
+      id: "revenue",
+      kind: "graph",
+      mode: "static",
+      graphType: "bar",
+      alt: "Revenue rose {{data.growth}}%",
+      data: { series: [{ values: [1] }] },
+    } as DocumentNode]),
+    engineState({ growth: 40 }),
+  );
+
+  assertEquals((doc.nodes[0] as GraphNode).alt, "Revenue rose 40%");
+});
+
 test("only the arm whose condition holds survives", async () => {
   const nodes = [
     paragraph("arrears", "You owe money.", {
@@ -98,6 +116,30 @@ test("a condition on a section takes its children with it", async () => {
   assertEquals(doc.nodes, []);
 });
 
+test("a stored repeat binds its position when it names one, and restores it", async () => {
+  const state = engineState({
+    visits: [{ label: "A", kept: true }, { label: "B", kept: false }, { label: "C", kept: true }],
+  });
+  const doc = await resolveDocument(
+    published([
+      {
+        id: "visits",
+        kind: "repeat",
+        source: { scope: "data", path: "visits" },
+        as: "visit",
+        indexAs: "index",
+        positionAs: "position",
+        where: { type: "truthy", ref: { scope: "ctx", path: "visit.kept" } },
+        children: [paragraph("visit", "{{ctx.position}}/{{ctx.index}}: {{ctx.visit.label}}")],
+      },
+    ]),
+    state,
+  );
+
+  assertEquals(texts(doc.nodes), ["1/0: A", "2/2: C"]);
+  assertEquals(state.ctx.position, undefined);
+});
+
 test("a repeat is walked once per entry, with ids suffixed by position", async () => {
   const doc = await resolveDocument(
     published([
@@ -119,6 +161,23 @@ test("a repeat is walked once per entry, with ids suffixed by position", async (
     "Visit 1: Second",
     "Visit 2: Third",
   ]);
+});
+
+test("a repeat reads its source by scope: derived and ctx, not only the provider", async () => {
+  const loop = (scope: "derived" | "ctx") =>
+    published([
+      {
+        id: "rows",
+        kind: "repeat",
+        source: { scope, path: "rows" },
+        as: "row",
+        indexAs: "index",
+        children: [paragraph("row", "{{ctx.row}}")],
+      },
+    ]);
+  const derivedState = { ...engineState({}), derived: { rows: ["a", "b"] } };
+  assertEquals(texts((await resolveDocument(loop("derived"), derivedState)).nodes), ["a", "b"]);
+  assertEquals(texts((await resolveDocument(loop("ctx"), engineState({ rows: ["c"] }))).nodes), ["c"]);
 });
 
 test("a repeat leaves no structure of its own behind", async () => {
@@ -382,4 +441,241 @@ test("a shape produced by a loop gives each pass its own ids", async () => {
   assertEquals(doc.nodes.map((node) => node.id), ["banner-0", "banner-1"]);
   assertEquals(lines.map((node) => node.id), ["banner-line-0", "banner-line-1"]);
   assertEquals(texts(lines), ["First", "Second"]);
+});
+
+function generatedChart(answer: unknown, own: Partial<GraphNode> = {}): Promise<DocumentModel> {
+  const state = engineState({});
+  state.aiClient = {
+    generateParagraph: () => "",
+    generateGraph: () => answer as AiGraphResult,
+  };
+
+  return resolveDocument(
+    published([{
+      id: "trend",
+      kind: "graph",
+      mode: "dynamic",
+      graphType: "bar",
+      prompts: [{ kind: "general", text: "Plot it." }],
+      ...own,
+    } as DocumentNode]),
+    state,
+  );
+}
+
+function graphOf(doc: DocumentModel): GraphNode {
+  const node = doc.nodes[0];
+  if (node?.kind !== "graph") throw new Error("expected one graph");
+  return node;
+}
+
+test("a generated chart's numbers written as text are read as numbers", async () => {
+  const doc = await generatedChart({
+    data: {
+      categories: [2025, "2026"],
+      series: [{ label: "Paid", values: ["12", " 3.5 ", null], sizes: ["2"] }],
+    },
+  });
+
+  assertEquals(graphOf(doc).data, {
+    categories: ["2025", "2026"],
+    series: [{ label: "Paid", values: [12, 3.5, null], sizes: [2] }],
+  });
+});
+
+test("an absent caption, data or type keeps the node's own", async () => {
+  const kept = graphOf(
+    await generatedChart({}, {
+      graphType: "line",
+      caption: "Own caption",
+      data: { series: [{ values: [9] }] },
+    }),
+  );
+
+  assertEquals(kept.graphType, "line");
+  assertEquals(kept.caption, "Own caption");
+  assertEquals(kept.data, { series: [{ values: [9] }] });
+
+  const partial = graphOf(
+    await generatedChart(
+      { caption: null, data: { series: [{ values: [1] }] } },
+      { caption: "Own caption" },
+    ),
+  );
+
+  assertEquals(partial.caption, "Own caption");
+  assertEquals(partial.graphType, "bar");
+  assertEquals(partial.data, { series: [{ values: [1] }] });
+});
+
+test("a well-formed chart answer comes back as it was given", async () => {
+  const answer = {
+    graphType: "pie",
+    data: {
+      categories: ["a", "b"],
+      series: [{ label: "Share", values: [1, null], color: "FF0000" }],
+    },
+    caption: "Split",
+  };
+  const before = structuredClone(answer);
+
+  const graph = graphOf(await generatedChart(answer));
+
+  assertEquals(graph.graphType, "pie");
+  assertEquals(graph.data, before.data as GraphNode["data"]);
+  assertEquals(graph.caption, "Split");
+  assertEquals(answer, before);
+});
+
+test("a generated chart that cannot be plotted names the node and the field", async () => {
+  const cases: Array<[unknown, string]> = [
+    [undefined, 'Dynamic graph "trend" got an answer it cannot plot: it is not an object.'],
+    [{ graphType: "pyramid" }, 'graphType "pyramid" is not a chart type.'],
+    [{ graphType: "toString" }, 'graphType "toString" is not a chart type.'],
+    [{ data: [1, 2] }, "data is not an object."],
+    [{ data: { series: "1,2,3" } }, "data.series is not an array."],
+    [{ data: { series: [{ label: "x" }] } }, "data.series[0].values is not an array."],
+    [
+      { data: { series: [{ values: [1, "twelve"] }] } },
+      'data.series[0].values[1] is "twelve", not a number.',
+    ],
+    [{ data: { series: [{ values: [""] }] } }, 'data.series[0].values[0] is "", not a number.'],
+    [{ data: { categories: [{}], series: [] } }, "data.categories[0] is {}, not text."],
+    [{ caption: 42 }, "caption is not text."],
+  ];
+
+  for (const [answer, expected] of cases) {
+    await assertRejectsWith(() => generatedChart(answer), expected);
+  }
+});
+
+test("a chart client that throws is not caught", async () => {
+  const state = engineState({});
+  state.aiClient = {
+    generateParagraph: () => "",
+    generateGraph: () => {
+      throw new Error("model down");
+    },
+  };
+
+  await assertRejectsWith(
+    () =>
+      resolveDocument(
+        published([{
+          id: "trend",
+          kind: "graph",
+          mode: "dynamic",
+          graphType: "bar",
+          prompts: [{ kind: "general", text: "Plot it." }],
+        } as DocumentNode]),
+        state,
+      ),
+    "model down",
+  );
+});
+
+test("a variant resolves per entry of a repeat", async () => {
+  const doc = await resolveDocument(
+    published([
+      {
+        id: "lines",
+        kind: "repeat",
+        source: { scope: "data", path: "lines" },
+        as: "line",
+        indexAs: "index",
+        children: [paragraph("row", "{{ctx.line.desc}}", { variant: "{{ctx.line.status}}" })],
+      },
+    ]),
+    engineState({ lines: [{ desc: "A", status: "overdue" }, { desc: "B", status: "paid" }] }),
+  );
+
+  assertEquals(doc.nodes.map((node) => node.variant), ["overdue", "paid"]);
+  assertEquals(ids(doc.nodes), ["row-0", "row-1"]);
+});
+
+test("a variant with no token, and a node with none, come back as they were", async () => {
+  const doc = await resolveDocument(
+    published([paragraph("a", "x", { variant: "band" }), paragraph("b", "x")]),
+    engineState({}),
+  );
+
+  assertEquals(doc.nodes[0].variant, "band");
+  assertEquals("variant" in doc.nodes[1], false);
+});
+
+test("a variant in the furniture resolves too", async () => {
+  const doc = await resolveDocument(
+    { ...published([]), footer: [paragraph("f", "x", { variant: "{{data.tier}}" })] },
+    engineState({ tier: "gold" }),
+  );
+
+  assertEquals(doc.footer?.[0].variant, "gold");
+});
+
+test("a container's own variant resolves", async () => {
+  const doc = await resolveDocument(
+    published([
+      {
+        id: "cell",
+        kind: "tableCell",
+        variant: "{{data.state}}",
+        children: [paragraph("p", "x")],
+      } as DocumentNode,
+    ]),
+    engineState({ state: "paid" }),
+  );
+
+  assertEquals(doc.nodes[0].variant, "paid");
+});
+
+const gt0 = {
+  type: "compare",
+  operator: "gt",
+  left: { type: "ref", ref: { scope: "data", path: "balanceDue" } },
+  right: { type: "literal", value: 0 },
+} as const;
+
+test("even-page furniture resolves like the rest of the furniture", async () => {
+  const doc = await resolveDocument(
+    {
+      ...published([]),
+      evenHeader: [paragraph("eh", "Ref {{data.reference}}")],
+      evenFooter: [
+        paragraph("ef", "Due {{derived.due}}", {
+          derivers: [{
+            name: "currencyLabel",
+            output: "due",
+            inputs: [{ type: "ref", ref: { scope: "data", path: "balanceDue" } }],
+          }],
+        }),
+      ],
+    },
+    engineState({ reference: "INV-1", balanceDue: 240 }),
+    {
+      derivers: createDeriverRegistry({
+        currencyLabel: ([amount]) => `£${Number(amount).toFixed(2)}`,
+      }),
+    },
+  );
+
+  assertEquals(texts(doc.evenHeader!), ["Ref INV-1"]);
+  assertEquals(texts(doc.evenFooter!), ["Due £240.00"]);
+});
+
+test("absent even furniture stays absent, and an empty one stays empty", async () => {
+  const absent = await resolveDocument(published([]), engineState({}));
+  const empty = await resolveDocument({ ...published([]), evenHeader: [] }, engineState({}));
+
+  assertEquals(absent.evenHeader, undefined);
+  assertEquals(absent.evenFooter, undefined);
+  assertEquals(empty.evenHeader, []);
+});
+
+test("a condition in even furniture is evaluated per document", async () => {
+  const model = { ...published([]), evenFooter: [paragraph("ef", "Owing", { when: gt0 })] };
+  const clear = await resolveDocument(model, engineState({ balanceDue: 0 }));
+  const owing = await resolveDocument(model, engineState({ balanceDue: 240 }));
+
+  assertEquals(clear.evenFooter, []);
+  assertEquals(owing.evenFooter!.length, 1);
 });
