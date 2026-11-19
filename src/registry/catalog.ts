@@ -1127,6 +1127,65 @@ export const COMPONENTS: RegistryComponent[] = [
   },
   {
     kind: "component",
+    id: "statement-of-account",
+    title: "Statement of account",
+    summary: "Every transaction in a period with a running balance, and what the closing balance means.",
+    detail:
+      "A balance-forward statement: the opening balance as you state it, never " +
+      "rebuilt from older rows, then every invoice, credit note, payment, refund " +
+      "and adjustment dated inside the period with a running balance. Invoices and " +
+      "refunds are debits, payments and credit notes are credits, so a credit note " +
+      "is never a negative invoice and both columns add up. On the same day an " +
+      "invoice prints before the payment that settles it, so the balance never " +
+      "dips into credit first. The running balance is kept unrounded and each " +
+      "figure rounded half away from zero to the currency's minor unit, so the " +
+      "last line equals the closing balance; a closing balance you supply is " +
+      "checked against it and a mismatch fails the build. The closing sentence " +
+      "says the amount due, that the account is clear, or that a credit balance " +
+      "is in the customer's favour. Mixed currencies are refused, and an empty " +
+      "period prints the opening balance and says there were no transactions. " +
+      "All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "statement", "account", "ledger", "table", "deriver", "branching", "section"],
+    exports: ["StatementOfAccount"],
+    dataFields: [
+      { path: "statement.currency", type: "string", summary: "ISO 4217 code. Sets the decimals. Required." },
+      { path: "statement.periodStart", type: "string", summary: "ISO 8601 first day covered, inclusive. Required." },
+      { path: "statement.statementDate", type: "string", summary: "ISO 8601 last day covered, inclusive. Required." },
+      { path: "statement.openingBalance", type: "number", summary: "Balance brought forward in major units; negative is in credit. Required." },
+      { path: "statement.closingBalance", type: "number | undefined", summary: "Your ledger's closing balance, checked to half a minor unit. Missing means no check." },
+      { path: "statement.dueBy", type: "string | undefined", summary: "ISO 8601 due date for an amount owed. Ignored unless owing." },
+      {
+        path: "statement.entries",
+        type: 'Array<{ type: "invoice" | "credit-note" | "payment" | "refund" | "adjustment"; date: string; number: string; amount: number; currency?: string; reference?: string; description?: string }>',
+        summary: "Every document, any order; only those inside the period print. Amounts positive except a credit adjustment. Missing or empty prints no transactions.",
+      },
+    ],
+    files: node("statement-of-account", { deriver: true }),
+    previewData: {
+      statement: {
+        currency: "GBP",
+        periodStart: "2026-10-01",
+        statementDate: "2026-10-31",
+        openingBalance: 18452.75,
+        closingBalance: 116828.33,
+        dueBy: "2026-11-30",
+        entries: [
+          // Payment listed before the invoice it settles, on the same day, so the preview shows the ordering rule.
+          { type: "payment", date: "2026-10-03", number: "PAY-2026-0098211", reference: "BACS 20261003-HSBC-77120", amount: 18452.75, description: "Payment received, thank you" },
+          { type: "invoice", date: "2026-10-03", number: "INV-2026-104518", reference: "PO-4500098123-CC-EMEA-FIN", amount: 148926.40, description: "Managed infrastructure and 24/7 platform support, October 2026" },
+          { type: "credit-note", date: "2026-10-14", number: "CN-2026-002217", reference: "INV-2026-104518", amount: 12450.00, description: "Service credit for the 6 October outage under the availability commitment" },
+          { type: "adjustment", date: "2026-10-20", number: "ADJ-2026-000341", amount: 1286.33, description: "Late payment interest under the Late Payment of Commercial Debts (Interest) Act 1998" },
+          { type: "payment", date: "2026-10-24", number: "PAY-2026-0101876", reference: "CHAPS 20261024-BARC-00481", amount: 120000.00 },
+          { type: "refund", date: "2026-10-28", number: "RF-2026-000057", reference: "Overpayment on INV-2026-099874", amount: 2315.60 },
+          { type: "invoice", date: "2026-10-28", number: "INV-2026-106002", amount: 96750.00, description: "Professional services: data migration and cutover, phase 2 of 3" },
+        ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
     id: "bank-transfer-details",
     title: "Bank transfer details",
     summary: "The one way to pay that fits this payer, checked, with a reference their bank won't cut short.",
