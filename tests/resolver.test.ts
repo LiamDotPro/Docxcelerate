@@ -115,6 +115,30 @@ test("a condition on a section takes its children with it", async () => {
   assertEquals(doc.nodes, []);
 });
 
+test("a stored repeat binds its position when it names one, and restores it", async () => {
+  const state = engineState({
+    visits: [{ label: "A", kept: true }, { label: "B", kept: false }, { label: "C", kept: true }],
+  });
+  const doc = await resolveDocument(
+    published([
+      {
+        id: "visits",
+        kind: "repeat",
+        source: { scope: "data", path: "visits" },
+        as: "visit",
+        indexAs: "index",
+        positionAs: "position",
+        where: { type: "truthy", ref: { scope: "ctx", path: "visit.kept" } },
+        children: [paragraph("visit", "{{ctx.position}}/{{ctx.index}}: {{ctx.visit.label}}")],
+      },
+    ]),
+    state,
+  );
+
+  assertEquals(texts(doc.nodes), ["1/0: A", "2/2: C"]);
+  assertEquals(state.ctx.position, undefined);
+});
+
 test("a repeat is walked once per entry, with ids suffixed by position", async () => {
   const doc = await resolveDocument(
     published([

@@ -106,7 +106,11 @@ Notes worth knowing:
   `keepTogether` on a row stops Word breaking it across a page — the whole row
   moves over instead. Put it on the row a `.map()` produces and every line of an
   invoice or schedule gets it; leave it off a long table's short rows, where a
-  break between them is fine.
+  break between them is fine. To number the rows, pass the map's index to
+  `position`: `lines.map((line, i) => <Row id="line"><Cell id="no">{position(i)}</Cell>…</Row>)`
+  prints 1, 2, 3 in a preview and in every published document, counting only the
+  rows a `.filter()` kept. The bare index counts from zero and, in a published
+  filtered loop, counts the entries dropped too; `i + 1` throws while publishing.
 - **A row can be given a height**, in points: `<Row height={56}>` is a floor the
   row grows past if its cells need more, which is what a box to sign in wants.
   `heightRule="exact"` makes it a fixed depth instead — a label sheet, a form

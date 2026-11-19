@@ -701,6 +701,7 @@ async function renderLoop(
     source: { scope: props.overScope, path: props.over },
     as: props.as,
     indexAs: props.indexAs,
+    positionAs: props.positionAs,
     where: props.where,
     when,
     children: await renderYield(props.children, context, {
