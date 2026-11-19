@@ -18,6 +18,7 @@ export interface DepositCancellationOutcomeLines {
   deductions: Array<{
     /** "Specialist cleaning (including £308.40 VAT)"; US: the label alone. */
     description: string | null;
+    /** The deduction, formatted; null on an unused slot. */
     amount: string | null;
     /** "Specialist cleaning: £1,850.40, including £308.40 VAT", for stacked. */
     line: string | null;

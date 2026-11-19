@@ -50,7 +50,8 @@ export default deriver({
     const isoDay = (value: unknown, field: string): string => {
       if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}/.test(value)) fail(field + " must be an ISO 8601 date");
       const day = (value as string).slice(0, 10);
-      if (new Date(day + "T00:00:00Z").toISOString().slice(0, 10) !== day) fail(field + " is not a real date");
+      const d = new Date(day + "T00:00:00Z");
+      if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== day) fail(field + " is not a real date");
       return day;
     };
     const fmtDay = (iso: string) => dates.format(new Date(iso + "T00:00:00Z"));
@@ -270,7 +271,7 @@ export default deriver({
         : "The refund of " + fmt(refunded) + " has not been paid yet.",
       creditNote: !creditsVat || nothingPaid
         ? null
-        : order.creditNoteNumber
+        : String(order.creditNoteNumber ?? "").trim()
         ? "Credit note " + String(order.creditNoteNumber).trim() + " issued for " + fmt(refundedGross) + ", including " +
           fmt(refundedVat) + " VAT" + against + "."
         : "A credit note for " + fmt(refundedGross) + ", including " + fmt(refundedVat) + " VAT" + against +

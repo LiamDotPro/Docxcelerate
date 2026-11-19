@@ -308,6 +308,8 @@ test("bad input throws, naming the field", async () => {
   await bad({ reference: " " }, "order.reference");
   await bad({ cancelledOn: "03/11/2026" }, "order.cancelledOn");
   await bad({ cancelledOn: "2019-02-28" }, "order.cancelledOn");
+  await bad({ cancelledOn: "2026-13-01" }, "order.cancelledOn");
+  await bad({ refundPaidOn: "2026-99-99" }, "order.refundPaidOn");
   await bad({ refundPaidOn: "soon" }, "order.refundPaidOn");
   assertEquals((await run({ cancelledOn: "2019-03-01" })).cancelledOn, "1 March 2019");
   assertEquals((await run({ cancelledOn: "2019-02-28", jurisdiction: "DE" })).cancelledOn, "28 February 2019");
