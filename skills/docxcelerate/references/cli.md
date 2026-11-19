@@ -132,6 +132,7 @@ dxcl list components
 | `invoice-document-type` | What an invoice may call itself, and the dates it has to carry. |
 | `tax-treatment-notice` | The mention an invoice's tax treatment requires, or a warning when its ID is missing. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `incoterm-charges-and-customs-value` | Who pays each leg of the journey under the Incoterms rule, and the customs value that follows. |
 
 ## `dxcl show <id>`
 
