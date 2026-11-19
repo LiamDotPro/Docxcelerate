@@ -50,8 +50,28 @@ igual a cualquier profundidad, y su id no gana ningún prefijo.
 
 `title` es obligatorio, y no es decoración — se convierte en el encabezado sobre
 los hijos y en la entrada a partir de la cual se construye un índice. Un grupo
-que no quiere encabezado no quiere sección; pon los nodos directamente en el
-documento.
+que no quiere encabezado quiere `showTitle={false}`, que conserva el título como
+el nombre de la sección y no imprime nada.
+
+Un encabezado nunca se queda como lo último de una página, ni se parte entre dos:
+Word lo pasa a la página siguiente junto con lo que encabeza. Está activado sin
+pedirlo, porque un encabezado varado al pie de una página es algo que nadie nota
+en una vista previa de la primera página; un tema que quiera que los encabezados
+caigan donde caigan fija `sectionHeading: { keepWithNext: false }`.
+
+`variant` en una sección da estilo a su encabezado, no a sus hijos. El tamaño, el
+peso, `transform`, el espaciado entre letras, el color, `align`, el borde, el
+espaciado y los «keeps» del bloque se superponen al `sectionHeading` del tema, y
+sigue siendo un Título 1, de modo que un índice todavía lo encuentra. Así es como
+el encabezado de un anexo queda en mayúsculas centradas mientras los encabezados
+de las cláusulas se quedan como están:
+
+```tsx
+<Section title="Schedule 1: Services" variant="schedule">…</Section>
+```
+
+`transform: "none"` en el bloque deshace las mayúsculas que piden los
+encabezados del tema.
 
 ## Variantes
 
