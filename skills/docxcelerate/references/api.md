@@ -299,7 +299,7 @@ before any `return`.
 | `usePlaceholderData` | `() => PlaceholderData` | Stand-in values, seeded from where the component sits. |
 | `useFormat` | `(locale?: string) => Formatters` | Locale-aware formatting; defaults to the build locale (`en-GB`). |
 | `useAvailableTokens` | `() => number` | The token budget this build allotted — `2000` by default. |
-| `useDeriver` | `(deriver: DeriverModule, inputs: readonly unknown[]) => Promise<TResult>` | Runs a deriver where the data is: during a build that holds data, by the engine once published. Awaited, so it is the last hook a component calls. |
+| `useDeriver` | `(deriver, inputs) => Promise<result>` | Runs a `deriver({ name, run })` module **now** when the data is in hand. While publishing it travels on the node and the engine runs it per document, and what comes back is a stand-in. |
 
 `arrange(arrangement, { name: () => … })` is not a hook, but it is how a
 component offers more than one placement of the same lines: it builds the named
@@ -333,10 +333,8 @@ and `ask` required), and returns `{ generalPrompt, placeholder, systemPrompt?,
 infoPrompt?, negativePrompt?, examplePrompt? }` to spread on the element. Use it
 when the ask or the facts read what `await useDeriver(...)` returned —
 interpolate the result, and publishing writes `{{derived.…}}` for you. Props on
-the element win over what a hook set around it. In a published document a fact
-in `from` travels as a quoted string token, so a number reaches the model as
-`"180"`; a deriver's whole result passed as `from` travels as one token and
-arrives as its JSON.
+the element win over what a hook set around it. A deriver's whole result passed
+as `from` travels as one token and arrives as its JSON.
 
 What `aiClient.generateParagraph` returns is the paragraph itself, so return the
 text, not the provider's response object: anything but a string fails with an

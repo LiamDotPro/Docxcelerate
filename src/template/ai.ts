@@ -197,11 +197,7 @@ function toPromptDraft(config: AiConfig, caller: string): PromptDraft {
   }
 
   if (config.from !== undefined) {
-    draft.infoPrompt = typeof config.from === "string"
-      ? config.from
-      : isPublishValue(config.from)
-      ? tokenOf(config.from)
-      : describeFacts(config.from);
+    draft.infoPrompt = typeof config.from === "string" ? config.from : describeFacts(config.from);
   }
 
   const examples = collectExamples(config.example);
@@ -256,61 +252,55 @@ function collectExamples(example: string | string[] | undefined): string | undef
  *
  * A publish build hands over stand-ins rather than values, and `JSON.stringify`
  * would call the `toJSON` every stand-in answers. So each one is swapped for its
- * token before the serialiser reaches it. The token is a string, so it is quoted
- * like any other; the engine substitutes the value inside it at resolve.
+ * token before the serialiser reaches it, and the token is written unquoted, so
+ * whatever the engine substitutes — a name, a number, a whole list — lands as
+ * itself rather than as a string with JSON inside it.
  */
 function describeFacts(facts: JsonObject): string {
-  return JSON.stringify(withTokens(facts), null, 2);
-}
+  const tokens = new Set<string>();
 
-/**
- * Swaps each publish stand-in among the facts for the token it stands for.
- *
- * `JSON.stringify` reads a value's `toJSON` before any replacer sees it, and a
- * stand-in answers that as a path segment — so it has to be swapped out first.
- * Only plain objects and arrays are walked; anything else keeps its own JSON.
- */
-function withTokens(value: unknown): unknown {
-  if (isTemplateElement(value)) {
-    throw new Error(
-      "`from` was handed the result of a `.map()` while publishing. A `.map()` over request " +
-        "data publishes a loop, which is a run of nodes rather than a fact. Hand over the " +
-        "collection itself — `from: { lines: data.lines }` — and the model is sent every entry.",
-    );
-  }
-
-  if (isPublishValue(value)) {
-    return tokenOf(value);
-  }
-
-  if (Array.isArray(value)) {
-    return value.map(withTokens);
-  }
-
-  if (value !== null && typeof value === "object") {
-    const prototype = Object.getPrototypeOf(value);
-
-    if (prototype === Object.prototype || prototype === null) {
-      return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, withTokens(entry)]));
+  const swap = (value: unknown): unknown => {
+    if (isTemplateElement(value)) {
+      throw new Error(
+        "`from` was handed the result of a `.map()` while publishing. A `.map()` over request " +
+          "data publishes a loop, which is a run of nodes rather than a fact. Hand over the " +
+          "collection itself — `from: { lines: data.lines }` — and the model is sent every entry.",
+      );
     }
+
+    if (!isPublishValue(value)) {
+      return value;
+    }
+
+    if (publishRefOf(value)?.path === "") {
+      throw new Error(
+        "`from` was handed the whole request data while publishing. The engine fills in a " +
+          "named field, not the request itself, so name the facts the node writes from: " +
+          "`from: { period: data.period, lines: data.lines }`.",
+      );
+    }
+
+    // String() rather than the ref, so a filtered collection refuses with its own message.
+    const token = String(value);
+    tokens.add(token);
+    return token;
+  };
+
+  const written = JSON.stringify(swap(facts), (_key, value: unknown) => {
+    if (value === null || typeof value !== "object") {
+      return value;
+    }
+
+    return Array.isArray(value)
+      ? value.map(swap)
+      : Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, swap(entry)]));
+  }, 2);
+
+  let unquoted = written;
+
+  for (const token of tokens) {
+    unquoted = unquoted.replaceAll(JSON.stringify(token), token);
   }
 
-  return value;
-}
-
-/**
- * The token a stand-in stands for, refusing the whole request data, which names no field.
- *
- * String() rather than the ref, so a filtered collection refuses with its own message.
- */
-function tokenOf(value: unknown): string {
-  if (publishRefOf(value)?.path === "") {
-    throw new Error(
-      "`from` was handed the whole request data while publishing. The engine fills in a " +
-        "named field, not the request itself, so name the facts the node writes from: " +
-        "`from: { period: data.period, lines: data.lines }`.",
-    );
-  }
-
-  return String(value);
+  return unquoted;
 }

@@ -930,7 +930,7 @@ test("published, the prompts carry the tokens the stand-in wrote", async () => {
   const node = paragraphOf(published.nodes);
 
   assertEquals(promptOf(node.prompts, "general"), "Say that {{derived.lineFacts.count}} line is billed.");
-  assertEquals(promptOf(node.prompts, "info"), '{\n  "first": "{{derived.lineFacts.first}}"\n}');
+  assertEquals(promptOf(node.prompts, "info"), '{\n  "first": {{derived.lineFacts.first}}\n}');
   assertEquals(node.derivers?.map((invocation) => invocation.name), ["lineFacts"]);
 });
 
@@ -947,7 +947,11 @@ test("publishing then resolving asks the model what building directly asks", asy
   const direct = await buildWith(Reminder, { dynamicMode: "resolve", aiClient: client });
 
   assertEquals(asked.length, 2);
-  assertEquals(asked[0], asked[1]);
+  // A string filled in from request data is written unquoted, as main has always
+  // published it, so the only difference from a direct build is the quotes round it.
+  assertEquals(asked[0][0], asked[1][0]);
+  assertEquals(asked[0][1], { kind: "info", text: '{\n  "first": API build\n}' });
+  assertEquals(asked[1][1], { kind: "info", text: '{\n  "first": "API build"\n}' });
   assertEquals(paragraphOf(resolved.nodes).text, "Written.");
   assertEquals(paragraphOf(direct.nodes).text, "Written.");
 });
@@ -972,7 +976,7 @@ test("useAi's facts from request data publish as tokens", async () => {
     return <Paragraph id="summary" />;
   });
 
-  assertEquals(promptOf(paragraphOf(published.nodes).prompts, "info"), '{\n  "period": "{{data.period}}"\n}');
+  assertEquals(promptOf(paragraphOf(published.nodes).prompts, "info"), '{\n  "period": {{data.period}}\n}');
 });
 
 test("aiProps refuses a missing placeholder, under its own name", () => {
