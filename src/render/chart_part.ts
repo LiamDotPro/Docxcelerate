@@ -686,8 +686,8 @@ function categoryAxisXml(
 ): string {
   return `<c:catAx><c:axId val="${CATEGORY_AXIS_ID}"/><c:scaling><c:orientation val="${
     reversed ? "maxMin" : "minMax"
-  }"/></c:scaling><c:delete val="0"/><c:axPos val="${position}"/>` +
-    (webbed ? gridlinesXml(palette) : "") +
+  }"/></c:scaling>${deleteXml(node)}<c:axPos val="${position}"/>` +
+    (webbed ? gridlinesXml(node, palette) : "") +
     axisTitleXml(node.categoryAxisTitle, palette, position === "l") +
     `<c:numFmt formatCode="General" sourceLinked="1"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>` +
     axisLineXml(palette) +
@@ -701,7 +701,7 @@ function scatterCategoryAxisXml(
   palette: ChartPalette,
   position: string,
 ): string {
-  return `<c:valAx><c:axId val="${CATEGORY_AXIS_ID}"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="${position}"/>` +
+  return `<c:valAx><c:axId val="${CATEGORY_AXIS_ID}"/><c:scaling><c:orientation val="minMax"/></c:scaling>${deleteXml(node)}<c:axPos val="${position}"/>` +
     axisTitleXml(node.categoryAxisTitle, palette, position === "l") +
     `<c:numFmt formatCode="General" sourceLinked="1"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>` +
     axisLineXml(palette) +
@@ -728,8 +728,8 @@ function valueAxisXml(
   checkValueAxisBounds(node);
   const step = node.valueAxisStep;
 
-  return `<c:valAx><c:axId val="${VALUE_AXIS_ID}"/>${valueScalingXml(node)}<c:delete val="0"/><c:axPos val="${position}"/>` +
-    gridlinesXml(palette) +
+  return `<c:valAx><c:axId val="${VALUE_AXIS_ID}"/>${valueScalingXml(node)}${deleteXml(node)}<c:axPos val="${position}"/>` +
+    gridlinesXml(node, palette) +
     axisTitleXml(node.valueAxisTitle, palette, position === "l") +
     `<c:numFmt formatCode="${escapeXml(format ?? "General")}" sourceLinked="${
       format === undefined ? 1 : 0
@@ -794,8 +794,21 @@ function valueAxisFormat(node: GraphNode): string | undefined {
   return node.stacked === "percent" ? "0%" : undefined;
 }
 
-/** The grid a chart is ruled with, in the theme's own hairline. */
-function gridlinesXml(palette: ChartPalette): string {
+/**
+ * An axis's `c:delete`: how a chart drawn without axes says so.
+ *
+ * A deleted axis rather than a missing one. Every plot group names two
+ * `c:axId`s, and a part whose axes are not there is one Word will not open.
+ */
+function deleteXml(node: GraphNode): string {
+  return `<c:delete val="${node.axes === false ? 1 : 0}"/>`;
+}
+
+/** The grid a chart is ruled with, in the theme's own hairline; none where the document asked for none. */
+function gridlinesXml(node: GraphNode, palette: ChartPalette): string {
+  if (node.gridlines === false) {
+    return "";
+  }
   return `<c:majorGridlines><c:spPr><a:ln w="${GRIDLINE_WIDTH_EMU}" cap="flat"><a:solidFill><a:srgbClr val="${palette.rule}"/></a:solidFill></a:ln></c:spPr></c:majorGridlines>`;
 }
 

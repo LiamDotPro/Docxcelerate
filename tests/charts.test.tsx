@@ -866,6 +866,8 @@ test("a chart written as JSX carries every drawing decision into the node", asyn
             valueAxisMax={100}
             valueAxisStep={2}
             dataLabels
+            axes={false}
+            gridlines={false}
             width={320}
             height={200}
             align="right"
@@ -894,10 +896,79 @@ test("a chart written as JSX carries every drawing decision into the node", asyn
   assertEquals(node?.valueAxisMax, 100);
   assertEquals(node?.valueAxisStep, 2);
   assertEquals(node?.dataLabels, true);
+  assertEquals(node?.axes, false);
+  assertEquals(node?.gridlines, false);
   assertEquals(node?.width, 320);
   assertEquals(node?.height, 200);
   assertEquals(node?.align, "right");
   assertEquals(node?.data?.series[1].values[3], 27);
+});
+
+test("a chart that sets neither axes nor gridlines carries no such keys", async () => {
+  const doc = await buildDocument(
+    template(
+      <Document id="doc" title="Doc">
+        <Graph id="plain" graphType="line" data={{ categories: quarters, series: twoSeries }} />
+      </Document>,
+    ),
+    {},
+    { branchMode: "decide", dynamicMode: "placeholder" },
+  );
+  const node = doc.nodes[0] as GraphNode;
+
+  assertEquals(node.kind, "graph");
+  assertEquals(Object.hasOwn(node, "axes"), false);
+  assertEquals(Object.hasOwn(node, "gridlines"), false);
+});
+
+// ---------------------------------------------------------------------------
+// Axes and gridlines
+// ---------------------------------------------------------------------------
+
+const count = (xml: string, tag: string) => [...xml.matchAll(new RegExp(tag, "g"))].length;
+
+test("a chart draws both axes and its grid unless it is told otherwise", async () => {
+  const xml = await chartXml(documentOf([chart()]));
+
+  assertEquals(count(xml, '<c:delete val="0"/>'), 2);
+  assertEquals(xml.includes('<c:delete val="1"/>'), false);
+  assertEquals(count(xml, "<c:majorGridlines>"), 1);
+});
+
+test("a chart without axes deletes them rather than dropping them", async () => {
+  const xml = await chartXml(documentOf([chart({ axes: false })]));
+
+  assertEquals(count(xml, '<c:delete val="1"/>'), 2);
+  assertEquals(xml.includes('<c:delete val="0"/>'), false);
+  assertStringIncludes(xml, "<c:catAx>");
+  assertStringIncludes(xml, "<c:valAx>");
+  assertEquals(count(xml, "<c:majorGridlines>"), 1);
+});
+
+test("a chart without gridlines keeps its axes", async () => {
+  const xml = await chartXml(documentOf([chart({ gridlines: false })]));
+
+  assertEquals(xml.includes("<c:majorGridlines>"), false);
+  assertEquals(count(xml, '<c:delete val="0"/>'), 2);
+});
+
+test("a radar without gridlines loses its spokes and its rings both", async () => {
+  const xml = await chartXml(documentOf([chart({ graphType: "radar", gridlines: false })]));
+
+  assertEquals(count(xml, "<c:majorGridlines>"), 0);
+});
+
+test("a scatter without axes deletes both of its measured axes", async () => {
+  const xml = await chartXml(documentOf([chart({ graphType: "scatter", axes: false })]));
+
+  assertEquals(count(xml, '<c:delete val="1"/>'), 2);
+});
+
+test("a pie ignores axes and gridlines, having neither", async () => {
+  assertEquals(
+    await chartXml(documentOf([chart({ graphType: "pie", axes: false, gridlines: false })])),
+    await chartXml(documentOf([chart({ graphType: "pie" })])),
+  );
 });
 
 // ---------------------------------------------------------------------------

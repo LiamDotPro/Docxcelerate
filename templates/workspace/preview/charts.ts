@@ -30,6 +30,9 @@ import type { ChartDrawer, PreviewChart, PreviewChartSeries } from "docxcelerate
 /** A point, in the CSS pixels a browser draws in. */
 const PX_PER_PT = 96 / 72;
 
+/** The room left round a plot whose axes are deleted, which Word lets fill its frame. */
+const BARE_GUTTER = { left: 4, right: 4, top: 4, bottom: 4 };
+
 /** How much room the axis labels are given, in pixels. */
 const GUTTER = { left: 56, right: 18, top: 16, bottom: 18 };
 
@@ -82,18 +85,23 @@ function optionFor(chart: PreviewChart): echarts.EChartsOption {
     : chart.series.some((series) => series.label !== undefined);
 
   const text = { color: ink, fontFamily: font, fontSize: 11 };
+  // Deleted in the file: Word draws neither the line nor the labels.
+  const bare = chart.axes ? {} : { axisLine: { show: false }, axisLabel: { show: false } };
+  const gutter = chart.axes ? GUTTER : BARE_GUTTER;
   const values = {
-    ...valueAxis(rule, text, chart.numberFormat),
+    ...valueAxis(rule, text, chart.numberFormat, chart.gridlines),
     ...(chart.valueAxisMin === undefined ? {} : { min: chart.valueAxisMin }),
     ...(chart.valueAxisMax === undefined ? {} : { max: chart.valueAxisMax }),
     ...(chart.valueAxisStep === undefined ? {} : { interval: chart.valueAxisStep }),
+    ...bare,
   };
   // A scatter and a bubble count along numbers on both axes, so what stands
   // where the categories would is a second measured axis rather than a named
   // one.
-  const categories = chart.graphType === "scatter" || chart.graphType === "bubble"
+  const categoryAxisOptions = chart.graphType === "scatter" || chart.graphType === "bubble"
     ? valueAxis(rule, text, undefined, false)
     : categoryAxis(chart, rule, text);
+  const categories = { ...categoryAxisOptions, ...bare };
 
   return {
     // A preview is a still picture of a document. A chart that animated into
@@ -113,11 +121,11 @@ function optionFor(chart: PreviewChart): echarts.EChartsOption {
     ...(radar ? { radar: radarFor(chart, rule, text) } : {}),
     ...(cartesian ? {
       grid: {
-        left: (horizontal ? GUTTER.left + 20 : GUTTER.left) +
+        left: (horizontal && chart.axes ? gutter.left + 20 : gutter.left) +
           (chart.valueAxisTitle === undefined && chart.categoryAxisTitle === undefined ? 0 : 16),
-        right: GUTTER.right,
-        top: GUTTER.top + (chart.title === undefined ? 0 : 22),
-        bottom: GUTTER.bottom + (chart.legend === "none" || !named ? 0 : 22) +
+        right: gutter.right,
+        top: gutter.top + (chart.title === undefined ? 0 : 22),
+        bottom: gutter.bottom + (chart.legend === "none" || !named ? 0 : 22) +
           (chart.categoryAxisTitle === undefined && chart.valueAxisTitle === undefined ? 0 : 18),
         containLabel: true,
       },
@@ -212,9 +220,9 @@ function radarFor(chart: PreviewChart, rule: string, text: AxisText) {
     })),
     center: ["50%", chart.title === undefined ? "52%" : "56%"] as [string, string],
     radius: "62%",
-    axisName: text,
-    axisLine: { lineStyle: { color: rule } },
-    splitLine: { lineStyle: { color: rule } },
+    axisName: chart.axes ? text : { show: false },
+    axisLine: chart.gridlines ? { lineStyle: { color: rule } } : { show: false },
+    splitLine: chart.gridlines ? { lineStyle: { color: rule } } : { show: false },
     // The alternating bands ECharts fills a web with by default are chart junk
     // — they say nothing the rings do not — and the file asks for no such fill.
     splitArea: { show: false },

@@ -390,6 +390,10 @@ export interface GraphProps extends CommonElementProps, PromptProps {
    * exists only on a pie or a doughnut.
    */
   dataLabels?: boolean | GraphDataLabels;
+  /** Whether the chart draws its axes. `false` deletes both: no line, no labels, the plot fills the frame. */
+  axes?: boolean;
+  /** Whether the plot is ruled with gridlines. `false` draws no grid; independent of `axes`. */
+  gridlines?: boolean;
 }
 
 /** Props for the `<Table>` element. */
