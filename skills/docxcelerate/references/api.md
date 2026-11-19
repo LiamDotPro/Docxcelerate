@@ -514,6 +514,8 @@ const doc = await resolveDocument(
 | `locale` | the document's | A BCP 47 tag; an invalid one throws |
 | `availableTokens` | `2000` | What `{{ctx.availableTokens}}` prints — what `useAvailableTokens()` returned in the build |
 
+A locale whose script is Chinese, Japanese or Korean is also written to Word's East Asian language slot, and an Arabic or Hebrew one to its complex-script slot, so Word proofs the text in that language.
+
 The third argument is `{ derivers?: DeriverRegistry }`. `artifact.derivers` is
 the bundle of the derivers the document references, and
 `createDeriverRegistryFromBundle` loads it over the built-in `sum`, `join` and
@@ -699,7 +701,10 @@ from 0 (default 1), and how it is written, `"decimal"` (default),
 appendix that continues its parent's numbering or front matter numbered
 i, ii, iii),
 `typography` (body and heading font, body size in pt, line
-height, colour), `paragraph` (spacing after, in pt), and `title` and
+height, colour, and optionally `eastAsiaFont` — the face for Chinese, Japanese
+and Korean characters — and `complexScriptFont` — the face for Arabic and
+Hebrew; omitted, those characters are asked for in the body or heading face,
+which a Latin font cannot draw. A block's `font` changes only the Latin face), `paragraph` (spacing after, in pt), and `title` and
 `sectionHeading` text blocks (font size, weight, spacing before and after, and
 `keepWithNext`). A heading is kept on the page with whatever follows it and never
 split across a page; that is on without asking, and

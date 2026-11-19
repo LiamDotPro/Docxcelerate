@@ -305,6 +305,12 @@ on a theme with `themeStyle(theme, { page: { size: "LEGAL" } })`. In landscape,
 auto columns, bleeds and unsized shapes and charts take the wider column on
 their own.
 
+A document in Japanese, Chinese or Korean names its face for those characters:
+`themeStyle(theme, { typography: { eastAsiaFont: "Yu Mincho" } })`; Arabic or
+Hebrew text takes `complexScriptFont`. Without it Word substitutes a face of
+its own, because a Latin font has no such characters. Set the project's
+`locales` too (`["ja-JP"]`), and Word proofs the text in that language.
+
 Reach for the registry first when a request names something ordinary — a
 letterhead, an address block, a signature, small print. Every entry is listed in
 [references/cli.md](references/cli.md) and browsable at

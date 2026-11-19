@@ -34,7 +34,7 @@ import {
   VerticalAlign,
   WidthType,
 } from "docx";
-import type { IParagraphStyleOptions, IParagraphStylePropertiesOptions } from "docx";
+import type { IFontAttributesProperties, IParagraphStyleOptions, IParagraphStylePropertiesOptions } from "docx";
 import type {
   DocumentBlockStyle,
   DocumentModel,
@@ -643,7 +643,7 @@ function blockRun(
   color?: string;
   allCaps?: boolean;
   characterSpacing?: number;
-  font?: string;
+  font?: IFontAttributesProperties;
 } {
   if (!block) {
     return {};
@@ -659,7 +659,7 @@ function blockRun(
     characterSpacing: block.letterSpacingEm === undefined
       ? undefined
       : Math.round(block.letterSpacingEm * sizePt * 20),
-    font: block.font,
+    font: block.font === undefined ? undefined : runFonts(block.font, style),
   };
 }
 
@@ -1771,7 +1771,7 @@ function chartCaption(
         // that names a `chartCaption` block says it properly and wins.
         size: Math.round((block?.fontSizePt ?? style.typography.bodySizePt - 1) * 2),
         color: block?.color ?? style.palette?.muted,
-        font: block?.font ?? style.typography.bodyFont,
+        font: runFonts(block?.font ?? style.typography.bodyFont, style),
       }),
     ],
     alignment: textAlignmentOf(align ?? block?.align ?? "center"),
@@ -2238,17 +2238,54 @@ function columnWidths(
   return fixed.map((width) => (width === 0 ? each : width));
 }
 
+/**
+ * A Latin face, with the theme's East Asian and complex-script faces kept in
+ * their own slots — a plain name would put the Latin face in all four.
+ */
+function runFonts(name: string, style: DocumentStyle): IFontAttributesProperties {
+  const { eastAsiaFont = name, complexScriptFont = name } = style.typography;
+  return { ascii: name, hAnsi: name, eastAsia: eastAsiaFont, cs: complexScriptFont };
+}
+
+/** Scripts Word proofs against `w:eastAsia`, and against `w:bidi`. */
+const EAST_ASIAN_SCRIPTS = new Set(["Hans", "Hant", "Jpan", "Kore"]);
+const COMPLEX_SCRIPTS = new Set(["Arab", "Hebr"]);
+
+/**
+ * The document's language in each slot Word reads it from. `w:val` stays as it
+ * was, so a Latin-script document's file is unchanged; a Japanese or Arabic one
+ * gains the slot Word proofs that script against.
+ */
+function languageOf(locale: string | undefined) {
+  if (locale === undefined) return undefined;
+  const script = scriptOf(locale);
+  return {
+    value: locale,
+    eastAsia: script !== undefined && EAST_ASIAN_SCRIPTS.has(script) ? locale : undefined,
+    bidirectional: script !== undefined && COMPLEX_SCRIPTS.has(script) ? locale : undefined,
+  };
+}
+
+function scriptOf(locale: string): string | undefined {
+  try {
+    return new Intl.Locale(locale).maximize().script;
+  } catch {
+    // A stored model's locale was never checked here; it keeps w:val alone.
+    return undefined;
+  }
+}
+
 function createDocxStyles(style: DocumentStyle, locale: string | undefined) {
   return {
     default: {
       document: {
         run: {
-          font: style.typography.bodyFont,
+          font: runFonts(style.typography.bodyFont, style),
           size: ptToHalfPoints(style.typography.bodySizePt),
           color: style.typography.color,
           // What Word spell-checks and hyphenates against. Left off when the
           // document never said, so Word keeps using the reader's own default.
-          language: locale === undefined ? undefined : { value: locale },
+          language: languageOf(locale),
         },
         paragraph: {
           spacing: {
@@ -2268,7 +2305,7 @@ function createDocxStyles(style: DocumentStyle, locale: string | undefined) {
 function textBlockStyle(style: DocumentStyle, block: DocumentTextBlockStyle) {
   return {
     run: {
-      font: style.typography.headingFont,
+      font: runFonts(style.typography.headingFont, style),
       size: ptToHalfPoints(block.fontSizePt),
       bold: block.weight === "bold",
       color: headingColor(style, block),
