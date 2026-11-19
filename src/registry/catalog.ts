@@ -1125,6 +1125,77 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "credit-note-totals",
+    title: "Credit note totals",
+    summary: "What a credit note credits, by VAT band, worked from the original invoice so it nets to zero.",
+    detail:
+      "Credits are worked from the original invoice, never from today's settings. " +
+      "Each credited line keeps the VAT rate the invoice charged, and a foreign-currency " +
+      "invoice keeps its sterling exchange rate, so a rate change since cannot credit the " +
+      "wrong VAT. A full cancellation copies the original band figures exactly rather than " +
+      "recomputing them, so the two documents net to zero. A partial return credits quantity " +
+      "times the original unit price, with VAT rounded per band. A goodwill amount is spread " +
+      "across the original VAT bands pro rata by largest remainder, so no band is credited " +
+      "more VAT than it charged. Earlier credit notes are subtracted first, and a credit " +
+      "larger than what remains in any band fails the document. Amounts print positive under " +
+      "a Credit heading, as Peppol 381 expects, never as negative invoice lines.",
+    category: "Body",
+    tags: ["credit-note", "invoice", "vat", "totals", "deriver", "table", "section"],
+    exports: ["CreditNoteTotals"],
+    dataFields: [
+      { path: "creditNote.original.number", type: "string", summary: "The invoice credited. Required." },
+      { path: "creditNote.original.issueDate", type: "string", summary: "ISO 8601 issue date of that invoice. Required." },
+      { path: "creditNote.original.currency", type: "string", summary: "ISO 4217 code of that invoice. The credit is in the same currency. Required." },
+      { path: "creditNote.original.fxToGBP", type: "number | undefined", summary: "Pounds per 1 unit of currency, as on the original. Given: VAT is also stated in sterling." },
+      { path: "creditNote.original.vatGBP", type: "number | undefined", summary: "The original's sterling VAT total, copied on a first full cancellation." },
+      {
+        path: "creditNote.original.bands",
+        type: "Array<{ vatRate: number | null; label?: string; net: number; vat: number }>",
+        summary: "The original VAT analysis, in printed order. Required.",
+      },
+      {
+        path: "creditNote.original.lines",
+        type: "Array<{ id: string; description: string; qty: number; unitNet: number; vatRate: number | null }> | undefined",
+        summary: "The original lines. Required for a lines credit.",
+      },
+      {
+        path: "creditNote.previousCredits",
+        type: "Array<{ bands: Array<{ vatRate: number | null; net: number; vat: number }> }> | undefined",
+        summary: "Earlier credit notes on this invoice, subtracted before the limit check.",
+      },
+      { path: "creditNote.credit.mode", type: '"full" | "lines" | "amount"', summary: "Cancel the remainder, return lines, or credit a lump sum." },
+      { path: "creditNote.credit.lines", type: "Array<{ id: string; qty: number }> | undefined", summary: "What is returned, for a lines credit." },
+      { path: "creditNote.credit.amount", type: "number | undefined", summary: "The VAT-inclusive sum, for an amount credit." },
+    ],
+    files: node("credit-note-totals", { deriver: true }),
+    previewData: {
+      creditNote: {
+        original: {
+          number: "SI-2026-09-004817/REV-2",
+          issueDate: "2026-09-30",
+          currency: "EUR",
+          fxToGBP: 0.8567,
+          vatGBP: 223790.6,
+          bands: [
+            { vatRate: 20, net: 1283650.0, vat: 256730.0 },
+            { vatRate: 5, net: 89880.0, vat: 4494.0 },
+            { vatRate: 0, net: 18500.0, vat: 0 },
+          ],
+          lines: [
+            { id: "L1", description: "Annual enterprise licence, Docxcelerate Document Engine, 2,500 seats, unlimited recipients", qty: 2500, unitNet: 412.75, vatRate: 20 },
+            { id: "L2", description: "Implementation and data migration services, phase two (statement and arrears templates)", qty: 186.5, unitNet: 1350, vatRate: 20 },
+            { id: "L3", description: "Printed welcome packs on recycled board, posted to every registered recipient", qty: 48000, unitNet: 1.8725, vatRate: 5 },
+            { id: "L4", description: "Accessibility audit of published templates by an accredited third party", qty: 1, unitNet: 18500, vatRate: 0 },
+          ],
+        },
+        previousCredits: [{ bands: [{ vatRate: 20, net: 41275.0, vat: 8255.0 }] }],
+        credit: { mode: "lines", lines: [{ id: "L1", qty: 300 }, { id: "L3", qty: 12000 }, { id: "L2", qty: 12.5 }] },
+      },
+    },
+    requires: [],
+  },
 
   {
     kind: "component",
