@@ -255,6 +255,12 @@ test("each outcome builds only its own section", async () => {
   const plain = await idsFor({ ...base, stage: "subsequent", asOf: "2027-01-02", firstReminder: electronic });
   assertEquals(plain.includes("be-debt-lapsed-no-charges"), true);
   assertEquals(plain.includes("be-debt-lapsed-charges"), false);
+  const incomplete = await idsFor({
+    ...base, stage: "subsequent", asOf: "2027-01-02", firstReminder: electronic, contractProvidesInterest: true,
+  });
+  assertEquals(incomplete.includes("be-debt-lapsed-interest-incomplete"), true);
+  assertEquals(incomplete.includes("be-debt-lapsed-no-charges"), false);
+  assertEquals(incomplete.includes("be-debt-lapsed-charges"), false);
   const warned = await idsFor({
     ...base, stage: "subsequent", asOf: "2027-01-02", firstReminder: electronic,
     contractProvidesDamages: true, contractProvidesInterest: true,
