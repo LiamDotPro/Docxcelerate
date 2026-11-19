@@ -78,6 +78,8 @@ export interface PreviewChart {
   readonly numberFormat?: string;
   /** Whether each point prints its own figure, and which figure. */
   readonly dataLabels: "none" | "value" | "percent";
+  /** Whether the file prints the figures in a grid under the plot. */
+  readonly dataTable: boolean;
   /** What the category axis counts along. */
   readonly categoryAxisTitle?: string;
   /** What the value axis measures. */
@@ -354,6 +356,7 @@ function readChart(xml: string): Omit<PreviewChart, "widthPt" | "heightPt"> {
     stacked: stackingOf(xml),
     numberFormat: formatOf(attribute(element(valueAxis, "c:numFmt") ?? "", "formatCode")),
     dataLabels: labelsOf(element(xml, "c:dLbls") ?? ""),
+    dataTable: element(xml, "c:dTable") !== null,
     categoryAxisTitle: titleOf(categoryAxis),
     valueAxisTitle: titleOf(valueAxis),
     valueAxisMin: numberAttribute(element(valueAxis, "c:min") ?? "", "val"),

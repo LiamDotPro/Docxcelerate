@@ -376,6 +376,14 @@ export interface GraphProps extends CommonElementProps, PromptProps {
   valueAxisStep?: number;
   /** Whether each point prints its own figure. Worth it on a pie, rarely elsewhere. */
   dataLabels?: boolean;
+  /**
+   * Whether the exact figures are printed in a grid under the plot.
+   *
+   * Bars, lines and areas only; other chart types ignore it. The table's rows
+   * carry the series' keys, so a chart with one drops its legend unless
+   * `legend` is given.
+   */
+  dataTable?: boolean;
 }
 
 /** Props for the `<Table>` element. */

@@ -33,6 +33,9 @@ const PX_PER_PT = 96 / 72;
 /** How much room the axis labels are given, in pixels. */
 const GUTTER = { left: 56, right: 18, top: 16, bottom: 18 };
 
+/** The height of one row of the data table, in pixels. */
+const TABLE_ROW_PX = 18;
+
 /** How small the least of a bubble chart's readings is drawn, in pixels. */
 const BUBBLE_MIN_PX = 8;
 /** How large its biggest is. Word's own default frame is about this generous. */
@@ -51,15 +54,36 @@ export function createChartDrawer(): ChartDrawer {
       // The frame's own size, in the pixels its `pt` width comes to. Anything
       // else and the plot is drawn for a box it is not in.
       width: Math.round(chart.widthPt * PX_PER_PT),
-      height: Math.round(chart.heightPt * PX_PER_PT),
+      // The table is drawn under the plot, inside the same frame.
+      height: Math.round(chart.heightPt * PX_PER_PT) -
+        (chart.dataTable ? (chart.series.length + 1) * TABLE_ROW_PX : 0),
     });
 
     instance.setOption(optionFor(chart));
     const svg = instance.renderToSVGString();
     instance.dispose();
 
-    return svg;
+    return svg + dataTableHtml(chart);
   };
+}
+
+/** The figures under the plot, as Word's data table prints them. */
+function dataTableHtml(chart: PreviewChart): string {
+  if (!chart.dataTable) {
+    return "";
+  }
+
+  const escape = (text: string) => text.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+  const ink = hex(chart.textColor) ?? "#595959";
+  const cell = `border:1px solid ${hex(chart.ruleColor) ?? "#D9D9D9"};padding:0 4px;height:${TABLE_ROW_PX}px;`;
+  const row = (cells: string[]) => `<tr>${cells.map((c) => `<td style="${cell}">${escape(c)}</td>`).join("")}</tr>`;
+  const printed = (value: number | null) =>
+    value === null ? "" : chart.numberFormat === undefined ? String(value) : print(value, chart.numberFormat);
+
+  return `<table style="width:100%;border-collapse:collapse;color:${ink};font-family:${chart.font ?? "inherit"};font-size:11px">` +
+    row(["", ...chart.categories]) +
+    chart.series.map((series) => row([series.label ?? "", ...series.values.map(printed)])).join("") +
+    `</table>`;
 }
 
 /** What ECharts is asked to draw, from what the file said. */
