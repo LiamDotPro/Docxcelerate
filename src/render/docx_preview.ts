@@ -97,7 +97,7 @@ export function settleDocxPreview(
   inlinePictureWrappers(container);
   applyDoubleBorders(container);
   liftShapeText(container);
-  fillPageFields(container, model?.style?.page);
+  fillPageFields(container, model?.style?.page, model);
   seatFooters(container);
   hangListMarkers(container);
 

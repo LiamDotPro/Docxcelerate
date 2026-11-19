@@ -728,3 +728,168 @@ test("the preview frames the sheet with an outline that takes up no room", async
   assertEquals(await outline({ border: "1F3A5F" }), ["1pt solid #1F3A5F", "-25pt"]);
   assertEquals((await outline({}))[0], "");
 });
+
+// ---------------------------------------------------------------------------
+// A labelled page number
+// ---------------------------------------------------------------------------
+
+const field = (name: string) =>
+  '<w:fldChar w:fldCharType="begin"/><w:instrText xml:space="preserve">' + name + "</w:instrText>";
+
+const defaultPara = '<w:p><w:r>' + field("PAGE") +
+  '<w:fldChar w:fldCharType="separate"/><w:fldChar w:fldCharType="end"/></w:r>' +
+  '<w:r><w:t xml:space="preserve"> / </w:t></w:r><w:r>' + field("NUMPAGES") +
+  '<w:fldChar w:fldCharType="separate"/><w:fldChar w:fldCharType="end"/></w:r></w:p>';
+
+const footerOf = (node: unknown, style?: DocumentStyle) =>
+  build(<Document id="d" title="D" footer={node as never}><Paragraph id="a">One.</Paragraph></Document>, style)
+    .then((doc) => partXml(doc, "word/footer1.xml"));
+
+test("a labelled number carries its words and alignment on the node", async () => {
+  const doc = await build(
+    <Document
+      id="d"
+      title="D"
+      footer={<PageNumber id="n" prefix="Page " separator=" of " align="right" variant="folio" />}
+    >
+      <Paragraph id="a">One.</Paragraph>
+    </Document>,
+  );
+
+  assertEquals(doc.footer?.[0], {
+    id: "n",
+    kind: "pageNumber",
+    prefix: "Page ",
+    separator: " of ",
+    align: "right",
+    variant: "folio",
+  });
+});
+
+test("props left out stay off the page number node", async () => {
+  const doc = await build(
+    <Document id="d" title="D" footer={<PageNumber id="n" />}>
+      <Paragraph id="a">One.</Paragraph>
+    </Document>,
+  );
+
+  assertEquals(Object.keys(doc.footer![0]).sort(), ["id", "kind"]);
+});
+
+test("a prefix goes before the number, and the line ranges right", async () => {
+  const foot = await footerOf(<PageNumber id="n" prefix="Page " separator=" of " align="right" />);
+
+  assertStringIncludes(foot, '<w:jc w:val="right"/>');
+  assertStringIncludes(foot, '<w:t xml:space="preserve">Page </w:t></w:r><w:r>' + field("PAGE"));
+  assertStringIncludes(foot, '<w:t xml:space="preserve"> of </w:t></w:r><w:r>' + field("NUMPAGES"));
+});
+
+test("a plain page number is written exactly as it always was", async () => {
+  const foot = await footerOf(<PageNumber id="n" />);
+
+  assertStringIncludes(foot, defaultPara);
+  assertEquals(foot.includes("<w:jc"), false);
+  assertEquals(foot.includes("<w:rPr>"), false);
+  assertEquals(await footerOf(<PageNumber id="n" variant="nonesuch" />, styleWithBlocks), foot);
+});
+
+test("a variant sets every run of a page number, the fields included", async () => {
+  const foot = await footerOf(<PageNumber id="n" prefix="Page " variant="badge" />, styleWithBlocks);
+
+  assertStringIncludes(foot, 'w:fill="FBF0DC"');
+  assertEquals((foot.match(/<w:color w:val="8A5A06"\/>/g) ?? []).length, 4);
+  assertEquals((foot.match(/<w:caps\/>/g) ?? []).length, 4);
+});
+
+test("a block's alignment is used, and the node's own beats it", async () => {
+  const style = { ...styleWithBlocks, blocks: { ...styleWithBlocks.blocks, folio: { align: "center" as const } } };
+
+  assertStringIncludes(await footerOf(<PageNumber id="n" variant="folio" />, style), '<w:jc w:val="center"/>');
+
+  const both = await footerOf(<PageNumber id="n" variant="folio" align="right" />, style);
+  assertStringIncludes(both, '<w:jc w:val="right"/>');
+  assertEquals(both.includes("center"), false);
+});
+
+test("a single number takes a prefix too", async () => {
+  const foot = await footerOf(<PageNumber id="n" format="current" prefix="Page " />);
+
+  assertStringIncludes(foot, 'Page </w:t></w:r><w:r>' + field("PAGE"));
+  assertEquals(foot.includes("NUMPAGES"), false);
+});
+
+test("in a cell the column's alignment beats the page number's own", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Table id="t" columns={[{ width: "auto" }, { width: 18, align: "right" }]}>
+        <Row>
+          <Cell id="l">Registered</Cell>
+          <Cell id="r"><PageNumber id="n" align="left" /></Cell>
+        </Row>
+      </Table>
+    </Document>,
+  );
+  const para = ((await documentXml(doc)).match(/<w:p>[\s\S]*?<\/w:p>/g) ?? []).find((p) => p.includes("PAGE")) ?? "";
+
+  assertStringIncludes(para, '<w:jc w:val="right"/>');
+  assertEquals(para.includes('w:val="left"'), false);
+});
+
+const sheets = (count: number, spans: string) => {
+  const { document } = new JSDOM(
+    `<body>${`<section class="docx"><footer><p>${spans}</p></footer></section>`.repeat(count)}</body>`,
+  ).window;
+  return document.body;
+};
+const footTexts = (el: Element, sheet: number) =>
+  [...el.querySelectorAll("section.docx")[sheet].querySelectorAll("span")].map((s) => s.textContent);
+
+test("the preview still fills the bare slash without a model", () => {
+  const root = sheets(2, "<span> / </span>");
+
+  fillPageFields(root);
+  assertEquals(footTexts(root, 0), ["1 / 2"]);
+  assertEquals(footTexts(root, 1), ["2 / 2"]);
+});
+
+test("the preview fills the document's own words, and again after pagination", async () => {
+  const model = await build(
+    <Document id="d" title="D" footer={<PageNumber id="n" prefix="Page " separator=" of " />}>
+      <Paragraph id="a">One.</Paragraph>
+    </Document>,
+  );
+  const root = sheets(2, "<span>Page </span><span> of </span>");
+
+  fillPageFields(root, undefined, model);
+  assertEquals(footTexts(root, 0), ["Page ", "1 of 2"]);
+  assertEquals(footTexts(root, 1), ["Page ", "2 of 2"]);
+
+  root.appendChild(root.lastElementChild!.cloneNode(true));
+  fillPageFields(root);
+  assertEquals(footTexts(root, 0), ["Page ", "1 of 3"]);
+  assertEquals(footTexts(root, 2), ["Page ", "3 of 3"]);
+});
+
+test("a single number is found by its prefix", async () => {
+  const model = await build(
+    <Document id="d" title="D" footer={<PageNumber id="n" format="current" prefix="Page " />}>
+      <Paragraph id="a">One.</Paragraph>
+    </Document>,
+  );
+  const root = sheets(1, "<span>Page </span>");
+
+  fillPageFields(root, undefined, model);
+  assertEquals(footTexts(root, 0), ["Page 1"]);
+});
+
+test("settling passes the model to the page fields", async () => {
+  const model = await build(
+    <Document id="d" title="D" footer={<PageNumber id="n" prefix="Page " separator=" of " />}>
+      <Paragraph id="a">One.</Paragraph>
+    </Document>,
+  );
+  const root = sheets(2, "<span>Page </span><span> of </span>");
+
+  settleDocxPreview(root, model);
+  assertEquals(footTexts(root, 0)[1], "1 of 2");
+});

@@ -480,6 +480,7 @@ function missingParagraph(anchor) {
     lineSpacing: null,
     lineSpacingRule: null,
     keepWithNext: null,
+    outlineLevel: null,
     keepTogether: null,
     widowControl: null,
     pageBreakBefore: null,

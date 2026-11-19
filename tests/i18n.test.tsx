@@ -2,6 +2,7 @@ import { test } from "node:test";
 import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
 import {
   buildDocument,
+  cleanMinimalDocumentStyle,
   createDeriverRegistryFromBundle,
   createDocumentProjectArtifact,
   defineDocumentProject,
@@ -14,6 +15,8 @@ import {
   defineMessages,
   deriver,
   Document,
+  Graph,
+  Image,
   matchLocale,
   messagesFor,
   Paragraph,
@@ -25,7 +28,7 @@ import {
   useMessages,
   useState,
 } from "docxcelerate/template";
-import { documentXml, partXml } from "./docx.ts";
+import { documentXml, paragraphOf, partXml } from "./docx.ts";
 import { loadRegistryModule } from "./registry_support.ts";
 
 const { PaymentSummary } = await loadRegistryModule<
@@ -149,6 +152,54 @@ test("Word is told the document's language, and only when it has one", async () 
   assertStringIncludes(await documentXml(french), "Chère Avery,");
 });
 
+test("a locale reaches the language slot Word proofs its script against", async () => {
+  const lang = async (locale: string) =>
+    partXml(await buildDocument(greeting, {}, { locale }), "word/styles.xml");
+  assertStringIncludes(await lang("ja-JP"), '<w:lang w:val="ja-JP" w:eastAsia="ja-JP"/>');
+  assertStringIncludes(await lang("zh-TW"), '<w:lang w:val="zh-TW" w:eastAsia="zh-TW"/>');
+  assertStringIncludes(await lang("ar-SA"), '<w:lang w:val="ar-SA" w:bidi="ar-SA"/>');
+  assertStringIncludes(await lang("fr-FR"), '<w:lang w:val="fr-FR"/>');
+});
+
+test("a stored model's unparseable locale keeps w:val and does not throw", async () => {
+  const stored = { ...(await buildDocument(greeting, {})), locale: "not a tag" };
+  assertStringIncludes(await partXml(stored, "word/styles.xml"), '<w:lang w:val="not a tag"/>');
+});
+
+test("the theme names faces for East Asian and complex-script text, and a block's face leaves them be", async () => {
+  const style = {
+    ...cleanMinimalDocumentStyle,
+    typography: { ...cleanMinimalDocumentStyle.typography, eastAsiaFont: "Yu Mincho", complexScriptFont: "Arial" },
+    blocks: { money: { font: "Consolas" } },
+  };
+  const built = await buildDocument(
+    template(
+      <Document id="d" title="D">
+        <Paragraph id="p">請求書</Paragraph>
+        <Paragraph id="m" variant="money">¥12,000</Paragraph>
+      </Document>,
+    ),
+    {},
+  );
+  const doc = { ...built, style };
+  const styles = await partXml(doc, "word/styles.xml");
+  assertStringIncludes(styles, '<w:rFonts w:ascii="Aptos" w:cs="Arial" w:eastAsia="Yu Mincho" w:hAnsi="Aptos"/>');
+  assertStringIncludes(styles, '<w:rFonts w:ascii="Cambria" w:cs="Arial" w:eastAsia="Yu Mincho" w:hAnsi="Cambria"/>');
+  assertStringIncludes(
+    paragraphOf(await documentXml(doc), "¥12,000"),
+    '<w:rFonts w:ascii="Consolas" w:cs="Arial" w:eastAsia="Yu Mincho" w:hAnsi="Consolas"/>',
+  );
+  assertEquals(doc.style.typography.eastAsiaFont, "Yu Mincho");
+});
+
+test("omitted, every slot names the Latin face, as it always did", async () => {
+  const built = await buildDocument(greeting, {});
+  assertStringIncludes(
+    await partXml({ ...built, style: cleanMinimalDocumentStyle }, "word/styles.xml"),
+    '<w:rFonts w:ascii="Aptos" w:cs="Aptos" w:eastAsia="Aptos" w:hAnsi="Aptos"/>',
+  );
+});
+
 test("a dynamic node is asked to write in the document's language, at build and in the engine", async () => {
   const asked: string[] = [];
   const aiClient = {
@@ -175,6 +226,40 @@ test("a dynamic node is asked to write in the document's language, at build and 
   assertStringIncludes(asked[0], "SYSTEM: Write in French (France), the language of this document.");
   assertEquals(asked[1].includes("Write in"), false);
   assertStringIncludes(asked[2], "French (France)");
+});
+
+test("a chart is told the document's language and an image is not", async () => {
+  const asked: Record<string, string> = {};
+  const aiClient = {
+    generateParagraph: () => "",
+    generateGraph({ node, prompt }: { node: { id: string }; prompt: string }) {
+      asked[node.id] = prompt;
+      return { data: { series: [{ values: [1] }] } };
+    },
+    generateImage({ node, prompt }: { node: { id: string }; prompt: string }) {
+      asked[node.id] = prompt;
+      return { path: "data:image/png;base64," };
+    },
+  };
+  const Trend: Graph = () => {
+    useAi({ ask: "Plot it.", placeholder: "A chart." });
+    return <Graph id="trend" graphType="bar" />;
+  };
+  const Portrait: Image = () => {
+    useAi({ ask: "Draw a portrait.", placeholder: "A portrait." });
+    return <Image id="portrait" />;
+  };
+
+  await buildDocument(
+    template(<Document id="d" title="D"><Trend /><Portrait /></Document>),
+    {},
+    { locale: "fr-FR", aiClient },
+  );
+
+  assertEquals(asked, {
+    trend: "SYSTEM: Write in French (France), the language of this document.\nGENERAL: Plot it.",
+    portrait: "GENERAL: Draw a portrait.",
+  });
 });
 
 test("the registry's payment summary is translated, figures and all", async () => {

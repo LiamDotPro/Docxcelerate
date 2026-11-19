@@ -259,6 +259,8 @@ test("a <Text> standing beside the nodes says where it belongs", async () => {
 
 const SUP = '<w:vertAlign w:val="superscript"/>';
 const SUB = '<w:vertAlign w:val="subscript"/>';
+const DBL = '<w:u w:val="double"/>';
+const SGL = '<w:u w:val="single"/>';
 
 function count(xml: string, fragment: string): number {
   return xml.split(fragment).length - 1;
@@ -393,6 +395,88 @@ test("a stored model with an unknown script prints plain", async () => {
 
   assertEquals(xml.includes("w:vertAlign"), false);
   assertStringIncludes(textOf(xml), "84 m2.");
+});
+
+const totalDue = (
+  <Document id="d" title="D">
+    <Paragraph id="p">
+      Total due <Text bold underline="double">1,240.00</Text>
+    </Paragraph>
+  </Document>
+);
+
+test("a double-underlined figure is a run of its own", async () => {
+  const doc = await build(totalDue);
+  const xml = await documentXml(doc);
+
+  assertEquals(paragraph(doc).runs, [{ text: "Total due " }, { text: "1,240.00", bold: true, underline: "double" }]);
+  assertStringIncludes(xml, `<w:b/><w:bCs/>${DBL}</w:rPr><w:t xml:space="preserve">1,240.00</w:t>`);
+  assertEquals(count(xml, "<w:u "), 1);
+});
+
+test("underline true stays a single rule", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p"><Text underline>terms</Text></Paragraph>
+    </Document>,
+  );
+  const xml = await documentXml(doc);
+
+  assertEquals(paragraph(doc).runs, [{ text: "terms", underline: true }]);
+  assertStringIncludes(xml, SGL);
+  assertEquals(xml.includes('w:val="double"'), false);
+});
+
+test("underline left out or false draws no rule", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p"><Text bold>a</Text><Text underline={false}>b</Text></Paragraph>
+    </Document>,
+  );
+
+  assertEquals((await documentXml(doc)).includes("<w:u "), false);
+  assertEquals(paragraph(doc).runs!.some((run) => run.underline === true || run.underline === "double"), false);
+});
+
+test("the inner underline wins and neighbours set alike merge", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        <Text underline="double">Net <Text underline>VAT</Text></Text><Text underline="double"> total</Text>
+      </Paragraph>
+    </Document>,
+  );
+
+  assertEquals(paragraph(doc).runs, [
+    { text: "Net ", underline: "double" },
+    { text: "VAT", underline: true },
+    { text: " total", underline: "double" },
+  ]);
+});
+
+test("a double-underlined link keeps its double rule and a plain link the single one", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="p">
+          <Text href="https://example.com/a" underline="double">A</Text> <Text href="https://example.com/b">B</Text>
+        </Paragraph>
+      </Document>,
+    ),
+  );
+  const links = xml.match(/<w:hyperlink[\s\S]*?<\/w:hyperlink>/g) ?? [];
+
+  assertStringIncludes(links.find((l) => l.includes(">A<")) ?? "", DBL);
+  assertStringIncludes(links.find((l) => l.includes(">B<")) ?? "", SGL);
+});
+
+test("a stored model with an unknown underline draws the single rule", async () => {
+  const doc = await build(totalDue);
+  paragraph(doc).runs![1].underline = "wavy" as never;
+  const xml = await documentXml(doc);
+
+  assertStringIncludes(xml, SGL);
+  assertEquals(xml.includes('w:val="wavy"'), false);
 });
 
 const variantStyle: DocumentStyle = {
