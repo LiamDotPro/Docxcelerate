@@ -675,6 +675,7 @@ try {
             try { $record.spaceAfter = Clean-Undefined $format.SpaceAfter } catch { $record.spaceAfter = $null }
             try { $record.lineSpacing = Clean-Undefined $format.LineSpacing } catch { $record.lineSpacing = $null }
             try { $record.keepWithNext = Clean-Bool $format.KeepWithNext } catch { $record.keepWithNext = $null }
+            try { $record.outlineLevel = [int]$format.OutlineLevel } catch { $record.outlineLevel = $null }
             try { $record.keepTogether = Clean-Bool $format.KeepTogether } catch { $record.keepTogether = $null }
             try { $record.widowControl = Clean-Bool $format.WidowControl } catch { $record.widowControl = $null }
             try { $record.pageBreakBefore = Clean-Bool $format.PageBreakBefore } catch { $record.pageBreakBefore = $null }

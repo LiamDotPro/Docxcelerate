@@ -4,25 +4,22 @@
  *
  * Lives here rather than in src/pages so that `/` and `/[locale]/` are two
  * addresses for one page instead of two copies of it. Everything it says comes
- * from the dictionaries; the only English left below is markup.
+ * from the dictionaries; the English left below is document content — code and
+ * the sentences on the drawn pages — which stays English in every language for
+ * the same reason the demo documents do.
+ *
+ * Laid out to the redesign's board 3a: the document itself is the hero, the
+ * split preview sits under it, and everything below the fold runs on an
+ * editorial grid with a § number in a left gutter.
  */
-import AgentSkill from "./AgentSkill.astro";
+import { existsSync } from "node:fs";
+import { Code } from "astro:components";
 import Base from "../layouts/Base.astro";
-import EngineFigure from "./EngineFigure.astro";
+import CopyField from "./CopyField.astro";
 import HeroDemo from "./HeroDemo.astro";
-import LicenceSheet from "./LicenceSheet.astro";
-import PointFigure from "./PointFigure.astro";
+import { OPEN_DOCUMENT_ID } from "../demo";
 import RegistryMark from "./RegistryMark.astro";
-import { COMPONENTS as REGISTRY_COMPONENTS, THEMES as REGISTRY_THEMES } from "../registry";
-import ScaleFigure from "./ScaleFigure.astro";
-import {
-  CLOUD_URL,
-  GITHUB_URL,
-  INSTALL_COMMAND,
-  JSR_URL,
-  NPM_URL,
-  SITE,
-} from "../site";
+import { CLOUD_URL, GITHUB_URL, INSTALL_COMMAND, JSR_URL, NPM_URL, SITE } from "../site";
 import release from "../generated/release.json";
 import { asLocale, fill, localizePath, ui } from "../i18n";
 
@@ -33,35 +30,13 @@ const t = ui(locale);
 // value is on the element and on the clipboard.
 const shortIntegrity = `${release.integrity.slice(0, 24)}…`;
 
-// The label names the dimension each point argues on, so the three read as a
-// set covering authoring, AI and governance rather than three loose claims.
-// `figure` picks the drawing that sits under the heading — see PointFigure.
-const POINTS = [
-  { ...t.home.points.authoring, figure: "authoring" as const },
-  { ...t.home.points.ai, figure: "ai" as const },
-  { ...t.home.points.changeControl, figure: "changeControl" as const },
-];
+// The hero shows page one of whatever the preview below opens on. The engine
+// switch only exists once an engine build of that document does — a switch
+// that flips to nothing would be the hidden trick the caption says isn't there.
+const heroPreview = `/demo/${OPEN_DOCUMENT_ID}.html`;
+const heroEngine = `/demo/${OPEN_DOCUMENT_ID}.engine.html`;
+const hasEngine = existsSync(new URL(`../../public${heroEngine}`, import.meta.url));
 
-// A real sequence, so it's numbered. The first step is the only one the
-// framework is responsible for.
-const STEPS = [
-  { ...t.home.engine.steps.build, figure: "build" as const },
-  { ...t.home.engine.steps.publish, figure: "publish" as const },
-  { ...t.home.engine.steps.write, figure: "write" as const },
-];
-
-// Volume first, because it is the claim the section is making; the other three
-// are what makes volume survivable once you have it.
-const TRAITS = [
-  { ...t.home.scale.traits.volume, figure: "volume" as const },
-  { ...t.home.scale.traits.determinism, figure: "determinism" as const },
-  { ...t.home.scale.traits.integration, figure: "integration" as const },
-  { ...t.home.scale.traits.reproducibility, figure: "reproducibility" as const },
-];
-
-// What the package is, in the vocabulary a search engine already has. The
-// version and licence come from the release the site was built against, so this
-// cannot drift from the install command printed above it.
 const structuredData = [
   {
     "@type": "SoftwareApplication",
@@ -85,105 +60,273 @@ const structuredData = [
   },
 ];
 
-const CARDS = [
-  { ...t.home.docs.cards.startHere, href: "/docs/start-here/" },
-  { ...t.home.docs.cards.documentsAndNodes, href: "/docs/essentials/documents-and-nodes/" },
-  { ...t.home.docs.cards.nodeModel, href: "/docs/nodes/overview/" },
-  { ...t.home.docs.cards.writingNodes, href: "/docs/writing-nodes/" },
-  { ...t.home.docs.cards.cli, href: "/docs/cli/commands/" },
-  { ...t.home.docs.cards.entrypoints, href: "/docs/reference/entrypoints/" },
+const BRIEF_CODE = `export const QuarterInBrief: Paragraph = () => {
+  const [state] = useState((data: ReviewData) => ({
+    client: data.client.formalName,
+    adviser: data.adviser.name,
+    plans: data.client.plans,
+  }));
+
+  useSetPrompts({
+    systemPrompt: \`You are \${state.adviser}, a financial planner.\`,
+    generalPrompt: "Explain this quarter in one short paragraph.",
+    infoPrompt: \`Client plans: \${state.plans}\`,
+    negativePrompt: "No forecasts. No product names.",
+  });
+  useSetPlaceholders(\`A letter from \${state.adviser}.\`);
+
+  return <Paragraph id="quarter-in-brief" variant="quote" />;
+};`;
+
+const DOCUMENT_CODE = `export const documentTemplate = template<ReviewData>(
+  <Document id="portfolio-review" title="Quarterly portfolio review"
+    firstHeader={false} header={<RunningHeader />} footer={<RunningFooter />}>
+    <Cover />
+    <PageBreak />
+    <Letter />
+    <Summary />
+    <Performance />
+    <Allocation />
+    <Holdings />
+    <TermsNotice />
+  </Document>,
+);`;
+
+const DIFF = [
+  { file: "nodes/arrears.node.tsx", removed: "within 14 days of this notice", added: "within 30 days of this notice" },
+  { file: "nodes/contact.node.tsx", removed: "call us to discuss", added: "call us to agree a payment plan" },
 ];
+const CHECKS = ["arrears-notice renders as expected", "no other document changed"];
+
+// Five reviews out of one template: the figures and the decision differ per
+// client, and the only generated line is the one on the wash.
+const FAN = [
+  { name: "Ms A. Nkemelu", value: "£412,860", decision: "Rebalance", note: "Equities are 4.2 points above target." },
+  { name: "Mr R. Achterberg", value: "£96,214", decision: "Hold", note: "Within range; no trades this quarter." },
+  { name: "Dr P. Raman", value: "£1,284,507", decision: "Rebalance", note: "Bonds drifted below their agreed range." },
+  { name: "Mrs S. Doyle", value: "£238,940", decision: "Hold", note: "Cash kept for the house purchase in May." },
+  { name: "Mr K. Asante", value: "£57,118", decision: "Hold", note: "New ISA contributions kept the mix on target." },
+];
+
+const STATIONS = [
+  { ...t.home.engine.steps.build, l1: "documents/portfolio-review/build/", l2: "→ manifest.json · document.json" },
+  { ...t.home.engine.steps.publish, l1: "upload → reviews.example.com/api/reviews", l2: "→ portfolio-review@6 stored" },
+  { ...t.home.engine.steps.write, l1: "POST /api/reviews { client, holdings, … }", l2: "→ 200 portfolio-review.docx" },
+];
+
+const THEME_SAMPLE =
+  "Your tenancy at 14 Glebe Road ends on 30 September. This letter sets out what happens next, and what we need from you before then.";
+
+const codeThemes = { light: "github-light", dark: "github-dark-dimmed" } as const;
 ---
 
 <Base bare structuredData={structuredData}>
-  <!-- Hero -->
-  <section class="mx-auto max-w-6xl px-5 pt-12 pb-10 sm:px-8 sm:pt-16">
-    <div class="flex flex-col items-center gap-6 text-center">
-      <h1
-        class="m-0 max-w-3xl text-[clamp(2.6rem,7vw,4.5rem)] font-semibold leading-[1.02]"
-      >
-        {t.home.headlineLineOne}<br />{t.home.headlineLineTwo}
-      </h1>
-      <p class="m-0 max-w-xl text-lg leading-relaxed text-muted">
-        {t.home.lead}
-      </p>
+  <!-- Hero. The ground is fixed green in both themes, so the tokens are
+       re-pointed at their dark values for everything inside it. -->
+  <section class="band-dark relative overflow-hidden bg-ledger-950 text-white">
+    <div class="glow pointer-events-none absolute inset-0" aria-hidden="true"></div>
+    <div
+      class="relative mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)] gap-12 px-5 pt-16 sm:px-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:pt-22"
+    >
+      <div class="flex flex-col gap-6 pb-16 lg:pb-20">
+        <h1
+          class="m-0 text-[clamp(2.6rem,6vw,3.9rem)] leading-[1.02] font-semibold tracking-[-0.03em] text-white"
+        >
+          {t.home.headlineLineOne}<br /><span class="text-ledger-300">{t.home.headlineLineTwo}</span>
+        </h1>
+        <p class="m-0 max-w-[31rem] text-[1.15rem] leading-[1.65] text-pretty text-ledger-100">
+          {t.home.lead}
+        </p>
 
-      <div class="flex flex-wrap items-center justify-center gap-3">
-        <a
-          href={localizePath("/docs/start-here/", locale)}
-          class="rounded bg-accent-solid px-5 py-2.5 text-sm font-medium text-on-accent no-underline transition-colors hover:bg-accent-deep"
-          >{t.home.ctaStart}</a
-        >
-        <a
-          href={localizePath("/docs/generation/endpoint/", locale)}
-          class="rounded border border-border-firm px-5 py-2.5 text-sm font-medium text-accent no-underline transition-colors hover:bg-accent-tint"
-          >{t.home.ctaHowItWorks}</a
-        >
+        <div class="flex flex-wrap items-center gap-3">
+          <a
+            href={localizePath("/docs/start-here/", locale)}
+            class="rounded bg-accent-solid px-5 py-2.5 text-sm font-medium text-on-accent no-underline transition-colors hover:bg-ledger-500"
+            >{t.home.ctaStart}</a
+          >
+          <a
+            href={localizePath("/docs/generation/endpoint/", locale)}
+            class="rounded border border-firm px-5 py-2.5 text-sm font-medium text-accent no-underline transition-colors hover:bg-accent-tint"
+            >{t.home.ctaHowItWorks}</a
+          >
+        </div>
+
+        <div class="flex max-w-full flex-col gap-3 self-start">
+          <CopyField command={INSTALL_COMMAND} copiedLabel={t.home.copied} />
+          <p
+            class="m-0 flex flex-wrap items-center gap-x-2.5 gap-y-1 pl-0.5 font-mono text-[0.72rem] text-ledger-200"
+          >
+            <span data-release-version>v{release.version}</span>
+            <RegistryMark registry="npm" href={NPM_URL} label={t.home.onNpm} />
+            <RegistryMark registry="jsr" href={JSR_URL} label={t.home.onJsr} />
+            <span aria-hidden="true">·</span>
+            <button
+              type="button"
+              id="copy-integrity"
+              data-release-integrity={release.integrity}
+              data-copied={t.home.copied}
+              data-fallback={t.home.copyFallback}
+              class="max-w-full truncate rounded px-1 text-left tabular-nums transition-colors hover:text-white"
+              title={fill(t.home.integrityTitle, { hash: release.integrity })}
+            >
+              {shortIntegrity}
+            </button>
+          </p>
+        </div>
+
+        {
+          hasEngine && (
+            <div class="mt-3 flex flex-col gap-3 border-t border-white/15 pt-5">
+              <span class="font-mono text-[0.65rem] tracking-[0.16em] text-ledger-300 uppercase">
+                {t.home.builds.label}
+              </span>
+              <div
+                class="flex self-start overflow-hidden rounded border border-white/25"
+                role="group"
+                aria-label={t.home.builds.label}
+              >
+                <button type="button" class="mode-btn" data-hero-mode="engine" aria-pressed="true">
+                  {t.home.builds.engine}
+                </button>
+                <button type="button" class="mode-btn" data-hero-mode="preview" aria-pressed="false">
+                  {t.home.builds.preview}
+                </button>
+              </div>
+              <p
+                class="m-0 max-w-[30rem] text-[0.85rem] leading-[1.6] text-ledger-200"
+                data-hero-caption
+                data-engine={t.home.builds.engineCaption}
+                data-preview={t.home.builds.previewCaption}
+              >
+                {t.home.builds.engineCaption}
+              </p>
+            </div>
+          )
+        }
       </div>
 
-      <div
-        class="mt-1 flex items-center gap-3 rounded border border-border bg-surface px-4 py-2 font-mono text-sm"
-      >
-        <span class="select-none text-muted">$</span>
-        <code id="install-cmd">{INSTALL_COMMAND}</code>
-        <button
-          type="button"
-          id="copy-install"
-          class="ml-1 rounded px-1.5 py-0.5 text-xs text-muted transition-colors hover:text-accent"
-          data-idle={t.home.copy}
-          data-copied={t.home.copied}
-          data-fallback={t.home.copyFallback}
-          aria-label={t.home.copyInstall}>{t.home.copy}</button
-        >
+      <!-- Page one at 60%, running off the bottom of the band like a sheet
+           half out of the tray. Decorative: the same page is in the preview
+           below, where it can be read and scrolled. Under the copy from sm,
+           beside it from lg; a phone is too narrow for a page that reads. -->
+      <div class="relative -mt-8 hidden h-[26rem] sm:block lg:mt-0 lg:h-auto lg:min-h-[640px]" aria-hidden="true">
+        <div class="hero-sheet absolute top-0 bottom-0 left-0">
+          <iframe
+            src={hasEngine ? heroEngine : heroPreview}
+            data-preview={heroPreview}
+            data-engine={heroEngine}
+            data-hero-frame
+            title=""
+            tabindex="-1"
+            loading="lazy"
+            class="hero-frame"
+          ></iframe>
+        </div>
       </div>
-
-      <p
-        class="m-0 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-mono text-[0.68rem] text-muted"
-      >
-        <span data-release-version>v{release.version}</span>
-        <RegistryMark registry="npm" href={NPM_URL} label={t.home.onNpm} />
-        <RegistryMark registry="jsr" href={JSR_URL} label={t.home.onJsr} />
-        <span aria-hidden="true">·</span>
-        <button
-          type="button"
-          id="copy-integrity"
-          data-release-integrity={release.integrity}
-          data-copied={t.home.copied}
-          data-fallback={t.home.copyFallback}
-          class="max-w-full truncate rounded px-1 text-left tabular-nums transition-colors hover:text-accent"
-          title={fill(t.home.integrityTitle, { hash: release.integrity })}
-        >
-          {shortIntegrity}
-        </button>
-      </p>
     </div>
-
   </section>
 
-  <!-- The demo runs wider than the prose above it — it is the argument, not an
-       illustration of one. It takes the page measure to do it: the hero copy is
-       held to max-w-3xl and max-w-xl inside the same band, so the demo is still
-       far the widest thing here without leaving the edge the nav sets. -->
-  <section class="mx-auto max-w-6xl px-5 pb-16 sm:px-8">
+  <!-- The split preview. It is the argument, so it runs wider than the prose. -->
+  <section class="mx-auto max-w-7xl px-5 pt-16 pb-16 sm:px-8">
     <HeroDemo />
   </section>
 
-  <!-- The thesis, said by the person who wrote the thing, on the first of the
-       page's two full bands of green — this one for what the toolkit is for,
-       the registry band further down for what it hands you. The green is fixed
-       rather than tokenised: like the letter preview, it is the same in both
-       themes. Top margin only — the band owns the gap after it. -->
-  <section class="relative mt-10 overflow-hidden bg-ledger-900 text-white sm:mt-6">
-    <div
-      class="pointer-events-none absolute inset-0"
-      style="background:radial-gradient(ellipse 70% 90% at 50% 34%, rgba(159,212,184,0.16), rgba(15,63,45,0) 70%)"
-      aria-hidden="true"
-    >
+  <!-- §1 Source. Preview. Document. One paragraph, followed from the file to
+       the page. -->
+  <section class="border-b border-default">
+    <div class="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+      <div class="clause mb-14">
+        <span class="clause-no">§1</span>
+        <div class="grid gap-6 lg:grid-cols-2 lg:items-end lg:gap-14">
+          <h2 class="m-0 text-[clamp(2.2rem,4vw,3rem)] leading-[1.05] font-semibold tracking-[-0.02em]">
+            {t.home.source.title}
+          </h2>
+          <p class="m-0 text-[1.05rem] leading-[1.7] text-pretty text-muted">{t.home.source.lead}</p>
+        </div>
+      </div>
+      <div class="clause">
+        <span aria-hidden="true"></span>
+        <div
+          class="grid grid-cols-[minmax(0,1fr)] overflow-hidden rounded-md border border-default lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)]"
+        >
+          <div class="stage">
+            <div class="stage-bar"><span>01 · nodes/quarter-in-brief.node.tsx</span><span>{t.home.source.sourceLabel}</span></div>
+            <div class="stage-body code-figure bg-paper"><Code code={BRIEF_CODE} lang="tsx" themes={codeThemes} /></div>
+            <p class="stage-note">{t.home.source.sourceNote}</p>
+          </div>
+          <div class="stage">
+            <div class="stage-bar"><span>02 · dxcl dev</span><span>{t.home.source.previewLabel}</span></div>
+            <div class="stage-body workspace">
+              <div class="sheet">
+                <p class="letter m-0 text-[#657287]">
+                  A letter from Tomas Lindqvist on this quarter, from the figures and Ms Nkemelu's plans.
+                </p>
+              </div>
+            </div>
+            <p class="stage-note">{t.home.source.previewNote}</p>
+          </div>
+          <div class="stage">
+            <div class="stage-bar"><span>03 · engine</span><span class="text-accent">200 · .docx</span></div>
+            <div class="stage-body workspace">
+              <div class="sheet">
+                <p class="letter m-0">
+                  <span class="wash">Your portfolio grew by £11,942 this quarter, to £412,860, and finished ahead of its benchmark — mostly because global and emerging-market shares had a strong August.</span>
+                </p>
+              </div>
+            </div>
+            <p class="stage-note">{t.home.source.engineNote}</p>
+          </div>
+        </div>
+      </div>
     </div>
+  </section>
+
+  <!-- §2 and §3, the two claims about how documents are written and kept. -->
+  <section class="border-b border-default bg-surface">
+    <div class="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+      <div class="clause clause-3 border-b border-default pb-16">
+        <span class="clause-no">§2</span>
+        <div class="flex flex-col gap-4 lg:pr-8">
+          <span class="eyebrow">{t.home.points.authoring.label}</span>
+          <h2 class="m-0 text-[2.4rem] leading-[1.1] font-semibold">{t.home.points.authoring.title}</h2>
+          <p class="m-0 leading-[1.75] text-pretty text-muted">{t.home.points.authoring.body}</p>
+        </div>
+        <div class="min-w-0 rounded-md border border-default bg-paper px-6 py-5">
+          <div class="mb-3 font-mono text-[0.7rem] text-muted">documents/portfolio-review/document.tsx</div>
+          <div class="code-figure"><Code code={DOCUMENT_CODE} lang="tsx" themes={codeThemes} /></div>
+        </div>
+      </div>
+      <div class="clause clause-3 pt-16">
+        <span class="clause-no">§3</span>
+        <div class="flex flex-col gap-4 lg:pr-8">
+          <span class="eyebrow">{t.home.points.changeControl.label}</span>
+          <h2 class="m-0 text-[2.4rem] leading-[1.1] font-semibold">{t.home.points.changeControl.title}</h2>
+          <p class="m-0 leading-[1.75] text-pretty text-muted">{t.home.points.changeControl.body}</p>
+        </div>
+        <div class="min-w-0 rounded-md border border-default bg-paper px-6 py-5">
+          <div class="diff">
+            {
+              DIFF.map((hunk) => (
+                <div class="diff-hunk">
+                  <div>{hunk.file}</div>
+                  <div class="diff-row diff-remove">− {hunk.removed}</div>
+                  <div class="diff-row diff-add">+ {hunk.added}</div>
+                </div>
+              ))
+            }
+            <div class="diff-hunk">{CHECKS.map((check) => <div>✓ {check}</div>)}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- The thesis, said by the person who wrote the thing. Fixed green, like
+       the hero and the footer. -->
+  <section class="relative overflow-hidden bg-ledger-900 text-white">
+    <div class="glow pointer-events-none absolute inset-0" aria-hidden="true"></div>
     <div class="relative mx-auto max-w-3xl px-5 py-24 text-center sm:px-8 sm:py-32">
-      <p class="pull-quote">
-        {t.home.pullQuote}
-      </p>
+      <p class="pull-quote">{t.home.pullQuote}</p>
       <figure class="m-0 mt-10 flex flex-col items-center gap-3">
         <div class="rounded-full bg-white/10 p-1 shadow-[0_10px_30px_rgba(0,0,0,0.25)]">
           <img
@@ -196,109 +339,25 @@ const CARDS = [
             class="h-26 w-26 rounded-full object-cover"
           />
         </div>
-        <figcaption
-          class="font-mono text-[0.62rem] leading-[1.7] tracking-[0.14em] text-white/60 uppercase"
-        >
-          {t.home.attribution.name}<br /><span class="text-white/45"
-            >{t.home.attribution.role}</span
-          >
+        <figcaption class="font-mono text-[0.62rem] leading-[1.7] tracking-[0.14em] text-white/60 uppercase">
+          {t.home.attribution.name}<br /><span class="text-white/45">{t.home.attribution.role}</span>
         </figcaption>
       </figure>
     </div>
   </section>
 
-  <!-- Positioning. Each point leads with a drawing of the claim it makes.
-       The three columns share one set of row tracks, so label, drawing,
-       heading and prose each start on the same line across all three however
-       long a translated title runs. -->
-  <section class="border-b border-border">
-    <div class="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
-      <div class="grid gap-16 xl:grid-cols-3 xl:gap-0">
-        {
-          POINTS.map((point, index) => (
-            <div
-              class:list={[
-                // min-w-0 so the code figure scrolls inside its column
-                // instead of stretching the column to fit its longest line.
-                "flex min-w-0 flex-col",
-                // Side by side, each column takes the row tracks of the grid
-                // above it rather than stacking its own four items: the four
-                // rows then size to the tallest label, drawing, heading and
-                // paragraph, and every column's prose starts on the same line
-                // even where a title runs to one line and its neighbours run
-                // to two. Nothing here is a measured reservation, so a longer
-                // translation moves the line rather than breaking it.
-                "xl:row-span-4 xl:grid xl:grid-rows-subgrid",
-                // Three up from xl, later than the rest of the page, because
-                // these columns carry code rather than prose: under about
-                // 1280 a third of the row is too narrow for the longest line,
-                // so the figures wrap to different heights, the headings stop
-                // lining up and the narrowest column scrolls. Stacked, each
-                // figure gets the full measure and none of them scroll.
-                //
-                // The band sits on the page measure, not a wider one, so it
-                // starts on the same edge as the nav and the engine section
-                // below it. That costs the columns width, and the middle one —
-                // padded on both sides — is the one it comes off: the gutters
-                // are 8 rather than 11 to buy some of it back. It leaves the
-                // narrowest figure column around 20px clear of the longest
-                // line in PointFigure. Widen the gutters and that line scrolls.
-                //
-                // Hairlines between columns rather than boxes around them —
-                // the points are peers, not cards.
-                index > 0 && "xl:border-l xl:border-border xl:pl-8",
-                index < POINTS.length - 1 && "xl:pr-8",
-              ]}
-            >
-              <span class="mb-4 font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent tabular-nums">
-                {String(index + 1).padStart(2, "0")}
-                <span class="mx-2 text-muted" aria-hidden="true">
-                  ·
-                </span>
-                {point.label}
-              </span>
-              <PointFigure kind={point.figure} />
-              <!-- The heading and its prose read as one block now the drawing
-                   is above them rather than between them, so the gap between
-                   the two closes to match. The measure is in the heading's own
-                   ems: it breaks every title over two lines rather than
-                   letting one column run wide and short beside two that wrap,
-                   and balancing gives two lines of a length instead of a long
-                   one over a stub. 11em is wide enough that every locale
-                   settles on two lines and narrow enough that the shortest
-                   English title cannot creep back onto one. A title that needs
-                   a third line still gets one — the row grows and all three
-                   paragraphs move down together. -->
-              <h2 class="m-0 mb-3 max-w-[11em] text-[1.75rem] leading-[1.15] font-semibold text-balance">
-                {point.title}
-              </h2>
-              <p class="m-0 text-[0.975rem] leading-[1.75] text-pretty text-muted">
-                {point.body}
-              </p>
-            </div>
-          ))
-        }
-      </div>
-    </div>
-  </section>
-
-  <!-- The engine. The steps run down a spine on the right, each carrying the
-       artefact it actually produces. -->
-  <section class="border-b border-border bg-surface">
-    <div class="mx-auto max-w-6xl px-5 py-24 sm:px-8 sm:py-28">
-      <div class="grid gap-12 md:grid-cols-2 md:gap-16">
-        <div class="flex max-w-xl flex-col gap-5">
-          <span
-            class="font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent"
-            >{t.home.engine.eyebrow}</span
-          >
-          <h2 class="m-0 text-3xl font-semibold sm:text-4xl">{t.home.engine.title}</h2>
-          <p class="m-0 leading-relaxed text-muted">
-            {t.home.engine.bodyOne}
-          </p>
-          <p class="m-0 leading-relaxed text-muted">
-            {t.home.engine.bodyTwo}
-          </p>
+  <!-- §4 The engine: one template fanned out into five clients' reviews,
+       then the three stations a document passes through. -->
+  <section class="border-b border-default">
+    <div class="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+      <div class="clause clause-3">
+        <span class="clause-no">§4</span>
+        <div class="flex flex-col gap-4 lg:pr-8">
+          <span class="eyebrow">{t.home.engine.eyebrow}</span>
+          <h2 class="m-0 text-[clamp(2.2rem,4vw,3rem)] leading-[1.05] font-semibold tracking-[-0.02em]">
+            {t.home.engine.title}
+          </h2>
+          <p class="m-0 leading-[1.75] text-pretty text-muted">{t.home.engine.bodyTwo}</p>
           <div class="mt-2 flex flex-wrap gap-3">
             <a
               href={localizePath("/docs/generation/endpoint/", locale)}
@@ -309,37 +368,59 @@ const CARDS = [
               href={CLOUD_URL}
               target="_blank"
               rel="noopener noreferrer"
-              class="inline-flex items-center gap-2 rounded border border-border-firm px-5 py-2.5 text-sm font-medium text-muted no-underline transition-colors hover:text-accent"
+              class="inline-flex items-center gap-2 rounded border border-firm px-5 py-2.5 text-sm font-medium text-muted no-underline transition-colors hover:text-accent"
               >{t.home.engine.ctaCloud}
-              <span
-                class="rounded-full border border-border-firm px-1.5 py-px font-mono text-[0.6rem] uppercase tracking-[0.08em]"
+              <span class="rounded-full border border-firm px-1.5 py-px font-mono text-[0.6rem] tracking-[0.08em] uppercase"
                 >{t.common.soon}</span
               ></a
             >
           </div>
         </div>
-
-        <!-- A spine rather than a ruled list: the numbers are joined because the
-             three steps are one sequence, and the rule between them is the
-             thing that says so. -->
-        <ol class="m-0 flex list-none flex-col p-0">
-          {
-            STEPS.map((step, index) => (
-              <li class="m-0 grid grid-cols-[3.25rem_1fr]">
-                <div class="flex flex-col items-center">
-                  <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent-solid font-mono text-[0.62rem] text-on-accent tabular-nums">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  {index < STEPS.length - 1 && (
-                    <span class="my-2 w-px flex-1 bg-border-firm" aria-hidden="true" />
-                  )}
+        <div class="flex min-w-0 flex-col justify-end gap-5" aria-hidden="true">
+          <div class="fan">
+            {
+              FAN.map((review) => (
+                <div class="fan-page">
+                  <div class="fan-cover">
+                    <span class="fan-title">Third quarter 2026</span>
+                    <span class="fan-name">{review.name}</span>
+                    <span class="fan-value">{review.value}</span>
+                  </div>
+                  <div class="h-0.5 bg-ledger-500"></div>
+                  <div class="flex flex-col gap-1.5 px-3 py-2.5">
+                    <span class:list={["fan-stamp", review.decision === "Hold" && "fan-stamp-hold"]}>
+                      {review.decision}
+                    </span>
+                    <span class="fan-note"><span class="wash">{review.note}</span></span>
+                  </div>
                 </div>
-                <div class:list={["min-w-0", index < STEPS.length - 1 && "pb-8"]}>
-                  <h3 class="m-0 text-xl font-semibold">{step.title}</h3>
-                  <p class="mt-1.5 mb-3.5 text-sm leading-relaxed text-pretty text-muted">
-                    {step.detail}
-                  </p>
-                  <EngineFigure kind={step.figure} />
+              ))
+            }
+          </div>
+          <div
+            class="flex flex-wrap justify-between gap-2 border-t border-default pt-3 font-mono text-[0.72rem] text-muted"
+          >
+            <span>POST /api/reviews · portfolio-review@6</span>
+            <span class="text-ink">{fill(t.home.engine.volume, { count: "3,180" })}</span>
+          </div>
+        </div>
+      </div>
+      <div class="clause mt-18">
+        <span aria-hidden="true"></span>
+        <ol class="m-0 grid list-none grid-cols-[minmax(0,1fr)] gap-8 p-0 md:grid-cols-3">
+          {
+            STATIONS.map((station, index) => (
+              <li class="m-0 flex flex-col gap-2.5 border-t-2 border-ink pt-4">
+                <div class="flex items-baseline justify-between">
+                  <h3 class="m-0 text-[1.4rem] font-semibold">{station.title}</h3>
+                  <span class="font-mono text-[0.7rem] text-muted">{String(index + 1).padStart(2, "0")}</span>
+                </div>
+                <p class="m-0 text-[0.92rem] leading-[1.65] text-muted">{station.detail}</p>
+                <div
+                  class="mt-1.5 overflow-x-auto rounded border border-default bg-surface px-3.5 py-3 font-mono text-[0.7rem] leading-[1.75] whitespace-nowrap text-muted"
+                >
+                  <div>{station.l1}</div>
+                  <div class="text-accent">{station.l2}</div>
                 </div>
               </li>
             ))
@@ -349,269 +430,379 @@ const CARDS = [
     </div>
   </section>
 
-  <!-- Themes and components. Sits mid-page on purpose: by here a reader has
-       been told what the toolkit is and how a document reaches an engine, and
-       the next honest question is how much of this they have to write
-       themselves.
-
-       The panel beside the copy is the argument. "No dependency" is a claim
-       until you see what installing actually does, and what it does is write
-       two files and stop — so the band shows the command and its output rather
-       than describing them.
-
-       On the green, because this is the page's offer rather than another of
-       its explanations, and a band that changes ground is one a reader stops
-       at. The colours here are fixed for the same reason the thesis band's
-       are: the ground is the green in both themes, so what sits on it is
-       written against the green rather than against a token that moves. -->
-  <section class="bg-ledger-900 text-white">
-    <div class="mx-auto max-w-6xl px-5 py-24 sm:px-8 sm:py-28">
-      <div class="grid gap-10 lg:grid-cols-2 lg:gap-16">
-        <div class="flex max-w-xl flex-col gap-5">
-          <h2 class="m-0 text-3xl font-semibold sm:text-4xl">{t.registry.ad.heading}</h2>
-          <p class="m-0 leading-relaxed text-white/70">{t.registry.ad.body}</p>
-          <div class="flex flex-wrap gap-3">
-            <!-- The call to action reverses out: on the green a solid green
-                 button is a button nobody sees. -->
-            <a
-              href={localizePath("/registry/", locale)}
-              class="rounded bg-white px-5 py-2.5 text-sm font-medium text-ledger-900 no-underline transition-colors hover:bg-ledger-50"
-              >{t.registry.ad.browse} →</a
-            >
-            <a
-              href={localizePath("/docs/document-projects/", locale)}
-              class="rounded border border-white/35 px-5 py-2.5 text-sm font-medium text-white no-underline transition-colors hover:bg-white/10"
-              >{t.registry.ad.howItWorks}</a
-            >
+  <!-- §5 The registry: what installing writes, and three themes as the paper
+       they produce. -->
+  <section class="bg-surface">
+    <div class="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+      <div class="clause clause-3 lg:items-center">
+        <span class="clause-no lg:self-start">§5</span>
+        <div class="flex flex-col gap-4 lg:pr-8">
+          <span class="eyebrow">{t.nav.registry}</span>
+          <h2 class="m-0 text-[2.4rem] leading-[1.1] font-semibold">{t.registry.ad.heading}</h2>
+          <p class="m-0 leading-[1.75] text-pretty text-muted">{t.registry.ad.body}</p>
+          <div class="mt-2 overflow-x-auto rounded-md bg-ledger-950 px-4.5 py-4 font-mono text-[0.76rem] leading-[1.85] whitespace-nowrap text-[#d7e0da]">
+            <div><span class="text-ledger-300">$</span> npx dxcl add slate-report letterhead</div>
+            <div class="text-[#93a29a]">+ document-style.ts ← slate-report</div>
+            <div class="text-[#93a29a]">+ nodes/letterhead.node.tsx</div>
+            <div class="text-ledger-300">✓ {t.registry.ad.written}</div>
           </div>
-        </div>
-
-        <div class="flex flex-col gap-3">
-          <!-- What the command writes, as it writes it. The file names are
-               real: they are what dxcl add puts in a project. -->
-          <div class="overflow-hidden rounded-lg border border-white/15 bg-ledger-950">
-            <div class="border-b border-white/10 bg-white/5 px-3 py-2">
-              <span class="font-mono text-[0.7rem] text-white/55">your-project — dxcl</span>
-            </div>
-            <div class="flex flex-col gap-1 p-4 font-mono text-[0.78rem] leading-relaxed">
-              <div class="text-white/85">
-                <span class="text-white/50">$ </span>npx dxcl add slate-report letterhead
-              </div>
-              <!-- The marks stay the palette's own green, which is the one
-                   colour on this ground that is still a colour rather than a
-                   shade of the ground. -->
-              <div class="text-white/85">
-                <span class="text-ledger-300">+</span> document-style.ts
-                <span class="text-white/50">← slate-report</span>
-              </div>
-              <div class="text-white/85">
-                <span class="text-ledger-300">+</span> nodes/letterhead.node.tsx
-              </div>
-              <div class="pl-4 text-white/50">re-exported from nodes/index.ts</div>
-              <div class="mt-1 text-white/50">
-                <span class="text-ledger-300">✓</span> {t.registry.ad.written}
-              </div>
-            </div>
-          </div>
-          <span class="text-xs leading-relaxed text-white/55">{t.registry.ad.afterInstall}</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Scale. Cards rather than columns: the first claim is the section's
-       argument and gets the width, and the three under it are what makes the
-       first survivable. -->
-  <section>
-    <div class="mx-auto max-w-6xl px-5 py-24 sm:px-8 sm:py-28">
-      <div class="mb-12 flex max-w-2xl flex-col gap-4">
-        <span
-          class="font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent"
-          >{t.home.scale.eyebrow}</span
-        >
-        <h2 class="m-0 text-3xl font-semibold sm:text-4xl">{t.home.scale.title}</h2>
-        <p class="m-0 leading-relaxed text-muted">
-          {t.home.scale.lead}
-        </p>
-      </div>
-
-      <!-- Numbered but unordered: they are four properties of one design, not
-           steps, and the numerals only give the eye somewhere to land. The
-           first runs the full width and sets its drawing beside the words;
-           the rest stack theirs underneath. -->
-      <div class="grid gap-5 lg:grid-cols-3">
-        {
-          TRAITS.map((trait, index) => (
-            <div
-              class:list={[
-                "flex min-w-0 flex-col rounded-md border border-border p-7",
-                index === 0 && "gap-8 lg:col-span-3 lg:grid lg:grid-cols-2 lg:items-center lg:gap-14",
-              ]}
-            >
-              <div class="flex flex-col">
-                <span class="mb-3 font-mono text-[0.7rem] text-muted tabular-nums">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <h3 class="m-0 mb-2 text-lg font-semibold">{trait.title}</h3>
-                <p class="m-0 text-[0.95rem] leading-[1.75] text-pretty text-muted">{trait.body}</p>
-              </div>
-              <div class:list={[index > 0 && "mt-auto pt-7"]}>
-                <ScaleFigure kind={trait.figure} />
-              </div>
-            </div>
-          ))
-        }
-      </div>
-    </div>
-  </section>
-
-  <!-- Open source. The claim is a licence, so the licence is the picture: a
-       fixed track for the sheet, because a sheet of paper is not elastic. -->
-  <section class="border-t border-border bg-surface">
-    <div class="mx-auto max-w-6xl px-5 py-24 sm:px-8 sm:py-28">
-      <div class="grid gap-14 lg:grid-cols-[1fr_420px] lg:items-start lg:gap-16">
-        <div class="flex max-w-xl flex-col gap-5">
-          <span
-            class="font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent"
-            >{t.home.openSource.eyebrow}</span
+          <a href={localizePath("/registry/", locale)} class="text-[0.9rem] font-medium no-underline hover:underline"
+            >{t.registry.ad.browse} →</a
           >
-          <h2 class="m-0 text-3xl font-semibold sm:text-4xl">{t.home.openSource.title}</h2>
-          <p class="m-0 leading-relaxed text-pretty text-muted">
-            {t.home.openSource.bodyOne}
-          </p>
-          <p class="m-0 leading-relaxed text-pretty text-muted">
-            {t.home.openSource.bodyTwo}
-          </p>
-          <div class="mt-2 flex flex-wrap gap-3">
-            <a
-              href={GITHUB_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="rounded bg-accent-solid px-5 py-2.5 text-sm font-medium text-on-accent no-underline transition-colors hover:bg-accent-deep"
-              >{t.home.openSource.ctaSource}</a
-            >
-            <a
-              href={NPM_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="rounded border border-border-firm bg-paper px-5 py-2.5 text-sm font-medium text-ink no-underline transition-colors hover:border-accent hover:text-accent"
-              >{t.home.openSource.ctaNpm}</a
-            >
+        </div>
+        <div class="workspace flex items-end justify-center gap-5 rounded-md px-4 py-10" aria-hidden="true">
+          <div class="theme-sheet gap-[7px] px-5 py-[22px]">
+            <span class="font-[Cambria,Georgia,serif] text-[13px] font-bold">Membership renewal</span>
+            <span class="font-[Aptos,'Segoe_UI',Arial,sans-serif] text-[7.5px] leading-normal">{THEME_SAMPLE}</span>
+            <span class="theme-name">clean-minimal</span>
+          </div>
+          <div class="theme-sheet theme-sheet-optional gap-1.5 px-3.5 pb-4 font-[Calibri,Arial,sans-serif]">
+            <span class="-mx-3.5 mb-1 bg-[#3d4a5c] px-3.5 py-2.5 text-[10px] font-bold tracking-[0.06em] text-white [font-variant:small-caps]">Membership renewal</span>
+            <span class="text-[7px] leading-[1.4]">{THEME_SAMPLE}</span>
+            <span class="border-b border-[#c7ccd6] pb-0.5 text-[7px] font-bold tracking-[0.06em] text-[#3d4a5c] [font-variant:small-caps]">What happens next</span>
+            <span class="theme-name">slate-report</span>
+          </div>
+          <div class="theme-sheet gap-2 px-7 py-[30px] font-[Georgia,serif]">
+            <span class="text-[12px] italic">Membership renewal</span>
+            <span class="text-[7.5px] leading-[1.6]">Your tenancy at 14 Glebe Road ends on 30 September. This letter sets out what happens next.</span>
+            <span class="theme-name">warm-letter</span>
           </div>
         </div>
-
-        <LicenceSheet />
       </div>
     </div>
   </section>
-
-  <!-- The docs. Paper, so the page keeps alternating: the licence band above
-       it is grey and the agent skill below it takes the grey back. -->
-  <section class="border-t border-border">
-    <div class="mx-auto max-w-6xl px-5 py-24 sm:px-8 sm:py-28">
-      <div class="mb-10 flex flex-wrap items-end justify-between gap-x-10 gap-y-5">
-        <div class="flex max-w-2xl flex-col gap-4">
-          <span
-            class="font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-accent"
-            >{t.home.docs.eyebrow}</span
-          >
-          <h2 class="m-0 text-3xl font-semibold sm:text-4xl">{t.home.docs.title}</h2>
-          <p class="m-0 leading-relaxed text-muted">
-            {t.home.docs.lead}
-          </p>
-        </div>
-        <a
-          href={localizePath("/docs/start-here/", locale)}
-          class="text-sm font-medium whitespace-nowrap text-accent no-underline hover:underline"
-          >{t.home.docs.ctaAll}</a
-        >
-      </div>
-
-      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {
-          CARDS.map((card, index) => (
-            <a
-              href={localizePath(card.href, locale)}
-              class="group flex flex-col rounded-md border border-border bg-surface p-6 no-underline transition-colors hover:border-accent hover:bg-accent-tint"
-            >
-              <span class="mb-3.5 font-mono text-[0.65rem] tracking-[0.14em] text-muted tabular-nums">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <span class="font-serif text-lg font-semibold text-ink transition-colors group-hover:text-accent">
-                {card.title}
-                <span
-                  class="ml-1 inline-block transition-transform group-hover:translate-x-0.5"
-                  aria-hidden="true"
-                >
-                  →
-                </span>
-              </span>
-              <span class="mt-1.5 text-sm leading-relaxed text-muted">{card.blurb}</span>
-            </a>
-          ))
-        }
-      </div>
-    </div>
-  </section>
-
-  <!-- Last, and deliberately so: it is the docs again, addressed to whatever is
-       writing the code rather than to the person reading the page. -->
-  <AgentSkill />
-
 </Base>
 
 <script>
   /**
-   * Both copy buttons take their labels from the markup, so the script has no
-   * English in it and works the same in every language.
+   * The integrity button takes its labels from the markup, so the script has
+   * no English in it and works the same in every language.
    */
-  function wireCopy(button: HTMLElement | null, value: () => string | undefined) {
-    if (!button) return;
-
-    button.addEventListener("click", async () => {
-      const text = value();
-      if (!text) return;
-
-      // Read at click time, not at wire time: the checksum button's label is
-      // rewritten when the registry answers, and a label captured before that
-      // would restore the previous release's hash after the copied flash.
-      const idle = button.dataset.idle ?? button.textContent?.trim() ?? "";
-      const copied = button.dataset.copied ?? idle;
-      const fallback = button.dataset.fallback ?? idle;
-      const restore = () => setTimeout(() => (button.textContent = idle), 1600);
-      try {
-        await navigator.clipboard.writeText(text);
-        button.textContent = copied;
-        restore();
-      } catch {
-        button.textContent = fallback;
-        restore();
-      }
-    });
-  }
-
-  const command = document.getElementById("install-cmd");
-  wireCopy(document.getElementById("copy-install"), () => command?.textContent ?? "");
-
   const integrity = document.getElementById("copy-integrity");
-  wireCopy(integrity, () => integrity?.dataset.releaseIntegrity);
+  integrity?.addEventListener("click", async () => {
+    const text = integrity.dataset.releaseIntegrity;
+    if (!text) return;
+    // Read at click time: the label is rewritten when the registry answers.
+    const idle = integrity.textContent?.trim() ?? "";
+    try {
+      await navigator.clipboard.writeText(text);
+      integrity.textContent = integrity.dataset.copied ?? idle;
+    } catch {
+      integrity.textContent = integrity.dataset.fallback ?? idle;
+    }
+    setTimeout(() => (integrity.textContent = idle), 1600);
+  });
+
+  // One template, two builds: the switch swaps which build the hero sheet
+  // shows, and the caption that says what you are looking at.
+  const frame = document.querySelector<HTMLIFrameElement>("[data-hero-frame]");
+  const caption = document.querySelector<HTMLElement>("[data-hero-caption]");
+  const modes = document.querySelectorAll<HTMLButtonElement>("[data-hero-mode]");
+  modes.forEach((button) =>
+    button.addEventListener("click", () => {
+      const mode = button.dataset.heroMode as "engine" | "preview";
+      modes.forEach((other) => other.setAttribute("aria-pressed", String(other === button)));
+      if (frame && frame.dataset[mode]) frame.src = frame.dataset[mode]!;
+      if (caption) caption.textContent = caption.dataset[mode] ?? "";
+    }),
+  );
 </script>
 
 <style>
+  .glow {
+    background: radial-gradient(ellipse 70% 90% at 50% 34%, rgba(159, 212, 184, 0.16), rgba(15, 63, 45, 0) 70%);
+  }
+
+  /* 794 × 1123 is A4 at 96dpi; the sheet shows it at 60%, and the clip lets
+     its shadow spill sideways and upward but cuts it at the band's floor. */
+  .hero-sheet {
+    width: 477px;
+    clip-path: inset(-60px -520px 0 -60px);
+  }
+  .hero-frame {
+    width: 794px;
+    height: 1123px;
+    border: 0;
+    background: #ffffff;
+    transform: scale(0.6);
+    transform-origin: top left;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 10%), 0 14px 34px -18px rgb(0 0 0 / 40%);
+    pointer-events: none;
+  }
+
+  .mode-btn {
+    padding: 0.5rem 0.875rem;
+    border: 0;
+    background: transparent;
+    color: var(--color-ledger-100);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background-color 0.12s ease, color 0.12s ease;
+  }
+  .mode-btn[aria-pressed="true"] {
+    background: #ffffff;
+    color: var(--color-ledger-900);
+  }
+
+  /* The editorial grid: a § number in an 8rem gutter, set left. Below lg the
+     gutter folds away and the number sits over its section instead. */
+  .clause {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem 2rem;
+  }
+  .clause-no {
+    font-family: var(--font-serif);
+    font-size: 3rem;
+    line-height: 1;
+    color: var(--accent);
+  }
+  @media (min-width: 64rem) {
+    .clause {
+      grid-template-columns: 8rem minmax(0, 1fr);
+      gap: 0 2rem;
+    }
+    /* A three-up clause stacks its figure under the copy until xl: beside it,
+       a column under 30rem is too narrow for the code and the paper. */
+    .clause-3 > :nth-child(n + 3) {
+      grid-column: 2;
+      margin-top: 2.5rem;
+    }
+  }
+  @media (min-width: 80rem) {
+    .clause-3 {
+      grid-template-columns: 8rem minmax(0, 1fr) minmax(0, 1.1fr);
+    }
+    .clause-3 > :nth-child(n + 3) {
+      grid-column: auto;
+      margin-top: 0;
+    }
+  }
+  @media (max-width: 63.99rem) {
+    .clause > span[aria-hidden="true"]:empty {
+      display: none;
+    }
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .stage {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  @media (min-width: 64rem) {
+    .stage {
+      border-bottom: 0;
+      border-right: 1px solid var(--border);
+    }
+    .stage:last-child {
+      border-right: 0;
+    }
+  }
+  .stage:last-child {
+    border-bottom: 0;
+  }
+  .stage-bar {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1.125rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+  .stage-body {
+    flex: 1;
+    min-width: 0;
+    padding: 1.25rem 1.125rem;
+  }
+  .stage-note {
+    margin: 0;
+    padding: 0.875rem 1.125rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+    line-height: 1.55;
+    color: var(--muted);
+  }
+
+  /* The DOCX renderer's own greys: anything standing in for Word's workspace
+     or a rendered page uses these, not the site palette. */
+  .workspace {
+    display: flex;
+    align-items: center;
+    padding: 1.75rem 1.5rem;
+    background: #e6e8ed;
+  }
+  .sheet {
+    width: 100%;
+    padding: 1.375rem;
+    background: #ffffff;
+    border: 1px solid #c7ccd6;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 10%), 0 14px 34px -18px rgb(0 0 0 / 40%);
+  }
+  .letter {
+    font-family: var(--font-letter);
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: #111827;
+  }
+  /* Marker-pen wash: the run of text a model wrote. */
+  .wash {
+    background: linear-gradient(180deg, transparent 52%, #e4efe7 52%);
+  }
+
+  .code-figure :global(pre) {
+    margin: 0;
+    overflow-x: auto;
+    background: transparent !important;
+    font-size: 0.72rem;
+    line-height: 1.6;
+  }
+
+  .diff {
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    line-height: 1.75;
+    color: var(--muted);
+  }
+  .diff-hunk + .diff-hunk {
+    margin-top: 1.25rem;
+  }
+  .diff-row {
+    margin: 0 -0.375rem;
+    padding: 0 0.375rem;
+    white-space: pre;
+  }
+  .diff-remove {
+    background: var(--rubric-tint);
+    color: var(--rubric);
+  }
+  .diff-add {
+    background: var(--accent-tint);
+    color: var(--accent);
+  }
+
+  /* Five covers off one template, overlapped like a hand of cards. */
+  .fan {
+    display: flex;
+    padding-left: 88px;
+    overflow: hidden;
+  }
+  /* The hand is wider than a phone. Held from the right, the top card stays
+     whole and the ones under it run off the left edge, as a stack would. */
+  @media (max-width: 26.99rem) {
+    .fan {
+      justify-content: flex-end;
+    }
+  }
+  .fan-page {
+    flex: none;
+    width: 150px;
+    height: 212px;
+    margin-left: -88px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid #c7ccd6;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 10%), 0 14px 34px -18px rgb(0 0 0 / 40%);
+    font-family: Calibri, Aptos, "Segoe UI", Arial, sans-serif;
+    color: #16211c;
+  }
+  .fan-cover {
+    height: 118px;
+    padding: 12px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 3px;
+    background: var(--color-ledger-900);
+    color: #ffffff;
+  }
+  .fan-title {
+    font-family: Cambria, Georgia, serif;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .fan-name {
+    font-size: 8px;
+    color: var(--color-ledger-200);
+  }
+  .fan-value {
+    font-family: Cambria, Georgia, serif;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .fan-stamp {
+    align-self: flex-start;
+    padding: 3px 6px;
+    background: var(--color-ledger-700);
+    color: #ffffff;
+    font-family: Cambria, Georgia, serif;
+    font-size: 9px;
+    font-weight: 700;
+  }
+  .fan-stamp-hold {
+    background: var(--color-ledger-900);
+  }
+  .fan-note {
+    font-size: 7.5px;
+    line-height: 1.4;
+  }
+
+  /* Equal outer widths however each sheet pads itself: two to a row on a
+     phone, where the middle one steps out, three from sm. */
+  .theme-sheet {
+    display: flex;
+    flex-direction: column;
+    flex: none;
+    width: min(180px, calc((100% - 1.25rem) / 2));
+    aspect-ratio: 180 / 255;
+    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid #c7ccd6;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 10%), 0 14px 34px -18px rgb(0 0 0 / 40%);
+    color: #111827;
+  }
+  .theme-sheet-optional {
+    display: none;
+  }
+  @media (min-width: 40rem) {
+    .theme-sheet {
+      width: min(180px, calc((100% - 2.5rem) / 3));
+    }
+    .theme-sheet-optional {
+      display: flex;
+    }
+  }
+  .theme-name {
+    margin-top: auto;
+    font-family: var(--font-mono);
+    font-size: 7px;
+    color: #657287;
+  }
+
   .pull-quote {
     margin: 0;
     font-family: var(--font-serif);
     font-size: clamp(1.5rem, 2.9vw, 2.15rem);
     line-height: 1.45;
     letter-spacing: -0.012em;
-    /* Balanced rather than pretty: on a centred block of four or five lines,
-       even line lengths matter more than avoiding a single short last line. */
     text-wrap: balance;
-    /* Inherits from the band, so it stays legible on the green in both themes
-       rather than pinning itself to the page ink colour. */
     color: inherit;
-    /* Sits the type on the band's glow rather than in front of it. Wide and
-       faint enough to read as depth rather than as a shadow. */
     text-shadow: 0 1px 24px rgba(0, 0, 0, 0.18);
   }
 </style>

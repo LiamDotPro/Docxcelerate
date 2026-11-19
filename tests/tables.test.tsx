@@ -8,6 +8,7 @@ import type {
   DocumentModel,
   DocumentNode,
   DocumentStyle,
+  TableCellNode,
   TableNode,
   TableRowNode,
 } from "docxcelerate";
@@ -354,6 +355,117 @@ test("a row produced by a `.map()` carries keepTogether to every pass", async ()
   assertEquals(xml.split("<w:cantSplit/>").length - 1, lines.length);
 });
 
+function count(xml: string, needle: string): number {
+  return xml.split(needle).length - 1;
+}
+
+test("the model carries a table's keepTogether only when asked", async () => {
+  const kept = await build(() => (
+    <Table id="t" keepTogether columns={[{ width: "auto" }]}>
+      <Row><Cell>A</Cell></Row>
+    </Table>
+  ));
+  const plain = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }]}>
+      <Row><Cell>A</Cell></Row>
+    </Table>
+  ));
+
+  assertEquals(tableOf(kept).keepTogether, true);
+  assertEquals("keepTogether" in tableOf(plain), false);
+});
+
+test("a kept table makes every row unsplittable and keeps every paragraph but the last row's", async () => {
+  const doc = await build(() => (
+    <Table id="t" keepTogether columns={[{ width: "auto" }, { width: 30 }]}>
+      <Row>
+        <Cell>Subtotal</Cell>
+        <Cell>
+          <Paragraph>One</Paragraph>
+          <Paragraph>Two</Paragraph>
+        </Cell>
+      </Row>
+      <Row>
+        <Cell />
+        <Cell>VAT</Cell>
+      </Row>
+      <Row>
+        <Cell>Total due</Cell>
+        <Cell>7,030.00</Cell>
+      </Row>
+    </Table>
+  ));
+  const rows = (await documentXml(doc as DocumentModel)).split("<w:tr>");
+
+  for (const row of rows.slice(1, 4)) assertStringIncludes(row, "<w:cantSplit/>");
+  for (const row of [rows[1], rows[2]]) {
+    assertEquals(count(row, "<w:keepNext/>"), count(row, "<w:p>"));
+    assertEquals(count(row, "<w:keepNext/>") >= 1, true);
+  }
+  assertEquals(rows[3].includes("w:keepNext"), false);
+});
+
+test("a table without keepTogether writes neither cantSplit nor keepNext", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: "auto" }]}>
+      <Row><Cell>A</Cell></Row>
+      <Row><Cell>B</Cell></Row>
+      <Row><Cell>C</Cell></Row>
+    </Table>
+  ));
+  const xml = await documentXml(doc as DocumentModel);
+
+  assertEquals(xml.includes("w:cantSplit"), false);
+  assertEquals(xml.includes("w:keepNext"), false);
+});
+
+test("a one-row kept table is unsplittable and keeps with nothing", async () => {
+  const doc = await build(() => (
+    <Table id="t" keepTogether columns={[{ width: "auto" }]}>
+      <Row><Cell>Only</Cell></Row>
+    </Table>
+  ));
+  const rows = (await documentXml(doc as DocumentModel)).split("<w:tr>");
+
+  assertStringIncludes(rows[1], "<w:cantSplit/>");
+  assertEquals(rows[1].includes("w:keepNext"), false);
+});
+
+test("the last row of a kept table is the last one printed, through a `.map()`", async () => {
+  const doc = await build(() => (
+    <Table id="t" keepTogether columns={[{ width: "auto" }, { width: 26 }]}>
+      {lines.map((line) => (
+        <Row>
+          <Cell>{line.desc}</Cell>
+          <Cell>{line.amount}</Cell>
+        </Row>
+      ))}
+      <Row>
+        <Cell>Total due</Cell>
+        <Cell>7,030.00</Cell>
+      </Row>
+    </Table>
+  ));
+  const rows = (await documentXml(doc as DocumentModel)).split("<w:tr>");
+
+  assertEquals(rows.length, 4);
+  for (const row of rows.slice(1)) assertStringIncludes(row, "<w:cantSplit/>");
+  assertStringIncludes(rows[1], "<w:keepNext/>");
+  assertStringIncludes(rows[2], "<w:keepNext/>");
+  assertEquals(rows[3].includes("w:keepNext"), false);
+});
+
+test("a kept row inside a kept table writes one cantSplit, not two", async () => {
+  const doc = await build(() => (
+    <Table id="t" keepTogether columns={[{ width: "auto" }]}>
+      <Row keepTogether><Cell>A</Cell></Row>
+    </Table>
+  ));
+  const rows = (await documentXml(doc as DocumentModel)).split("<w:tr>");
+
+  assertEquals(count(rows[1], "<w:cantSplit/>"), 1);
+});
+
 // ---------------------------------------------------------------------------
 // What comes out the other end
 // ---------------------------------------------------------------------------
@@ -692,5 +804,50 @@ test("a share outside 0% to 100% throws, naming it", async () => {
       RangeError,
       width,
     );
+  }
+});
+
+const turned = () => (
+  <Table id="t" columns={[{ width: 12 }, { width: 12 }, { width: "auto" }]}>
+    <Row>
+      <Cell textDirection="up">Up</Cell>
+      <Cell textDirection="down">Down</Cell>
+      <Cell>Across</Cell>
+    </Row>
+  </Table>
+);
+
+test("the model carries a direction only when it is set", async () => {
+  const doc = await build(turned);
+  const cells = rowsOf(tableOf(doc as DocumentModel))[0].children as TableCellNode[];
+
+  assertEquals(cells[0].textDirection, "up");
+  assertEquals(cells[1].textDirection, "down");
+  assertEquals("textDirection" in cells[2], false);
+});
+
+test("a direction is written into the cell's properties", async () => {
+  const cells = (await documentXml(await build(turned))).split("<w:tc>");
+
+  assertStringIncludes(cells[1], '<w:textDirection w:val="btLr"/>');
+  assertStringIncludes(cells[2], '<w:textDirection w:val="tbRl"/>');
+  assertEquals(cells[3].includes("w:textDirection"), false);
+});
+
+test("a turned cell keeps its other properties", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: 12 }, { width: 12 }]}>
+      <Row header>
+        <Cell textDirection="up" span={2}>Week one</Cell>
+      </Row>
+    </Table>
+  ));
+  const cell = (await documentXml(doc)).split("<w:tc>")[1];
+
+  assertStringIncludes(cell, '<w:gridSpan w:val="2"/>');
+  assertStringIncludes(cell, "<w:shd ");
+  assertStringIncludes(cell, '<w:textDirection w:val="btLr"/>');
+  if (cell.includes("<w:vAlign")) {
+    assertEquals(cell.indexOf("w:textDirection") < cell.indexOf("<w:vAlign"), true);
   }
 });
