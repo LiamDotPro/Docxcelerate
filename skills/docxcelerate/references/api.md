@@ -485,8 +485,11 @@ export const documentStyle: DocumentStyle = {
 
 `DocumentStyle` covers `preset`, `page` (size `A4`, `LETTER`, `LEGAL`, `A5`, `A3`, or `{ widthMm, heightMm }` for any other sheet given upright; `orientation` `portrait` or `landscape` turns either kind, and a table, shape or chart with no width fills the column of the page as turned,
 margins in mm, `headerMm` / `footerMm` — how far the running strips stand
-from the *paper's* edge rather than from the margin, 12.5mm unless said — and
-`firstPageNumber` / `numberStyle`: where page numbering starts, a whole number
+from the *paper's* edge rather than from the margin, 12.5mm unless said —
+`valign`, `"top"` unless said, `"center"` or `"bottom"`, which is where the body
+sits between the top and bottom margins: Word's own vertical alignment, for a
+certificate or cover sheet set mid-page; it applies to every page, so a short
+last page is centred too — and `firstPageNumber` / `numberStyle`: where page numbering starts, a whole number
 from 0 (default 1), and how it is written, `"decimal"` (default),
 `"lowerRoman"`, `"upperRoman"`, `"lowerLetter"` or `"upperLetter"`, for an
 appendix that continues its parent's numbering or front matter numbered
