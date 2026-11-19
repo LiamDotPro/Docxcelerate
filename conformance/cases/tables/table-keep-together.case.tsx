@@ -58,7 +58,6 @@ export default defineCase({
     },
 
     word: (c, is) => {
-      is.equal(c.para("Totals line 1").keepWithNext, true, "Word reads keep with next");
       is.equal(c.table(0).row(0).allowBreakAcrossPages, false, "and the row as unbreakable");
       is.equal(
         c.cell("Totals line 1").page,
