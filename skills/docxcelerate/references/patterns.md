@@ -232,6 +232,7 @@ document like any other. `href` must be `https:`, `http:`, `mailto:` or `tel:`
 — anything else prints as plain words. There is no colour or size: a link is
 drawn in the theme's accent, and a phrase or a whole paragraph is restyled by
 naming a theme block with `variant`.
+`underline="double"` draws the double rule accounting puts under a final total — `Total due <Text bold underline="double">{state.total}</Text>` — under the figure alone, where a paragraph border would rule the whole line.
 
 The same works in a cell: `<Cell>Total <Text bold>due</Text></Cell>`.
 

@@ -30,6 +30,7 @@ import {
   TableRow,
   TabStopType,
   TextRun,
+  UnderlineType,
   VerticalAlign,
   WidthType,
 } from "docx";
@@ -925,6 +926,8 @@ function markedRun(
 ): TextRun | ExternalHyperlink {
   const own = blockOf(style, run.variant);
   // shortcut: tracking is worked out at the block's size or the body's, so a tracked variant with no size inside a larger paragraph is tracked at body size.
+  // Only "double" names a style; any other truthy value is the single rule, so nothing unknown reaches w:val.
+  const underline = run.underline === "double" ? { type: UnderlineType.DOUBLE } : run.underline ? {} : undefined;
   const props = {
     ...base,
     // A field the block leaves out has no opinion, so it must not blank the paragraph's.
@@ -932,7 +935,7 @@ function markedRun(
     ...(own?.fill === undefined ? {} : { shading: { type: ShadingType.CLEAR, fill: own.fill } }),
     ...(run.bold === undefined ? {} : { bold: run.bold }),
     ...(run.italic === undefined ? {} : { italics: run.italic }),
-    ...(run.underline ? { underline: {} } : {}),
+    ...(underline === undefined ? {} : { underline }),
     ...(run.strike === undefined ? {} : { strike: run.strike }),
     ...(run.script === "superscript" ? { superScript: true } : {}),
     ...(run.script === "subscript" ? { subScript: true } : {}),
@@ -948,7 +951,7 @@ function markedRun(
         // or header cell the accent is the fill, and the link would vanish into it.
         // A style with no palette leaves the link in the ink around it.
         color: (props as { color?: string }).color ?? style.palette?.accent,
-        underline: {},
+        underline: underline ?? {},
       }),
     ],
   });
