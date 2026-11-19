@@ -2089,7 +2089,7 @@ function cellContent(
       return renderNode(child, style, furniture, false, {
         alignment: alignments[align],
         ...blockLine(block, style),
-        ...(keepNext ? { keepNext } : {}),
+        ...keep,
       });
     }
 

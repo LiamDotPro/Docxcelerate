@@ -52,8 +52,8 @@ export default defineCase({
       for (let i = 0; i < table.rowCount; i++) {
         is.equal(table.row(i).cantSplit, true, `row ${i} declares w:cantSplit`);
       }
-      is.equal(a.para("Totals line 1").keepNext, true, "a row but the last keeps with the next");
-      is.equal(a.para("Totals line 6").keepNext, null, "the last row keeps with nothing");
+      is.equal(a.cell("Totals line 1").paragraphs[0]?.keepNext, true, "a row but the last keeps with the next");
+      is.equal(a.cell("Totals line 6").paragraphs[0]?.keepNext, null, "the last row keeps with nothing");
       is.equal(a.para("Filler line 1").keepNext, null, "ordinary prose is not kept");
     },
 
