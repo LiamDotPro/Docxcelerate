@@ -1,0 +1,146 @@
+---
+title: Opstellingen
+description: Dezelfde regels op meer dan één manier plaatsen — onder elkaar, in een tabel, links en rechts verdeeld — zonder aan te raken wat ze bepaalt.
+group: Essentials
+order: 6
+---
+
+Wat een component afdrukt en waar hij het neerzet, zijn twee verschillende
+beslissingen. De eerste hangt af van de data en wordt voor elk document opnieuw
+genomen. De tweede is aan jou, één keer, daar waar je de component gebruikt.
+Een **opstelling** houdt ze uit elkaar: een component die er meerdere biedt,
+neemt een prop `arrangement`, en elke waarde plaatst dezelfde regels op een
+andere manier.
+
+## Er een gebruiken
+
+```tsx
+<InvoiceDocumentType />                       // stacked, the default
+<InvoiceDocumentType arrangement="table" />   // labels in a column, values beside them
+<InvoiceDocumentType arrangement="split" />   // identifiers left, dates ranged right
+```
+
+Elke opstelling drukt dezelfde regels af onder dezelfde voorwaarden. Een
+pro-formafactuur zegt in alle drie dat ze geen btw-factuur is, en een
+leveringsdatum gelijk aan de factuurdatum blijft in alle drie weg. Alleen waar
+de regels staan verandert.
+
+Zonder de prop krijg je de eerste opstelling. Een naam die de component niet
+heeft, stopt de build met de namen die hij wel heeft, dus een typfout drukt
+nooit stilletjes de standaard af.
+
+`dxcl show` somt op wat een registrycomponent biedt, en zijn pagina in de
+[registry](/nl/registry/) heeft een voorbeeld van elke opstelling:
+
+```sh
+dxcl show invoice-document-type
+```
+
+## Hoe een component is opgebouwd
+
+Een component met opstellingen wordt geïnstalleerd als één node en één bestand
+per opstelling:
+
+```
+nodes/invoice-document-type.node.tsx
+derivers/invoice-document-type.deriver.ts
+arrangements/invoice-document-type/lines.ts
+arrangements/invoice-document-type/stacked.arrangement.tsx
+arrangements/invoice-document-type/table.arrangement.tsx
+arrangements/invoice-document-type/split.arrangement.tsx
+```
+
+De node bepaalt elke regel. `lines.ts` is het type van wat hij elke opstelling
+aanreikt, en elk opstellingsbestand plaatst alleen die regels. De node
+importeert ze bovenaan, zodat hij leest als wat hij bepaalt, en elke opstelling
+als waar alles staat:
+
+```tsx
+import { arrange, Section, useDeriver, useState } from "docxcelerate/template";
+import type { InvoiceDocumentTypeLines } from "../arrangements/invoice-document-type/lines.ts";
+import { split } from "../arrangements/invoice-document-type/split.arrangement.tsx";
+import { stacked } from "../arrangements/invoice-document-type/stacked.arrangement.tsx";
+import { table } from "../arrangements/invoice-document-type/table.arrangement.tsx";
+
+export const InvoiceDocumentType: Section<{ arrangement?: "stacked" | "table" | "split" }> = async (
+  { arrangement },
+) => {
+  // ...useState and useDeriver, as before...
+  const lines: InvoiceDocumentTypeLines = { number: invoice.number, supplyLine: type.supplyLine /* ... */ };
+
+  return (
+    <Section id="invoice-type" title={type.heading}>
+      {arrange(arrangement, {
+        stacked: () => stacked(lines),
+        table: () => table(lines),
+        split: () => split(lines),
+      })}
+    </Section>
+  );
+};
+```
+
+Een opstelling is een functie van de regels naar wat ze oplevert:
+
+```tsx
+import { Cell, Row, Table, type Yield } from "docxcelerate/template";
+import type { InvoiceDocumentTypeLines } from "./lines.ts";
+
+export const table = (lines: InvoiceDocumentTypeLines): Yield => (
+  <Table id="invoice-type-details" columns={[{ width: 45 }, { width: "auto" }]}>
+    <Row id="invoice-type-number">
+      <Cell>Invoice number</Cell>
+      <Cell>{lines.number}</Cell>
+    </Row>
+    {lines.purchaseOrder && (
+      <Row id="invoice-type-purchase-order">
+        <Cell>Purchase order</Cell>
+        <Cell>{lines.purchaseOrder}</Cell>
+      </Row>
+    )}
+  </Table>
+);
+```
+
+## Je eigen toevoegen
+
+Een geïnstalleerde component is jouw bestand, dus een vierde opstelling is twee
+wijzigingen: schrijf `arrangements/invoice-document-type/strip.arrangement.tsx`,
+importeer hem in de node en voeg hem toe aan de namen die `arrange` krijgt en
+aan het type van de prop. Verder hoeft niets het te weten.
+
+Voor een eigen component werkt het net zo: schrijf het type van de regels, één
+bestand per opstelling, en kies met `arrange`.
+
+## De regels
+
+**Kies met `arrange`, niet met een vergelijking.**
+`arrangement === "table" ? … : …` lijkt gelijkwaardig en is het niet. Bij het
+publiceren maakt de compiler van elke vergelijking een beslissing die de engine
+per document neemt, zelfs van een vergelijking tussen twee vaste strings, dus
+elke opstelling zou als tak worden meegestuurd en meetellen voor de
+[taklimiet](/nl/docs/essentials/templates/#vertakkingen-vermenigvuldigen). `arrange` zoekt
+de naam in plaats daarvan op, en alleen de gevraagde opstelling wordt gebouwd.
+
+**Opstellingen plaatsen; de node beslist.** Alles wat van de data afhangt — een
+kop, een opgemaakte datum, of een regel überhaupt wordt afgedrukt — wordt in de
+node (of zijn deriver) uitgezocht en in de regels aangereikt. Een opstelling die
+zelf iets besliste, zou op verschillende plekken verschillende dingen afdrukken,
+en dat is precies wat opstellingen beloven niet te doen.
+
+**Test een regel in de JSX.** Schrijf `{lines.supplyLine && <Paragraph … />}` in
+de opstelling, niet in een variabele erboven. In de JSX wordt de test
+gecompileerd tot een voorwaarde die de engine per document beslist. Buiten de
+JSX is een vervangende waarde bij het publiceren altijd waar, en zou de regel
+voor elke ontvanger worden afgedrukt.
+
+**Houd de ids.** Een regel houdt zijn id in elke opstelling, zoals
+`invoice-type-number` hierboven. Er wordt maar één opstelling gebouwd, dus de
+ids botsen nooit, en alles wat een node via zijn id aanspreekt, vindt hem welke
+opstelling er ook is gekozen.
+
+## Verder lezen
+
+- [Templates](/nl/docs/essentials/templates/) — voorwaarden, lussen en publiceren
+- [Nodes schrijven](/nl/docs/writing-nodes/) — het componentmodel, één bestand per node
+- [De registry](/nl/registry/) — componenten om te installeren, met een voorbeeld van elke opstelling

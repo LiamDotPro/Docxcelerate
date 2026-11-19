@@ -51,8 +51,28 @@ löst sich in jeder Tiefe gleich auf, und seine id bekommt kein Präfix.
 
 `title` ist erforderlich und keine Verzierung — daraus wird die Überschrift über
 den Kindern und der Eintrag, aus dem ein Inhaltsverzeichnis entsteht. Eine
-Gruppe, die keine Überschrift will, will keinen Abschnitt; setzen Sie die Nodes
-dann direkt ins Dokument.
+Gruppe, die keine Überschrift will, will `showTitle={false}`, was den Titel als
+Namen des Abschnitts behält und nichts druckt.
+
+Eine Überschrift ist nie das Letzte auf einer Seite und wird nie über eine Seite
+geteilt: Word schiebt sie mit dem hinüber, was sie überschreibt. Das ist ohne
+Aufforderung an, denn eine Überschrift, die am Fuß einer Seite gestrandet ist,
+fällt in einer Vorschau der ersten Seite niemandem auf; ein Theme, das Überschriften
+dort fallen lassen will, wo sie fallen, setzt `sectionHeading: { keepWithNext: false }`.
+
+`variant` an einem Abschnitt gestaltet seine Überschrift um, nicht seine Kinder.
+Größe, Gewicht, `transform`, Laufweite, Farbe, `align`, Rahmen, Abstände und
+Keep-Angaben des Blocks werden über `sectionHeading` des Themes gelegt, und sie
+bleibt eine Überschrift 1, sodass ein Inhaltsverzeichnis sie weiterhin findet. So
+steht die Überschrift eines Anhangs zentriert in Großbuchstaben, während die
+Klauselüberschriften bleiben, wie sie sind:
+
+```tsx
+<Section title="Schedule 1: Services" variant="schedule">…</Section>
+```
+
+`transform: "none"` am Block hebt Großbuchstaben auf, die die Überschriften des
+Themes verlangen.
 
 ## Varianten
 

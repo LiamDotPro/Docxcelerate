@@ -183,15 +183,25 @@ export interface Formatters {
    */
   list(values: readonly string[], type?: "conjunction" | "disjunction"): string;
   /**
-   * Picks the singular or plural form for a count.
+   * Picks the form of a word that fits a count, by the locale's plural rules.
+   *
+   * Two forms are enough for English, and for French once `0` counts as
+   * singular, which the rules see to. A language with more — Polish, Russian,
+   * Arabic — passes every form by its CLDR category instead.
    *
    * @param count How many.
-   * @param singular The singular form.
-   * @param plural The plural form. Defaults to the singular with an `s`.
+   * @param forms The singular form, or every form keyed by plural category.
+   * @param plural The plural form, beside a singular. Defaults to the singular with an `s`.
    * @returns The form that fits.
    */
-  plural(count: number, singular: string, plural?: string): string;
+  plural(count: number, forms: string | PluralForms, plural?: string): string;
 }
+
+/**
+ * A word's forms by CLDR plural category, as `Intl.PluralRules` names them.
+ * `other` is required because every locale has it.
+ */
+export type PluralForms = Partial<Record<Intl.LDMLPluralRule, string>> & { other: string };
 
 /** Locale-aware formatting, so a component does not hand-roll it. */
 export function useFormat(locale?: string): Formatters {
@@ -208,8 +218,15 @@ export function useFormat(locale?: string): Formatters {
       ),
     list: (values, type = "conjunction") =>
       new Intl.ListFormat(resolved, { style: "long", type }).format(values),
-    plural: (count, singular, plural) =>
-      count === 1 ? singular : plural ?? `${singular}s`,
+    plural: (count, forms, plural) => {
+      const category = new Intl.PluralRules(resolved).select(count);
+
+      if (typeof forms === "string") {
+        return category === "one" ? forms : plural ?? `${forms}s`;
+      }
+
+      return forms[category] ?? forms.other;
+    },
   };
 }
 

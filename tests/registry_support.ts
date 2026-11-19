@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import ts from "typescript";
@@ -49,8 +49,13 @@ async function compileRegistry(): Promise<void> {
     }).outputText;
     const out = join(OUT, relative(root, fileName).replace(/\.tsx?$/, ".js"));
 
+    // Every test file is its own process and compiles into the same folder, so
+    // a plain write lets another process import a file it has just emptied,
+    // and every export comes back undefined. A rename is atomic.
+    const temp = `${out}.${process.pid}.tmp`;
     await mkdir(dirname(out), { recursive: true });
-    await writeFile(out, js);
+    await writeFile(temp, js);
+    await rename(temp, out);
   }
 }
 
