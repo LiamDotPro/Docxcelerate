@@ -3,7 +3,22 @@ import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { buildDocument, imageSourceOf, isSvg, rasterTypeOf } from "docxcelerate";
 import { createDocxBlob, createDocxDocument } from "docxcelerate/docx";
 
-import { Document, Image, template } from "docxcelerate/template";
+import {
+  Cell,
+  Document,
+  Image,
+  Paragraph,
+  Row,
+  Table,
+  createPublishData,
+  template,
+  useState,
+} from "docxcelerate/template";
+import { createDeriverRegistry, EchoAiClient, InMemoryDataProvider, resolveDocument } from "docxcelerate";
+import type { ImageNode, RuntimeState } from "docxcelerate";
+import { settleDocxPreview } from "docxcelerate/preview";
+import { JSDOM } from "jsdom";
+import { documentXml, entryOf, partXml } from "./docx.ts";
 
 /**
  * What a document can actually show.
@@ -158,4 +173,208 @@ test("a path is not fetched while packing, so the same model packs anywhere", as
   const text = new TextDecoder().decode(new Uint8Array(await blob.arrayBuffer()));
 
   assertEquals(text.includes("word/media/"), false);
+});
+
+// ---------------------------------------------------------------------------
+// A picture that links somewhere
+// ---------------------------------------------------------------------------
+
+const PAY = "https://pay.example.com/inv/123";
+const HYPERLINK_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
+
+async function linked(href: string | undefined) {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Image id="qr" src={pngPixel} href={href} alt="Pay" width={8} height={8} />
+    </Document>,
+  );
+
+  return { doc, xml: await documentXml(doc) };
+}
+
+test("a picture's address lands on its node, and is absent when not given", async () => {
+  const withLink = (await linked(PAY)).doc.nodes[0] as ImageNode;
+  const without = (await linked(undefined)).doc.nodes[0] as ImageNode;
+
+  assertEquals(withLink.href, PAY);
+  assertEquals("href" in without, false);
+});
+
+test("a linked picture is linked where Word looks, and the address is external", async () => {
+  // One pack for both parts: the relationship id is minted afresh on every pack.
+  const bytes = new Uint8Array(await (await createDocxBlob((await linked(PAY)).doc)).arrayBuffer());
+  const read = (part: string) => new TextDecoder().decode(entryOf(bytes, part));
+  const xml = read("word/document.xml");
+  const id = /<w:hyperlink w:history="1" r:id="([^"]+)"><w:r><w:drawing>/.exec(xml)?.[1] ?? "";
+
+  assertEquals(id !== "", true);
+  assertStringIncludes(xml, `r:id="${id}"/></wp:docPr>`);
+  assertStringIncludes(xml, `<a:hlinkClick r:id="${id}"/></pic:cNvPr>`);
+  assertStringIncludes(
+    read("word/_rels/document.xml.rels"),
+    `Id="${id}" Type="${HYPERLINK_REL}" Target="${PAY}" TargetMode="External"`,
+  );
+});
+
+test("a picture with no address packs as it always did", async () => {
+  const { xml } = await linked(undefined);
+
+  assertStringIncludes(xml, "<w:drawing>");
+  assertEquals(xml.includes("<w:hyperlink"), false);
+  assertEquals(xml.includes("hlinkClick"), false);
+});
+
+test("a refused scheme or an unsettled token draws the picture alone", async () => {
+  for (const href of ["javascript:alert(1)", "{{data.payUrl}}"]) {
+    const { xml } = await linked(href);
+
+    assertStringIncludes(xml, "<w:drawing>");
+    assertEquals(xml.includes("<w:hyperlink"), false);
+    assertEquals(xml.includes("hlinkClick"), false);
+  }
+});
+
+test("a picture among a paragraph's words links in place", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        Scan to pay <Image id="qr" src={pngPixel} href={PAY} width={8} height={8} />
+      </Paragraph>
+    </Document>,
+  );
+
+  assertEquals(
+    /Scan to pay <\/w:t><\/w:r><w:hyperlink [^>]*><w:r><w:drawing>/.test(await documentXml(doc)),
+    true,
+  );
+});
+
+test("a picture in a table cell links", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Table id="t" columns={[{ width: "auto" }]}>
+        <Row>
+          <Cell>
+            <Image id="qr" src={pngPixel} href={PAY} width={8} height={8} />
+          </Cell>
+        </Row>
+      </Table>
+    </Document>,
+  );
+  const cell = /<w:tc>.*<\/w:tc>/s.exec(await documentXml(doc))?.[0] ?? "";
+
+  assertEquals(/<w:hyperlink[^]*<w:drawing>/.test(cell), true);
+});
+
+test("a picture in the header links through the header's own relationships", async () => {
+  const doc = await build(
+    <Document id="d" title="D" header={<Image id="logo" src={pngPixel} href={PAY} width={8} height={8} />}>
+      <Paragraph id="p">Body</Paragraph>
+    </Document>,
+  );
+
+  assertStringIncludes(await partXml(doc, "word/header1.xml"), "<w:hyperlink");
+  assertStringIncludes(await partXml(doc, "word/_rels/header1.xml.rels"), `Target="${PAY}" TargetMode="External"`);
+});
+
+test("a picture that cannot be packed still sends the reader on", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Image id="qr" src="https://example.com/qr.png" alt="Pay now" href={PAY} />
+    </Document>,
+  );
+
+  assertEquals(
+    /<w:hyperlink [^>]*><w:r><w:t[^>]*>\[image: Pay now\]<\/w:t>/.test(await documentXml(doc)),
+    true,
+  );
+});
+
+test("a published picture keeps its address token, and settling fills it in", async () => {
+  const Pay = () => {
+    const [state] = useState((data: { payUrl: string }) => data);
+
+    return <Image id="qr" src={pngPixel} href={state.payUrl} />;
+  };
+  const pay = template<{ payUrl: string }>(
+    <Document id="d" title="D">
+      <Pay />
+    </Document>,
+  );
+  const data = { payUrl: "https://example.com/pay/42" };
+  const published = await buildDocument(pay, createPublishData() as typeof data, {
+    branchMode: "publish",
+    deriverMode: "preserve",
+    dynamicMode: "resolve",
+    aiClient: { generateParagraph: () => "" },
+  });
+  const state: RuntimeState = {
+    ctx: { ...data },
+    derived: {},
+    dataProvider: new InMemoryDataProvider(data),
+    aiClient: new EchoAiClient(),
+  };
+
+  assertEquals((published.nodes[0] as ImageNode).href, "{{data.payUrl}}");
+
+  const settled = await resolveDocument(published, state, { derivers: createDeriverRegistry() });
+  const built = await buildDocument(pay, data, { branchMode: "decide", dynamicMode: "placeholder" });
+
+  assertEquals((settled.nodes[0] as ImageNode).href, data.payUrl);
+  assertEquals(JSON.stringify(settled.nodes[0]), JSON.stringify(built.nodes[0]));
+});
+
+test("a generated picture's address is settled too", async () => {
+  const Pay = () => {
+    const [state] = useState((data: { payUrl: string }) => data);
+
+    return <Image id="qr" generalPrompt="A QR code." href={state.payUrl} />;
+  };
+  const data = { payUrl: "https://example.com/pay/42" };
+  const published = await buildDocument(
+    template<{ payUrl: string }>(
+      <Document id="d" title="D">
+        <Pay />
+      </Document>,
+    ),
+    createPublishData() as typeof data,
+    {
+      branchMode: "publish",
+      deriverMode: "preserve",
+      dynamicMode: "placeholder",
+      aiClient: { generateParagraph: () => "" },
+    },
+  );
+  const state: RuntimeState = {
+    ctx: { ...data },
+    derived: {},
+    dataProvider: new InMemoryDataProvider(data),
+    aiClient: { ...new EchoAiClient(), generateParagraph: () => "", generateImage: () => ({ path: pngPixel }) },
+  };
+
+  assertEquals((published.nodes[0] as ImageNode).href, "{{data.payUrl}}");
+  assertEquals(
+    ((await resolveDocument(published, state, { derivers: createDeriverRegistry() })).nodes[0] as ImageNode).href,
+    data.payUrl,
+  );
+});
+
+test("the preview keeps a linked picture's frame inside its link", () => {
+  const dom = new JSDOM('<div id="page"><p></p></div>');
+  const page = dom.window.document.getElementById("page") as Element;
+  // Built node by node: the HTML parser would end the <p> at a <div>, which
+  // docx-preview's DOM calls do not.
+  const link = page.ownerDocument.createElement("a");
+  const frame = page.ownerDocument.createElement("div");
+
+  link.setAttribute("href", PAY);
+  frame.setAttribute("style", "display: inline-block; width: 10pt; height: 10pt;");
+  frame.append(page.ownerDocument.createElement("img"));
+  link.append(frame);
+  page.querySelector("p")?.append(link);
+
+  settleDocxPreview(page);
+
+  assertEquals(page.querySelector(`p > a[href="${PAY}"] > span > img`) !== null, true);
+  assertEquals(page.querySelector("p div"), null);
 });

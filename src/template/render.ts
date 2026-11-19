@@ -786,6 +786,7 @@ async function renderImage(
       path: await requiredText(props.src, context),
       fallbackPath: await text(props.fallbackSrc, context),
       alt: await text(props.alt, context),
+      href: await text(props.href, context),
       width: props.width,
       height: props.height,
     });
@@ -801,6 +802,7 @@ async function renderImage(
       mode: "dynamic",
       when,
       alt: await text(props.alt, context),
+      href: await text(props.href, context),
       width: props.width,
       height: props.height,
       placeholder: await placeholderText(prompts, id, context),
@@ -814,6 +816,7 @@ async function renderImage(
     mode: "dynamic",
     when,
     alt: await text(props.alt, context),
+    href: await text(props.href, context),
     width: props.width,
     height: props.height,
     prompts: specs,

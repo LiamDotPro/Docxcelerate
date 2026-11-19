@@ -325,6 +325,13 @@ export interface ImageNode extends BaseNode {
   width?: number;
   /** Rendered height, in points. */
   height?: number;
+  /**
+   * An address the picture links to: `https:`, `http:`, `mailto:` or `tel:`.
+   *
+   * Anything else draws the picture alone. The address may come out of a
+   * request, and a preview draws a link as something a reader can click.
+   */
+  href?: string;
   /** What to show while the image has not been produced yet. */
   placeholder?: string;
 }

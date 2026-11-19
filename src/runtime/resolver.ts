@@ -247,9 +247,12 @@ async function resolveImage(
   node: ImageNode,
   state: RuntimeState,
 ): Promise<ImageNode> {
+  const href = node.href === undefined ? {} : { href: await renderTemplate(node.href, state) };
+
   if (node.mode === "static") {
     return {
       ...node,
+      ...href,
       path: node.path ? await renderTemplate(node.path, state) : node.path,
       alt: node.alt ? await renderTemplate(node.alt, state) : node.alt,
     };
@@ -260,6 +263,7 @@ async function resolveImage(
 
   return {
     ...node,
+    ...href,
     prompts,
     path: result.path,
     alt: result.alt,

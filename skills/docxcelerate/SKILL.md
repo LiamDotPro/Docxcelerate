@@ -136,7 +136,7 @@ Nothing leaves the machine, and the same build gives the same page every time.
 | `Section` | any nodes, including sections | the **only** container; `title` required and becomes a heading |
 | `Paragraph` | text children, or prompts | `text` prop says the same as children; a `\n` in the text is a line break; `list="bullet"` or `"number"` makes it a list item, counted by the renderer |
 | `Text` | words, inside a `Paragraph`, `Cell` or `Shape` | **not a node** — no `id`. `bold`, `italic`, `underline`, `strike`, `href`. Never a colour or a size |
-| `Image` | `src`, `alt`, `width`, `height`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below |
+| `Image` | `src`, `alt`, `width`, `height`, `href`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below. `href` makes the picture a link |
 | `Graph` | `graphType`, `data`, `title`, `caption`, or prompts | packed as a real Word chart, never a picture of one — the numbers travel with it |
 | `Table` | `Row`s, and any `.map()` producing them | `columns` declared once, in mm or `"auto"`, with `align` |
 | `Row` | `Cell`s | `header` marks a heading row; only *leading* ones repeat across pages |
@@ -151,6 +151,12 @@ as a note rather than a picture — the packer never reaches for a file, because
 the engine writing the document is not on the machine the file was on. Word will
 not embed an SVG alone either, so give one a `fallbackSrc` raster: the screen
 draws the SVG and the Word file gets the raster.
+
+**A picture can be a link.** `<Image href="https://pay.example.com/inv/123">`
+makes a QR code, a Pay-now button or a logo open that address — Ctrl+click in
+Word, a click in the preview. The same allowlist as `<Text href>`: `https:`,
+`http:`, `mailto:`, `tel:`; anything else draws the picture unlinked. Give a
+linked picture `alt` that says where it goes.
 
 Every element also takes **`variant`** — a name the theme looks up, never an
 appearance: `<Cell variant="badge">`, `<Paragraph variant="band">`. The colours
