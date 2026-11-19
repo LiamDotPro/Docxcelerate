@@ -58,7 +58,7 @@ interface PromptProps {
 | `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0) |
 | `Text` | `bold?`, `italic?`, `underline?`, `strike?`, `href?` (`https:`, `http:`, `mailto:` or `tel:`), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` |
-| `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `caption?`, `width?`, `height?` (points), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `dataLabels?` |
+| `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `caption?`, `width?`, `height?` (points), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `valueAxisMin?`, `valueAxisMax?`, `valueAxisStep?` (numbers; fix the value axis, Word picks any left out), `dataLabels?` |
 | `Table` | `columns` (required), `children?` |
 | `Row` | `header?`, `children?` |
 | `Cell` | `span?`, `align?`, `children?` |
@@ -138,6 +138,7 @@ Notes worth knowing:
   chart reads as part of the document rather than as something pasted into it.
 - `numberFormat` is an OOXML format code — `"#,##0"`, `"0.0%"`, `"£#,##0"` —
   handed to the value axis and to the data labels verbatim.
+- `valueAxisMin` / `valueAxisMax` fix the ends of the value axis and `valueAxisStep` the distance between its gridlines — for data whose movement is the point, like uptime between 99% and 100%, which an axis starting at zero flattens into one line. Each is optional and Word picks whatever is left out. They set the y axis on `scatter`/`bubble`, the bottom axis on `barHorizontal`, are ignored on a pie, and on a percent stack are shares (`0.5` is 50%). A value outside the bounds is clipped. `min` must be below `max` and `step` above zero, or the build throws.
 - `legend` defaults to a key under the plot for more than one series and none
   for one, because a key naming the only thing on the chart repeats the title.
   A pie always keeps one: its key names the slices.

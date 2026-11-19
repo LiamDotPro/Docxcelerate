@@ -344,3 +344,17 @@ test("more frames than charts leaves the spare frames alone", async () => {
   assertEquals(settleDocxPreviewCharts(body, charts, () => "<svg></svg>"), 1);
   assertEquals(frames[1].childElementCount, 0);
 });
+
+test("the value axis's fixed bounds are read from the file, and absent where Word picks", async () => {
+  const [bounded] = await readBack([
+    chart({ valueAxisMin: 90, valueAxisMax: 100, valueAxisStep: 2 }),
+  ]);
+  const [plain] = await readBack([chart()]);
+
+  assertEquals(bounded.valueAxisMin, 90);
+  assertEquals(bounded.valueAxisMax, 100);
+  assertEquals(bounded.valueAxisStep, 2);
+  assertEquals(plain.valueAxisMin, undefined);
+  assertEquals(plain.valueAxisMax, undefined);
+  assertEquals(plain.valueAxisStep, undefined);
+});

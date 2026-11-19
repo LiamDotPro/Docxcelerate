@@ -254,6 +254,25 @@ export interface GraphProps extends CommonElementProps, PromptProps {
   categoryAxisTitle?: string;
   /** What the value axis measures. */
   valueAxisTitle?: string;
+  /**
+   * Where the value axis starts, in the units of the values.
+   *
+   * Left out, Word picks it, which for most data is zero. Set it when the
+   * movement is the point and zero is not: an uptime chart that starts at 0
+   * draws 99.4% and 99.9% as the same line. A value below it is drawn clipped
+   * at the axis. On a percent stack the axis is a share, so 0.5 means 50%.
+   */
+  valueAxisMin?: number;
+  /**
+   * Where the value axis ends, in the units of the values. Left out, Word picks
+   * it. Must be above `valueAxisMin` when both are given.
+   */
+  valueAxisMax?: number;
+  /**
+   * The distance between ticks and gridlines on the value axis. Left out, Word
+   * picks it. Must be greater than zero.
+   */
+  valueAxisStep?: number;
   /** Whether each point prints its own figure. Worth it on a pie, rarely elsewhere. */
   dataLabels?: boolean;
 }
