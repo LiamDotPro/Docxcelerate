@@ -60,7 +60,7 @@ interface PromptProps {
 
 | Element | Own props |
 | --- | --- |
-| `Document` | `id` (required), `title` (required), `metadata?`, `properties?`, `header?`, `footer?`, `firstHeader?`, `firstFooter?`, `evenHeader?`, `evenFooter?`, `children?` |
+| `Document` | `id` (required), `title` (required), `metadata?`, `properties?`, `header?`, `footer?`, `firstHeader?`, `firstFooter?`, `evenHeader?`, `evenFooter?`, `trackChanges?`, `children?` |
 | `Section` | `title` (required), `children?` |
 | `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0), `listStyle?` (`"decimal" \| "lowerLetter" \| "upperLetter" \| "lowerRoman" \| "upperRoman"`, or any of them with `Paren` appended: `"lowerLetterParen"` is (a); default by depth 1. a. i.) |
 | `Text` | `bold?`, `italic?`, `underline?`, `strike?`, `script?` (`"superscript" \| "subscript"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`), `variant?` (a block name; only its character settings apply), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
@@ -161,6 +161,12 @@ Notes worth knowing:
   both sides and bound — the reference belongs at the *outside* edge of each, so
   a folio in the same place on every sheet sits in the gutter on half of them.
   Naming either makes `header` and `footer` the right-hand page's.
+- `trackChanges` opens the document in Word with Track Changes on — for a
+  contract, NDA or agreement sent out to be negotiated, so every edit the
+  other side makes is recorded. It is a setting, not a lock: Word lets the
+  reviewer switch it off. It applies to the whole template, not per
+  recipient, and the preview looks the same because nothing has been edited
+  yet.
 - `Graph.data` is `{ categories?: string[], series: { label?, values: (number
   | null)[], color?, sizes? }[] }`. A `null` value is a gap in the plot, not a
   zero — a month nobody measured is not a month that measured nothing. A series
@@ -425,6 +431,7 @@ interface DocumentModel {
   style?: DocumentStyle;
   metadata?: JsonObject;
   properties?: DocumentProperties;   // docProps; tokens settled by resolveDocument
+  trackChanges?: boolean;   // Word opens it with Track Changes on
   nodes: DocumentNode[];
   header?: DocumentNode[];   // running furniture, drawn on every page
   footer?: DocumentNode[];

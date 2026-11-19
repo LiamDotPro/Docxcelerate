@@ -132,7 +132,7 @@ Nothing leaves the machine, and the same build gives the same page every time.
 
 | Element | Holds | Notes |
 | --- | --- | --- |
-| `Document` | sections and nodes | `id` and `title` both required; one per template; `header`/`footer` take running furniture; `properties` sets the file's author, subject, keywords, description and `custom` values a DMS indexes. Pass a function of the data for a per-document value, e.g. `custom: { invoiceNumber: data.invoice.number }` |
+| `Document` | sections and nodes | `id` and `title` both required; one per template; `header`/`footer` take running furniture; `properties` sets the file's author, subject, keywords, description and `custom` values a DMS indexes. Pass a function of the data for a per-document value, e.g. `custom: { invoiceNumber: data.invoice.number }`; `trackChanges` opens it in Word with Track Changes on |
 | `Section` | any nodes, including sections | the **only** container; `title` required and becomes a heading, kept on the page with what follows it |
 | `Paragraph` | text children, or prompts | `text` prop says the same as children; a `\n` in the text is a line break; `list="bullet"` or `"number"` makes it a list item, counted by the renderer; on a numbered item, `listStyle="lowerLetterParen"` (or `upperRoman`, `lowerRomanParen`, …) sets that level's numerals: (a), I., (i) |
 | `Text` | words, inside a `Paragraph`, `Cell` or `Shape` | **not a node** — no `id`. `bold`, `italic`, `underline`, `strike`, `script` (`"superscript"` \| `"subscript"`), `href`, `variant` (a theme block name: colour, shading, size, face, weight, caps, tracking). Never a colour or a size |

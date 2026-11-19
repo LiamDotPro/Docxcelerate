@@ -110,6 +110,16 @@ export interface DocumentProps extends CommonElementProps {
   evenHeader?: Yield;
   /** The foot of a left-hand page, when it differs from `footer`. */
   evenFooter?: Yield;
+  /**
+   * Opens the document in Word with Track Changes on.
+   *
+   * For a document sent out to be negotiated — a contract, an NDA, a tenancy
+   * agreement — so every edit the other side makes is recorded from the first
+   * keystroke rather than only once someone remembers to switch it on. It is
+   * the reviewer's switch, not a lock: Word lets them turn it off again.
+   * Absent or `false` packs the document exactly as before.
+   */
+  trackChanges?: boolean;
   /** The body of the document. */
   children?: Yield;
 }
