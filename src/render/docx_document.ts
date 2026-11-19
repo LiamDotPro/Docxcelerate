@@ -41,6 +41,7 @@ import type {
   DocumentNode,
   DocumentStyle,
   DocumentTextBlockStyle,
+  DocumentTextTransform,
   GraphNode,
   ImageNode,
   ListMarker,
@@ -643,6 +644,8 @@ function blockRun(
   size?: number;
   color?: string;
   allCaps?: boolean;
+  smallCaps?: boolean;
+  italics?: boolean;
   characterSpacing?: number;
   font?: IFontAttributesProperties;
 } {
@@ -656,12 +659,28 @@ function blockRun(
     bold: block.weight === undefined ? undefined : block.weight === "bold",
     size: block.fontSizePt === undefined ? undefined : ptToHalfPoints(block.fontSizePt),
     color: block.color,
-    allCaps: block.transform === undefined ? undefined : block.transform === "uppercase",
+    ...caseOf(block.transform),
+    italics: block.italic,
     characterSpacing: block.letterSpacingEm === undefined
       ? undefined
       : Math.round(block.letterSpacingEm * sizePt * 20),
     font: block.font === undefined ? undefined : runFonts(block.font, style),
   };
+}
+
+/**
+ * A casing as docx's two case fields, always both keys.
+ *
+ * docx writes `w:smallCaps` whenever `smallCaps` is defined and then drops
+ * `allCaps`, so the field a casing does not use has to be there as undefined
+ * to replace whatever casing it is laid over.
+ *
+ * shortcut: a heading variant cannot undo the other casing its Heading 1 style carries; set the casing on sectionHeading instead.
+ */
+function caseOf(transform: DocumentTextTransform | undefined): { allCaps?: boolean; smallCaps?: boolean } {
+  return transform === "smallCaps"
+    ? { allCaps: undefined, smallCaps: true }
+    : { allCaps: transform === undefined ? undefined : transform === "uppercase", smallCaps: undefined };
 }
 
 /** The numbering every bulleted item counts in. Bullets do not count, so one serves them all. */
@@ -956,6 +975,8 @@ function markedRun(
     // A field the block leaves out has no opinion, so it must not blank the paragraph's.
     ...Object.fromEntries(Object.entries(blockRun(own, style)).filter(([, value]) => value !== undefined)),
     ...(own?.fill === undefined ? {} : { shading: { type: ShadingType.CLEAR, fill: own.fill } }),
+    // A run variant's casing replaces the paragraph's as a pair — see caseOf.
+    ...(own?.transform === undefined ? {} : caseOf(own.transform)),
     ...(run.bold === undefined ? {} : { bold: run.bold }),
     ...(run.italic === undefined ? {} : { italics: run.italic }),
     ...(underline === undefined ? {} : { underline }),
@@ -2147,6 +2168,8 @@ function cellContent(
           size,
           font: run.font,
           allCaps: run.allCaps ?? heading.allCaps,
+          italics: run.italics,
+          smallCaps: run.smallCaps,
           characterSpacing: run.characterSpacing ??
             (heading.trackedEm === undefined
               ? undefined
@@ -2302,7 +2325,8 @@ function textBlockStyle(style: DocumentStyle, block: DocumentTextBlockStyle) {
       size: ptToHalfPoints(block.fontSizePt),
       bold: block.weight === "bold",
       color: headingColor(style, block),
-      allCaps: block.transform === "uppercase",
+      ...caseOf(block.transform ?? "none"),
+      italics: block.italic,
       characterSpacing: trackingPt(block.letterSpacingEm, block.fontSizePt),
     },
     paragraph: {

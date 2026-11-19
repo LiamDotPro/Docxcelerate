@@ -232,7 +232,7 @@ export interface TextProps {
    *
    * A name, not an appearance, the same as `variant` on every element. Only the
    * block's character settings reach a run: `color`, `fill` (drawn as shading
-   * behind the words), `fontSizePt`, `weight`, `font`, `transform` and
+   * behind the words), `fontSizePt`, `weight`, `italic`, `font`, `transform` and
    * `letterSpacingEm`. Borders, padding, spacing and alignment belong to a
    * paragraph and are ignored here. An unknown name draws the words plain.
    * `bold`, `italic`, `underline` and `strike` said beside it win over the
