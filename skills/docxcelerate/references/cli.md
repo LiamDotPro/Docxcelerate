@@ -133,6 +133,7 @@ dxcl list components
 | `invoice-document-type` | What an invoice may call itself, and the dates it has to carry. |
 | `deposit-cancellation-outcome` | What a cancelled order refunds and keeps, and the VAT on each part. |
 | `tax-treatment-notice` | The mention an invoice's tax treatment requires, or a warning when its ID is missing. |
+| `payment-surcharge-line` | A payment-method surcharge only where it is lawful, capped, taxed with the supply, and disclosed. |
 | `fee-cap-status` | What a capped, ceiling or estimated engagement may charge, and the overrun or notice wording it needs. |
 | `advance-payment-invoice` | A deposit or prepayment against an order: the share, what's already requested, and what's left. |
 | `vat-place-of-supply` | Whose VAT applies and at what rate, decided before anything is printed. |

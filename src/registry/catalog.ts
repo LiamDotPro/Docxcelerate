@@ -1127,6 +1127,66 @@ export const COMPONENTS: RegistryComponent[] = [
   },
   {
     kind: "component",
+    id: "payment-surcharge-line",
+    title: "Payment method surcharge",
+    summary: "A payment-method surcharge only where it is lawful, capped, taxed with the supply, and disclosed.",
+    detail:
+      "Charges a payment-method surcharge only where it is lawful, and says why when it is not. " +
+      "No UK consumer is surcharged for any method; no consumer card (credit, debit or prepaid) is " +
+      "surcharged in the UK or EU, and no SEPA transfer in the EU; in the US only credit cards are, " +
+      "never debit or prepaid, and never in a state that bans it. What is allowed is capped at the " +
+      "cost of acceptance, and in the US at the network's and the state's cap too. Every percentage " +
+      "is applied to the net total, the smallest base a cap could mean, so it holds whichever one a " +
+      "rule intends. In the UK and EU the surcharge is taxed as part of the main supply, spread " +
+      "across the invoice's VAT rates so a zero-rated share carries no VAT, never as a flat 20% line " +
+      "or as exempt. The disclosure prints with the rate actually charged. All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "invoice", "payment", "surcharge", "vat", "tax", "deriver", "branching", "table"],
+    exports: ["PaymentSurchargeLine"],
+    dataFields: [
+      { path: "surcharge.jurisdiction", type: '"GB" | "EU" | "US"', summary: "Whose surcharging rules apply. Anything else fails the document." },
+      { path: "surcharge.usState", type: "string | undefined", summary: "US only: two-letter state code. Missing there prints a warning instead of a surcharge." },
+      { path: "surcharge.customer", type: '"consumer" | "business" | undefined', summary: "UK only. Missing means consumer, which bans any surcharge." },
+      { path: "surcharge.method.kind", type: '"credit-card" | "debit-card" | "prepaid-card" | "commercial-card" | "sepa" | "bank-transfer"', summary: "How the customer pays. Decides whether a surcharge is allowed." },
+      { path: "surcharge.method.network", type: "string | undefined", summary: "US only: card network for its cap. Missing gets the lowest cap, 3%." },
+      { path: "surcharge.percent", type: "number | undefined", summary: "Requested rate, percent of the net total. Missing or 0 prints nothing." },
+      { path: "surcharge.costOfAcceptance", type: "number | undefined", summary: "Cost of accepting the method, percent. The cap everywhere; missing prints a warning." },
+      { path: "surcharge.usTaxable", type: "boolean | undefined", summary: "US only: whether the state taxes the surcharge. Missing means it does." },
+      { path: "surcharge.currency", type: "string", summary: "ISO 4217 code. Sets minor units. Required." },
+      { path: "surcharge.bands", type: "Array<{ ratePercent: number; net: number; vat?: number }>", summary: "The invoice's pre-surcharge totals by tax rate. The surcharge is spread across them by net." },
+    ],
+    arrangements: [
+      {
+        id: "table",
+        title: "Table",
+        summary: "The surcharge, its tax and the new total as label and amount rows under the invoice totals, notes beneath.",
+      },
+      {
+        id: "stacked",
+        title: "Stacked",
+        summary: "Each line as a sentence, one under another, down the text column.",
+      },
+    ],
+    files: node("payment-surcharge-line", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      surcharge: {
+        jurisdiction: "GB",
+        customer: "business",
+        method: { kind: "commercial-card", network: "mastercard" },
+        percent: 2.5,
+        costOfAcceptance: 1.95,
+        currency: "GBP",
+        bands: [
+          { ratePercent: 20, net: 1184250.0, vat: 236850.0 },
+          { ratePercent: 5, net: 96400.0, vat: 4820.0 },
+          { ratePercent: 0, net: 48975.5, vat: 0 },
+        ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
     id: "voucher-redemption-lines",
     title: "Voucher and coupon redemptions",
     summary: "Vouchers, coupons and gift cards placed where their tax treatment puts them: above the tax or below the total.",
