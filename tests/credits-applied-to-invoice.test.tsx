@@ -46,7 +46,7 @@ interface Out {
   creditNotes: Row[];
   hasPayments: boolean;
   payments: Row[];
-  excluded: Array<{ amount: string; reason: string }>;
+  excluded: Array<{ reference: string; amount: string; reason: string }>;
   total: string;
   due: string;
   dueMinor: number;
@@ -125,6 +125,26 @@ test("an allocation replaces oldest first", () => {
   assertEquals(o.dueMinor, 1500);
   assertStringIncludes(o.intro, "as allocated");
   assertEquals(run([a, b], {}, { ...inv, totalMinor: 4000 }, []).creditNotes[0].appliedMinor, 3000);
+});
+
+test("allocation entries are applied in the order given, rows stay by date", () => {
+  const a = cn("A", 3000, { issuedOn: "2026-05-01" });
+  const b = cn("B", 3000, { issuedOn: "2026-01-01" });
+  const o = run([a, b], {}, { ...inv, totalMinor: 4000 }, [{ creditId: "A", amountMinor: 3000 }, { creditId: "B", amountMinor: 3000 }]);
+  assertEquals(o.creditNotes.map((r) => [r.reference, r.appliedMinor]), [["B", 1000], ["A", 3000]]);
+});
+
+test("disputed is judged before a different currency", () => {
+  assertEquals(run([cn("A", 100, { disputed: true, currency: "USD" })]).excluded[0].reason, "On hold – disputed");
+});
+
+test("excluded credits are listed oldest first", () => {
+  const o = run([
+    cn("C", 100, { disputed: true, issuedOn: "2026-09-01" }),
+    cn("A", 100, { disputed: true, issuedOn: "2025-03-01" }),
+    cn("B", 100, { disputed: true, issuedOn: "2026-02-01" }),
+  ]);
+  assertEquals(o.excluded.map((r) => r.reference), ["A", "B", "C"]);
 });
 
 test("an allocation is capped by the remainder and by what is owed", () => {
