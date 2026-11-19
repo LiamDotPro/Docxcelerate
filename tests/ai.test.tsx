@@ -8,8 +8,8 @@ import {
   defineDocumentProject,
   EchoAiClient,
   InMemoryDataProvider,
-  resolveDocument,
   promptMessages,
+  resolveDocument,
   ScriptedAiClient,
 } from "docxcelerate";
 import type {
