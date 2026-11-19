@@ -151,6 +151,11 @@ Notes worth knowing:
   `href` links the picture — block, inline, in a cell or in the furniture — and
   lands on the node as `href`, settled like a run's. A refused scheme or an
   unsettled token draws the picture alone.
+- **A picture among a `Paragraph`'s words sits where it was written** — in the
+  body, in a `Cell` and in a `Shape` alike: `<Paragraph>Paid <Image src={tick}
+  width={8} /> on 3 March</Paragraph>` prints the tick between the words, in the
+  cell's own styling on both sides. Inside a `Cell` or `Shape`, write the
+  sentence as a `<Paragraph>`; that is what holds an inline picture.
 - `PageBreak` is for a break that is part of what the document *is* — payment
   details on their own page. Nudging a paragraph off the bottom of a page is the
   margins' job.

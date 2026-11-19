@@ -484,7 +484,7 @@ function renderNode(
 
     return [
       new Paragraph({
-        children: paragraphRuns(node, block, style),
+        children: paragraphRuns(node, blockRun(block, style), style),
         ...breakStyle(broken),
         numbering: item?.numbering,
         ...paragraphFrame(node, block),
@@ -851,13 +851,17 @@ type InlineRun = TextRun | ImageRun | ExternalHyperlink;
  * they were written, whichever run the offset falls in. A paragraph with no
  * pictures and one setting is the single text run it always was — including
  * the empty one, which Word needs to keep the line.
+ *
+ * It takes the resolved base run rather than a block because each caller has
+ * already folded its own settings into it (the body's block, a cell's column,
+ * header and block, a shape's box block), and the pictures are cut in among
+ * those runs the same way everywhere.
  */
 function paragraphRuns(
   node: ParagraphNode,
-  block: DocumentBlockStyle | undefined,
+  base: Record<string, unknown>,
   style: DocumentStyle,
 ): InlineRun[] {
-  const base = blockRun(block, style);
   const inline = [...(node.inlineImages ?? [])].sort((a, b) => a.at - b.at);
   const runs: InlineRun[] = [];
   // How far into the text the runs so far reach, and the next picture due.
@@ -999,26 +1003,6 @@ function textRun(text: string, props: Record<string, unknown>): TextRun {
   }
 
   return new TextRun({ children, ...props });
-}
-
-/**
- * A cell paragraph's runs, with its pictures set among them.
- *
- * The cell path builds its text run itself — it has the column's alignment and
- * the cell's own block to fold in first — so the pictures are placed around
- * that finished run rather than rebuilt from the node.
- */
-function withInlineImages(node: ParagraphNode, textRuns: InlineRun[]): InlineRun[] {
-  const inline = [...(node.inlineImages ?? [])].sort((a, b) => a.at - b.at);
-  if (inline.length === 0) return textRuns;
-
-  // A picture at offset 0 leads the line — the mark before the words. Anything
-  // further in follows them, because one text run cannot be cut in two here
-  // without losing the styling that was just resolved onto it.
-  const leading = inline.filter((entry) => entry.at === 0).map((entry) => imageRunOf(entry.image));
-  const trailing = inline.filter((entry) => entry.at > 0).map((entry) => imageRunOf(entry.image));
-
-  return [...leading, ...textRuns, ...trailing];
 }
 
 /** Whether a block draws anything around what it holds. */
@@ -1886,10 +1870,7 @@ function shapeContent(
           left: indent.left + (own?.left ?? 0),
           right: indent.right + (own?.right ?? 0),
         },
-        children: withInlineImages(
-          child,
-          runsOf(child).map((words) => markedRun(words, run, style)),
-        ),
+        children: paragraphRuns(child, run, style),
       }),
     ];
   });
@@ -2098,22 +2079,17 @@ function cellContent(
         // a muted note under a description is set tighter than the row it
         // sits in — and the cell's block decides it otherwise.
         spacing: { after: 0, ...blockLine(inner ?? block, style) },
-        children: withInlineImages(
-          child,
-          runsOf(child).map((words) =>
-            markedRun(words, {
-              bold: run.bold ?? heading.bold,
-              color: run.color ?? heading.color,
-              size,
-              font: run.font,
-              allCaps: run.allCaps ?? heading.allCaps,
-              characterSpacing: run.characterSpacing ??
-                (heading.trackedEm === undefined
-                  ? undefined
-                  : trackingOf(heading.trackedEm, size, style)),
-            }, style)
-          ),
-        ),
+        children: paragraphRuns(child, {
+          bold: run.bold ?? heading.bold,
+          color: run.color ?? heading.color,
+          size,
+          font: run.font,
+          allCaps: run.allCaps ?? heading.allCaps,
+          characterSpacing: run.characterSpacing ??
+            (heading.trackedEm === undefined
+              ? undefined
+              : trackingOf(heading.trackedEm, size, style)),
+        }, style),
       }),
     ];
   });

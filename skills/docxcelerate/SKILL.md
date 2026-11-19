@@ -170,6 +170,11 @@ Word, a click in the preview. The same allowlist as `<Text href>`: `https:`,
 `http:`, `mailto:`, `tel:`; anything else draws the picture unlinked. Give a
 linked picture `alt` that says where it goes.
 
+**A picture can sit inside a sentence.** An `<Image>` among a `<Paragraph>`'s
+words is set in the line at the point it was written — a status tick inside an
+invoice cell, a glyph mid-callout — in a `<Cell>` or `<Shape>` as in the body.
+In a cell, put the sentence in a `<Paragraph>`.
+
 Every element also takes **`variant`** — a name the theme looks up, never an
 appearance: `<Cell variant="badge">`, `<Paragraph variant="band">`. The colours
 live in the style's `blocks`, so a document restyles without a node changing,
