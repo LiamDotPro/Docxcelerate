@@ -1125,6 +1125,54 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "invoice-change-explainer",
+    title: "Invoice change explainer",
+    summary: "Why this invoice differs from the last one, in one sentence, or nothing when it barely does.",
+    detail:
+      "Explains why this invoice differs from the last one, in one generated sentence, and says nothing when the difference is too small to matter. Lines are matched by a stable key, never by description. Each difference becomes one structured cause: a line added or removed, a price or quantity change, a discount starting or ending, a tax rate or tax base change, a longer or shorter period, or a one-off charge. Price and volume effects use one convention that adds up exactly to the line's change: volume is the change in quantity at the old price, and price is the rest. When usage per day is flat, a longer period is the cause, not 'usage rose'. It names the fewest causes that cover 90% of the gross movement, at most three, so offsetting changes cannot hide behind a small net. A balance brought forward is never part of the change. It is silent below a floor (the larger of an absolute amount and a share of the previous total), on a first invoice, after a currency change, and when either invoice is a credit note. The model is limited to the chosen causes and their figures and may not guess at reasons. The placeholder is the same explanation written deterministically. All of it is one deriver.",
+    category: "Generated",
+    tags: ["dynamic", "prompts", "ai", "invoice", "money", "deriver", "branching"],
+    exports: ["InvoiceChangeExplainer"],
+    dataFields: [
+      { path: "invoiceChange.currency", type: "string", summary: "ISO 4217 code of this invoice. Sets the minor units and symbol. Required." },
+      { path: "invoiceChange.current", type: '{ total: number; broughtForward?: number; periodDays?: number; documentType?: "invoice" | "credit-note"; lines: Array<{ key: string; description: string; kind: "recurring" | "usage" | "one-off" | "discount" | "tax"; quantity?: number; unitPrice?: number; amount: number; taxRate?: number }> }', summary: "This invoice. Lines must add up to total less broughtForward, or it throws. Keys are stable across invoices and unique within one." },
+      { path: "invoiceChange.previous", type: "same shape plus currency?: string, or null", summary: "The invoice before. Missing means a first invoice and prints nothing; a credit note or a different currency also prints nothing." },
+      { path: "invoiceChange.threshold", type: "{ absolute?: number; pct?: number }", summary: "Silent below max(absolute, pct × previous total). Defaults 1 and 0.02." },
+      { path: "invoiceChange.periodLabel", type: "string", summary: "What the previous invoice is called after 'than'. Missing means 'your last invoice'." },
+    ],
+    files: node("invoice-change-explainer", { deriver: true }),
+    previewData: {
+      invoiceChange: {
+        currency: "GBP",
+        periodLabel: "last month",
+        threshold: { absolute: 5, pct: 0.02 },
+        previous: {
+          total: 106320, periodDays: 30, documentType: "invoice",
+          lines: [
+            { key: "platform", description: "Enterprise Data Platform licence (annual commitment, billed monthly)", kind: "recurring", quantity: 1, unitPrice: 18500, amount: 18500 },
+            { key: "api-calls", description: "Metered API requests over the included allowance", kind: "usage", quantity: 12400000, unitPrice: 0.00085, amount: 10540 },
+            { key: "seats", description: "Named analyst seats with Extended Data Retention", kind: "recurring", quantity: 1180, unitPrice: 46, amount: 54280 },
+            { key: "loyalty", description: "Multi-year loyalty discount (12% of platform licence)", kind: "discount", amount: -2220 },
+            { key: "migration", description: "Data migration and onboarding services (one-off)", kind: "one-off", amount: 7500 },
+            { key: "vat", description: "VAT", kind: "tax", taxRate: 0.2, amount: 17720 },
+          ],
+        },
+        current: {
+          total: 234360, broughtForward: 106320, periodDays: 31, documentType: "invoice",
+          lines: [
+            { key: "platform", description: "Enterprise Data Platform licence (annual commitment, billed monthly)", kind: "recurring", quantity: 1, unitPrice: 18500, amount: 18500 },
+            { key: "api-calls", description: "Metered API requests over the included allowance", kind: "usage", quantity: 15500000, unitPrice: 0.00085, amount: 13175 },
+            { key: "seats", description: "Named analyst seats with Extended Data Retention", kind: "recurring", quantity: 1450, unitPrice: 49.5, amount: 71775 },
+            { key: "support", description: "Dedicated Support (Premier tier, 24×7 with named engineer)", kind: "recurring", quantity: 1, unitPrice: 3250, amount: 3250 },
+            { key: "vat", description: "VAT", kind: "tax", taxRate: 0.2, amount: 21340 },
+          ],
+        },
+      },
+    },
+    requires: [],
+  },
 
   {
     kind: "component",
