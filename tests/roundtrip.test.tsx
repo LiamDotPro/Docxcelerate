@@ -302,10 +302,10 @@ const drawingClient: AiClient = {
   generateParagraph: (request) => `[draft] ${request.prompt}`,
   generateGraph: (request) => ({
     graphType: "bar",
-    data: { categories: ["Jan", "Feb"], series: [{ label: request.prompt, values: [3, 5] }] },
+    data: { categories: ["Jan", "Feb"], series: [{ label: `${request.node.title} / ${request.prompt}`, values: [3, 5] }] },
     caption: "Visits by month.",
   }),
-  generateImage: (request) => ({ path: "data:image/png;base64,iVBORw0KGgo=", alt: request.prompt }),
+  generateImage: (request) => ({ path: "data:image/png;base64,iVBORw0KGgo=", alt: `${request.node.alt} / ${request.prompt}` }),
 };
 
 /** A model that answers every node with nothing. */
@@ -357,7 +357,7 @@ test("a generated chart and image publish, then resolve to what a direct build w
   const cover = findNode(resolved.nodes, "cover");
   assertEquals(
     cover?.kind === "image" ? [cover.path, cover.alt, cover.width, cover.height] : undefined,
-    ["data:image/png;base64,iVBORw0KGgo=", "GENERAL: Draw Leeds at dusk.", 200, 120],
+    ["data:image/png;base64,iVBORw0KGgo=", "Picture of Leeds / GENERAL: Draw Leeds at dusk.", 200, 120],
   );
 });
 
