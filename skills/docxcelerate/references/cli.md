@@ -125,6 +125,7 @@ dxcl list components
 | `invoice-document-type` | What an invoice may call itself, and the dates it has to carry. |
 | `tax-treatment-notice` | The mention an invoice's tax treatment requires, or a warning when its ID is missing. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `japan-qualified-invoice` | The tax part of a Japanese qualified invoice: lines by rate, ※ marks, tax once per rate, and a checked T-number. |
 
 ## `dxcl show <id>`
 

@@ -1022,6 +1022,63 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "japan-qualified-invoice",
+    title: "Japan qualified invoice (適格請求書)",
+    summary: "The tax part of a Japanese qualified invoice: lines by rate, ※ marks, tax once per rate, and a checked T-number.",
+    detail:
+      "Lines are grouped into the 10% and reduced 8% bands, every reduced line is " +
+      "marked ※ with the legend 「※は軽減税率対象」, and each band prints its " +
+      "total and its tax. Tax is worked once per rate per invoice, never summed " +
+      "from rounded lines, which the NTA forbids, and is rounded the way the " +
+      "issuer chooses: floor, ceil or half-up. Tax-inclusive prices are taxed at " +
+      "10/110 and 8/108, not 10% and 8%. The registration number is T and 13 " +
+      "digits with a check digit, and a wrong one fails the build. A simplified " +
+      "qualified invoice drops only the buyer's name, never the T-number, the date " +
+      "or the reduced-rate marker. A seller with no registration gets a plain " +
+      "invoice with no T-number and no stated tax, plus a note of the share the " +
+      "buyer may still deduct, taken from the transaction date under the FY2026 " +
+      "schedule: 80%, then 70%, 50% and 30%, then nothing after September 2031. " +
+      "All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "invoice", "tax", "japan", "consumption-tax", "table", "deriver", "branching", "section"],
+    exports: ["JapanQualifiedInvoice"],
+    dataFields: [
+      { path: "jpInvoice.registrationNumber", type: "string | undefined", summary: "T and 13 digits, check digit verified. Missing means not registered: a plain invoice." },
+      { path: "jpInvoice.simplified", type: "boolean | undefined", summary: "A simplified qualified invoice, for retail, restaurants, taxis, parking and travel. Makes the buyer name optional." },
+      { path: "jpInvoice.rounding", type: '"floor" | "ceil" | "half-up"', summary: "How each rate's tax is rounded, once per invoice. Required when registered." },
+      { path: "jpInvoice.basis", type: '"exclusive" | "inclusive"', summary: "Whether amounts are before or including tax. Required when registered." },
+      { path: "jpInvoice.transactionDate", type: "string", summary: "ISO 8601, on or after 2023-10-01. Required." },
+      { path: "jpInvoice.buyerName", type: "string | undefined", summary: "Printed as given, honorific included. Required on a full qualified invoice." },
+      { path: "jpInvoice.lines", type: 'Array<{ description: string; amountYen: number; rate: "10" | "8" }>', summary: "1 to 10 items in whole yen. Reduced-rate items are marked ※." },
+    ],
+    arrangements: [
+      { id: "table", title: "Table", summary: "Items and band totals in one two-column table, amounts lined up on the right." },
+      { id: "stacked", title: "Stacked", summary: "One line per item and per total down the column, for a receipt or a narrow page." },
+    ],
+    files: node("japan-qualified-invoice", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      jpInvoice: {
+        registrationNumber: "T9234567890123",
+        simplified: false,
+        rounding: "floor",
+        basis: "exclusive",
+        transactionDate: "2026-11-30",
+        buyerName: "株式会社みちのく総合食品流通ホールディングス 仙台第二物流センター 御中",
+        lines: [
+          { description: "宮城県産ササニシキ 精米 30kg袋（特別栽培米・JAS有機認証）", amountYen: 46980000, rate: "8" },
+          { description: "業務用冷凍ショーケース（多段式・幅3,600mm）据付工事一式 仙台第二物流センター北棟", amountYen: 128450000, rate: "10" },
+          { description: "三陸産冷凍ほたて貝柱 Lサイズ 1kg×10袋入りケース", amountYen: 27315750, rate: "8" },
+          { description: "配送用折りたたみコンテナ（大型・蓋付き）リース料 2026年11月分", amountYen: 3862500, rate: "10" },
+          { description: "国産若鶏もも肉 正肉 2kg×6パック入りケース", amountYen: 18642300, rate: "8" },
+          { description: "コールドチェーン温度管理システム保守料 2026年11月分", amountYen: 1275000, rate: "10" },
+          { description: "業務用ミネラルウォーター 2L×6本入りケース", amountYen: 4215615, rate: "8" },
+        ],
+      },
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
