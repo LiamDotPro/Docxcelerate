@@ -883,6 +883,51 @@ export const COMPONENTS: RegistryComponent[] = [
 
   {
     kind: "component",
+    id: "finnish-virtual-barcode",
+    title: "Finnish virtual bank barcode (virtuaaliviivakoodi)",
+    summary: "The 54-digit virtuaaliviivakoodi a Finnish payer pastes into their bank, or the IBAN and reference alone when it can't be trusted.",
+    detail:
+      "Builds the 54-digit virtual bank barcode from the Finanssiala bank barcode " +
+      "guide, or checks the one the ERP issued against it. The reference decides " +
+      "the version: a viitenumero gives version 4, an RF reference gives version 5, " +
+      "whose RF check digits take the place of version 4's reserved zeros, with the " +
+      "padding after them, not before. Obsolete version 2 is never produced. The code " +
+      "is printed only for a Finnish IBAN that passes mod-97, a euro invoice, a " +
+      "reference whose check digit is right and an RF that is numeric; any failure, " +
+      "or an ERP code that disagrees, withholds it and prints the IBAN and reference " +
+      "on their own. An amount over 999 999,99 or an open amount zero-fills the amount " +
+      "field rather than truncating it, and a missing or on-receipt due date becomes " +
+      "000000. A credit note or paid invoice prints nothing. The code is one unbroken " +
+      "run, without the drawn barcode's mod-103 check. All of it is one deriver.",
+    category: "Closing",
+    tags: ["payment", "invoice", "finland", "barcode", "bank", "reference", "deriver", "branching"],
+    exports: ["FinnishVirtualBarcode"],
+    dataFields: [
+      { path: "payee.iban", type: "string", summary: "The account to pay. Must be a valid FI IBAN for a code; otherwise printed alone." },
+      { path: "invoice.currency", type: "string", summary: "Must be EUR for a code." },
+      { path: "invoice.total", type: "number", summary: "Euros to the cent. Zero or less prints nothing; over 999 999,99 zero-fills the amount." },
+      { path: "invoice.dueDate", type: "string | undefined", summary: "ISO 8601. Missing gives 000000; not a real date withholds the code." },
+      { path: "invoice.onReceipt", type: "boolean | undefined", summary: "Payable on receipt: the due-date field is 000000." },
+      { path: "invoice.openAmount", type: "boolean | undefined", summary: "The payer sets the amount: the amount field is zero-filled and total is not read." },
+      { path: "payment.reference", type: "string", summary: "A viitenumero (version 4) or a numeric RF reference (version 5). A bad check digit withholds the code." },
+      { path: "virtualBarcode", type: "string | undefined", summary: "The ERP's own 54 digits. Printed only if it matches the code built from the fields above." },
+    ],
+    files: node("finnish-virtual-barcode", { deriver: true, arrangements: ["stacked", "table"] }),
+    arrangements: [
+      { id: "stacked", title: "Stacked", summary: "Each labelled line under the last, the code on its own line under its label." },
+      { id: "table", title: "Table", summary: "IBAN and reference as label/value rows, the code under them at full width." },
+    ],
+    previewData: {
+      payee: { iban: "FI79 4405 2020 0360 82" },
+      invoice: { currency: "EUR", total: 987654.32, dueDate: "2026-12-31" },
+      payment: { reference: "RF26 2026 1100 4817 3500 1234 5" },
+      virtualBarcode: "579440520200360829876543226202611004817350012345261231",
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
     id: "invoice-document-type",
     title: "Invoice document type",
     summary: "What an invoice may call itself, and the dates it has to carry.",
