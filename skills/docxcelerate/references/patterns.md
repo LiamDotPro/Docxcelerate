@@ -298,6 +298,74 @@ export const Letterhead: Section<{ children?: Yield }> = ({ children }) => (
 );
 ```
 
+## The same lines, placed differently
+
+Where something sits is a separate choice from what it says. A component that
+can be placed more than one way takes an `arrangement` prop and picks with
+`arrange`, which builds only the arrangement asked for and treats the first one
+written as the default.
+
+Keep each arrangement in its own file, and let the node decide every line and
+hand them over. A registry component installs this way:
+
+```
+nodes/reference.node.tsx
+arrangements/reference/lines.ts              // what the node hands each arrangement
+arrangements/reference/stacked.arrangement.tsx
+arrangements/reference/table.arrangement.tsx
+```
+
+```tsx
+// arrangements/reference/table.arrangement.tsx
+import { Cell, Row, Table, type Yield } from "docxcelerate/template";
+import type { ReferenceLines } from "./lines.ts";
+
+export const table = (lines: ReferenceLines): Yield => (
+  <Table id="reference-table" columns={[{ width: 45 }, { width: "auto" }]}>
+    <Row id="reference-number">
+      <Cell>Invoice number</Cell>
+      <Cell>{lines.number}</Cell>
+    </Row>
+    {lines.purchaseOrder && (
+      <Row id="reference-purchase-order">
+        <Cell>Purchase order</Cell>
+        <Cell>{lines.purchaseOrder}</Cell>
+      </Row>
+    )}
+  </Table>
+);
+```
+
+```tsx
+// nodes/reference.node.tsx
+import { arrange, Section, useState } from "docxcelerate/template";
+import type { ReferenceLines } from "../arrangements/reference/lines.ts";
+import { stacked } from "../arrangements/reference/stacked.arrangement.tsx";
+import { table } from "../arrangements/reference/table.arrangement.tsx";
+
+export const Reference: Section<{ arrangement?: "stacked" | "table" }> = ({ arrangement }) => {
+  const [invoice] = useState((data: Data) => data.invoice);
+  const lines: ReferenceLines = { number: invoice.number, purchaseOrder: invoice.purchaseOrder };
+
+  return (
+    <Section id="reference" title="Reference">
+      {arrange(arrangement, { stacked: () => stacked(lines), table: () => table(lines) })}
+    </Section>
+  );
+};
+
+<Reference arrangement="table" />;
+```
+
+Do not write `arrangement === "table" ? … : …`. The compiler publishes a
+comparison even of two literals, so every arrangement would ship to the engine
+as a branch and count against the branch limit. An unknown name throws, so a
+typo fails the build instead of printing the default. Test an optional line
+inside the arrangement's JSX (`{lines.purchaseOrder && …}`), never in a
+variable above it: outside JSX a publish stand-in is always truthy. Keep a
+line's id the same in every arrangement. Registry components that offer
+arrangements list them under "Arrangements" in `dxcl show`.
+
 ## Carry a value forward through the document
 
 `useShared` reads whatever the components rendered *before* this one left behind.
@@ -421,6 +489,32 @@ export const Example: Paragraph = () => {
 ```
 
 Seeded from where the component sits, so the values do not move between builds.
+
+## A component in more than one language
+
+```tsx
+const messages = defineMessages("en", {
+  due: (amount: string) => `The balance is ${amount}.`,
+}, {
+  fr: { due: (amount) => `Le solde s’élève à ${amount}.` },
+});
+
+export const Due: Paragraph = () => {
+  const t = useMessages(messages);
+  const format = useFormat();
+  const [amount] = useState((data: { amount: number }) => data.amount);
+
+  return <Paragraph id="due">{t.due(format.currency(amount))}</Paragraph>;
+};
+```
+
+The build's `locale` picks the messages (`fr-CA`, then `fr`, then any `fr-…`,
+then the source language), and `useFormat` follows it. A project lists its
+languages as `locales: ["en-GB", "fr-FR"]`, default first.
+
+A deriver only sees its inputs, so pass it the locale as one:
+`useDeriver(money, [amount, useLocale()])`. Keep the text in the component.
+Don't hard-code `"en-GB"` in an `Intl` call.
 
 ## An async component
 

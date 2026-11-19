@@ -198,6 +198,25 @@ it, and pass an array of them when the shape legitimately varies by case.
 Jump into our documentation to understand how you can structure documents with AI
 and create more complex documents for your own needs.
 
+## One template, every language
+
+A component writes its words once per language with `defineMessages`, and a
+project names the languages it ships in. The build's locale picks the words,
+formats the figures, tells Word what language to proofread in, and asks a
+generated node to write in it.
+
+```tsx
+const messages = defineMessages("en", { clear: "There is nothing to pay." }, {
+  fr: { clear: "Vous n’avez rien à payer." },
+});
+
+export const Clear: Paragraph = () => <Paragraph id="clear">{useMessages(messages).clear}</Paragraph>;
+```
+
+```ts
+defineDocumentProject({ /* … */ locales: ["en-GB", "fr-FR"] });
+```
+
 ## Components you can install
 
 The registry ships nodes that are already written — a letterhead, a recipient

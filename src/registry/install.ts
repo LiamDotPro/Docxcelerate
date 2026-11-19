@@ -201,6 +201,13 @@ async function installComponent(
         (field) => `Add ${field.path}: ${field.type} to your data type — ${field.summary}`,
       ),
       `Use it: <${entry.exports[0]} /> in document.tsx, imported from ./nodes/index.ts.`,
+      ...(entry.arrangements
+        ? [
+          `Place it differently with arrangement=: ` +
+          entry.arrangements.map((arrangement) => `"${arrangement.id}"`).join(", ") +
+          ` (default "${entry.arrangements[0].id}").`,
+        ]
+        : []),
       // A preview runs the deriver through the node's import, but a publish only
       // ships what derivers/index.ts registers, so this is the step that is
       // easy to miss until an engine build fails.

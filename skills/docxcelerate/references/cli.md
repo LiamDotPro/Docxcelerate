@@ -129,7 +129,8 @@ dxcl list components
 
 ## `dxcl show <id>`
 
-Prints one entry in full: what it is, the data fields it reads, and where its
+Prints one entry in full: what it is, the data fields it reads, the
+arrangements it can be placed in where it has more than one, and where its
 files land. Read this before `dxcl add` — the data fields are what you will be
 adding to `types.ts` afterwards.
 

@@ -104,10 +104,6 @@ export async function placeholderText(
     : `[Dynamic placeholder: ${id}]`;
 }
 
-export function formatPromptText(prompts: PromptSpec[]): string {
-  return prompts.map((entry) => `${entry.kind.toUpperCase()}: ${entry.text}`).join("\n");
-}
-
 /** A picture found among a paragraph's children, and where it was found. */
 export type InlineImageElement = { at: number; element: TemplateElement };
 

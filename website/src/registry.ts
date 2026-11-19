@@ -129,6 +129,37 @@ export interface ComponentPageEntry {
   /** What it resolved to: the nodes a renderer or an engine is handed. */
   resolved: ResolvedNode[];
   previewUrl: string;
+  /**
+   * The component once per value of its first string-union field, or null
+   * when it has none. `selected` is the value `previewData` already holds.
+   */
+  variants: {
+    path: string;
+    selected: string;
+    values: {
+      value: string;
+      previewData: Record<string, unknown>;
+      resolved: ResolvedNode[];
+      previewUrl: string;
+      /** This value in each arrangement, as {@link ComponentPageEntry.arrangements}. */
+      arrangements: ComponentArrangementEntry[];
+    }[];
+  } | null;
+  /**
+   * The placements its `arrangement` prop chooses between, the default first,
+   * each with its own preview of `previewData`. Empty for a component with
+   * only the one.
+   */
+  arrangements: ComponentArrangementEntry[];
+}
+
+/** One arrangement of a component, and where its preview was written. */
+export interface ComponentArrangementEntry {
+  /** The value the `arrangement` prop takes. */
+  id: string;
+  title: string;
+  summary: string;
+  previewUrl: string;
 }
 
 export const THEMES = generated.themes as ThemePageEntry[];
