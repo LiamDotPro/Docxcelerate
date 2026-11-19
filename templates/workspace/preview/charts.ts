@@ -30,6 +30,9 @@ import type { ChartDrawer, PreviewChart, PreviewChartSeries } from "docxcelerate
 /** A point, in the CSS pixels a browser draws in. */
 const PX_PER_PT = 96 / 72;
 
+/** The room left round a plot whose axes are deleted, which Word lets fill its frame. */
+const BARE_GUTTER = { left: 4, right: 4, top: 4, bottom: 4 };
+
 /** How much room the axis labels are given, in pixels. */
 const GUTTER = { left: 56, right: 18, top: 16, bottom: 18 };
 
@@ -82,18 +85,23 @@ function optionFor(chart: PreviewChart): echarts.EChartsOption {
     : chart.series.some((series) => series.label !== undefined);
 
   const text = { color: ink, fontFamily: font, fontSize: 11 };
+  // Deleted in the file: Word draws neither the line nor the labels.
+  const bare = chart.axes ? {} : { axisLine: { show: false }, axisLabel: { show: false } };
+  const gutter = chart.axes ? GUTTER : BARE_GUTTER;
   const values = {
-    ...valueAxis(rule, text, chart.numberFormat),
+    ...valueAxis(rule, text, chart.numberFormat, chart.gridlines),
     ...(chart.valueAxisMin === undefined ? {} : { min: chart.valueAxisMin }),
     ...(chart.valueAxisMax === undefined ? {} : { max: chart.valueAxisMax }),
     ...(chart.valueAxisStep === undefined ? {} : { interval: chart.valueAxisStep }),
+    ...bare,
   };
   // A scatter and a bubble count along numbers on both axes, so what stands
   // where the categories would is a second measured axis rather than a named
   // one.
-  const categories = chart.graphType === "scatter" || chart.graphType === "bubble"
+  const categoryAxisOptions = chart.graphType === "scatter" || chart.graphType === "bubble"
     ? valueAxis(rule, text, undefined, false)
     : categoryAxis(chart, rule, text);
+  const categories = { ...categoryAxisOptions, ...bare };
 
   return {
     // A preview is a still picture of a document. A chart that animated into
@@ -113,11 +121,11 @@ function optionFor(chart: PreviewChart): echarts.EChartsOption {
     ...(radar ? { radar: radarFor(chart, rule, text) } : {}),
     ...(cartesian ? {
       grid: {
-        left: (horizontal ? GUTTER.left + 20 : GUTTER.left) +
+        left: (horizontal && chart.axes ? gutter.left + 20 : gutter.left) +
           (chart.valueAxisTitle === undefined && chart.categoryAxisTitle === undefined ? 0 : 16),
-        right: GUTTER.right,
-        top: GUTTER.top + (chart.title === undefined ? 0 : 22),
-        bottom: GUTTER.bottom + (chart.legend === "none" || !named ? 0 : 22) +
+        right: gutter.right,
+        top: gutter.top + (chart.title === undefined ? 0 : 22),
+        bottom: gutter.bottom + (chart.legend === "none" || !named ? 0 : 22) +
           (chart.categoryAxisTitle === undefined && chart.valueAxisTitle === undefined ? 0 : 18),
         containLabel: true,
       },
@@ -212,9 +220,9 @@ function radarFor(chart: PreviewChart, rule: string, text: AxisText) {
     })),
     center: ["50%", chart.title === undefined ? "52%" : "56%"] as [string, string],
     radius: "62%",
-    axisName: text,
-    axisLine: { lineStyle: { color: rule } },
-    splitLine: { lineStyle: { color: rule } },
+    axisName: chart.axes ? text : { show: false },
+    axisLine: chart.gridlines ? { lineStyle: { color: rule } } : { show: false },
+    splitLine: chart.gridlines ? { lineStyle: { color: rule } } : { show: false },
     // The alternating bands ECharts fills a web with by default are chart junk
     // — they say nothing the rings do not — and the file asks for no such fill.
     splitArea: { show: false },
@@ -233,7 +241,7 @@ function radarSeries(chart: PreviewChart): echarts.SeriesOption {
       return {
         name: series.label,
         value: series.values.map((value) => value ?? 0),
-        lineStyle: { color, width: 2 },
+        lineStyle: { color, width: 2, type: series.dash ?? "solid" },
         itemStyle: { color },
       };
     }),
@@ -379,12 +387,13 @@ function plotSeries(chart: PreviewChart, series: PreviewChartSeries): echarts.Se
   const stack = chart.stacked === false ? undefined : "total";
 
   if (chart.graphType === "scatter") {
+    // Points only, no connecting line, so a scatter dash has nothing to draw here.
     return {
       name: series.label,
       type: "scatter",
       symbolSize: 8,
       itemStyle: { color },
-      data: data.map((value, index) => [xOf(chart, index), value]),
+      data: painted(series, data.map((value, index) => [xOf(chart, index), value])),
     };
   }
 
@@ -407,11 +416,14 @@ function plotSeries(chart: PreviewChart, series: PreviewChartSeries): echarts.Se
       // Let down, so a big bubble does not simply delete the small one behind
       // it — which is the comparison the chart exists to show.
       itemStyle: { color, opacity: 0.75 },
-      data: series.values.map((value, index) => [
-        xOf(chart, index),
-        value,
-        series.sizes[index] ?? 0,
-      ]),
+      data: painted(
+        series,
+        series.values.map((value, index) => [
+          xOf(chart, index),
+          value,
+          series.sizes[index] ?? 0,
+        ]),
+      ),
     };
   }
 
@@ -422,12 +434,12 @@ function plotSeries(chart: PreviewChart, series: PreviewChartSeries): echarts.Se
       stack,
       symbol: "circle",
       symbolSize: 6,
-      lineStyle: { color, width: 2 },
+      lineStyle: { color, width: 2, type: series.dash ?? "solid" },
       itemStyle: { color },
       // An area chart is a line with the ground filled in under it, which is
       // exactly what OOXML's `c:areaChart` is beside its `c:lineChart`.
       ...(chart.graphType === "area" ? { areaStyle: { color, opacity: 0.25 } } : {}),
-      data,
+      data: painted(series, data),
     };
   }
 
@@ -437,8 +449,20 @@ function plotSeries(chart: PreviewChart, series: PreviewChartSeries): echarts.Se
     stack,
     itemStyle: { color },
     ...labelStyle(chart),
-    data,
+    data: painted(series, data),
   };
+}
+
+/** A point the file paints itself keeps that paint; the rest take the series'. */
+function painted<T>(
+  series: PreviewChartSeries,
+  data: T[],
+): (T | { value: T; itemStyle: { color: string } })[] {
+  return data.map((value, index) => {
+    const color = hex(series.pointColors[index] ?? undefined);
+
+    return color === undefined ? value : { value, itemStyle: { color } };
+  });
 }
 
 /**
@@ -463,13 +487,27 @@ function labelStyle(chart: PreviewChart) {
       // ECharts hands a label callback the whole data point, whose `value` is
       // anything a series may hold. Only a number can be formatted, and
       // anything else prints as it stands.
-      ...(format === undefined ? {} : {
-        formatter: (point: { value?: unknown }) =>
-          typeof point.value === "number" ? print(point.value, format) : String(point.value ?? ""),
-      }),
+      formatter: (point: { name?: string; value?: unknown }) => {
+        const figure = format !== undefined && typeof point.value === "number"
+          ? print(point.value, format)
+          : String(point.value ?? "");
+
+        if (chart.dataLabels === "category") return point.name ?? "";
+
+        return chart.dataLabels === "categoryAndValue" ? `${point.name}, ${figure}` : figure;
+      },
     },
   };
 }
+
+/** ECharts' own template for what a slice prints: `{b}` its name, `{c}` its value, `{d}` its share. */
+const PIE_LABEL: Record<Exclude<PreviewChart["dataLabels"], "none">, string> = {
+  value: "{c}",
+  percent: "{d}%",
+  category: "{b}",
+  categoryAndValue: "{b}, {c}",
+  categoryAndPercent: "{b}, {d}%",
+};
 
 /** A pie or a doughnut: one series, and a colour for every slice. */
 function pieSeries(chart: PreviewChart): echarts.SeriesOption {
@@ -486,7 +524,7 @@ function pieSeries(chart: PreviewChart): echarts.SeriesOption {
       ? { show: false }
       : {
         show: true,
-        formatter: chart.dataLabels === "percent" ? "{d}%" : "{c}",
+        formatter: PIE_LABEL[chart.dataLabels],
         color: hex(chart.textColor) ?? "#595959",
         fontSize: 11,
       },
