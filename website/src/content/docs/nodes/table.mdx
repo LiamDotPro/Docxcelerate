@@ -43,6 +43,11 @@ export const VisitLog: Table = () => {
 Each column takes a `width` — in millimetres, or `"auto"` to share out whatever
 the fixed ones leave — and an optional `align`.
 
+`align` on the `<Table>` moves the whole table, not its words: a totals block of
+fixed columns with `align="right"` sits against the right margin with no spacer
+column holding it there. Only a table narrower than the column can move — an
+`"auto"` column or a `bleed` fills it.
+
 **Why declare columns on the table instead of per cell?** Because every row
 shares them, so declaring them once is what makes the rows line up. It also means
 a cell only has to say what is in it.
@@ -95,6 +100,10 @@ the cell paragraphs instead, and they stay on separate lines:
 </Cell>
 ```
 
+Each keeps its own `align` and `variant` — the
+[paragraph page](/docs/nodes/paragraph/#how-it-sits-on-the-page) has what
+carries over.
+
 ## Header rows
 
 Marking a row `header` draws it as a heading:
@@ -114,6 +123,24 @@ be lifted to the top of page two.
 The preview repeats it too. A table longer than a page is broken between two of
 its rows — the same seam Word breaks at — and the heading is drawn again at the
 top of each piece, so a fifty-line invoice looks on screen the way it prints.
+
+## Rows that hold their shape
+
+Word breaks a long row across a page wherever the page ends, which leaves half an
+invoice line at the foot of one page and half at the head of the next.
+`keepTogether` moves the whole row over instead; put it on the row a `.map()`
+produces and every line gets it. A row taller than a page breaks anyway.
+
+`height` gives a row a depth of its own, in points — a box to sign in, a line of
+a form. It is a floor the row grows past when its cells need more;
+`heightRule="exact"` makes it fixed, for a label sheet where the grid matters
+more than the words, and Word clips what does not fit (the preview grows the row
+rather than hide it).
+
+```tsx
+{state.lines.map((line) => <Row keepTogether>…</Row>)}
+<Row height={56}><Cell>Signed</Cell><Cell>Date</Cell></Row>
+```
 
 ## Variants
 

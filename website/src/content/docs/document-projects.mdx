@@ -42,7 +42,7 @@ The split is deliberate — each file answers exactly one question:
 | `preview-data.ts` | One instance of that contract, for the preview |
 | `document.tsx` | Structure only: which nodes, in which sections, in which order |
 | `nodes/` | One component per node, plus an `index.ts` that exports them |
-| `document-style.ts` | Fonts, spacing and margins for the packed `.docx` |
+| `document-style.ts` | Paper, fonts, spacing and margins for the packed `.docx` |
 | `derivers/index.ts` | Named functions the engine runs per document |
 | `document.project.ts` | Ties the above together and names the document |
 
@@ -83,6 +83,25 @@ export default defineDocumentProject<DocumentData>({
 
 The preview app discovers projects by globbing for `document.project.ts`, so a
 new document appears in the picker as soon as it exists. Nothing registers it.
+
+## Paper and page numbers
+
+`document-style.ts` decides the sheet. `page.size` is `"A4"`, `"LETTER"`,
+`"LEGAL"`, `"A5"`, `"A3"` or `{ widthMm, heightMm }` for any other sheet, given
+upright; `orientation: "landscape"` turns either kind, and tables, bleeds,
+shapes and charts with no width of their own fill the wider column without being
+told.
+
+`page.firstPageNumber` and `page.numberStyle` change how `<PageNumber>` counts —
+an appendix that runs on from page 37, front matter numbered i, ii, iii. Only the
+page's own number moves; a total is still the count of pages, as Word prints it.
+
+```ts
+export const documentStyle: DocumentStyle = {
+  ...cleanMinimalDocumentStyle,
+  page: { ...cleanMinimalDocumentStyle.page, size: "A3", orientation: "landscape", firstPageNumber: 37 },
+};
+```
 
 ## Keep the preview data honest
 
