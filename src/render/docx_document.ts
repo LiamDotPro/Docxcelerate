@@ -42,7 +42,9 @@ import type {
   DocumentTextBlockStyle,
   GraphNode,
   ImageNode,
+  ListStyle,
   PageNumberNode,
+  ParagraphList,
   ParagraphNode,
   ParagraphRun,
   ShapeNode,
@@ -644,6 +646,23 @@ const BULLETS = ["\u2022", "\u25E6", "\u25AA"];
 /** Figures, then letters, then roman numerals, and round again. */
 const NUMBER_FORMATS = [LevelFormat.DECIMAL, LevelFormat.LOWER_LETTER, LevelFormat.LOWER_ROMAN];
 
+/** A numbered level's numerals and the text around them: the style it was given, or the default for its depth. */
+function numberMarker(style: ListStyle | undefined, level: number) {
+  if (style === undefined) {
+    return { format: NUMBER_FORMATS[level % NUMBER_FORMATS.length], text: `%${level + 1}.` };
+  }
+  const paren = style.endsWith("Paren");
+  return {
+    format: (paren ? style.slice(0, -"Paren".length) : style) as (typeof LevelFormat)[keyof typeof LevelFormat],
+    text: paren ? `(%${level + 1})` : `%${level + 1}.`,
+  };
+}
+
+/** The level an item stands at, as deep as Word's numbering goes and no deeper. */
+function listLevelOf(list: ParagraphList): number {
+  return Math.min(LIST_LEVELS - 1, Math.max(0, Math.trunc(list.level ?? 0)));
+}
+
 /** Where each item stands, worked out once before the document is rendered. */
 const listPlaces = new WeakMap<ParagraphNode, { reference: string; tight: boolean }>();
 
@@ -655,11 +674,12 @@ const listPlaces = new WeakMap<ParagraphNode, { reference: string; tight: boolea
  * not stop the steps counting. Anything else ends the list, and the next
  * numbered item starts a numbering of its own.
  *
- * @returns How many items there are, and how many numbered lists.
+ * @returns How many items there are, and for each numbered list the style each
+ * of its levels was given.
  */
-function placeLists(doc: DocumentModel): { items: number; numbered: number } {
+function placeLists(doc: DocumentModel): { items: number; numbered: (ListStyle | undefined)[][] } {
   let items = 0;
-  let numbered = 0;
+  const numbered: (ListStyle | undefined)[][] = [];
 
   const walk = (nodes: readonly DocumentNode[]): void => {
     // The numbering the list being walked counts in, once it has a numbered item.
@@ -675,8 +695,14 @@ function placeLists(doc: DocumentModel): { items: number; numbered: number } {
       }
 
       if (node.list.kind === "number" && reference === undefined) {
-        numbered += 1;
-        reference = `${NUMBER_LIST}-${numbered}`;
+        numbered.push([]);
+        reference = `${NUMBER_LIST}-${numbered.length}`;
+      }
+
+      if (node.list.kind === "number") {
+        // The levels belong to the list, and a later item that disagrees
+        // cannot change numbers already printed.
+        numbered[numbered.length - 1][listLevelOf(node.list)] ??= node.list.style;
       }
 
       const next = nodes[index + 1];
@@ -718,7 +744,7 @@ function placeLists(doc: DocumentModel): { items: number; numbered: number } {
  * at all. This is the form both engines read, which is the same reason a
  * shape is packed as VML.
  */
-function listNumbering(numbered: number) {
+function listNumbering(numbered: (ListStyle | undefined)[][]) {
   const levels = (
     marker: (level: number) => { format: (typeof LevelFormat)[keyof typeof LevelFormat]; text: string },
   ) =>
@@ -738,12 +764,9 @@ function listNumbering(numbered: number) {
           text: BULLETS[level % BULLETS.length],
         })),
       },
-      ...Array.from({ length: numbered }, (_, index) => ({
+      ...numbered.map((styles, index) => ({
         reference: `${NUMBER_LIST}-${index + 1}`,
-        levels: levels((level) => ({
-          format: NUMBER_FORMATS[level % NUMBER_FORMATS.length],
-          text: `%${level + 1}.`,
-        })),
+        levels: levels((level) => numberMarker(styles[level], level)),
       })),
     ],
   };
@@ -771,7 +794,7 @@ function listItem(node: ParagraphNode):
     return undefined;
   }
 
-  const level = Math.min(LIST_LEVELS - 1, Math.max(0, Math.trunc(node.list.level ?? 0)));
+  const level = listLevelOf(node.list);
 
   return {
     numbering: { reference: place.reference, level },
