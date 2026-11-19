@@ -705,6 +705,40 @@ ai.requests; // ScriptedAiRequest[]: { id, kind, prompt, prompts }, in the order
 id with no answer, or an answer of the wrong shape for the node, throws, and the
 build or resolve rejects with an `AiGenerationError` whose `cause` is that error. Previews (`dynamicMode: "placeholder"`) never call it.
 
+### Wiring a model
+
+`promptMessages(request)` turns any request an `AiClient` is handed into
+`{ system, user }`: the voice and the document's language in `system` (empty
+when there are neither), the ask in `user` followed by `Facts:`, `Avoid:` and
+`What a good answer looks like:` sections. `request.prompt` is still there, as
+labelled lines, for logging. Any chat API takes the two strings:
+
+```ts
+import { promptMessages, type AiClient } from "docxcelerate";
+
+const aiClient: AiClient = {
+  async generateParagraph(request) {
+    const { system, user } = promptMessages(request);
+    const response = await fetch("https://api.example.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${MODEL_KEY}` },
+      body: JSON.stringify({
+        model: "your-model",
+        messages: [{ role: "system", content: system }, { role: "user", content: user }]
+          .filter((message) => message.content !== ""),
+      }),
+    });
+    if (!response.ok) throw new Error(`The model answered ${response.status}.`);
+    const body = await response.json();
+    return body.choices[0].message.content;
+  },
+};
+```
+
+The key stays in the client; nothing in a request, a model or an artifact
+carries it. What the client throws is what the build or `resolveDocument`
+throws — nothing is retried or swallowed. A preview never calls the client.
+
 ## The built document
 
 ```ts

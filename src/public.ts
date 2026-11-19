@@ -39,6 +39,9 @@ export * from "./project/style.ts";
 // renderer should do differently from another.
 export * from "./render/image_source.ts";
 export * from "./runtime/ai.ts";
+// The shape a chat model takes, for a client to call. The rest of the module
+// is how the resolver asks, and stays internal.
+export { promptMessages } from "./runtime/ai_request.ts";
 // Only the error: the rest of ai_request.ts is how a build and a resolve ask,
 // not something a caller calls.
 export { AiGenerationError } from "./runtime/ai_request.ts";
