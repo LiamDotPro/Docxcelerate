@@ -138,6 +138,7 @@ dxcl list components
 | `vat-place-of-supply` | Whose VAT applies and at what rate, decided before anything is printed. |
 | `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `good-faith-estimate-comparison` | Each provider's bill against its own good faith estimate, and the dispute rights a $400 overrun gives a self-pay patient. |
 | `contingency-settlement-statement` | The closing statement for a contingent or damages-based fee: fee by band, statutory cap, liens, and the net. |
 | `stage-payment-schedule` | Stage payments that add up to the contract sum, with each stage's VAT tax point. |
 | `pay-less-notice` | A UK pay less notice: sum due, itemised basis, and whether it was served in time. |
