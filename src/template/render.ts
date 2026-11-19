@@ -429,7 +429,9 @@ async function renderHostKind(
       id,
       kind: "pageNumber",
       format: pageProps.format,
+      prefix: pageProps.prefix,
       separator: pageProps.separator,
+      align: pageProps.align,
       when,
     });
   }
