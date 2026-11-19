@@ -8,6 +8,7 @@ import type {
   DocumentModel,
   DocumentNode,
   DocumentStyle,
+  TableCellNode,
   TableNode,
   TableRowNode,
 } from "docxcelerate";
@@ -732,4 +733,49 @@ test("the preview reader finds a cell's tab stops, and the body after the table"
   assertEquals(stop?.leader, "dot");
   assertEquals(Math.abs((stop?.positionPt ?? 0) - 60 * 72 / 25.4) < 0.1, true);
   assertEquals(read.at(-1)?.text.includes("After the table"), true);
+});
+
+const turned = () => (
+  <Table id="t" columns={[{ width: 12 }, { width: 12 }, { width: "auto" }]}>
+    <Row>
+      <Cell textDirection="up">Up</Cell>
+      <Cell textDirection="down">Down</Cell>
+      <Cell>Across</Cell>
+    </Row>
+  </Table>
+);
+
+test("the model carries a direction only when it is set", async () => {
+  const doc = await build(turned);
+  const cells = rowsOf(tableOf(doc as DocumentModel))[0].children as TableCellNode[];
+
+  assertEquals(cells[0].textDirection, "up");
+  assertEquals(cells[1].textDirection, "down");
+  assertEquals("textDirection" in cells[2], false);
+});
+
+test("a direction is written into the cell's properties", async () => {
+  const cells = (await documentXml(await build(turned))).split("<w:tc>");
+
+  assertStringIncludes(cells[1], '<w:textDirection w:val="btLr"/>');
+  assertStringIncludes(cells[2], '<w:textDirection w:val="tbRl"/>');
+  assertEquals(cells[3].includes("w:textDirection"), false);
+});
+
+test("a turned cell keeps its other properties", async () => {
+  const doc = await build(() => (
+    <Table id="t" columns={[{ width: 12 }, { width: 12 }]}>
+      <Row header>
+        <Cell textDirection="up" span={2}>Week one</Cell>
+      </Row>
+    </Table>
+  ));
+  const cell = (await documentXml(doc)).split("<w:tc>")[1];
+
+  assertStringIncludes(cell, '<w:gridSpan w:val="2"/>');
+  assertStringIncludes(cell, "<w:shd ");
+  assertStringIncludes(cell, '<w:textDirection w:val="btLr"/>');
+  if (cell.includes("<w:vAlign")) {
+    assertEquals(cell.indexOf("w:textDirection") < cell.indexOf("<w:vAlign"), true);
+  }
 });

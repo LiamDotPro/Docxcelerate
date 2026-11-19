@@ -68,7 +68,7 @@ interface PromptProps {
 | `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `alt?`, `caption?`, `width?`, `height?` (points), `align?` (`"left" \| "center" \| "right"`), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `valueAxisMin?`, `valueAxisMax?`, `valueAxisStep?` (numbers; fix the value axis, Word picks any left out), `dataLabels?` |
 | `Table` | `columns` (required), `align?` (`"left" \| "center" \| "right"`, default left), `keepTogether?`, `children?` |
 | `Row` | `header?`, `keepTogether?`, `height?`, `heightRule?`, `children?` |
-| `Cell` | `span?`, `align?`, `children?` |
+| `Cell` | `span?`, `align?`, `textDirection?` (`"up" \| "down"`; horizontal when left out), `children?` |
 | `Shape` | `width?`, `height?` (points), `children?` |
 | `TableOfContents` | `title?` |
 | `PageBreak` | nothing beyond the common props |
@@ -128,6 +128,14 @@ Notes worth knowing:
   grid — and Word clips whatever does not fit, so keep an exact row's contents
   inside it (the preview grows the row rather than hiding the overflow). This
   is not a block's `heightPt`, which sets a paragraph's leading, not a row's depth.
+- **`textDirection` on a `<Cell>` turns its words on their side**: `"up"` reads
+  from the foot of the cell to its head, like a spine label; `"down"` from the
+  head to the foot. It is for a heading over a column too narrow to hold it —
+  days across a rota, requirements across a compliance grid — and for a label
+  down the side of a form. Word grows the row to fit the turned words, so give
+  the row a `height` when the headings should share one depth. The column's
+  `align` still applies, along the turned line. Never fake it by breaking a
+  word into one letter per line.
 - **`align` on a `<Table>` moves the whole table**, not its words: a totals
   block of fixed-width columns with `align="right"` sits against the right
   margin, with no empty spacer column to hold it there. It only moves a table

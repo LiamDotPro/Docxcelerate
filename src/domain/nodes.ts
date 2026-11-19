@@ -254,6 +254,13 @@ export interface ParagraphNode extends BaseNode {
  */
 export type RowHeightRule = "atLeast" | "exact";
 
+/**
+ * Which way a cell's words run when they are turned on their side: `"up"` reads
+ * from the foot of the cell to its head, as a spine label does, and `"down"`
+ * from the head to the foot.
+ */
+export type CellTextDirection = "up" | "down";
+
 /** Which kind of list a paragraph is an item of: marked with a bullet, or counted. */
 export type ListKind = "bullet" | "number";
 
@@ -592,6 +599,8 @@ export interface TableCellNode extends BaseNode {
   span?: number;
   /** Alignment, when this cell departs from its column's. */
   align?: TableAlign;
+  /** Turns the cell's words on their side. Absent, they run across. */
+  textDirection?: CellTextDirection;
   /** What the cell holds — paragraphs, usually, but any node fits. */
   children: DocumentNode[];
 }
