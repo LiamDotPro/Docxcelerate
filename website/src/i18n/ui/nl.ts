@@ -210,7 +210,6 @@ export const nl: UiStrings = {
       "Een echte documentpreview die live wordt gerenderd, geen screenshots en geen verborgen trucs.",
     counts: "{documents} documenten · {files} bestanden",
     sectors: {
-      education: "Onderwijs",
       housing: "Wonen",
       insurance: "Verzekeringen",
       consulting: "Zakelijke dienstverlening",
@@ -218,7 +217,6 @@ export const nl: UiStrings = {
     },
     documents: {
       "portfolio-review": "Kwartaaloverzicht portefeuille",
-      "offer-of-admission": "Toelatingsbrief",
       "repairs-appointment": "Reparatieafspraak",
       "policy-renewal": "Polisverlenging",
       invoice: "Factuur",
