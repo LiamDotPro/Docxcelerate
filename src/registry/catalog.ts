@@ -1125,6 +1125,58 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "cis-invoice-deduction",
+    title: "CIS invoice deduction",
+    summary: "What a construction subcontractor is paid on an invoice, after CIS and VAT.",
+    detail:
+      "CIS comes off the labour only: the ex-VAT gross less materials at cost, " +
+      "plant hire and consumables, with any markup left in labour. VAT is worked " +
+      "out on the whole gross and is never reduced by CIS. The rate follows HMRC " +
+      "verification: nothing under gross payment status, 20% registered, 30% " +
+      "unverified with a warning to verify. The deduction is floored to the " +
+      "penny, so it never over-deducts. The domestic reverse charge applies when " +
+      "both parties are VAT-registered, the customer is CIS-registered and has not " +
+      "notified end-user or intermediary status: silence means reverse charge. " +
+      "The 5% disregard and zero-rated work stay standard. Under the reverse " +
+      "charge no VAT is added, and the notional VAT is returned for " +
+      "tax-treatment-notice. Unclear data fails the document instead of guessing.",
+    category: "Body",
+    tags: ["invoice", "cis", "construction", "vat", "tax", "deriver", "table"],
+    exports: ["CisInvoiceDeduction"],
+    dataFields: [
+      { path: "invoice.grossExVat", type: "number", summary: "Invoice value before VAT, materials included. Required." },
+      { path: "invoice.materialsCost", type: "number", summary: "Materials at cost, net of reclaimable VAT. Required; 0 when none." },
+      { path: "invoice.plantHire", type: "number | undefined", summary: "Plant hire at cost. Missing means 0." },
+      { path: "invoice.consumables", type: "number | undefined", summary: "Consumables and fuel at cost. Missing means 0." },
+      { path: "invoice.vatRate", type: "0.2 | 0.05 | 0", summary: "The supply's VAT rate. Zero-rated is never reverse-charged." },
+      { path: "invoice.reverseChargeShare", type: "number | undefined", summary: "Fraction that is reverse-charge services. At 5% or less the whole invoice is standard. Missing means 1." },
+      { path: "supplier.vatRegistered", type: "boolean", summary: "Whether the subcontractor charges VAT. Required." },
+      { path: "supplier.cisStatus", type: '"gross" | "net" | "unverified"', summary: "HMRC verification: 0%, 20% or 30%. Anything else fails the document." },
+      { path: "supplier.verificationNumber", type: "string | undefined", summary: "HMRC verification number, printed when given." },
+      { path: "customer.vatRegistered", type: "boolean", summary: "Required when VAT is charged at 20% or 5%." },
+      { path: "customer.cisRegistered", type: "boolean", summary: "Required when VAT is charged at 20% or 5%." },
+      { path: "customer.endUserNotified", type: '"end-user" | "intermediary" | undefined', summary: "Written notice that takes the invoice out of the reverse charge. Missing means reverse charge." },
+    ],
+    files: node("cis-invoice-deduction", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      invoice: {
+        grossExVat: 486250.75,
+        materialsCost: 172430.18,
+        plantHire: 38615.4,
+        consumables: 9872.65,
+        vatRate: 0.2,
+      },
+      supplier: { vatRegistered: true, cisStatus: "unverified", verificationNumber: "V1234567890AB" },
+      customer: { vatRegistered: true, cisRegistered: true },
+    },
+    arrangements: [
+      { id: "table", title: "Table", summary: "Labels in a column with the figures right-aligned beside them, so the sums can be checked." },
+      { id: "stacked", title: "Stacked", summary: "One labelled figure under another, for a narrow column." },
+    ],
+    requires: [],
+  },
 
   {
     kind: "component",
