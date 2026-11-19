@@ -1,8 +1,8 @@
 import { test } from "node:test";
-import { assertEquals, assertStringIncludes } from "./assert.ts";
+import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
 import { buildDocument } from "docxcelerate";
 import { cleanMinimalDocumentStyle } from "docxcelerate";
-import { documentXml, entryOf, partNames, partXml } from "./docx.ts";
+import { documentXml, elementOf, entryOf, partNames, partXml } from "./docx.ts";
 import { createDocxBlob } from "docxcelerate/docx";
 import type { DocumentModel, DocumentStyle, GraphNode } from "docxcelerate";
 import { Cell, Document, Graph, Row, Section, Table, template } from "docxcelerate/template";
@@ -596,6 +596,26 @@ test("a chart says what it is for a reader who cannot see it", async () => {
   assertStringIncludes(body, `descr="Revenue by quarter"`);
 });
 
+test("the alt outranks the title in the drawing's description, and the title stays on the chart", async () => {
+  const doc = documentOf([chart({ title: "Revenue by quarter", alt: "Revenue rose 40% from Q1 to Q4" })]);
+  const body = await documentXml(doc);
+
+  assertStringIncludes(body, `descr="Revenue rose 40% from Q1 to Q4"`);
+  assertEquals(body.includes(`descr="Revenue by quarter"`), false);
+  assertStringIncludes(await chartXml(doc), "Revenue by quarter");
+});
+
+test("without an alt the description falls back to the caption, then the id", async () => {
+  assertStringIncludes(await documentXml(documentOf([chart({ caption: "Figure 1" })])), `descr="Figure 1"`);
+  assertStringIncludes(await documentXml(documentOf([chart()])), `descr="revenue"`);
+});
+
+test("an alt is escaped in the attribute", async () => {
+  const body = await documentXml(documentOf([chart({ alt: "R&D spend <doubled>" })]));
+
+  assertStringIncludes(body, `descr="R&amp;D spend &lt;doubled&gt;"`);
+});
+
 test("a caption is a paragraph under the chart, not text drawn into it", async () => {
   const body = await documentXml(documentOf([chart({ caption: "Figure 1: revenue." })]));
 
@@ -637,15 +657,20 @@ test("a chart written as JSX carries every drawing decision into the node", asyn
           <Graph
             id="revenue"
             title="Revenue by quarter"
+            alt="Revenue rose 40%"
             graphType="line"
             stacked
             legend="right"
             numberFormat="£#,##0"
             categoryAxisTitle="Quarter"
             valueAxisTitle="Revenue"
+            valueAxisMin={90}
+            valueAxisMax={100}
+            valueAxisStep={2}
             dataLabels
             width={320}
             height={200}
+            align="right"
             data={{ categories: quarters, series: twoSeries }}
           />
         </Section>
@@ -660,14 +685,128 @@ test("a chart written as JSX carries every drawing decision into the node", asyn
 
   assertEquals(node?.kind, "graph");
   assertEquals(node?.title, "Revenue by quarter");
+  assertEquals(node?.alt, "Revenue rose 40%");
   assertEquals(node?.graphType, "line");
   assertEquals(node?.stacked, true);
   assertEquals(node?.legend, "right");
   assertEquals(node?.numberFormat, "£#,##0");
   assertEquals(node?.categoryAxisTitle, "Quarter");
   assertEquals(node?.valueAxisTitle, "Revenue");
+  assertEquals(node?.valueAxisMin, 90);
+  assertEquals(node?.valueAxisMax, 100);
+  assertEquals(node?.valueAxisStep, 2);
   assertEquals(node?.dataLabels, true);
   assertEquals(node?.width, 320);
   assertEquals(node?.height, 200);
+  assertEquals(node?.align, "right");
   assertEquals(node?.data?.series[1].values[3], 27);
+});
+
+// ---------------------------------------------------------------------------
+// Where the chart sits
+// ---------------------------------------------------------------------------
+
+test("a chart ranged right takes its caption with it", async () => {
+  const xml = await documentXml(documentOf([chart({ width: 240, align: "right", caption: "Figure 1: revenue." })]));
+
+  assertStringIncludes(elementOf(xml, "w:p", "<c:chart"), '<w:jc w:val="right"/>');
+  assertStringIncludes(elementOf(xml, "w:p", ">Figure 1: revenue.</w:t>"), '<w:jc w:val="right"/>');
+});
+
+test("a chart with no align writes none, and its caption stays centred", async () => {
+  const xml = await documentXml(documentOf([chart({ caption: "Figure 1: revenue." })]));
+
+  assertEquals(elementOf(xml, "w:p", "<c:chart").includes("<w:jc"), false);
+  assertStringIncludes(elementOf(xml, "w:p", ">Figure 1: revenue.</w:t>"), '<w:jc w:val="center"/>');
+});
+
+test("a chart's placeholder sits where the chart will", async () => {
+  const xml = await documentXml(documentOf([
+    { id: "trend", kind: "graph", mode: "dynamic", graphType: "line", placeholder: "Balance over the term", align: "center" },
+  ]));
+
+  assertStringIncludes(elementOf(xml, "w:p", "[line chart: Balance over the term]"), '<w:jc w:val="center"/>');
+});
+
+test("a chart written without axis bounds carries none, not undefined ones", async () => {
+  const doc = await buildDocument(
+    template(
+      <Document id="doc" title="Doc">
+        <Graph id="plain" data={{ categories: quarters, series: twoSeries }} />
+      </Document>,
+    ),
+    {},
+    { branchMode: "decide", dynamicMode: "placeholder" },
+  );
+  const node = doc.nodes[0] as GraphNode;
+
+  assertEquals("valueAxisMin" in node, false);
+});
+
+// ---------------------------------------------------------------------------
+// Value axis bounds
+// ---------------------------------------------------------------------------
+
+test("a chart with no axis bounds leaves the value axis to Word", async () => {
+  const xml = await chartXml(documentOf([chart()]));
+
+  for (const absent of ["<c:min ", "<c:max ", "<c:majorUnit"]) {
+    assertEquals(xml.includes(absent), false);
+  }
+  assertStringIncludes(
+    xml,
+    `<c:valAx><c:axId val="222222222"/><c:scaling><c:orientation val="minMax"/></c:scaling>`,
+  );
+});
+
+test("axis bounds are written to the value axis, max before min, and not the category axis", async () => {
+  const xml = await chartXml(
+    documentOf([chart({ valueAxisMin: 90, valueAxisMax: 100, valueAxisStep: 2 })]),
+  );
+
+  assertStringIncludes(
+    xml,
+    `<c:scaling><c:orientation val="minMax"/><c:max val="100"/><c:min val="90"/></c:scaling>`,
+  );
+  assertStringIncludes(xml, `<c:crossBetween val="between"/><c:majorUnit val="2"/></c:valAx>`);
+  assertEquals(xml.split("<c:min ").length, 2);
+});
+
+test("zero is a bound, and one end can be given alone", async () => {
+  const xml = await chartXml(documentOf([chart({ valueAxisMin: 0 })]));
+
+  assertStringIncludes(xml, `<c:orientation val="minMax"/><c:min val="0"/></c:scaling>`);
+  assertEquals(xml.includes("<c:max "), false);
+  assertEquals(xml.includes("<c:majorUnit"), false);
+});
+
+test("a scatter's bounds set its y axis and leave x alone", async () => {
+  const xml = await chartXml(documentOf([chart({ graphType: "scatter", valueAxisMin: 5 })]));
+  const axes = xml.split("<c:valAx>");
+
+  assertEquals(axes[1].includes("<c:min "), false);
+  assertStringIncludes(axes[2], `<c:min val="5"/>`);
+});
+
+test("a pie ignores axis bounds, even invalid ones", async () => {
+  const xml = await chartXml(documentOf([
+    chart({
+      graphType: "pie",
+      data: { categories: quarters, series: [twoSeries[0]] },
+      valueAxisMin: 5,
+      valueAxisStep: -1,
+    }),
+  ]));
+
+  assertEquals(xml.includes("<c:min "), false);
+  assertEquals(xml.includes("<c:majorUnit"), false);
+});
+
+test("axis bounds Word has no drawing for stop the build", async () => {
+  const message = (over: Partial<GraphNode>, text: string) =>
+    assertRejects(() => chartXml(documentOf([chart(over)])), Error, text);
+
+  await message({ valueAxisMin: 100, valueAxisMax: 100 }, "must be below valueAxisMax");
+  await message({ valueAxisStep: 0 }, "greater than zero");
+  await message({ valueAxisMax: Number.NaN }, "finite number");
 });

@@ -73,6 +73,10 @@ The block properties a shape reads are the ones a table cell reads: `fill`,
 takes as its depth when the node has not given one, because a block declaring a
 height is already saying exactly that.
 
+A paragraph on the shape keeps its own `align` and `variant` over the box's,
+including tab stops measured from the box's inner edge. The outline is always
+solid: `borderStyle` applies to paragraphs and cells, not to a shape.
+
 ## How it is packed, and why it matters
 
 A shape is written as VML — a `w:pict` holding a `v:rect` — rather than as the

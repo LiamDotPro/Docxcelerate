@@ -219,7 +219,7 @@ function harnessHtml(bodyFont) {
     function runsOf(el) {
       return [].slice.call(el.querySelectorAll("span")).filter(function (span) {
         return [].some.call(span.childNodes, function (node) {
-          return node.nodeType === 3 && node.nodeValue !== "";
+          return (node.nodeType === 3 && node.nodeValue !== "") || node.nodeName === "SUP" || node.nodeName === "SUB";
         });
       }).map(function (span) {
         var cs = view.getComputedStyle(span);
@@ -228,7 +228,10 @@ function harnessHtml(bodyFont) {
           text: span.textContent,
           fontWeight: cs.fontWeight,
           fontStyle: cs.fontStyle,
+          verticalAlign: view.getComputedStyle(span.querySelector(":scope > sup, :scope > sub") || span).verticalAlign,
           textDecoration: cs.textDecorationLine,
+          color: cs.color,
+          background: cs.backgroundColor,
           href: link === null ? null : link.getAttribute("href")
         };
       });
@@ -308,6 +311,9 @@ function harnessHtml(bodyFont) {
           paddingRight: r2(parseFloat(cs.paddingRight) || 0),
           paddingBottom: r2(parseFloat(cs.paddingBottom) || 0),
           borderTopColor: parseFloat(cs.borderTopWidth) > 0 ? cs.borderTopColor : null,
+          borderTopStyle: parseFloat(cs.borderTopWidth) > 0 ? cs.borderTopStyle : null,
+          borderBottomStyle: parseFloat(cs.borderBottomWidth) > 0 ? cs.borderBottomStyle : null,
+          borderBottomWidth: r2(parseFloat(cs.borderBottomWidth) || 0),
           borderRightColor: parseFloat(cs.borderRightWidth) > 0 ? cs.borderRightColor : null,
           borderBottomColor: parseFloat(cs.borderBottomWidth) > 0 ? cs.borderBottomColor : null,
           borderLeftColor: parseFloat(cs.borderLeftWidth) > 0 ? cs.borderLeftColor : null,
@@ -397,6 +403,9 @@ function harnessHtml(bodyFont) {
                   paddingBottom: r2(parseFloat(cs.paddingBottom) || 0),
 
                   borderTopColor: parseFloat(cs.borderTopWidth) > 0 ? cs.borderTopColor : null,
+                  borderTopStyle: parseFloat(cs.borderTopWidth) > 0 ? cs.borderTopStyle : null,
+                  borderBottomStyle: parseFloat(cs.borderBottomWidth) > 0 ? cs.borderBottomStyle : null,
+                  borderBottomWidth: r2(parseFloat(cs.borderBottomWidth) || 0),
                   borderRightColor: parseFloat(cs.borderRightWidth) > 0 ? cs.borderRightColor : null,
                   borderBottomColor: parseFloat(cs.borderBottomWidth) > 0 ? cs.borderBottomColor : null,
                   borderLeftColor: parseFloat(cs.borderLeftWidth) > 0 ? cs.borderLeftColor : null,
@@ -552,6 +561,7 @@ function harnessHtml(bodyFont) {
         if (span.style.width === "" || span.style.height === "") return;
 
         var rect = span.getBoundingClientRect();
+        var link = span.closest("a");
 
         charts.push({
           pageIndex: pageIndex,
@@ -567,6 +577,8 @@ function harnessHtml(bodyFont) {
           // Whether the frame holds a picture, which is how a chart frame is
           // told from an image's.
           picture: span.querySelector("img") !== null,
+          // The address a picture links to, when it does.
+          href: link === null ? null : link.getAttribute("href"),
           // Whether anything at all was drawn inside it.
           plotted: span.childElementCount > 0
         });
@@ -832,7 +844,7 @@ export function previewView(measure) {
       const wanted = anchor.toLowerCase();
       return measure.paragraphs.flatMap((p) => p.runs ?? [])
         .find((run) => run.text.toLowerCase().includes(wanted)) ??
-        { missing: true, anchor, text: "", fontWeight: null, fontStyle: null, textDecoration: null, href: null };
+        { missing: true, anchor, text: "", fontWeight: null, fontStyle: null, textDecoration: null, verticalAlign: null, color: null, background: null, href: null };
     },
 
     /** Whether the named face resolved rather than falling back silently. */
@@ -1091,6 +1103,7 @@ function missingChart(anchor) {
     h: null,
     declared: { width: null, height: null },
     picture: false,
+    href: null,
     plotted: false,
   };
 }
@@ -1131,6 +1144,9 @@ function missingCell(anchor) {
     paddingRight: null,
     paddingBottom: null,
     borderTopColor: null,
+    borderTopStyle: null,
+    borderBottomStyle: null,
+    borderBottomWidth: null,
     borderRightColor: null,
     borderBottomColor: null,
     borderLeftColor: null,
@@ -1172,6 +1188,9 @@ function missingParagraph(anchor) {
     paddingRight: null,
     paddingBottom: null,
     borderTopColor: null,
+    borderTopStyle: null,
+    borderBottomStyle: null,
+    borderBottomWidth: null,
     borderRightColor: null,
     borderBottomColor: null,
     borderLeftColor: null,

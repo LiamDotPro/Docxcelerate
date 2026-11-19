@@ -1,10 +1,13 @@
 import { test } from "node:test";
 import { assertEquals, assertRejects } from "./assert.ts";
 import {
+  createDeriverRegistryFromBundle,
   createDocumentProjectArtifact,
   dataRef,
   defineDocumentProject,
   derive,
+  InMemoryDataProvider,
+  resolveDocument,
 } from "docxcelerate";
 import { Document, Paragraph, Section, template, useState } from "docxcelerate/template";
 
@@ -47,12 +50,12 @@ function Visits({ deriverName }: { deriverName: string }) {
   ));
 }
 
-function projectWith(children: unknown) {
+function projectWith(children: unknown, furniture: Record<string, unknown> = {}) {
   return defineDocumentProject<Data>({
     id: "artifact",
     name: "Artifact",
     template: template<Data>(
-      <Document id="artifact" title="Artifact">{children as never}</Document>,
+      <Document id="artifact" title="Artifact" {...furniture}>{children as never}</Document>,
     ),
     previewData,
     derivers,
@@ -151,4 +154,40 @@ test("the manifest still writes the names an older engine reads", async () => {
   assertEquals(artifact.manifest.previewLetter, artifact.manifest.previewDocument);
   assertEquals(artifact.manifest.engineLetter, artifact.manifest.engineDocument);
   assertEquals(artifact.previewLetter, artifact.previewDocument);
+});
+
+const evenStrip = (name: string) => (
+  <Paragraph id="ef" derivers={[derive(name, { output: "label", inputs: [dataRef("balanceDue")] })]}>
+    {"{{derived.label}}"}
+  </Paragraph>
+);
+
+test("a deriver used only in even furniture is collected and bundled", async () => {
+  const artifact = await createDocumentProjectArtifact(
+    projectWith(<Paragraph id="b">Body</Paragraph>, { evenFooter: evenStrip("money") }),
+  );
+
+  assertEquals(artifact.manifest.deriverNames, ["money"]);
+  assertEquals(artifact.derivers?.names, ["money"]);
+
+  // The bundle has to carry what an engine needs, not just name it.
+  const settled = await resolveDocument(artifact.engineDocument, {
+    ctx: { ...previewData },
+    derived: {},
+    dataProvider: new InMemoryDataProvider({ ...previewData }),
+    aiClient: { generateParagraph: () => "" },
+  }, { derivers: await createDeriverRegistryFromBundle(artifact.derivers!) });
+
+  assertEquals((settled.evenFooter![0] as { text: string }).text, "£240.00");
+});
+
+test("an unregistered deriver in even furniture fails the build, not the document", async () => {
+  await assertRejects(
+    () =>
+      createDocumentProjectArtifact(
+        projectWith(<Paragraph id="b">Body</Paragraph>, { evenHeader: evenStrip("notRegistered") }),
+      ),
+    Error,
+    "notRegistered",
+  );
 });

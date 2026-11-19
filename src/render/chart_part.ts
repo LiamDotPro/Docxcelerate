@@ -698,8 +698,10 @@ function valueAxisXml(
   crossesAtEnd = false,
 ): string {
   const format = valueAxisFormat(node);
+  checkValueAxisBounds(node);
+  const step = node.valueAxisStep;
 
-  return `<c:valAx><c:axId val="${VALUE_AXIS_ID}"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="${position}"/>` +
+  return `<c:valAx><c:axId val="${VALUE_AXIS_ID}"/>${valueScalingXml(node)}<c:delete val="0"/><c:axPos val="${position}"/>` +
     gridlinesXml(palette) +
     axisTitleXml(node.valueAxisTitle, palette, position === "l") +
     `<c:numFmt formatCode="${escapeXml(format ?? "General")}" sourceLinked="${
@@ -712,7 +714,40 @@ function valueAxisXml(
     textPropertiesXml(palette, CHART_TEXT_SIZE) +
     `<c:crossAx val="${CATEGORY_AXIS_ID}"/><c:crosses val="${
       crossesAtEnd ? "max" : "autoZero"
-    }"/><c:crossBetween val="between"/></c:valAx>`;
+    }"/><c:crossBetween val="between"/>${
+      step === undefined ? "" : `<c:majorUnit val="${step}"/>`
+    }</c:valAx>`;
+}
+
+/** Stops a bound Word has no drawing for, here, rather than in a file it must repair. */
+function checkValueAxisBounds(node: GraphNode): void {
+  const { valueAxisMin: min, valueAxisMax: max, valueAxisStep: step } = node;
+  const given = { valueAxisMin: min, valueAxisMax: max, valueAxisStep: step };
+
+  for (const [name, value] of Object.entries(given)) {
+    if (value !== undefined && !Number.isFinite(value)) {
+      throw new Error(`Chart "${node.id}": ${name} must be a finite number, not ${value}.`);
+    }
+  }
+
+  if (min !== undefined && max !== undefined && min >= max) {
+    throw new Error(
+      `Chart "${node.id}": valueAxisMin (${min}) must be below valueAxisMax (${max}).`,
+    );
+  }
+
+  if (step !== undefined && step <= 0) {
+    throw new Error(`Chart "${node.id}": valueAxisStep must be greater than zero, not ${step}.`);
+  }
+}
+
+/** The value axis's scale: `c:max` before `c:min` is CT_Scaling's order, and `=== undefined` because 0 is a bound. */
+function valueScalingXml(node: GraphNode): string {
+  const { valueAxisMin: min, valueAxisMax: max } = node;
+
+  return `<c:scaling><c:orientation val="minMax"/>${
+    max === undefined ? "" : `<c:max val="${max}"/>`
+  }${min === undefined ? "" : `<c:min val="${min}"/>`}</c:scaling>`;
 }
 
 /**
