@@ -134,6 +134,7 @@ dxcl list components
 | `tax-treatment-notice` | The mention an invoice's tax treatment requires, or a warning when its ID is missing. |
 | `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `india-gst-split` | CGST and SGST or IGST from the place of supply, with the summary, round-off and total in words. |
 
 ## `dxcl show <id>`
 
