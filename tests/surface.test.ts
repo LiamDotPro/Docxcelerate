@@ -33,6 +33,7 @@ const surface: Record<string, string[]> = {
     "ScriptedAiClient",
     "THEMES",
     "THEME_IDS",
+    "aiGraphResultSchema",
     "boldBriefTheme",
     "buildDocument",
     "buildProjectEngineDocument",

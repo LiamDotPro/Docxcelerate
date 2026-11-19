@@ -211,7 +211,6 @@ export const ru: UiStrings = {
       "Настоящий предпросмотр документа в момент отрисовки. Без скриншотов и скрытых уловок.",
     counts: "Документов: {documents} · файлов: {files}",
     sectors: {
-      education: "Образование",
       housing: "Жильё",
       insurance: "Страхование",
       consulting: "Профессиональные услуги",
@@ -219,7 +218,6 @@ export const ru: UiStrings = {
     },
     documents: {
       "portfolio-review": "Квартальный обзор портфеля",
-      "offer-of-admission": "Письмо о зачислении",
       "repairs-appointment": "Запись на ремонт",
       "policy-renewal": "Продление полиса",
       invoice: "Счёт",

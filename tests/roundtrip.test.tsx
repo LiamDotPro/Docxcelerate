@@ -308,13 +308,6 @@ const drawingClient: AiClient = {
   generateImage: (request) => ({ path: "data:image/png;base64,iVBORw0KGgo=", alt: `${request.node.alt} / ${request.prompt}` }),
 };
 
-/** A model that answers every node with nothing. */
-const silentClient: AiClient = {
-  generateParagraph: () => "",
-  generateGraph: () => ({}),
-  generateImage: () => ({ path: "" }),
-};
-
 function reportState(data: ReportData, client: AiClient): RuntimeState {
   const ctx = { ...data } as Record<string, unknown>;
 
@@ -395,19 +388,27 @@ test("a project with a generated chart builds an artifact whose preview shows th
   assertEquals(previewTrend !== undefined && "data" in previewTrend, false);
 });
 
-test("a model that answers a chart with nothing leaves it undrawn on both paths, and an image with nothing fails both", async () => {
-  const published = await buildProjectEngineDocument(reportProject);
-  const chartSilent: AiClient = { ...silentClient, generateImage: drawingClient.generateImage };
-  const resolved = await resolveDocument(published, reportState(leeds, chartSilent));
-  const direct = await buildProjectFinalDocument(reportProject, { data: leeds, aiClient: chartSilent });
+test("a model that answers a chart or an image with nothing fails on both paths, naming the node", async () => {
+  const emptyChart: AiClient = { ...drawingClient, generateGraph: () => ({}) };
+  const expected = 'Dynamic graph "trend" got an answer it cannot plot: it has no data.';
 
-  assertEquals(json(resolved.nodes), json(direct.nodes));
-  assertEquals("data" in json(findNode(resolved.nodes, "trend")), false);
-
-  const undrawable = 'Dynamic image "cover" got an answer it cannot draw: it has neither a data: path nor bytes.';
-  await assertRejects(() => resolveDocument(published, reportState(leeds, silentClient)), Error, undrawable);
   await assertRejects(
-    () => buildProjectFinalDocument(reportProject, { data: leeds, aiClient: silentClient }),
+    async () => resolveDocument(await buildProjectEngineDocument(reportProject), reportState(leeds, emptyChart)),
+    Error,
+    expected,
+  );
+  await assertRejects(
+    () => buildProjectFinalDocument(reportProject, { data: leeds, aiClient: emptyChart }),
+    Error,
+    expected,
+  );
+
+  const published = await buildProjectEngineDocument(reportProject);
+  const emptyImage: AiClient = { ...drawingClient, generateImage: () => ({}) };
+  const undrawable = 'Dynamic image "cover" got an answer it cannot draw: it has neither a data: path nor bytes.';
+  await assertRejects(() => resolveDocument(published, reportState(leeds, emptyImage)), Error, undrawable);
+  await assertRejects(
+    () => buildProjectFinalDocument(reportProject, { data: leeds, aiClient: emptyImage }),
     Error,
     undrawable,
   );

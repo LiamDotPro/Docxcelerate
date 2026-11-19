@@ -112,8 +112,8 @@ export interface AiImageResult {
   mediaType?: string;
   /** Alternative text describing it. */
   alt?: string;
-  /** Rendered width, in points. */
-  width?: number;
+  /** Rendered width, in points, or `"full"`; see `ImageNode.width`. */
+  width?: number | "full";
   /** Rendered height, in points. */
   height?: number;
 }
@@ -137,7 +137,9 @@ export interface AiGraphGenerationRequest {
  * `<Graph>` survives a model that only sends numbers. The answer is read the
  * way model JSON is written: a number written as text, such as `"12"`, is a
  * number, and a numeric category is its text. Anything else that is not a
- * chart fails the document with an error naming the node and the field.
+ * chart fails the document with an error naming the node and the field, and
+ * so does an answer that leaves the chart nothing to plot: no `data` on a node
+ * with none of its own, no series, or every value `null`.
  */
 export interface AiGraphResult {
   /** Which chart to draw. */
@@ -174,7 +176,8 @@ export interface AiClient {
    *
    * @param request The node, its prompts and the state around it.
    * @returns The paragraph text, as a string. It is trimmed and stripped of the
-   * characters XML cannot hold; anything that is not a string fails the node.
+   * characters XML cannot hold; anything that is not a string, or a string with
+   * nothing left once trimmed, fails the node.
    */
   generateParagraph(request: AiGenerationRequest): Promise<string> | string;
   /**
@@ -188,7 +191,8 @@ export interface AiClient {
    * Produces the data for a dynamic chart.
    *
    * @param request The node, its prompts and the state around it.
-   * @returns The series to plot, and optionally the chart type and caption.
+   * @returns The series to plot, and optionally the chart type and caption. At
+   * least one value must be a number, unless the node has data of its own.
    */
   generateGraph?(request: AiGraphGenerationRequest): Promise<AiGraphResult> | AiGraphResult;
 }
