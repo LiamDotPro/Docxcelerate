@@ -1128,6 +1128,67 @@ export const COMPONENTS: RegistryComponent[] = [
 
   {
     kind: "component",
+    id: "canadian-sales-tax",
+    title: "Canadian sales tax",
+    summary: "GST/HST and provincial sales tax for the province of supply, each on its own base, with CRA's invoice checks.",
+    detail:
+      "Tax follows the province of supply, where goods are delivered or the " +
+      "customer is, never the seller's province. HST provinces get one line. BC " +
+      "and SK get GST plus PST, MB GST plus RST, Quebec GST plus QST, and Alberta " +
+      "and the territories GST alone. Each tax is worked on its own base and " +
+      "rounded once, so PST and QST exemptions are honoured. QST is never charged " +
+      "on GST. Rates are effective-dated rows picked by the tax point date, because " +
+      "they change mid-year. The GST/HST number must pass its check digit to be " +
+      "printed, and a seller that is not registered charges none and says so. " +
+      "CRA's $100 and $500 information tiers are applied to the tax-included " +
+      "total, and anything missing is printed as a warning. All of it is one deriver.",
+    category: "Body",
+    tags: ["tax", "invoice", "canada", "gst", "money", "table", "deriver", "section"],
+    exports: ["CanadianSalesTax"],
+    arrangements: [
+      { id: "table", title: "Table", summary: "Labels on the left, amounts right-aligned beside them, under the line items." },
+      { id: "stacked", title: "Stacked", summary: "One labelled line under another, for a narrow column or a plain letter." },
+    ],
+    dataFields: [
+      { path: "salesTax.supplyProvince", type: '"AB" | "BC" | "MB" | "NB" | "NL" | "NS" | "NT" | "NU" | "ON" | "PE" | "QC" | "SK" | "YT"', summary: "Province of supply: delivery province for goods, customer's for services. Not the seller's. Required." },
+      { path: "salesTax.taxPointDate", type: "string", summary: "ISO 8601 day tax became payable; picks the rate rows. Required; before 2013-04-01 fails." },
+      { path: "salesTax.lines", type: '{ description?: string; amount: number; gstCategory?: "taxable" | "zero-rated" | "exempt"; provincialCategory?: "taxable" | "exempt" }[]', summary: "Pre-tax lines. GST status defaults to taxable; provincial status follows it." },
+      { path: "salesTax.rates", type: '{ tax: "GST" | "HST" | "PST" | "RST" | "QST"; province?: string; rate: number; from: string; to?: string }[] | undefined', summary: "Effective-dated rates in percent, both ends inclusive. Missing uses the built-in table; given, replaces it." },
+      { path: "salesTax.paymentTerms", type: "string | undefined", summary: "Not printed; missing warns from $500." },
+      { path: "seller.name", type: "string | undefined", summary: "Not printed; missing warns at every tier." },
+      { path: "seller.gstRegistered", type: "boolean | undefined", summary: "Missing means a small supplier: no GST/HST, and a note." },
+      { path: "seller.bn", type: "string | undefined", summary: "GST/HST number, 9-digit BN + RT + 4 digits. Printed only when it passes the check digit." },
+      { path: "seller.provincialRegistered", type: "boolean | undefined", summary: "Registered for the province's PST, RST or QST. Missing charges none and warns." },
+      { path: "seller.qst", type: "string | undefined", summary: "QST number, 10 digits + TQ + 4 digits. Printed when QST is charged and it is well-formed." },
+      { path: "customer.name", type: "string | undefined", summary: "Not printed; missing warns from $500." },
+    ],
+    files: node("canadian-sales-tax", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      salesTax: {
+        supplyProvince: "QC",
+        taxPointDate: "2026-11-30",
+        paymentTerms: "Net 45 days from invoice date; 2% per month on overdue balances",
+        lines: [
+          { description: "Annual preventive maintenance contract for HVAC and building automation systems, Tour Centre-Ville, 1250 boulevard René-Lévesque Ouest, floors 1 to 42", amount: 1284750.0, gstCategory: "taxable", provincialCategory: "taxable" },
+          { description: "Printed operating manuals and technical reference books, bilingual edition, 12 volumes", amount: 1840.0, gstCategory: "taxable", provincialCategory: "exempt" },
+          { description: "Long-term residential accommodation for relocated caretaker, 1 to 30 November 2026", amount: 2450.0, gstCategory: "exempt", provincialCategory: "exempt" },
+          { description: "Emergency out-of-hours call-out, chilled water pump failure, 14 and 15 November", amount: 18425.5, gstCategory: "taxable", provincialCategory: "taxable" },
+        ],
+      },
+      seller: {
+        name: "Groupe Maintenance Technique Saint-Laurent-Outaouais Inc.",
+        gstRegistered: true,
+        bn: "843219767RT0001",
+        provincialRegistered: true,
+        qst: "1219876543TQ0001",
+      },
+      customer: { name: "Fiducie de placement immobilier Centre-Ville Montréal-Laval S.E.C." },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
     id: "net-payable-withholdings",
     title: "Net payable after withholdings",
     summary: "From a Spanish or Italian invoice total to what the customer actually transfers, after IRPF, ritenuta and split payment.",
