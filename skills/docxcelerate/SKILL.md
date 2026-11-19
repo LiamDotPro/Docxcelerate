@@ -143,7 +143,7 @@ Nothing leaves the machine, and the same build gives the same page every time.
 | `Cell` | text, or paragraphs when a line is not enough | `span`, and `align` when it departs from its column |
 | `TableOfContents` | nothing | a marker; renderers print the title and stop |
 | `PageBreak` | nothing | for a break that is part of what the document *is* |
-| `PageNumber` | nothing | `format` (`current`/`total`/`currentOfTotal`) and `separator`; counted by the renderer |
+| `PageNumber` | nothing | `format` (`current`/`total`/`currentOfTotal`) and `separator`; counted by the renderer, from `style.page.firstPageNumber` in `style.page.numberStyle` (roman, letters) when set |
 
 **An `<Image>` only travels if it carries its bytes.** A `data:` URI does; a
 path or a URL draws on screen, where a browser can fetch it, but packs into Word
