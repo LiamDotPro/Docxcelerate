@@ -159,7 +159,7 @@ and a name the theme has not heard of draws as an ordinary block rather than
 failing. Never write a colour into a component.
 
 A block style says `fill`, `color`, `border` (with `borderWidthPt`,
-`borderSides`), `paddingPt`, `fontSizePt`, `weight`, `transform`,
+`borderSides`, `borderStyle`), `paddingPt`, `fontSizePt`, `weight`, `transform`,
 `letterSpacingEm` and `bleed`. **All of them mean the same thing on screen and
 in the `.docx`** — a fill is shading, a border is a real border, a bleed is a
 negative indent past the margin. If a property cannot be expressed in Word it

@@ -97,6 +97,7 @@ export function settleDocxPreview(
   tables?: readonly PackedTable[],
 ): void {
   inlinePictureWrappers(container);
+  applyDoubleBorders(container);
   liftShapeText(container);
   fillPageFields(container);
   seatFooters(container);
@@ -394,6 +395,27 @@ export function inlinePictureWrappers(container: Element): void {
   }
 }
 
+
+/**
+ * Widens every double border to the three widths Word draws it across.
+ *
+ * Word draws a double border as two lines of the border's width with a gap of
+ * the same width between them, so three widths overall, which is exactly the
+ * geometry of CSS `double`. docx-preview writes the file's single width, which
+ * CSS needs at least 3px to show as two lines, so a 1pt rule would read as one
+ * solid line. Widening it also keeps the rows below in step with Word, where
+ * the full width takes up layout space too.
+ */
+function applyDoubleBorders(container: Element): void {
+  for (const el of container.querySelectorAll<HTMLElement>("p, td")) {
+    for (const side of ["Top", "Right", "Bottom", "Left"] as const) {
+      if (el.style[`border${side}Style`] === "double") {
+        // docx-preview writes border widths in pt, from LengthUsage.Border.
+        el.style[`border${side}Width`] = `${parseFloat(el.style[`border${side}Width`]) * 3}pt`;
+      }
+    }
+  }
+}
 
 /**
  * A shape's words, moved somewhere SVG will paint them.

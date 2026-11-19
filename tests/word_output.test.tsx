@@ -57,6 +57,10 @@ const style: DocumentStyle = {
   title: { fontSizePt: 20, weight: "bold", spacingBeforePt: 0, spacingAfterPt: 10 },
   sectionHeading: { fontSizePt: 8, weight: "bold", spacingBeforePt: 10, spacingAfterPt: 4 },
   blocks: {
+    grandTotal: { border: "1C2340", borderSides: ["bottom"], borderStyle: "double" },
+    tearOff: { border: "5A6482", borderSides: ["top"], borderStyle: "dashed", paddingPt: 6 },
+    plainEdge: { borderStyle: "single" },
+    dotted: { border: "1C2340", borderSides: ["bottom"], borderStyle: "dotted" },
     band: {
       fill: "F4F6FD",
       bleed: true,
@@ -168,6 +172,65 @@ test("a block's border is drawn, on the edges it named", async () => {
   assertStringIncludes(xml, "<w:bottom");
   // Only the bottom was asked for, so no other edge is drawn.
   assertEquals(/<w:pBdr>(?:(?!<\/w:pBdr>).)*<w:top /s.test(xml), false);
+});
+
+test("a block's border style is written on the edge, padding kept", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a" variant="grandTotal">Total.</Paragraph>
+        <Paragraph id="b" variant="tearOff">Detach.</Paragraph>
+      </Document>,
+    ),
+  );
+
+  assertStringIncludes(xml, '<w:bottom w:val="double" w:color="1C2340" w:sz="8" w:space="0"/>');
+  assertStringIncludes(xml, '<w:top w:val="dashed" w:color="5A6482" w:sz="8" w:space="6"/>');
+});
+
+test("a cell's border style is written on its tcBorders", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell id="c" variant="dotted">x</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  assertStringIncludes(xml, '<w:bottom w:val="dotted" w:color="1C2340" w:sz="8"/>');
+});
+
+test("a border with no style is single, as it always was", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a" variant="band">Dates.</Paragraph>
+      </Document>,
+    ),
+  );
+
+  assertEquals(/<w:pBdr>(?:(?!<\/w:pBdr>).)*<w:bottom w:val="single"/s.test(xml), true);
+});
+
+test("a cell can say single over a table that asked for dashed", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" variant="tearOff" columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell id="c" variant="plainEdge">x</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  assertEquals(/<w:tcBorders>(?:(?!<\/w:tcBorders>).)*w:val="single"/s.test(xml), true);
+  assertEquals(xml.includes('w:val="dashed"'), false);
 });
 
 test("a bleeding block reaches past the margin, by indenting negatively", async () => {

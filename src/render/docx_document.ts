@@ -1106,7 +1106,7 @@ function blockBorders(block: DocumentBlockStyle | undefined, on: "paragraph" | "
   }
 
   const edge = {
-    style: BorderStyle.SINGLE,
+    style: block.borderStyle ?? BorderStyle.SINGLE,
     color: block.border,
     size: Math.max(1, Math.round((block.borderWidthPt ?? 1) * 8)),
     ...(on === "paragraph" ? { space: Math.min(31, Math.round(block.paddingPt ?? 0)) } : {}),
