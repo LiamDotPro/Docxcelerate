@@ -419,6 +419,8 @@ export async function renderDocxBytes(doc: DocumentModel): Promise<Uint8Array> {
 type CellContext = {
   alignment: (typeof AlignmentType)[keyof typeof AlignmentType] | undefined;
   line: number;
+  /** The width inside the cell or shape, in points: what a picture said to be `"full"` fills. */
+  widthPt: number;
   /**
    * The room either side, in twips, for a container that cannot state its own.
    *
@@ -488,7 +490,7 @@ function renderNode(
 
     return [
       new Paragraph({
-        children: paragraphRuns(node, blockRun(block, style), style),
+        children: paragraphRuns(node, blockRun(block, style), style, cell?.widthPt ?? columnWidthPt(style)),
         ...breakStyle(broken),
         numbering: item?.numbering,
         ...paragraphFrame(node, block),
@@ -500,8 +502,11 @@ function renderNode(
 
   if (node.kind === "image") {
     const block = blockOf(style, node.variant);
+    const boxed = blockDrawsABox(block) && cell === undefined;
+    // A boxed picture's card fills the column, so the picture inside it is narrower by the padding.
+    const room = (cell?.widthPt ?? columnWidthPt(style)) - (boxed ? 2 * (block.paddingPt ?? 0) : 0);
     const picture = new Paragraph({
-      children: [imageRunOf(node)],
+      children: [imageRunOf(node, room)],
       alignment: textAlignmentOf(node.align),
       ...breakStyle(broken),
       ...inCell(cell),
@@ -510,8 +515,8 @@ function renderNode(
     // A picture that names a variant draws it. Word has no box around a run,
     // so the box is a single-cell table — which is also what makes the card
     // hold its shape whether the picture has arrived yet or not.
-    return blockDrawsABox(block) && cell === undefined
-      ? [imageCard(node, block, picture)]
+    return boxed
+      ? [imageCard(node, block, picture, room)]
       : [picture];
   }
 
@@ -903,6 +908,7 @@ function paragraphRuns(
   node: ParagraphNode,
   base: Record<string, unknown>,
   style: DocumentStyle,
+  roomPt: number,
 ): InlineRun[] {
   const inline = [...(node.inlineImages ?? [])].sort((a, b) => a.at - b.at);
   const runs: InlineRun[] = [];
@@ -918,7 +924,7 @@ function paragraphRuns(
       if (cut > 0) {
         runs.push(markedRun({ ...run, text: rest.slice(0, cut) }, base, style));
       }
-      runs.push(imageRunOf(inline[next].image));
+      runs.push(imageRunOf(inline[next].image, roomPt));
       rest = rest.slice(cut);
       offset += cut;
       next += 1;
@@ -931,7 +937,7 @@ function paragraphRuns(
   }
 
   // A picture placed past the end of the words follows them.
-  runs.push(...inline.slice(next).map((entry) => imageRunOf(entry.image)));
+  runs.push(...inline.slice(next).map((entry) => imageRunOf(entry.image, roomPt)));
 
   return runs.length === 0 ? [textRun("", base)] : runs;
 }
@@ -1070,9 +1076,10 @@ function imageCard(
   node: ImageNode,
   block: DocumentBlockStyle,
   picture: Paragraph,
+  roomPt: number,
 ): Table {
   const padding = block.paddingPt ?? 0;
-  const side = pictureSizeOf(node, imageSourceOf(node.path)).width + padding * 2;
+  const side = pictureSizeOf(node, imageSourceOf(node.path), roomPt).width + padding * 2;
   const width = Math.round(side * 20);
 
   return new Table({
@@ -1450,7 +1457,7 @@ function blockTabStops(block: DocumentBlockStyle | undefined) {
  * renderer that quietly fetched would produce a document that packs on one
  * machine and not another.
  */
-function pictureOf(node: ImageNode): ImageRun | TextRun {
+function pictureOf(node: ImageNode, roomPt: number): ImageRun | TextRun {
   const source = imageSourceOf(node.path);
   const described = node.alt ?? node.placeholder ?? node.id;
 
@@ -1458,7 +1465,7 @@ function pictureOf(node: ImageNode): ImageRun | TextRun {
     return new TextRun(`[image: ${described}]`);
   }
 
-  const size = pictureSizeOf(node, source);
+  const size = pictureSizeOf(node, source, roomPt);
   const transformation = { width: ptToPx(size.width), height: ptToPx(size.height) };
   const altText = { name: node.id, description: described, title: described };
   const raster = rasterTypeOf(source.mediaType);
@@ -1498,13 +1505,18 @@ function pictureOf(node: ImageNode): ImageRun | TextRun {
  * read (a URL, a picture not produced yet, a header that says nothing) it is
  * the square it always was.
  */
-function pictureSizeOf(node: ImageNode, source: ImageSource): { width: number; height: number } {
+function pictureSizeOf(
+  node: ImageNode,
+  source: ImageSource,
+  roomPt: number,
+): { width: number; height: number } {
   const raster = source.kind === "data" && isSvg(source.mediaType)
     ? imageSourceOf(node.fallbackPath)
     : source;
   const natural = raster.kind === "data" ? pixelSizeOf(raster.bytes) : undefined;
   const ratio = natural ? natural.width / natural.height : 1;
-  const width = node.width ?? (node.height !== undefined ? node.height * ratio : 120);
+  const stated = node.width === "full" ? roomPt : node.width;
+  const width = stated ?? (node.height !== undefined ? node.height * ratio : 120);
 
   return { width, height: node.height ?? width / ratio };
 }
@@ -1516,8 +1528,8 @@ function pictureSizeOf(node: ImageNode, source: ImageSource): { width: number; h
  * standing in for one — so a Pay-now image that could not be packed still
  * sends the reader on.
  */
-function imageRunOf(node: ImageNode): InlineRun {
-  const run = pictureOf(node);
+function imageRunOf(node: ImageNode, roomPt: number): InlineRun {
+  const run = pictureOf(node, roomPt);
   const link = linkOf(node.href);
 
   return link === undefined ? run : new ExternalHyperlink({ link, children: [run] });
@@ -1597,7 +1609,15 @@ function renderTable(node: TableNode, style: DocumentStyle, furniture: boolean):
     // grey band in the empty spacer beside the totals panel: a stripe of
     // nothing, next to the figures rather than under them.
     rows: rows.map((row, index) =>
-      renderRow(row, node, style, index < headers, furniture, headers === 0 ? -1 : index - headers)),
+      renderRow(
+        row,
+        node,
+        style,
+        index < headers,
+        furniture,
+        widths,
+        headers === 0 ? -1 : index - headers,
+      )),
   });
 }
 
@@ -1863,7 +1883,7 @@ function renderShape(
 
   const content = new ImportedXmlComponent("w:txbxContent");
 
-  for (const child of shapeContent(node, block, style, furniture, inset, heightPt)) {
+  for (const child of shapeContent(node, block, style, furniture, inset, heightPt, widthPt - inset.left - inset.right)) {
     content.push(child);
   }
 
@@ -1906,6 +1926,7 @@ function shapeContent(
   furniture: boolean,
   inset: { left: number; right: number },
   heightPt: number,
+  widthPt: number,
 ): Paragraph[] {
   // The room either side, carried on the paragraphs because the text box's own
   // `inset` reaches Word and not the preview. See `renderShape`.
@@ -1926,6 +1947,7 @@ function shapeContent(
       return renderNode(child, style, furniture, false, {
         alignment: alignments[shapeAlign(block)],
         ...boxLine,
+        widthPt,
         indent,
       }).filter((rendered): rendered is Paragraph => rendered instanceof Paragraph);
     }
@@ -1953,7 +1975,7 @@ function shapeContent(
           left: indent.left + (own?.left ?? 0),
           right: indent.right + (own?.right ?? 0),
         },
-        children: paragraphRuns(child, run, style),
+        children: paragraphRuns(child, run, style, widthPt),
       }),
     ];
   });
@@ -2010,6 +2032,7 @@ function renderRow(
   style: DocumentStyle,
   repeats: boolean,
   furniture: boolean,
+  widths: number[],
   bodyIndex = -1,
 ): TableRow {
   // F8: striping is the renderer's to do, counted as the rows are drawn. A
@@ -2058,6 +2081,9 @@ function renderRow(
     // preview and not in Word is the preview lying about the document.
     const inset = cellPadding(block, row.header === true);
 
+    const widthPt = widths.slice(column, column + span).reduce((total, width) => total + width, 0) / 20 -
+      inset.left - inset.right;
+
     cells.push(
       new TableCell({
         columnSpan: span > 1 ? span : undefined,
@@ -2076,7 +2102,7 @@ function renderRow(
           left: ptToTwips(inset.left),
           right: ptToTwips(inset.right),
         },
-        children: cellContent(child, align, row.header === true, block, style, furniture),
+        children: cellContent(child, align, row.header === true, block, style, furniture, widthPt),
       }),
     );
     column += span;
@@ -2111,6 +2137,7 @@ function cellContent(
   block: DocumentBlockStyle | undefined,
   style: DocumentStyle,
   furniture: boolean,
+  widthPt: number,
 ): (Paragraph | Table)[] {
   const content = cell.children.flatMap((child): (Paragraph | Table)[] => {
     // A picture in a cell is a picture, not a paragraph of prose: Word gives
@@ -2122,7 +2149,7 @@ function cellContent(
         new Paragraph({
           alignment: alignments[align],
           spacing: { after: 0, line: 240 },
-          children: [imageRunOf(child)],
+          children: [imageRunOf(child, widthPt)],
         }),
       ];
     }
@@ -2137,6 +2164,7 @@ function cellContent(
       return renderNode(child, style, furniture, false, {
         alignment: alignments[align],
         ...blockLine(block, style),
+        widthPt,
       });
     }
 
@@ -2174,7 +2202,7 @@ function cellContent(
             (heading.trackedEm === undefined
               ? undefined
               : trackingOf(heading.trackedEm, size, style)),
-        }, style),
+        }, style, widthPt),
       }),
     ];
   });

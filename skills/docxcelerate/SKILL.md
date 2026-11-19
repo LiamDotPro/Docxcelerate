@@ -155,7 +155,7 @@ keeps every request on `.requests` so a test can assert what each node asked.
 | `Section` | any nodes, including sections | the **only** container; `title` required and becomes a heading, kept on the page with what follows it |
 | `Paragraph` | text children, or prompts | `text` prop says the same as children; a `\n` in the text is a line break; `list="bullet"` or `"number"` makes it a list item, counted by the renderer; on a numbered item, `listStyle="lowerLetterParen"` (or `upperRoman`, `lowerRomanParen`, …) sets that level's numerals: (a), I., (i); `listStart={4}` on a numbered list's first item makes it count 4, 5, 6 — for a list taken up again after a table; on a bulleted item, `listMarker="tick"` (or `"cross"`, `"dash"`, `"square"`) marks it ✓, ✗, – or ▪ instead of • — each item says its own, so ticks and crosses can share one list |
 | `Text` | words, inside a `Paragraph`, `Cell` or `Shape` | **not a node** — no `id`. `bold`, `italic`, `underline` (`true`, or `"double"` for the double rule under a grand total), `strike`, `script` (`"superscript"` \| `"subscript"`), `href`, `variant` (a theme block name: colour, shading, size, face, weight, caps, tracking). Never a colour or a size of its own — `variant` names a theme block that has them |
-| `Image` | `src`, `alt`, `width`, `height`, `align`, `href`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below; give one of `width`/`height` and the other keeps the picture's proportions; `align` (`left`/`center`/`right`) places it in the column; `href` makes the picture a link |
+| `Image` | `src`, `alt`, `width`, `height`, `align`, `href`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below; give one of `width`/`height` and the other keeps the picture's proportions; `width="full"` fills the text column, or the cell or shape it is in; `align` (`left`/`center`/`right`) places it in the column; `href` makes the picture a link |
 | `Graph` | `graphType`, `data`, `title`, `alt`, `caption`, `align`, or prompts | packed as a real Word chart, never a picture of one — the numbers travel with it; `align` places a chart narrower than the column, and its caption follows; `alt` is what a screen reader hears; `valueAxisMin`/`valueAxisMax`/`valueAxisStep` fix the value axis when small changes must show. With prompts, the `caption` written here stays unless the model sends its own |
 | `Table` | `Row`s, and any `.map()` producing them | `columns` declared once, in mm or `"auto"`, with `align`; `align` on the table (`"center"`/`"right"`) moves a narrow one across the column |
 | `Row` | `Cell`s | `header` marks a heading row; only *leading* ones repeat across pages. `keepTogether` keeps a multi-line row whole on one page. `height` (pt) is a floor; `heightRule="exact"` fixes it and clips what overflows |
@@ -175,6 +175,12 @@ Give a picture one side and the other follows its own proportions —
 `<Image src={logo} width={160} />` is a 160pt-wide logo at its real shape, not a
 square. With neither side it is 120pt wide; with both it is exactly the box you
 gave, stretched if that box disagrees with the picture.
+
+`width="full"` makes the picture exactly as wide as where it stands: the text
+column of the page as turned, or the inside of its table cell or shape. Use it
+for hero images, screenshots and diagrams instead of a number of points, which
+stops being right when the theme changes the paper, the orientation or the
+margins.
 
 **A picture can be a link.** `<Image href="https://pay.example.com/inv/123">`
 makes a QR code, a Pay-now button or a logo open that address — Ctrl+click in

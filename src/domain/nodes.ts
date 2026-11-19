@@ -384,8 +384,15 @@ export interface ImageNode extends BaseNode {
   fallbackPath?: string;
   /** Alternative text describing the image. */
   alt?: string;
-  /** Rendered width, in points. Left out, it follows the picture's own proportions from `height`, or is 120pt when neither is given. */
-  width?: number;
+  /**
+   * Rendered width, in points, or `"full"` for the width of whatever it stands in:
+   * the text column of the page as turned, or the inside of its table cell or shape.
+   *
+   * Left out, it follows the picture's own proportions from `height`, or is 120pt
+   * when neither is given. With `"full"` the height follows the picture's
+   * proportions unless `height` is given too, which draws exactly that box.
+   */
+  width?: number | "full";
   /** Rendered height, in points. Left out, it follows the picture's own proportions from the width. */
   height?: number;
   /**
