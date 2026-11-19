@@ -161,6 +161,7 @@ Notes worth knowing:
   both sides and bound — the reference belongs at the *outside* edge of each, so
   a folio in the same place on every sheet sits in the gutter on half of them.
   Naming either makes `header` and `footer` the right-hand page's.
+  Like every strip, they publish: a `{{data.…}}` token or a deriver in one is settled per document by the engine.
 - `trackChanges` opens the document in Word with Track Changes on — for a
   contract, NDA or agreement sent out to be negotiated, so every edit the
   other side makes is recorded. It is a setting, not a lock: Word lets the

@@ -266,6 +266,7 @@ decision that depends on request data has to travel to the engine instead:
 - **Interpolating** a value publishes fine — it becomes a `{{data.x}}` token.
   **Computing** on one does not; use a **deriver**, which the engine runs per
   document. Never hand-write a `{{data.…}}` token; interpolation produces it.
+  This holds in every header and footer, the first-page and even-page ones included.
 - **`<Document properties>` reads data only as a function** — `properties={(data: MyData) => ({ … })}`. Interpolation publishes as a token, like anywhere else; a computed value cannot reach it.
 - **A preview never waits.** It is rebuilt on every save, so generated nodes show
   the placeholder `useAi` required and derivers that declared a `placeholder`

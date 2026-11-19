@@ -56,17 +56,10 @@ export async function resolveDocument(
   const nodes = await resolveNodes(doc.nodes, state, derivers);
   // The furniture is resolved too: a footer naming the recipient's reference
   // is as much a published token as anything in the body, and it is the part
-  // that appears on every page if it is left unresolved.
-  const header = doc.header ? await resolveNodes(doc.header, state, derivers) : undefined;
-  const footer = doc.footer ? await resolveNodes(doc.footer, state, derivers) : undefined;
-  // First-page furniture keeps an empty array as an empty array: it means "the
-  // first page shows nothing here", which is a decision, not an absence.
-  const firstHeader = doc.firstHeader
-    ? await resolveNodes(doc.firstHeader, state, derivers)
-    : doc.firstHeader;
-  const firstFooter = doc.firstFooter
-    ? await resolveNodes(doc.firstFooter, state, derivers)
-    : doc.firstFooter;
+  // that appears on every page if it is left unresolved. An empty array stays
+  // an empty array: it is a decision ("this page shows nothing here"), and for
+  // even furniture it is what keeps w:evenAndOddHeaders on.
+  const furniture = (part?: DocumentNode[]) => part && resolveNodes(part, state, derivers);
 
   return {
     ...doc,
@@ -74,10 +67,12 @@ export async function resolveDocument(
       ? {}
       : { properties: await renderProperties(doc.properties, (value) => renderTemplate(value, state)) }),
     nodes,
-    header,
-    footer,
-    firstHeader,
-    firstFooter,
+    header: await furniture(doc.header),
+    footer: await furniture(doc.footer),
+    firstHeader: await furniture(doc.firstHeader),
+    firstFooter: await furniture(doc.firstFooter),
+    evenHeader: await furniture(doc.evenHeader),
+    evenFooter: await furniture(doc.evenFooter),
   };
 }
 
