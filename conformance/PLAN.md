@@ -300,7 +300,8 @@ the bug was one or two lines each.
 | Fixed row height | **yes — added** | `tables/row-height` | w:trHeight with w:hRule, floor or exact |
 | Nested table | **yes — measured** | `tables/nested` | was untested; A·B·C·X green |
 | Banded rows | **yes — added** | `tables/banded-rows` | per-cell `w:shd` counted by the renderer, never a `w:tblStyle` |
-| Table alignment and float | no | `tables/float` | no `w:jc` on a table, no `w:tblpPr` |
+| Table alignment | **yes — added** | tables/align | w:jc on w:tblPr; docx-preview reads it as auto margins |
+| Floating table | no | tables/float | no w:tblpPr |
 
 Three bugs came out of writing these, in the order they cost most. All three
 are fixed, and the case that found each one is what keeps it fixed.
@@ -488,7 +489,7 @@ areas. What the tables pass turned up has been fixed, in the same pass:
 
 What is left in this area is the one feature nothing can express yet — a
 vertical merge (`tables/rowspan`) — which needs a field on the model rather than a
-line in the renderer. Table alignment (`tables/float`) is small and behaves;
+line in the renderer. Table alignment is done in `tables/align`;
 floating a table is a question rather than a task, because `w:tblpPr` takes a
 table out of the flow and makes the paragraphs wrap around it, and a preview
 reproducing that is a preview doing its own line breaking.

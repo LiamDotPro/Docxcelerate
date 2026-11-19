@@ -402,3 +402,43 @@ test("a cell with nothing in it still packs, because Word will not take an empty
 
   assertEquals(typeof createDocxDocument(doc), "object");
 });
+
+// ---------------------------------------------------------------------------
+// Where a table sits across the column
+// ---------------------------------------------------------------------------
+
+function narrow(align?: "left" | "center" | "right") {
+  return build(() => (
+    <Table id="t" align={align} columns={[{ width: 60 }]}>
+      <Row>
+        <Cell id="c">Sixty millimetres</Cell>
+      </Row>
+    </Table>
+  ));
+}
+
+async function tblPrOf(align?: "left" | "center" | "right"): Promise<string> {
+  const xml = await documentXml(await narrow(align));
+
+  return xml.match(/<w:tblPr>[\s\S]*?<\/w:tblPr>/)?.[0] ?? "";
+}
+
+test("a table keeps the align it was given", async () => {
+  assertEquals(tableOf(await narrow("right")).align, "right");
+});
+
+test("a table that does not say where it sits carries no align", async () => {
+  assertEquals("align" in tableOf(await narrow()), false);
+});
+
+test("a centred table writes w:jc on the table's own properties", async () => {
+  assertStringIncludes(await tblPrOf("center"), '<w:tblW w:type="dxa" w:w="3402"/><w:jc w:val="center"/>');
+});
+
+test("a table ranged right writes w:jc right", async () => {
+  assertStringIncludes(await tblPrOf("right"), '<w:jc w:val="right"/>');
+});
+
+test("a table with no align writes no w:jc", async () => {
+  assertEquals((await tblPrOf()).includes("<w:jc"), false);
+});

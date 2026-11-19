@@ -421,6 +421,23 @@ test("landscape measures, shapes and charts take the wider column", async () => 
   assertStringIncludes(drawn, 'cx="9540000"');
 });
 
+test("a bleeding table ignores align, since Word drops the indent it needs", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="bar" variant="band" align="center" columns={[{ width: "auto" }]}>
+          <Row>
+            <Cell id="c">Registered in England</Cell>
+          </Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  assertStringIncludes(xml, '<w:tblInd w:type="dxa" w:w="-907"/>');
+  assertEquals((xml.match(/<w:tblPr>[\s\S]*?<\/w:tblPr>/)?.[0] ?? "").includes("<w:jc"), false);
+});
+
 test("a table that does not bleed still stands on the text column", async () => {
   const xml = await documentXml(
     await build(

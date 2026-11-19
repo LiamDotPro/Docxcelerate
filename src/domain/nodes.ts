@@ -446,6 +446,8 @@ export interface TableNode extends BaseNode {
   kind: "table";
   /** The columns, left to right. */
   columns: TableColumn[];
+  /** Where the table sits across the text column. Left unless it is said. */
+  align?: TableAlign;
   /** The rows, and any loops that produce them. */
   children: DocumentNode[];
 }

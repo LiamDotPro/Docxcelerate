@@ -59,7 +59,7 @@ interface PromptProps {
 | `Text` | `bold?`, `italic?`, `underline?`, `strike?`, `script?` (`"superscript" \| "subscript"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` (points; give one and the other keeps the picture's proportions, neither is 120pt wide), `align?` (`"left" \| "center" \| "right"`) |
 | `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `caption?`, `width?`, `height?` (points), `align?` (`"left" \| "center" \| "right"`), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `dataLabels?` |
-| `Table` | `columns` (required), `children?` |
+| `Table` | `columns` (required), `align?` (`"left" \| "center" \| "right"`, default left), `children?` |
 | `Row` | `header?`, `keepTogether?`, `height?`, `heightRule?`, `children?` |
 | `Cell` | `span?`, `align?`, `children?` |
 | `Shape` | `width?`, `height?` (points), `children?` |
@@ -101,6 +101,12 @@ Notes worth knowing:
   grid — and Word clips whatever does not fit, so keep an exact row's contents
   inside it (the preview grows the row rather than hiding the overflow). This
   is not a block's `heightPt`, which sets a paragraph's leading, not a row's depth.
+- **`align` on a `<Table>` moves the whole table**, not its words: a totals
+  block of fixed-width columns with `align="right"` sits against the right
+  margin, with no empty spacer column to hold it there. It only moves a table
+  narrower than the text column — any `"auto"` column fills the column, and a
+  `bleed` table spans the paper and ignores it. Column and cell `align` still
+  set the text inside.
 - **`Cell` takes text directly** — `<Cell>{line.qty}</Cell>` is the common case.
   Give it paragraphs when one line is not enough.
 - **`Shape` is a drawn box the words sit on top of**, and takes text directly
