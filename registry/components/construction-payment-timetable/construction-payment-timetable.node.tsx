@@ -1,14 +1,7 @@
-import {
-  arrange,
-  Cell,
-  Paragraph,
-  Row,
-  Section,
-  type Section as SectionComponent,
-  Table,
-  useDeriver,
-  useState,
-} from "docxcelerate/template";
+import { arrange, Section, type Section as SectionComponent, useDeriver, useState } from "docxcelerate/template";
+import type { ConstructionPaymentTimetableLines } from "../arrangements/construction-payment-timetable/lines.ts";
+import { stacked } from "../arrangements/construction-payment-timetable/stacked.arrangement.tsx";
+import { table } from "../arrangements/construction-payment-timetable/table.arrangement.tsx";
 import constructionPaymentTimetable from "../derivers/construction-payment-timetable.deriver.ts";
 
 /**
@@ -144,68 +137,27 @@ export const ConstructionPaymentTimetable: SectionComponent<ConstructionPaymentT
   const [bankHolidays] = useState((data: ConstructionPaymentTimetableData) => data.bankHolidays);
   const t = await useDeriver(constructionPaymentTimetable, [contract, payment, bankHolidays]);
 
+  const lines: ConstructionPaymentTimetableLines = {
+    applies: t.applies,
+    notApplicable: t.notApplicable,
+    basis: t.basis,
+    dueDate: t.dueDate,
+    paymentNoticeBy: t.paymentNoticeBy,
+    finalDate: t.finalDate,
+    payLessBy: t.payLessBy,
+    noticeLate: t.noticeLate,
+    noticeGiven: t.noticeGiven,
+    applicationStands: t.applicationStands,
+    defaultNotice: t.defaultNotice,
+    defaultOpen: t.defaultOpen,
+    reckoning: t.reckoning,
+  };
+
   return (
     <Section id="payment-timetable" title="Payment timetable">
       {arrange(arrangement, {
-        table: () => (
-          <>
-            {t.notApplicable && <Paragraph id="payment-timetable-not-applicable">{t.notApplicable}</Paragraph>}
-            {t.applies && (
-              <>
-                <Paragraph id="payment-timetable-basis">{t.basis}</Paragraph>
-                {/* 50mm holds the longest label, "Pay less notice due by", on one line. */}
-                <Table id="payment-timetable-dates" columns={[{ width: 50 }, { width: "auto" }]}>
-                  <Row id="payment-timetable-due">
-                    <Cell>Payment due date</Cell>
-                    <Cell>{t.dueDate}</Cell>
-                  </Row>
-                  <Row id="payment-timetable-notice-by">
-                    <Cell>Payment notice due by</Cell>
-                    <Cell>{t.paymentNoticeBy}</Cell>
-                  </Row>
-                  <Row id="payment-timetable-final">
-                    <Cell>Final date for payment</Cell>
-                    <Cell>{t.finalDate}</Cell>
-                  </Row>
-                  <Row id="payment-timetable-pay-less-by">
-                    <Cell>Pay less notice due by</Cell>
-                    <Cell>{t.payLessBy}</Cell>
-                  </Row>
-                </Table>
-                {t.noticeLate && <Paragraph id="payment-timetable-notice-late">{t.noticeLate}</Paragraph>}
-                {t.noticeGiven && <Paragraph id="payment-timetable-notice-given">{t.noticeGiven}</Paragraph>}
-                {t.applicationStands && (
-                  <Paragraph id="payment-timetable-application-stands">{t.applicationStands}</Paragraph>
-                )}
-                {t.defaultNotice && <Paragraph id="payment-timetable-default-notice">{t.defaultNotice}</Paragraph>}
-                {t.defaultOpen && <Paragraph id="payment-timetable-default-open">{t.defaultOpen}</Paragraph>}
-                <Paragraph id="payment-timetable-reckoning">{t.reckoning}</Paragraph>
-              </>
-            )}
-          </>
-        ),
-        stacked: () => (
-          <>
-            {t.notApplicable && <Paragraph id="payment-timetable-not-applicable">{t.notApplicable}</Paragraph>}
-            {t.applies && (
-              <>
-                <Paragraph id="payment-timetable-basis">{t.basis}</Paragraph>
-                <Paragraph id="payment-timetable-due">Payment due date: {t.dueDate}</Paragraph>
-                <Paragraph id="payment-timetable-notice-by">Payment notice due by: {t.paymentNoticeBy}</Paragraph>
-                <Paragraph id="payment-timetable-final">Final date for payment: {t.finalDate}</Paragraph>
-                <Paragraph id="payment-timetable-pay-less-by">Pay less notice due by: {t.payLessBy}</Paragraph>
-                {t.noticeLate && <Paragraph id="payment-timetable-notice-late">{t.noticeLate}</Paragraph>}
-                {t.noticeGiven && <Paragraph id="payment-timetable-notice-given">{t.noticeGiven}</Paragraph>}
-                {t.applicationStands && (
-                  <Paragraph id="payment-timetable-application-stands">{t.applicationStands}</Paragraph>
-                )}
-                {t.defaultNotice && <Paragraph id="payment-timetable-default-notice">{t.defaultNotice}</Paragraph>}
-                {t.defaultOpen && <Paragraph id="payment-timetable-default-open">{t.defaultOpen}</Paragraph>}
-                <Paragraph id="payment-timetable-reckoning">{t.reckoning}</Paragraph>
-              </>
-            )}
-          </>
-        ),
+        table: () => table(lines),
+        stacked: () => stacked(lines),
       })}
     </Section>
   );

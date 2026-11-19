@@ -1057,7 +1057,7 @@ export const COMPONENTS: RegistryComponent[] = [
       { id: "table", title: "Table", summary: "The four dates in a label and date table, for a timetable read at a glance." },
       { id: "stacked", title: "Stacked", summary: "One line per date, for a letter that reads as prose." },
     ],
-    files: node("construction-payment-timetable", { deriver: true }),
+    files: node("construction-payment-timetable", { deriver: true, arrangements: ["table", "stacked"] }),
     previewData: {
       contract: { region: "SC", dueDateDays: 14, finalDateDays: 30, payLessDays: 7 },
       payment: {
