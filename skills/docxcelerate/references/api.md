@@ -188,7 +188,7 @@ Notes worth knowing:
   recipient, and the preview looks the same because nothing has been edited
   yet.
 - `Graph.data` is `{ categories?: string[], series: { label?, values: (number
-  | null)[], color?, sizes? }[] }`. A `null` value is a gap in the plot, not a
+  | null)[], color?, dash?, sizes? }[] }`. A `null` value is a gap in the plot, not a
   zero — a month nobody measured is not a month that measured nothing. A series
   shorter than the categories is padded with gaps; one with no categories is
   counted by position. Strings inside the payload are run through the template
@@ -221,6 +221,11 @@ Notes worth knowing:
   chart re-themeable; a series naming its own `color` overrides it. The
   gridlines take `palette.rule` and the axis and key text `palette.muted`, so a
   chart reads as part of the document rather than as something pasted into it.
+- A series' `dash` is `"dashed"` or `"dotted"`, so a forecast, budget or target
+  reads apart from the actuals without leaning on colour — which a greyscale
+  print loses. It is packed as the line's own Word dash style (`a:prstDash`),
+  read by `line`, `scatter` and `radar`, and ignored by charts that fill rather
+  than stroke a series. Left out, the line is solid.
 - `numberFormat` is an OOXML format code — `"#,##0"`, `"0.0%"`, `"£#,##0"` —
   handed to the value axis and to the data labels verbatim.
 - `valueAxisMin` / `valueAxisMax` fix the ends of the value axis and

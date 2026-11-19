@@ -478,6 +478,86 @@ test("a series that names its own colour outranks the theme", async () => {
   assertStringIncludes(xml, `<a:srgbClr val="AA00BB"/>`);
 });
 
+test("a dashed series is drawn dashed, and a dotted one in round dots", async () => {
+  const line = (dash?: "dashed" | "dotted") => ({ label: "x", values: [1, 2, 3, 4], dash });
+  const xml = await chartXml(
+    documentOf([chart({ graphType: "line", data: { categories: quarters, series: [line(), line("dashed"), line("dotted")] } })]),
+  );
+
+  assertStringIncludes(xml, `<a:solidFill><a:srgbClr val="EB6834"/></a:solidFill><a:prstDash val="dash"/><a:round/></a:ln>`);
+  assertStringIncludes(xml, `<a:solidFill><a:srgbClr val="1BAF7A"/></a:solidFill><a:prstDash val="sysDot"/><a:round/></a:ln>`);
+  assertEquals(xml.match(/<a:prstDash /g)?.length, 2);
+});
+
+test("a series with no dash is solid, exactly as before", async () => {
+  const xml = await chartXml(documentOf([chart({ graphType: "line" })]));
+
+  assertEquals(xml.includes("prstDash"), false);
+  assertStringIncludes(xml, `<a:ln w="28575" cap="rnd"><a:solidFill><a:srgbClr val="2A78D6"/></a:solidFill><a:round/></a:ln>`);
+});
+
+test("scatter and radar take a dash, because they draw their series as lines", async () => {
+  for (const graphType of ["scatter", "radar"] as const) {
+    const xml = await chartXml(
+      documentOf([chart({ graphType, data: { categories: quarters, series: [{ values: [1, 2, 3, 4], dash: "dashed" }] } })]),
+    );
+
+    assertStringIncludes(xml, `<a:prstDash val="dash"/>`);
+  }
+});
+
+test("a bar, an area or a pie has no line to dash", async () => {
+  for (const graphType of ["bar", "area", "pie"] as const) {
+    const xml = await chartXml(
+      documentOf([chart({ graphType, data: { categories: quarters, series: [{ values: [1, 2, 3, 4], dash: "dotted" }] } })]),
+    );
+
+    assertEquals(xml.includes("prstDash"), false);
+  }
+});
+
+test("a dash nobody defined draws solid rather than breaking the file", async () => {
+  const xml = await chartXml(
+    documentOf([
+      chart({
+        graphType: "line",
+        data: {
+          categories: quarters,
+          series: [
+            { values: [1, 2, 3, 4], dash: "dashdot" as never },
+            { values: [1, 2, 3, 4], dash: "constructor" as never },
+          ],
+        },
+      }),
+    ]),
+  );
+
+  assertEquals(xml.includes("prstDash"), false);
+  assertEquals(xml.includes("undefined"), false);
+});
+
+test("a dash written as JSX reaches the node", async () => {
+  const doc = await buildDocument(
+    template(
+      <Document id="doc" title="Doc">
+        <Section id="body" title="Body" showTitle={false}>
+          <Graph
+            id="revenue"
+            graphType="line"
+            data={{ categories: quarters, series: [{ label: "Forecast", values: [1, 2, 3, 4], dash: "dashed" }] }}
+          />
+        </Section>
+      </Document>,
+    ),
+    {},
+    { branchMode: "decide", dynamicMode: "placeholder" },
+  );
+  const section = doc.nodes[0];
+  const node = section.kind === "section" ? section.children[0] as GraphNode : undefined;
+
+  assertEquals(node?.data?.series[0].dash, "dashed");
+});
+
 test("a chart is ruled and lettered in the theme's own ink, not the series' colours", async () => {
   const xml = await chartXml(documentOf([chart()]));
   const palette = cleanMinimalDocumentStyle.palette;

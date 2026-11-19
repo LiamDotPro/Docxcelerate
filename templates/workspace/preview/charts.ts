@@ -233,7 +233,7 @@ function radarSeries(chart: PreviewChart): echarts.SeriesOption {
       return {
         name: series.label,
         value: series.values.map((value) => value ?? 0),
-        lineStyle: { color, width: 2 },
+        lineStyle: { color, width: 2, type: series.dash ?? "solid" },
         itemStyle: { color },
       };
     }),
@@ -330,6 +330,7 @@ function plotSeries(chart: PreviewChart, series: PreviewChartSeries): echarts.Se
   const stack = chart.stacked === false ? undefined : "total";
 
   if (chart.graphType === "scatter") {
+    // Points only, no connecting line, so a scatter dash has nothing to draw here.
     return {
       name: series.label,
       type: "scatter",
@@ -373,7 +374,7 @@ function plotSeries(chart: PreviewChart, series: PreviewChartSeries): echarts.Se
       stack,
       symbol: "circle",
       symbolSize: 6,
-      lineStyle: { color, width: 2 },
+      lineStyle: { color, width: 2, type: series.dash ?? "solid" },
       itemStyle: { color },
       // An area chart is a line with the ground filled in under it, which is
       // exactly what OOXML's `c:areaChart` is beside its `c:lineChart`.
