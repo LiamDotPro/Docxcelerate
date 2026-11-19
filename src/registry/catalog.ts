@@ -1082,7 +1082,6 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
-
 ];
 
 /** Kept in this order everywhere the catalog is listed. */

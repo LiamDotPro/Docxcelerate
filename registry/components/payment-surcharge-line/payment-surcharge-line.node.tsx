@@ -152,6 +152,7 @@ export interface PaymentSurchargeLineProps {
   arrangement?: PaymentSurchargeLineArrangement;
 }
 
+/** The payment surcharge line for an invoice, as a table row or a stacked sentence. */
 export const PaymentSurchargeLine: Nodes<PaymentSurchargeLineProps> = async ({ arrangement }) => {
   const [surcharge] = useState((data: PaymentSurchargeLineData) => data.surcharge);
   const out = await useDeriver(paymentSurchargeLine, [surcharge]);
