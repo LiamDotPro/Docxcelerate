@@ -24,6 +24,7 @@ import { Loop } from "./loop.ts";
 
 const publishTargetMarker = Symbol.for("docxcelerate.publishTarget");
 const publishRefMarker = Symbol.for("docxcelerate.publishRef");
+const publishPositionMarker = Symbol.for("docxcelerate.publishPosition");
 
 /** Which bag a stand-in stands for, and where within it. */
 export interface PublishRef {
@@ -46,6 +47,11 @@ interface StandInOptions {
   readonly tests?: readonly Condition[];
   /** Told when a field is read, so a predicate that looked can be told from one that did not. */
   readonly onRead?: () => void;
+  /**
+   * The `ctx` key a loop binds this index's one-based position to. Only the
+   * index a `.map()` hands its callback carries one.
+   */
+  readonly positionAs?: string;
 }
 
 /**
@@ -106,6 +112,10 @@ function createStandIn(
 
       if (property === publishRefMarker) {
         return { scope, path: path.join(".") } satisfies PublishRef;
+      }
+
+      if (property === publishPositionMarker) {
+        return options.positionAs;
       }
 
       if (property === Symbol.toPrimitive) {
@@ -215,14 +225,16 @@ function publishMap(
 ): TemplateElement<"repeat"> {
   const as = path.join("_");
   const indexAs = `${as}_index`;
+  const positionAs = `${as}_position`;
 
   return createElement("repeat", Loop, {
     over: path.join("."),
     overScope: scope,
     as,
     indexAs,
+    positionAs,
     where: everyCondition(tests),
-    children: callback(createContextStandIn([as]), createContextStandIn([indexAs])),
+    children: callback(createContextStandIn([as]), createStandIn("ctx", [indexAs], { positionAs })),
   }) as TemplateElement<"repeat">;
 }
 
@@ -458,3 +470,36 @@ const deriverMembers = new Set([
   "splice",
   "toSpliced",
 ]);
+
+/**
+ * A loop entry's position counting from one, for numbering what a `.map()`
+ * produces — the lines of an invoice, the items of a schedule.
+ *
+ * `i + 1` cannot publish: the index is a stand-in there, and arithmetic on it
+ * has no answer until the engine walks the loop. This hands the counting to the
+ * engine instead. In a published loop it is the token the engine settles per
+ * pass; with real data it is the number itself. Either way a filtered loop is
+ * numbered by the entries that survived, the way `.filter().map()` numbers them.
+ *
+ * @param index The index `.map()` handed its callback.
+ * @returns `index + 1`, or the stand-in for it while publishing.
+ * @throws If `index` is anything other than the index of a `.map()`.
+ */
+export function position(index: number): number {
+  if (typeof index === "number" && Number.isInteger(index) && index >= 0) {
+    return index + 1;
+  }
+
+  const positionAs = isPublishValue(index)
+    ? (index as unknown as Record<symbol, string | undefined>)[publishPositionMarker]
+    : undefined;
+
+  if (positionAs === undefined) {
+    throw new Error(
+      "position() takes the index a .map() hands its callback, and numbers what that map produces. " +
+        "Pass that index; a count over anything else is a deriver's job.",
+    );
+  }
+
+  return createStandIn("ctx", [positionAs]) as number;
+}

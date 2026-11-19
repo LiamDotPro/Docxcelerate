@@ -1,10 +1,10 @@
 import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { buildDocument } from "docxcelerate";
-import { documentXml } from "./docx.ts";
+import { documentXml, paragraphOf } from "./docx.ts";
 import type { DocumentModel, DocumentStyle, ShapeNode } from "docxcelerate";
 import { cleanMinimalDocumentStyle } from "docxcelerate";
-import { Document, Paragraph, Section, Shape, template } from "docxcelerate/template";
+import { Document, Paragraph, Section, Shape, template, Text } from "docxcelerate/template";
 
 /**
  * A drawn box with words on it.
@@ -24,6 +24,16 @@ const style: DocumentStyle = {
     callout: { fill: "1F2933", color: "FFFFFF", paddingPt: 10 },
     ruled: { fill: "EEF2FF", border: "2F5FBD", borderWidthPt: 1.5 },
     deep: { fill: "1F2933", heightPt: 90 },
+    signLine: { tabStopsMm: [{ at: 60, align: "right", leader: "dot" }] },
+    inset: {
+      indentMm: 10,
+      indentRightMm: 10,
+      border: "2F5FBD",
+      borderSides: ["left"],
+      borderWidthPt: 2,
+      paddingPt: 6,
+      fill: "EEF2FF",
+    },
   },
 };
 
@@ -198,4 +208,46 @@ test("an empty shape still gets a paragraph, because Word will not take a bare t
   const xml = await xmlOf(doc);
 
   assertStringIncludes(xml, "<w:txbxContent><w:p");
+});
+
+test("a paragraph in a shape keeps its own alignment", async () => {
+  const xml = await xmlOf(
+    await build(() => (
+      <Shape id="s" variant="callout">
+        <Paragraph align="right">Ranged right</Paragraph>
+      </Shape>
+    )),
+  );
+
+  assertStringIncludes(paragraphOf(xml, "Ranged right"), '<w:jc w:val="right"/>');
+});
+
+test("a paragraph's own indents add to the room inside the box", async () => {
+  const xml = await xmlOf(
+    await build(() => (
+      <Shape id="s" variant="callout">
+        <Paragraph variant="inset">Quoted</Paragraph>
+      </Shape>
+    )),
+  );
+  const found = paragraphOf(xml, "Quoted");
+
+  assertStringIncludes(found, '<w:ind w:left="767" w:right="767"/>');
+  assertStringIncludes(found, 'w:fill="EEF2FF"');
+  assertStringIncludes(found, "<w:pBdr>");
+});
+
+test("a tab and a mark in a shape's paragraph survive, with the stops its variant names", async () => {
+  const xml = await xmlOf(
+    await build(() => (
+      <Shape id="s" variant="callout">
+        <Paragraph variant="signLine">{"Quoted\t"}<Text bold>in full</Text></Paragraph>
+      </Shape>
+    )),
+  );
+  const found = paragraphOf(xml, "Quoted");
+
+  assertStringIncludes(found, "<w:tab/>");
+  assertStringIncludes(found, '<w:tab w:val="right" w:pos="3402" w:leader="dot"/>');
+  assertStringIncludes(found, "<w:b/>");
 });
