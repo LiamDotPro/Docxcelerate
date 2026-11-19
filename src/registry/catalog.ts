@@ -3629,6 +3629,67 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+
+  {
+    kind: "component",
+    id: "nl-collection-costs",
+    title: "Dutch collection costs",
+    summary: "Dutch statutory collection costs on the WIK staffel, and the fourteen-day letter that makes them due.",
+    detail:
+      "Collection costs under Dutch law are all or nothing: one mistake voids the claim. " +
+      "A consumer owes them only after a veertiendagenbrief that states the exact figure, " +
+      "and the fourteen days run from the day after receipt, so the letter prints a payment " +
+      "date fifteen days after the expected receipt, rolled past weekends and public holidays. " +
+      "The staffel is applied once to every invoice the letter names, with interest that has " +
+      "run a year added first, and rounded to the cent once. btw is added only when the " +
+      "creditor cannot reclaim it. A consumer's low instalments get EUR 40 and then EUR 20 in " +
+      "a six-month window. A business owes the staffel or EUR 40 per invoice, whichever is " +
+      "more, or what its contract says, with no letter. A later letter claims costs only once " +
+      "the earlier deadline has passed and it stated an amount; otherwise nothing is printed. " +
+      "An agency prints its Wki number. All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "collection", "netherlands", "dutch", "legal", "deriver", "branching", "section"],
+    exports: ["NlCollectionCosts"],
+    dataFields: [
+      { path: "collection.debtorType", type: '"consumer" | "business"', summary: "Decides which rules apply. Required." },
+      { path: "collection.creditorCanReclaimVat", type: "boolean | undefined", summary: "false adds 21% btw to the costs. Missing means no btw." },
+      { path: "collection.sendDate", type: "string", summary: "ISO 8601 date this document is sent. Required." },
+      { path: "collection.channel", type: '"post" | "email" | undefined', summary: "Sets the expected receipt. Required on a consumer's veertiendagenbrief." },
+      { path: "collection.postDeliveryDays", type: "number | undefined", summary: "Days a posted letter takes. Missing means 4." },
+      { path: "collection.invoices", type: "Array<{ number: string; principal: number; dueDate: string }>", summary: "Every overdue invoice claimed, in euros. Added together before the staffel. Required." },
+      { path: "collection.interestAccrued", type: "number | undefined", summary: "Statutory interest in euros; added to the base once it has run a year." },
+      { path: "collection.interestRunningSince", type: "string | undefined", summary: "ISO 8601 date the interest started." },
+      { path: "collection.instalment", type: "{ priorCharged: number; windowStart?: string } | undefined", summary: "A consumer instalment: EUR 40, then EUR 20 in a six-month window, under EUR 266.67." },
+      { path: "collection.contractualCosts", type: "number | undefined", summary: "Business only: the contract clause's costs, excluding btw. Replaces the staffel." },
+      { path: "collection.previousLetter", type: "{ deadline: string; statedCosts?: number; receivedDate?: string } | undefined", summary: "Consumer only: the veertiendagenbrief already sent. Costs print only after its deadline, and only if it stated them." },
+      { path: "collection.agency", type: "{ name: string; registrationNumber: string } | undefined", summary: "A collection agency sender; its Wki number is printed." },
+    ],
+    arrangements: [
+      { id: "stacked", title: "Stacked", summary: "One labelled figure under another, below the statement." },
+      { id: "table", title: "Table", summary: "Labels on the left, amounts right-aligned, so the figures add up down the page." },
+    ],
+    files: node("nl-collection-costs", { deriver: true, arrangements: ["stacked", "table"] }),
+    previewData: {
+      collection: {
+        debtorType: "consumer",
+        creditorCanReclaimVat: false,
+        sendDate: "2026-11-19",
+        channel: "post",
+        invoices: [
+          { number: "VF-2025-0004817-ENERGIE-NOORD", principal: 7845.32, dueDate: "2025-09-30" },
+          { number: "VF-2025-0005129-ENERGIE-NOORD", principal: 6912.75, dueDate: "2025-10-31" },
+          { number: "VF-2026-0000318-EINDAFREKENING", principal: 3991.93, dueDate: "2026-01-31" },
+        ],
+        interestAccrued: 612.48,
+        interestRunningSince: "2025-10-01",
+        agency: {
+          name: "Incassobureau Noord-Holland Gerechtsdeurwaarders en Juridische Dienstverlening B.V.",
+          registrationNumber: "2024-0048176",
+        },
+      },
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
