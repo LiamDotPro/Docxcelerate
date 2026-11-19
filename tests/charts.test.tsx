@@ -553,6 +553,124 @@ test("a pie's labels show the share, and a bar's show the figure", async () => {
   assertStringIncludes(pie, `<c:showPercent val="1"/>`);
   assertStringIncludes(bar, `<c:showVal val="1"/>`);
   assertStringIncludes(bar, `<c:showPercent val="0"/>`);
+  assertStringIncludes(pie, `<c:showCatName val="0"/>`);
+  assertEquals(pie.includes("<c:separator>"), false);
+  assertEquals(bar.includes("<c:separator>"), false);
+});
+
+test("labels are off unless asked for", async () => {
+  assertEquals((await chartXml(documentOf([chart()]))).includes("<c:dLbls>"), false);
+  assertEquals(
+    (await chartXml(documentOf([chart({ dataLabels: false })]))).includes("<c:dLbls>"),
+    false,
+  );
+});
+
+test("a pie can label each slice with its name and share", async () => {
+  const xml = await chartXml(
+    documentOf([
+      chart({
+        graphType: "pie",
+        dataLabels: "categoryAndPercent",
+        data: { categories: quarters, series: [twoSeries[0]] },
+      }),
+    ]),
+  );
+
+  assertStringIncludes(xml, `<c:showVal val="0"/>`);
+  assertStringIncludes(xml, `<c:showCatName val="1"/>`);
+  assertStringIncludes(xml, `<c:showPercent val="1"/>`);
+  assertStringIncludes(xml, `<c:showBubbleSize val="0"/><c:separator>, </c:separator></c:dLbls>`);
+});
+
+test("a bar can print its category on the bar, with no separator to write", async () => {
+  const xml = await chartXml(documentOf([chart({ dataLabels: "category" })]));
+
+  assertStringIncludes(xml, `<c:showVal val="0"/>`);
+  assertStringIncludes(xml, `<c:showCatName val="1"/>`);
+  assertStringIncludes(xml, `<c:showPercent val="0"/>`);
+  assertEquals(xml.includes("<c:separator>"), false);
+});
+
+test("a doughnut can label each slice with its name and value", async () => {
+  const xml = await chartXml(
+    documentOf([
+      chart({
+        graphType: "doughnut",
+        dataLabels: "categoryAndValue",
+        data: { categories: quarters, series: [twoSeries[0]] },
+      }),
+    ]),
+  );
+
+  assertStringIncludes(xml, `<c:showVal val="1"/>`);
+  assertStringIncludes(xml, `<c:showCatName val="1"/>`);
+  assertStringIncludes(xml, `<c:showPercent val="0"/>`);
+  assertStringIncludes(xml, `<c:separator>, </c:separator>`);
+});
+
+test("an explicit value on a pie overrides the share a pie defaults to", async () => {
+  const xml = await chartXml(
+    documentOf([
+      chart({
+        graphType: "pie",
+        dataLabels: "value",
+        data: { categories: quarters, series: [twoSeries[0]] },
+      }),
+    ]),
+  );
+
+  assertStringIncludes(xml, `<c:showVal val="1"/>`);
+  assertStringIncludes(xml, `<c:showPercent val="0"/>`);
+});
+
+test("label content written as JSX reaches the model", async () => {
+  const doc = await buildDocument(
+    template(
+      <Document id="doc" title="Doc">
+        <Section id="body" title="Body" showTitle={false}>
+          <Graph
+            id="spend"
+            graphType="pie"
+            dataLabels="categoryAndPercent"
+            data={{ categories: quarters, series: [twoSeries[0]] }}
+          />
+        </Section>
+      </Document>,
+    ),
+    {},
+    { branchMode: "decide", dynamicMode: "placeholder" },
+  );
+  const section = doc.nodes[0];
+  const node = section.kind === "section" ? section.children[0] as GraphNode : undefined;
+
+  assertEquals(node?.dataLabels, "categoryAndPercent");
+});
+
+test("a percentage label off a pie is an error", async () => {
+  for (const [graphType, dataLabels] of [["bar", "percent"], ["line", "categoryAndPercent"]] as const) {
+    await assertRejects(
+      () =>
+        buildDocument(
+          template(
+            <Document id="doc" title="Doc">
+              <Section id="body" title="Body" showTitle={false}>
+                <Graph
+                  id="r"
+                  graphType={graphType}
+                  dataLabels={dataLabels}
+                  data={{ categories: quarters, series: twoSeries }}
+                />
+              </Section>
+            </Document>,
+          ),
+          {},
+          { branchMode: "decide", dynamicMode: "placeholder" },
+        ),
+      Error,
+      "only a pie or a doughnut",
+    );
+  }
 });
 
 test("a label with an ampersand in it is still a label", async () => {

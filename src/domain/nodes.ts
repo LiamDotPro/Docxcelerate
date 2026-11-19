@@ -77,6 +77,24 @@ export type GraphType =
  */
 export type GraphStacking = boolean | "percent";
 
+/**
+ * What each data label prints.
+ *
+ * `value` is the point's own figure, `percent` its share of the whole, and
+ * `category` the name it is counted against. The two `categoryAnd…` forms print
+ * the name and then the figure, separated by a comma — "Rent, 42%".
+ *
+ * A share only exists on a pie or a doughnut, where the slices add up to
+ * something. Word has no percentage to print on any other chart, so asking for
+ * one there is an error rather than a label left blank.
+ */
+export type GraphDataLabels =
+  | "value"
+  | "percent"
+  | "category"
+  | "categoryAndValue"
+  | "categoryAndPercent";
+
 /** Where a chart's key sits, or that it has none. */
 export type GraphLegend = "none" | "top" | "bottom" | "left" | "right";
 
@@ -511,12 +529,15 @@ export interface GraphNode extends BaseNode {
    */
   valueAxisStep?: number;
   /**
-   * Whether each point prints its own figure.
+   * Whether each point prints a label, and what it prints. See
+   * {@linkcode GraphDataLabels}.
    *
    * Off for most charts — a number on every point is a table drawn badly — and
-   * worth turning on for a pie, where the slices are the reading.
+   * worth turning on for a pie, where the slices are the reading. `true` prints
+   * the figure the chart is read by: the share on a pie or a doughnut, the value
+   * everywhere else. `false` and absent print nothing.
    */
-  dataLabels?: boolean;
+  dataLabels?: boolean | GraphDataLabels;
 }
 
 /**

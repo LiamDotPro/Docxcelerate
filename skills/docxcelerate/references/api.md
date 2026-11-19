@@ -65,7 +65,7 @@ interface PromptProps {
 | `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0), `listStyle?` (`"decimal" \| "lowerLetter" \| "upperLetter" \| "lowerRoman" \| "upperRoman"`, or any of them with `Paren` appended: `"lowerLetterParen"` is (a); default by depth 1. a. i.), `listStart?` (a whole number from 1, default 1; numbered items only), `listMarker?` (`"dash" \| "tick" \| "cross" \| "square"`: –, ✓, ✗, ▪; default the bullet, • ◦ ▪ by depth; bulleted items only) |
 | `Text` | `bold?`, `italic?`, `underline?` (`true` single, `"double"` the accounting double rule; a link is always underlined), `strike?`, `script?` (`"superscript" \| "subscript"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`), `variant?` (a block name; only its character settings apply), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?` (points, or `"full"` for the text column — or the inside of its `Cell` or `Shape` — at the picture's proportions), `height?` (points; give one and the other keeps the picture's proportions, neither is 120pt wide), `align?` (`"left" \| "center" \| "right"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`) |
-| `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `alt?`, `caption?`, `width?`, `height?` (points), `align?` (`"left" \| "center" \| "right"`), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `valueAxisMin?`, `valueAxisMax?`, `valueAxisStep?` (numbers; fix the value axis, Word picks any left out), `dataLabels?` |
+| `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `alt?`, `caption?`, `width?`, `height?` (points), `align?` (`"left" \| "center" \| "right"`), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `valueAxisMin?`, `valueAxisMax?`, `valueAxisStep?` (numbers; fix the value axis, Word picks any left out), `dataLabels?` (`true`, or `"value" \| "percent" \| "category" \| "categoryAndValue" \| "categoryAndPercent"`; `true` prints the share on a pie, the value elsewhere) |
 | `Table` | `columns` (required), `align?` (`"left" \| "center" \| "right"`, default left), `keepTogether?`, `children?` |
 | `Row` | `header?`, `keepTogether?`, `height?`, `heightRule?`, `children?` |
 | `Cell` | `span?`, `align?`, `textDirection?` (`"up" \| "down"`; horizontal when left out), `children?` |
@@ -224,6 +224,10 @@ Notes worth knowing:
 - `scatter` and `bubble` read the categories as their x values, so those are
   numbers written as text; anything that will not parse counts as its position.
   `sizes` is the third figure a `bubble` carries and no other type reads.
+- `dataLabels` chooses what each point prints. `"categoryAndPercent"` on a pie
+  labels each slice "Rent, 42%", which with `legend="none"` replaces the key.
+  The name and the figure are joined with ", ". A percentage exists only on a
+  `pie` or `doughnut`; a bar that wants shares uses `stacked="percent"`.
 - **A generated chart's answer is checked before it is drawn.** What
   `aiClient.generateGraph` returns is read the way model JSON is written: a
   number written as text (`"12"`, `" 3.5 "`) is a number, a numeric category
@@ -290,6 +294,7 @@ Each of these is an error naming the position, not a quiet reinterpretation:
 | Two nodes with the same `id` | Ids address a node for the engine, so they must be unique |
 | Text **and** a prompt on one node | A node is written or it is generated — supply one |
 | `<Image>` with neither `src` nor a prompt | Nothing says what it shows |
+| `<Graph>` that is not a pie or doughnut with `dataLabels="percent"` or `"categoryAndPercent"` | Only a pie's slices add up to a whole a share can be taken of |
 | `<Graph>` with neither `data` nor a prompt | Nothing says what it plots |
 | A dynamic node in a build with no `aiClient` | Only a preview build may resolve those to placeholders |
 | A prompted `<Image>` among a paragraph's words, published to an engine | An engine draws block nodes only — give the `<Image>` its own place beside the paragraph |
