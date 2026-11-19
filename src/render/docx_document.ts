@@ -147,6 +147,7 @@ export function createDocxDocument(doc: DocumentModel): Document {
             },
           },
           titlePage: titlePage || undefined,
+          verticalAlign: style.page.valign,
         },
         // `w:titlePg` is one switch for both strips: once it is on, Word takes
         // page one's header AND footer from the `first` parts and shows
@@ -697,6 +698,9 @@ function listLevelOf(list: ParagraphList): number {
 /** Where each item stands, worked out once before the document is rendered. */
 const listPlaces = new WeakMap<ParagraphNode, { reference: string; tight: boolean }>();
 
+/** What a numbered list's level was told: its numerals, and where it counts from. */
+type ListLevelSettings = { style?: ListStyle; start?: number };
+
 /**
  * Works out which list each item counts in, and whether another follows it.
  *
@@ -705,12 +709,12 @@ const listPlaces = new WeakMap<ParagraphNode, { reference: string; tight: boolea
  * not stop the steps counting. Anything else ends the list, and the next
  * numbered item starts a numbering of its own.
  *
- * @returns How many items there are, and for each numbered list the style each
- * of its levels was given.
+ * @returns How many items there are, and for each numbered list the numerals
+ * and starting number each of its levels was given.
  */
-function placeLists(doc: DocumentModel): { items: number; numbered: (ListStyle | undefined)[][] } {
+function placeLists(doc: DocumentModel): { items: number; numbered: ListLevelSettings[][] } {
   let items = 0;
-  const numbered: (ListStyle | undefined)[][] = [];
+  const numbered: ListLevelSettings[][] = [];
 
   const walk = (nodes: readonly DocumentNode[]): void => {
     // The numbering the list being walked counts in, once it has a numbered item.
@@ -733,7 +737,10 @@ function placeLists(doc: DocumentModel): { items: number; numbered: (ListStyle |
       if (node.list.kind === "number") {
         // The levels belong to the list, and a later item that disagrees
         // cannot change numbers already printed.
-        numbered[numbered.length - 1][listLevelOf(node.list)] ??= node.list.style;
+        // The item that opens a level says where it counts from — a later one would
+        // renumber items already printed. Numerals are taken from the first that says.
+        const level = (numbered[numbered.length - 1][listLevelOf(node.list)] ??= { start: node.list.start });
+        level.style ??= node.list.style;
       }
 
       const next = nodes[index + 1];
@@ -775,9 +782,9 @@ function placeLists(doc: DocumentModel): { items: number; numbered: (ListStyle |
  * at all. This is the form both engines read, which is the same reason a
  * shape is packed as VML.
  */
-function listNumbering(numbered: (ListStyle | undefined)[][]) {
+function listNumbering(numbered: ListLevelSettings[][]) {
   const levels = (
-    marker: (level: number) => { format: (typeof LevelFormat)[keyof typeof LevelFormat]; text: string },
+    marker: (level: number) => { format: (typeof LevelFormat)[keyof typeof LevelFormat]; text: string; start?: number },
   ) =>
     Array.from({ length: LIST_LEVELS }, (_, level) => ({
       level,
@@ -795,9 +802,9 @@ function listNumbering(numbered: (ListStyle | undefined)[][]) {
           text: BULLETS[level % BULLETS.length],
         })),
       },
-      ...numbered.map((styles, index) => ({
+      ...numbered.map((settings, index) => ({
         reference: `${NUMBER_LIST}-${index + 1}`,
-        levels: levels((level) => numberMarker(styles[level], level)),
+        levels: levels((level) => ({ ...numberMarker(settings[level]?.style, level), start: settings[level]?.start })),
       })),
     ],
   };

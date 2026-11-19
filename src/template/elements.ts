@@ -176,6 +176,14 @@ export interface ParagraphProps extends CommonElementProps, PromptProps {
    * a level counts 1., a., i. by depth as it always has. Ignored on a bullet.
    */
   listStyle?: ListStyle;
+  /**
+   * The number a numbered list counts from at this item's level: `listStart={4}`
+   * makes the list count 4, 5, 6 — a list taken up again after a table, say.
+   * Say it on the item that opens the level; on any later item it is ignored,
+   * since it would renumber items already printed. A whole number from 1.
+   * Omitted, a level counts from 1 as it always has. Ignored on a bullet.
+   */
+  listStart?: number;
   /** The paragraph's text, as children. */
   children?: Yield<"paragraph">;
 }
