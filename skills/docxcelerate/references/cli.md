@@ -139,6 +139,7 @@ dxcl list components
 | `vat-place-of-supply` | Whose VAT applies and at what rate, decided before anything is printed. |
 | `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `exemption-certificate-check` | Which lines of a US sale go out exempt under the buyer's certificates, and why the rest stay taxable. |
 | `japan-qualified-invoice` | The tax part of a Japanese qualified invoice: lines by rate, ※ marks, tax once per rate, and a checked T-number. |
 | `vat-in-local-currency` | A foreign-currency invoice's VAT bands in the currency the VAT is owed in, band by band. |
 | `voucher-redemption-lines` | Vouchers, coupons and gift cards placed where their tax treatment puts them. |

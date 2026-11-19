@@ -1127,6 +1127,84 @@ export const COMPONENTS: RegistryComponent[] = [
   },
   {
     kind: "component",
+    id: "exemption-certificate-check",
+    title: "Exemption certificate check (US)",
+    summary: "Which lines of a US sale may go out exempt, under which certificate, and why the rest stay taxable.",
+    detail:
+      "A certificate is tested line by line, never as a yes or no for the whole customer. It has to cover the " +
+      "ship-to state, not the billing state, and be a form that state accepts. Streamlined Form F0003 counts only " +
+      "in full member states, from a member list you supply with its as-of date, which is printed. The MTC " +
+      "uniform certificate counts only where it is accepted, and only for resale where a state says so. The " +
+      "certificate must be unexpired on the invoice date, and its reason must fit the line. Resale, " +
+      "agricultural, industrial and direct-mail reasons cover only their own lines, so a resale certificate " +
+      "never exempts the buyer's own-use items. Government, charity, diplomat, education and direct-pay reasons " +
+      "cover the whole order. In a Streamlined state, a promised certificate keeps a line exempt until 90 days " +
+      "after the sale, printed with that deadline, and the line turns taxable once the deadline passes. Every " +
+      "taxable line prints the rule it failed. All of it is one deriver, whose lines match the " +
+      "us-sales-tax-breakdown shape.",
+    category: "Body",
+    tags: ["tax", "sales-tax", "us", "invoice", "exemption", "table", "deriver", "branching", "section"],
+    exports: ["ExemptionCertificateCheck"],
+    dataFields: [
+      { path: "exemption.invoiceDate", type: "string", summary: "ISO 8601 sale date. Expiry and the 90-day window run from it. Required." },
+      { path: "exemption.checkedOn", type: "string | undefined", summary: "ISO 8601 date of the check. Decides whether a pending certificate has run out. Missing means the invoice date." },
+      { path: "exemption.shipToState", type: "string", summary: "Two-letter ship-to state. Every certificate is judged against it. Required." },
+      { path: "exemption.currency", type: "string | undefined", summary: "ISO 4217 code. Missing means USD." },
+      { path: "exemption.sstMembers", type: "{ asOf: string; states: string[] }", summary: "Streamlined full-member states and their as-of date, which is printed. Required." },
+      {
+        path: "exemption.mtcAcceptingStates",
+        type: "{ asOf: string; states: Array<{ code: string; resaleOnly: boolean }> } | undefined",
+        summary: "States accepting the MTC uniform certificate. Missing means none do.",
+      },
+      {
+        path: "exemption.certificates",
+        type:
+          'Array<{ form: "SST" | "MTC" | "state"; state?: string; states?: string[]; reason: "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M"; number?: string; expires?: string; receivedOn?: string; pending?: boolean }> | undefined',
+        summary: "The buyer's certificates, held or promised. Missing means none: every line is taxable.",
+      },
+      {
+        path: "exemption.lines",
+        type: "Array<{ description: string; amountMinor: number; category?: string }> | undefined",
+        summary:
+          "Invoice lines in minor units, at most 16. The category is the buyer's use: resale, agricultural, industrial, direct-mail. Missing or empty prints nothing.",
+      },
+    ],
+    arrangements: [
+      { id: "table", title: "Table", summary: "One row per line with its amount, status and reason, so the statuses line up." },
+      { id: "stacked", title: "Stacked", summary: "One paragraph per line, for a narrow column or long reasons." },
+    ],
+    files: node("exemption-certificate-check", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      exemption: {
+        invoiceDate: "2026-11-30",
+        checkedOn: "2026-12-14",
+        shipToState: "NC",
+        currency: "USD",
+        sstMembers: {
+          asOf: "2026-10-01",
+          states: ["AR", "GA", "IN", "IA", "KS", "KY", "MI", "MN", "NE", "NV", "NJ", "NC", "ND", "OH", "OK", "RI", "SD", "UT", "VT", "WA", "WV", "WI", "WY"],
+        },
+        mtcAcceptingStates: {
+          asOf: "2026-07-01",
+          states: [{ code: "MD", resaleOnly: true }, { code: "NJ", resaleOnly: false }, { code: "GA", resaleOnly: true }],
+        },
+        certificates: [
+          { form: "SST", states: ["NC", "GA", "TN", "OH"], reason: "G", number: "NC-SST-500194-7731-REV3", expires: "2028-12-31" },
+          { form: "state", state: "VA", reason: "I", number: "VA-ST11-2026-0044170-MFG" },
+          { form: "SST", states: ["NC"], reason: "H", pending: true },
+        ],
+        lines: [
+          { description: "Industrial-grade stainless steel conveyor assemblies, model CX-4400 (for resale)", amountMinor: 184250000, category: "resale" },
+          { description: "Replacement hydraulic press tooling, 48-station progressive die set", amountMinor: 96437550, category: "industrial" },
+          { description: "Commercial grain-drying fans and controllers, farm installation kit", amountMinor: 12834975, category: "agricultural" },
+          { description: "Annual on-site preventive maintenance and calibration service contract", amountMinor: 4875000, category: "own-use" },
+        ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
     id: "japan-qualified-invoice",
     title: "Japan qualified invoice (適格請求書)",
     summary: "The tax part of a Japanese qualified invoice: lines by rate, ※ marks, tax once per rate, and a checked T-number.",
