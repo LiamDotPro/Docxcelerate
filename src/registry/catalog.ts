@@ -1128,6 +1128,76 @@ export const COMPONENTS: RegistryComponent[] = [
 
   {
     kind: "component",
+    id: "royalty-reserve-and-recoupment",
+    title: "Royalty reserve and advance recoupment",
+    summary:
+      "The settlement from royalties earned to the amount paid: reserves against returns, advance recoupment and the minimum payment.",
+    detail:
+      "The settlement from a period's earned royalties to the amount paid, reconciled " +
+      "line by line in integer minor units. A reserve against returns is held on " +
+      "physical formats only, never on e-books or digital audio, rounded once per " +
+      "title. Returns are charged against the reserves held for that title, oldest " +
+      "first; only returns beyond them reduce this period's royalties, and any " +
+      "reserve held for the contract's liquidation limit is released in full after " +
+      "returns are charged against it. The statement shows what was withheld and how " +
+      "each earlier reserve was applied or released. Recoupment pools only the " +
+      "titles an advance cross-collateralises; every other title recoups on its own, " +
+      "so one title's earnings never pay another's advance. Each advance is still " +
+      "unrecouped, earned out this period or already earned out, each in its own " +
+      "words, and an unrecouped advance is never called a debt. A total below the " +
+      "minimum payment is carried forward and the statement says so. All of it is one deriver.",
+    category: "Closing",
+    tags: ["money", "royalties", "publishing", "statement", "reserve", "table", "deriver", "branching", "section"],
+    exports: ["RoyaltyReserveAndRecoupment"],
+    dataFields: [
+      { path: "royalty.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required." },
+      { path: "royalty.periodIndex", type: "number", summary: "This statement's period number; reserve ages are measured from it. Required." },
+      { path: "royalty.periodLabel", type: "string | undefined", summary: 'How the period is named. Missing means "period N".' },
+      { path: "royalty.earned", type: "Array<{ title: string; physicalMinor?: number; digitalMinor?: number }>", summary: "Royalties earned per title this period, in minor units. A reserve is held on physical only." },
+      { path: "royalty.reservePercent", type: "number | undefined", summary: "Share of physical royalties held against returns. Missing means none." },
+      { path: "royalty.reserveLiquidationPeriods", type: "number | undefined", summary: "Periods a reserve may be held before release. Required when any reserve exists." },
+      { path: "royalty.openReserves", type: "Array<{ title: string; setInPeriod: number; amountMinor: number; label?: string }>", summary: "Earlier reserves still held, by title and the period that set them." },
+      { path: "royalty.returnsCharged", type: "Array<{ title: string; amountMinor: number }>", summary: "Royalties on copies returned this period, charged against the oldest reserve first." },
+      { path: "royalty.advances", type: "Array<{ titles: string[]; unrecoupedOpeningMinor: number }>", summary: "Each advance, its pooled titles and the unearned part at the start. Other titles settle alone." },
+      { path: "royalty.minimumPaymentMinor", type: "number | undefined", summary: "Smallest amount paid out; less is carried forward. Missing means no threshold." },
+      { path: "royalty.carriedForwardMinor", type: "number | undefined", summary: "Carried from the last statement under the minimum. Missing means 0." },
+    ],
+    files: node("royalty-reserve-and-recoupment", { deriver: true }),
+    previewData: {
+      royalty: {
+        currency: "USD",
+        periodIndex: 9,
+        periodLabel: "1 January to 30 June 2026",
+        reservePercent: 25,
+        reserveLiquidationPeriods: 4,
+        minimumPaymentMinor: 2500,
+        carriedForwardMinor: 1840,
+        earned: [
+          { title: "The Cartographer's Daughter: A Novel of the Hudson Valley, 1849–1863", physicalMinor: 4812365, digitalMinor: 1975040 },
+          { title: "Saltmarsh and Other Stories from the Eastern Seaboard", physicalMinor: 1236710, digitalMinor: 402385 },
+          { title: "A Field Guide to Disappearing Places (Illustrated Anniversary Edition)", physicalMinor: 2104900, digitalMinor: 0 },
+          { title: "Tidewater: Essays on Rivers, Memory and the Shoreline", physicalMinor: 0, digitalMinor: 312480 },
+        ],
+        openReserves: [
+          { title: "The Cartographer's Daughter: A Novel of the Hudson Valley, 1849–1863", setInPeriod: 5, amountMinor: 1184220, label: "the statement to 30 June 2024" },
+          { title: "The Cartographer's Daughter: A Novel of the Hudson Valley, 1849–1863", setInPeriod: 7, amountMinor: 965310, label: "the statement to 30 June 2025" },
+          { title: "A Field Guide to Disappearing Places (Illustrated Anniversary Edition)", setInPeriod: 8, amountMinor: 610000, label: "the statement to 31 December 2025" },
+        ],
+        returnsCharged: [
+          { title: "The Cartographer's Daughter: A Novel of the Hudson Valley, 1849–1863", amountMinor: 702560 },
+          { title: "A Field Guide to Disappearing Places (Illustrated Anniversary Edition)", amountMinor: 845900 },
+        ],
+        advances: [
+          { titles: ["The Cartographer's Daughter: A Novel of the Hudson Valley, 1849–1863", "Saltmarsh and Other Stories from the Eastern Seaboard"], unrecoupedOpeningMinor: 5250000 },
+          { titles: ["A Field Guide to Disappearing Places (Illustrated Anniversary Edition)"], unrecoupedOpeningMinor: 7500000 },
+        ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
     id: "commodity-code-summary",
     title: "Commodity code summary",
     summary: "Tariff code, origin and mass on every line, and the summary a customs declaration is split on.",
