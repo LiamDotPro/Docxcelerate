@@ -12,7 +12,7 @@ import { caseStyle } from "../_support/style.ts";
  */
 
 /** Filler that pushes the heading to the foot of page one. */
-const filler = Array.from({ length: 26 }, (_, index) => (
+const filler = Array.from({ length: 27 }, (_, index) => (
   <Paragraph id={`f${index}`}>
     {`Body line ${index + 1}, present to consume the page so the heading meets the break.`}
   </Paragraph>
