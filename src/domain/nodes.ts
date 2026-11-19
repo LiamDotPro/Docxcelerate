@@ -164,6 +164,12 @@ export interface BaseNode {
   when?: Condition;
   /** Instructions for an engine writing this node's content. */
   prompts?: PromptSpec[];
+  /**
+   * Settings for the engine writing this node — a model name, a token limit —
+   * passed to its `AiClient` untouched. Nothing in docxcelerate reads them.
+   * Only a generated node carries them.
+   */
+  aiOptions?: JsonObject;
   /** Computations to run before the node is written. */
   derivers?: DeriverInvocation[];
 }
@@ -253,6 +259,13 @@ export interface ParagraphNode extends BaseNode {
  * when its contents need more, `"exact"` is a fixed depth that clips them.
  */
 export type RowHeightRule = "atLeast" | "exact";
+
+/**
+ * Which way a cell's words run when they are turned on their side: `"up"` reads
+ * from the foot of the cell to its head, as a spine label does, and `"down"`
+ * from the head to the foot.
+ */
+export type CellTextDirection = "up" | "down";
 
 /** Which kind of list a paragraph is an item of: marked with a bullet, or counted. */
 export type ListKind = "bullet" | "number";
@@ -515,12 +528,16 @@ export interface GraphNode extends BaseNode {
  */
 export interface TableColumn {
   /**
-   * Width in millimetres, or `"auto"` to share out what the fixed ones leave.
+   * Width in millimetres, a share of the text column such as `"30%"`, or
+   * `"auto"` to share out what the others leave. Left out, it is `"auto"`.
    *
    * Millimetres rather than points because a page is measured in them: a
    * 26mm money column against a 210mm page is a proportion a reader can check.
+   * A percentage is for the table that has to keep its proportions on any
+   * paper: it is a share of the text column, or of the paper for a `bleed`
+   * table, worked out when the page is known.
    */
-  width?: number | "auto";
+  width?: number | "auto" | `${number}%`;
   /** How this column's cells are aligned. Left unless it is said. */
   align?: TableAlign;
 }
@@ -541,6 +558,17 @@ export interface TableNode extends BaseNode {
   columns: TableColumn[];
   /** Where the table sits across the text column. Left unless it is said. */
   align?: TableAlign;
+  /**
+   * Whether the whole table stays on one page rather than breaking between rows.
+   *
+   * For a short table that reads as one thing — a totals box, bank details, a
+   * signature block — where a page break between two of its rows leaves a
+   * subtotal on one page and the total it leads to on the next. Word moves the
+   * whole table over instead. Every row is also kept whole, as `keepTogether`
+   * on a row does. A table taller than a page breaks anyway, having nowhere
+   * else to go. Left out, Word may break the table between any two rows.
+   */
+  keepTogether?: boolean;
   /** The rows, and any loops that produce them. */
   children: DocumentNode[];
 }
@@ -588,6 +616,8 @@ export interface TableCellNode extends BaseNode {
   span?: number;
   /** Alignment, when this cell departs from its column's. */
   align?: TableAlign;
+  /** Turns the cell's words on their side. Absent, they run across. */
+  textDirection?: CellTextDirection;
   /** What the cell holds — paragraphs, usually, but any node fits. */
   children: DocumentNode[];
 }

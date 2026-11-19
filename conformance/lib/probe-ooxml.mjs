@@ -570,6 +570,7 @@ function readCell(xml, index, column) {
     shd: childAttr(tcPr, "w:shd", "w:fill"),
     /** How the content sits against the height of the cell. */
     vAlign: childAttr(tcPr, "w:vAlign", "w:val"),
+    textDirection: childAttr(tcPr, "w:textDirection", "w:val"),
     /** Borders, by edge. An undrawn edge is null. */
     borders: bordersOf(tcPr, "w:tcBorders"),
     /** The room left inside the cell, in twips. */
@@ -764,6 +765,8 @@ export function measureOoxml(zip) {
       // Where the body sits between the top and bottom margins; null is Word's top.
       vAlign: sectPr === null ? null : childAttr(sectPr, "w:vAlign", "w:val"),
       titlePg: sectPr === null ? null : toggle(sectPr, "w:titlePg"),
+      pgBorders: sectPr === null ? null : bordersOf(sectPr, "w:pgBorders"),
+      pgBordersOffsetFrom: sectPr === null ? null : childAttr(sectPr, "w:pgBorders", "w:offsetFrom"),
       // How far the running strips stand from the paper, in twips. A
       // different distance from the margin, and the one a document has no
       // way to state today.
@@ -1253,6 +1256,7 @@ function missingCell(anchor) {
     vMerge: null,
     shd: null,
     vAlign: null,
+    textDirection: null,
     borders: null,
     margins: null,
     paragraphs: [],

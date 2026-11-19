@@ -17,6 +17,7 @@ import {
   LevelFormat,
   LineRuleType,
   Packer,
+  PageBorderOffsetFrom,
   PageBreak,
   PageNumber,
   PageOrientation,
@@ -29,14 +30,22 @@ import {
   TableLayoutType,
   TableRow,
   TabStopType,
+  TextDirection,
   TextRun,
   UnderlineType,
   VerticalAlign,
   WidthType,
 } from "docx";
-import type { IFontAttributesProperties, IParagraphStyleOptions, IParagraphStylePropertiesOptions } from "docx";
 import type {
+  IFontAttributesProperties,
+  IPageBordersOptions,
+  IParagraphStyleOptions,
+  IParagraphStylePropertiesOptions,
+} from "docx";
+import type {
+  CellTextDirection,
   DocumentBlockStyle,
+  DocumentPageStyle,
   DocumentModel,
   DocumentNode,
   DocumentStyle,
@@ -60,7 +69,7 @@ import type {
 } from "../domain/types.ts";
 import { cleanMinimalDocumentStyle } from "../project/style.ts";
 import { hasChartData } from "./chart_part.ts";
-import { columnWidthMm, pageWidthMm, paperMm } from "./page_size.ts";
+import { columnWidthMm, pageBorderOffsetPt, pageWidthMm, paperMm } from "./page_size.ts";
 import { addChartsToPackage, chartRelationshipToken } from "./docx_charts.ts";
 import { type ImageSource, imageSourceOf, isSvg, pixelSizeOf, rasterTypeOf } from "./image_source.ts";
 
@@ -148,6 +157,7 @@ export function createDocxDocument(doc: DocumentModel): Document {
               start: firstPageNumberOf(style),
               formatType: style.page.numberStyle,
             },
+            borders: pageBorders(style.page),
           },
           titlePage: titlePage || undefined,
           verticalAlign: style.page.valign,
@@ -431,6 +441,8 @@ type CellContext = {
    * against the box's edge on screen while Word indents them properly.
    */
   indent?: { left: number; right: number };
+  /** Whether every paragraph keeps with the next row, for a table kept together. */
+  keepNext?: boolean;
 };
 
 /** The paragraph options a cell context contributes, or none outside a cell. */
@@ -439,6 +451,7 @@ function inCell(cell: CellContext | undefined) {
     alignment: cell.alignment,
     spacing: { after: 0, line: cell.line },
     ...(cell.indent ? { indent: cell.indent } : {}),
+    ...(cell.keepNext ? { keepNext: true } : {}),
   };
 }
 
@@ -1190,6 +1203,15 @@ function blockLine(block: DocumentBlockStyle | undefined, style: DocumentStyle) 
   };
 }
 
+/** One line of a border as Word measures it: its width in eighths of a point. */
+function borderLine(color: string, from: Pick<DocumentBlockStyle, "borderWidthPt" | "borderStyle">) {
+  return {
+    style: from.borderStyle ?? BorderStyle.SINGLE,
+    color,
+    size: Math.max(1, Math.round((from.borderWidthPt ?? 1) * 8)),
+  };
+}
+
 /**
  * The borders a block draws, as Word measures them.
  *
@@ -1216,9 +1238,7 @@ function blockBorders(block: DocumentBlockStyle | undefined, on: "paragraph" | "
   }
 
   const edge = {
-    style: block.borderStyle ?? BorderStyle.SINGLE,
-    color: block.border,
-    size: Math.max(1, Math.round((block.borderWidthPt ?? 1) * 8)),
+    ...borderLine(block.border, block),
     ...(on === "paragraph" ? { space: Math.min(31, Math.round(block.paddingPt ?? 0)) } : {}),
   };
   const sides = block.borderSides ?? ["top", "right", "bottom", "left"];
@@ -1616,6 +1636,7 @@ function renderTable(node: TableNode, style: DocumentStyle, furniture: boolean):
         index < headers,
         furniture,
         widths,
+        node.keepTogether === true && index < rows.length - 1,
         headers === 0 ? -1 : index - headers,
       )),
   });
@@ -2033,6 +2054,7 @@ function renderRow(
   repeats: boolean,
   furniture: boolean,
   widths: number[],
+  keepNext: boolean,
   bodyIndex = -1,
 ): TableRow {
   // F8: striping is the renderer's to do, counted as the rows are drawn. A
@@ -2088,6 +2110,7 @@ function renderRow(
       new TableCell({
         columnSpan: span > 1 ? span : undefined,
         verticalAlign: verticalAlignOf(block),
+        textDirection: child.textDirection === undefined ? undefined : textDirections[child.textDirection],
         shading: fill === undefined ? undefined : { type: ShadingType.CLEAR, fill },
         borders: blockBorders(block, "cell") ??
           (block?.borderSides?.length === 0
@@ -2102,7 +2125,7 @@ function renderRow(
           left: ptToTwips(inset.left),
           right: ptToTwips(inset.right),
         },
-        children: cellContent(child, align, row.header === true, block, style, furniture, widthPt),
+        children: cellContent(child, align, row.header === true, block, style, furniture, widthPt, keepNext),
       }),
     );
     column += span;
@@ -2111,7 +2134,7 @@ function renderRow(
   // Only when asked: `false` would write `w:cantSplit w:val="false"`, a statement rather than silence.
   return new TableRow({
     tableHeader: repeats,
-    cantSplit: row.keepTogether === true ? true : undefined,
+    cantSplit: row.keepTogether === true || table.keepTogether === true ? true : undefined,
     height: row.height === undefined
       ? undefined
       : { value: ptToTwips(row.height), rule: row.heightRule ?? "atLeast" },
@@ -2138,7 +2161,10 @@ function cellContent(
   style: DocumentStyle,
   furniture: boolean,
   widthPt: number,
+  keepNext: boolean,
 ): (Paragraph | Table)[] {
+  // Word keeps a row with the next one when its paragraphs say so: every one, not just the first.
+  const keep = keepNext ? { keepNext: true } : {};
   const content = cell.children.flatMap((child): (Paragraph | Table)[] => {
     // A picture in a cell is a picture, not a paragraph of prose: Word gives
     // it a line and a space after out of the body style, which drops a
@@ -2149,6 +2175,7 @@ function cellContent(
         new Paragraph({
           alignment: alignments[align],
           spacing: { after: 0, line: 240 },
+          ...keep,
           children: [imageRunOf(child, widthPt)],
         }),
       ];
@@ -2165,6 +2192,7 @@ function cellContent(
         alignment: alignments[align],
         ...blockLine(block, style),
         widthPt,
+        ...keep,
       });
     }
 
@@ -2182,6 +2210,7 @@ function cellContent(
     return [
       new Paragraph({
         ...frame,
+        ...keep,
         // The paragraph's own alignment, then the column's.
         alignment: frame.alignment ?? alignments[align],
         numbering: item?.numbering,
@@ -2207,7 +2236,7 @@ function cellContent(
     ];
   });
 
-  return content.length === 0 ? [new Paragraph({})] : content;
+  return content.length === 0 ? [new Paragraph(keep)] : content;
 }
 
 /**
@@ -2248,6 +2277,11 @@ function trackingOf(em: number, size: number | undefined, style: DocumentStyle):
   return Math.round(em * sizePt * 20);
 }
 
+const textDirections: Record<CellTextDirection, (typeof TextDirection)[keyof typeof TextDirection]> = {
+  up: TextDirection.BOTTOM_TO_TOP_LEFT_TO_RIGHT,
+  down: TextDirection.TOP_TO_BOTTOM_RIGHT_TO_LEFT,
+};
+
 const alignments: Record<TableAlign, (typeof AlignmentType)[keyof typeof AlignmentType]> = {
   left: AlignmentType.LEFT,
   center: AlignmentType.CENTER,
@@ -2272,14 +2306,31 @@ function columnWidths(
   const pageTwips = mmToTwips(pageWidthMm(style.page));
   const available = bleed ? pageTwips : pageTwips -
     mmToTwips(style.page.margins.leftMm + style.page.margins.rightMm);
-  const fixed = columns.map((column) =>
-    typeof column.width === "number" ? mmToTwips(column.width) : 0
-  );
+  const fixed = columns.map((column) => declaredTwips(column.width, available));
   const autos = fixed.filter((width) => width === 0).length;
   const spare = Math.max(available - fixed.reduce((total, width) => total + width, 0), 0);
   const each = autos > 0 ? Math.floor(spare / autos) : 0;
 
   return fixed.map((width) => (width === 0 ? each : width));
+}
+
+/** A column's own width in twips; 0 means it shares out what is left. */
+function declaredTwips(width: TableColumn["width"], available: number): number {
+  if (typeof width === "number") {
+    return mmToTwips(width);
+  }
+  if (typeof width !== "string" || !width.endsWith("%")) {
+    return 0;
+  }
+  const share = Number(width.slice(0, -1));
+  if (!Number.isFinite(share) || share <= 0 || share > 100) {
+    throw new RangeError(
+      `a table column's width must be a share from 0% to 100%, like "30%", not "${width}"`,
+    );
+  }
+  // Floored like the auto share below, so columns that add up to 100% never
+  // overhang the margin by a twip of rounding.
+  return Math.floor(available * share / 100);
 }
 
 /**
@@ -2389,6 +2440,19 @@ function firstPageNumberOf(style: DocumentStyle): number | undefined {
     throw new RangeError(`page.firstPageNumber must be a whole number from 0, not ${start}`);
   }
   return start;
+}
+
+/** The rule round every page, measured from the paper's edge as a certificate's frame is. */
+function pageBorders(page: DocumentPageStyle): IPageBordersOptions | undefined {
+  if (!page.border) return undefined;
+  const edge = { ...borderLine(page.border, page), space: pageBorderOffsetPt(page) };
+  return {
+    pageBorders: { offsetFrom: PageBorderOffsetFrom.PAGE },
+    pageBorderTop: edge,
+    pageBorderRight: edge,
+    pageBorderBottom: edge,
+    pageBorderLeft: edge,
+  };
 }
 
 function mmToTwips(value: number): number {

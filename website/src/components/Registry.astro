@@ -476,8 +476,9 @@ const families = componentsByFamily().map((group) => ({
   rows: group.components.map((component) => ({ component, sketch: sketch(component) })),
 }));
 
-/** Every band shares one measure and one set of gutters. */
-const band = "mx-auto flex max-w-7xl flex-col px-5 sm:px-8";
+/** Every band shares one measure and one set of gutters — the nav's, so the
+ *  heading and the first card hang off the same edge as the wordmark. */
+const band = "mx-auto flex max-w-6xl flex-col px-5 sm:px-8";
 
 ---
 
