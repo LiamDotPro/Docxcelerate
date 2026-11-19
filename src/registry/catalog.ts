@@ -1022,6 +1022,39 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "structured-payment-reference",
+    title: "Structured payment reference",
+    summary: "A bank payment reference with its check digits worked out, or the invoice number when none can be issued.",
+    detail:
+      "Generates or validates the structured reference a bank matches a payment " +
+      "against: ISO 11649 RF, Norwegian KID (MOD10 or MOD11), the Finnish " +
+      "viitenumero and its RF form, the Belgian OGM/VCS, the Swiss QR reference " +
+      "and the Swedish OCR number with or without its length digit. Each is " +
+      "printed in its own grouping. Bases are strings, because a number drops the " +
+      "leading zeros OGM and QRR count and a 26-digit QR reference is past what a " +
+      "JS number holds exactly. A base too long for its scheme is refused, never " +
+      "truncated, because a truncated reference still validates and books the " +
+      "payment against the wrong invoice. A KID whose MOD11 check is '-' is " +
+      "treated as unissuable, since many banks reject it. Every failure falls " +
+      "back to asking the payer to quote the invoice number. All of it is one deriver.",
+    category: "Body",
+    tags: ["payment", "invoice", "reference", "bank", "deriver", "branching"],
+    exports: ["StructuredPaymentReference"],
+    dataFields: [
+      { path: "payment.scheme", type: '"rf" | "no-kid-mod10" | "no-kid-mod11" | "fi" | "fi-rf" | "be-ogm" | "ch-qrr" | "se-ocr" | "se-ocr-length"', summary: "Which scheme the reference follows. Required when payment is given; anything else fails the document." },
+      { path: "payment.base", type: "string | undefined", summary: "What the check digits are generated from, as a string. Invalid or too long prints the invoice-number fallback, never a truncated reference." },
+      { path: "payment.reference", type: "string | undefined", summary: "A reference the ERP already issued. Validated, not recalculated; takes precedence over base." },
+      { path: "invoice.number", type: "string", summary: "Printed in the fallback line. Required." },
+    ],
+    files: node("structured-payment-reference", { deriver: true }),
+    previewData: {
+      payment: { scheme: "ch-qrr", base: "21000000000313947143000901" },
+      invoice: { number: "SI-2026-11-004817/REV-2" },
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
