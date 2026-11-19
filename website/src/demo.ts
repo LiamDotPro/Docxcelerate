@@ -13,7 +13,6 @@ const ORDER = [
   // and both kinds of AI part, so it shows the most of the framework.
   "portfolio-review",
   "invoice",
-  "offer-of-admission",
   "repairs-appointment",
   "policy-renewal",
 ] as const;
