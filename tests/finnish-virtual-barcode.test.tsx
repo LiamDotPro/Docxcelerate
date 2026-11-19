@@ -81,6 +81,18 @@ test("due date field", () => {
   assertEquals(r.code.slice(-6), "000000");
 });
 
+test("lower-case input is accepted and printed upper case", () => {
+  const r = run({ iban: "fi79 4405 2020 0360 82" }, inv(4883.15, "2010-06-12"), { reference: "rf09 8685 1625 9619 897" }, undefined);
+  assertEquals(code(r), ["code", "579440520200360820048831509000000868516259619897100612"]);
+  assertEquals([r.iban, r.reference], ["FI79 4405 2020 0360 82", "RF09 8685 1625 9619 897"]);
+});
+
+test("empty and timestamped due dates", () => {
+  const ref = { reference: "1232" };
+  assertEquals(run(I, inv(10, ""), ref, undefined).code.slice(-6), "000000");
+  assertEquals(run(I, inv(10, "2026-12-31T23:59:00Z"), ref, undefined).code.slice(-6), "261231");
+});
+
 test("nothing owed prints nothing", () => {
   const none = { outcome: "none", reason: "", iban: "", reference: "", code: "" };
   assertEquals(run(I, inv(0), { reference: "1232" }, undefined), none);
@@ -100,7 +112,7 @@ test("withheld cases still print what they can", () => {
   w(r, "iban");
   assertEquals([r.iban, r.reference], ["FI79 4405 2020 0360 83", "1232"]);
 
-  r = run({ iban: "SE45 5000 0000 0583 9825 7466" }, inv(10), ref, undefined);
+  r = run({ iban: "SE4550000000058398257466" }, inv(10), ref, undefined);
   w(r, "not-finnish");
   assertEquals(r.iban, "SE45 5000 0000 0583 9825 7466");
 
