@@ -139,6 +139,7 @@ dxcl list components
 | `vat-place-of-supply` | Whose VAT applies and at what rate, decided before anything is printed. |
 | `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `vat-in-local-currency` | A foreign-currency invoice's VAT bands in the currency the VAT is owed in, band by band. |
 | `voucher-redemption-lines` | Vouchers, coupons and gift cards placed where their tax treatment puts them. |
 | `prepaid-hours-drawdown` | Time entries drawn against prepaid hour blocks soonest-expiring first, with overage, rollover and lapsed hours in a ledger. |
 | `contingency-settlement-statement` | The closing statement for a contingent or damages-based fee: fee by band, statutory cap, liens, and the net. |

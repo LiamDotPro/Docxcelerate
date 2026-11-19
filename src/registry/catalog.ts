@@ -1125,6 +1125,64 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+
+  {
+    kind: "component",
+    id: "vat-in-local-currency",
+    title: "VAT in local currency",
+    summary: "A foreign-currency invoice's VAT bands restated in the currency the VAT is owed in, band by band.",
+    detail:
+      "An invoice in one currency for VAT owed in another restates its VAT analysis in that " +
+      "currency. Each rate band converts its net and its VAT separately, rounded once in the " +
+      "target currency's minor units, and the local totals are the band sums, never a converted " +
+      "gross. The rate carries its direction, so an inverse quote divides instead of multiplying, " +
+      "and is worked in exact integers. It is checked against the tax point under the " +
+      "jurisdiction's rule: the UK market selling, HMRC period or agreed rate; the EU selling or " +
+      "ECB rate; the German BMF monthly average; the Polish NBP or ECB rate of the last working " +
+      "day before the tax point; Bulgaria's fixed euro rate, unrounded and never inverted. A wrong " +
+      "source or date prints a check-before-issuing line. On a final invoice each advance keeps " +
+      "the rate it was declared at. The rate, its source and its date print beside the figures.",
+    category: "Body",
+    tags: ["invoice", "vat", "tax", "currency", "deriver", "branching", "section"],
+    exports: ["VatInLocalCurrency"],
+    dataFields: [
+      { path: "vatConversion.jurisdiction", type: '"UK" | "EU" | "DE" | "PL" | "BG"', summary: "Whose conversion rules apply." },
+      { path: "vatConversion.invoiceCurrency", type: "string", summary: "ISO 4217 code the invoice is issued in." },
+      { path: "vatConversion.vatCurrency", type: "string", summary: "ISO 4217 code the VAT is owed in. Must fit the jurisdiction." },
+      { path: "vatConversion.taxPointDate", type: "string", summary: "ISO 8601 tax point. The rate is checked against it." },
+      { path: "vatConversion.issueDate", type: "string | undefined", summary: "ISO 8601 issue date. Required in PL." },
+      { path: "vatConversion.bands", type: "Array<{ ratePercent: string | number; net: string | number; vat: string | number }>", summary: "The VAT analysis per rate, as decimal strings in the invoice currency." },
+      { path: "vatConversion.rate", type: "{ value: string | number; base: string; quote: string; source: string; rateDate?: string }", summary: "1 base = value quote, with its source and date." },
+      { path: "vatConversion.advances", type: "Array<{ invoiceNumber: string; chargeableDate: string; bands: VatBand[]; rate: VatExchangeRate }> | undefined", summary: "Advances deducted here, each at its own rate." },
+    ],
+    arrangements: [
+      { id: "columns", title: "Columns", summary: "Local-currency net and VAT beside each band, in one table." },
+      { id: "block", title: "Block", summary: "A separate local-currency statement, one line per band, under the totals." },
+    ],
+    files: node("vat-in-local-currency", { deriver: true, arrangements: ["columns", "block"] }),
+    previewData: {
+      vatConversion: {
+        jurisdiction: "PL",
+        invoiceCurrency: "EUR",
+        vatCurrency: "PLN",
+        taxPointDate: "2026-03-31",
+        issueDate: "2026-03-31",
+        bands: [
+          { ratePercent: "23", net: "1284750.00", vat: "295492.50" },
+          { ratePercent: "8", net: "48210.40", vat: "3856.83" },
+          { ratePercent: "0", net: "12500.00", vat: "0.00" },
+        ],
+        rate: { value: "4.2725", base: "EUR", quote: "PLN", source: "nbp", rateDate: "2026-03-30" },
+        advances: [{
+          invoiceNumber: "FV/ZAL/2026/02/0147",
+          chargeableDate: "2026-02-16",
+          bands: [{ ratePercent: "23", net: "400000.00", vat: "92000.00" }],
+          rate: { value: "4.2187", base: "EUR", quote: "PLN", source: "nbp", rateDate: "2026-02-13" },
+        }],
+      },
+    },
+    requires: [],
+  },
   {
     kind: "component",
     id: "payment-surcharge-line",
