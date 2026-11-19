@@ -1156,6 +1156,15 @@ function blockLine(block: DocumentBlockStyle | undefined, style: DocumentStyle) 
   };
 }
 
+/** One line of a border as Word measures it: its width in eighths of a point. */
+function borderLine(color: string, from: Pick<DocumentBlockStyle, "borderWidthPt" | "borderStyle">) {
+  return {
+    style: from.borderStyle ?? BorderStyle.SINGLE,
+    color,
+    size: Math.max(1, Math.round((from.borderWidthPt ?? 1) * 8)),
+  };
+}
+
 /**
  * The borders a block draws, as Word measures them.
  *
@@ -1176,15 +1185,6 @@ function blockLine(block: DocumentBlockStyle | undefined, style: DocumentStyle) 
  * @param on Which element the borders are for. A cell has margins of its own;
  * a paragraph does not.
  */
-/** One line of a border as Word measures it: its width in eighths of a point. */
-function borderLine(color: string, from: Pick<DocumentBlockStyle, "borderWidthPt" | "borderStyle">) {
-  return {
-    style: from.borderStyle ?? BorderStyle.SINGLE,
-    color,
-    size: Math.max(1, Math.round((from.borderWidthPt ?? 1) * 8)),
-  };
-}
-
 function blockBorders(block: DocumentBlockStyle | undefined, on: "paragraph" | "cell") {
   if (!block?.border) {
     return undefined;
