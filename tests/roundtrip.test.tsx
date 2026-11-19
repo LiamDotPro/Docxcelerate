@@ -450,3 +450,99 @@ test("a generated picture among a paragraph's words refuses to publish", async (
     'Paragraph "p" holds a generated picture, "icon"',
   );
 });
+
+// ---------------------------------------------------------------------------
+// Chart words, published and resolved
+// ---------------------------------------------------------------------------
+
+interface SpendData {
+  city: string;
+  currency: string;
+}
+
+const StaticSpend = () => {
+  const [state] = useState((data: SpendData) => ({ city: data.city, currency: data.currency }));
+  return (
+    <Graph
+      id="spend-static"
+      graphType="bar"
+      title={`Visits in ${state.city}`}
+      categoryAxisTitle={`Month in ${state.city}`}
+      valueAxisTitle={`Spend (${state.currency})`}
+      caption={`Figures for ${state.city}.`}
+      data={{ categories: ["Jan"], series: [{ values: [1] }] }}
+    />
+  );
+};
+
+const GeneratedSpend = () => {
+  const [state] = useState((data: SpendData) => ({ city: data.city, currency: data.currency }));
+  useAi({ ask: `Plot spend for ${state.city}.`, placeholder: "A spend chart." });
+  return (
+    <Graph
+      id="spend-generated"
+      title={`Visits in ${state.city}`}
+      categoryAxisTitle={`Month in ${state.city}`}
+      valueAxisTitle={`Spend (${state.currency})`}
+      caption={`Figures for ${state.city}.`}
+    />
+  );
+};
+
+const spendProject = defineDocumentProject<SpendData>({
+  id: "spend",
+  name: "Spend",
+  template: template<SpendData>(
+    <Document id="spend-report" title="Spend">
+      <Section id="charts" title="Charts">
+        <StaticSpend />
+        <GeneratedSpend />
+      </Section>
+    </Document>,
+  ),
+  previewData: { city: "Leeds", currency: "GBP" },
+});
+
+const axisClient: AiClient = {
+  generateParagraph: () => "",
+  generateGraph: (request) => ({
+    data: {
+      categories: [request.node.categoryAxisTitle ?? ""],
+      series: [{ label: request.node.valueAxisTitle, values: [1] }],
+    },
+  }),
+};
+
+const spendLeeds: SpendData = { city: "Leeds", currency: "GBP" };
+
+test("a chart's title, caption and axis titles publish as tokens and resolve to what a direct build writes", async () => {
+  const published = await buildProjectEngineDocument(spendProject);
+  const staticSpend = findNode(published.nodes, "spend-static");
+  assertEquals(
+    staticSpend?.kind === "graph" ? staticSpend.valueAxisTitle : undefined,
+    "Spend ({{data.currency}})",
+  );
+  const publishedText = JSON.stringify(published);
+  assertEquals(publishedText.includes("Leeds"), false);
+  assertEquals(publishedText.includes("GBP"), false);
+
+  const resolved = await resolveDocument(published, reportState(spendLeeds, axisClient));
+  const direct = await buildProjectFinalDocument(spendProject, { data: spendLeeds, aiClient: axisClient });
+  assertEquals(json(resolved.nodes), json(direct.nodes));
+
+  for (const id of ["spend-static", "spend-generated"]) {
+    const chart = findNode(resolved.nodes, id);
+    assertEquals(
+      chart?.kind === "graph"
+        ? [chart.title, chart.categoryAxisTitle, chart.valueAxisTitle, chart.caption]
+        : undefined,
+      ["Visits in Leeds", "Month in Leeds", "Spend (GBP)", "Figures for Leeds."],
+    );
+  }
+
+  const generated = findNode(resolved.nodes, "spend-generated");
+  assertEquals(
+    generated?.kind === "graph" ? generated.data : undefined,
+    { categories: ["Month in Leeds"], series: [{ label: "Spend (GBP)", values: [1] }] },
+  );
+});

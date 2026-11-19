@@ -36,7 +36,7 @@ export interface ResolveOptions {
  * conditions, unrolls repeats, and substitutes every `{{...}}` token.
  *
  * @param doc The published document.
- * @param state The data, context and clients to resolve against.
+ * @param state The data, context and clients to resolve against; build it with {@linkcode createRuntimeState}.
  * @param options The derivers the document may invoke.
  * @returns The document with nothing left to decide.
  * @throws If the document invokes a deriver the registry does not hold.
@@ -253,7 +253,7 @@ async function resolveParagraph(
   return {
     ...node,
     prompts,
-    text: await generateParagraph(state.aiClient, node, prompts, state),
+    text: await generateParagraph(state.aiClient, { ...node, prompts }, prompts, state),
   };
 }
 
@@ -291,38 +291,57 @@ async function resolveImage(
   };
 }
 
+/** The words a template writes on a chart; each is a published token like any other text. */
+const GRAPH_TEXT = ["alt", "title", "caption", "categoryAxisTitle", "valueAxisTitle"] as const;
+
+/**
+ * A chart with the words its template wrote settled against the data. Only the
+ * fields the node has are written, so a chart without them gains no keys and a
+ * stored model resolves to the same JSON it did before.
+ */
+async function withGraphText(node: GraphNode, state: RuntimeState): Promise<GraphNode> {
+  const drawn = { ...node };
+
+  for (const field of GRAPH_TEXT) {
+    const value = node[field];
+    if (value) {
+      drawn[field] = await renderTemplate(value, state);
+    }
+  }
+
+  return drawn;
+}
+
 async function resolveGraph(
   node: GraphNode,
   state: RuntimeState,
 ): Promise<GraphNode> {
-  const alt = node.alt ? await renderTemplate(node.alt, state) : node.alt;
+  // Rendered before the client is called, so it sees what a direct build shows it.
+  const drawn = await withGraphText(node, state);
 
   if (node.mode === "static") {
     return {
-      ...node,
-      alt,
+      ...drawn,
       data: node.data
         ? await renderJsonObjectTemplates(
           node.data as unknown as JsonObject,
           state,
         ) as unknown as GraphData
         : node.data,
-      caption: node.caption ? await renderTemplate(node.caption, state) : node.caption,
     };
   }
 
   const prompts = await resolvePrompts(node.prompts, state);
-  const title = node.title ? await renderTemplate(node.title, state) : node.title;
-  const result = await generateGraph(state.aiClient, { ...node, alt, prompts, title }, prompts, state);
+  const result = await generateGraph(state.aiClient, { ...drawn, prompts }, prompts, state);
 
   return {
-    ...node,
-    alt,
+    ...drawn,
     prompts,
-    title,
     graphType: result.graphType ?? node.graphType,
     data: result.data ?? node.data,
-    caption: result.caption ?? node.caption,
+    // A model's caption is printed as written: rendering it would let a
+    // `{{data.x}}` in an answer pull request data into the document.
+    caption: result.caption ?? drawn.caption,
   };
 }
 

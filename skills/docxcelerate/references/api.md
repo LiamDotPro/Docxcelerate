@@ -62,8 +62,8 @@ interface PromptProps {
 | --- | --- |
 | `Document` | `id?`, `title` (required), `metadata?`, `properties?`, `header?`, `footer?`, `firstHeader?`, `firstFooter?`, `evenHeader?`, `evenFooter?`, `trackChanges?`, `children?` |
 | `Section` | `title` (required), `showTitle?` (default `true`), `children?` |
-| `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0), `listStyle?` (`"decimal" \| "lowerLetter" \| "upperLetter" \| "lowerRoman" \| "upperRoman"`, or any of them with `Paren` appended: `"lowerLetterParen"` is (a); default by depth 1. a. i.) |
-| `Text` | `bold?`, `italic?`, `underline?`, `strike?`, `script?` (`"superscript" \| "subscript"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`), `variant?` (a block name; only its character settings apply), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
+| `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0), `listStyle?` (`"decimal" \| "lowerLetter" \| "upperLetter" \| "lowerRoman" \| "upperRoman"`, or any of them with `Paren` appended: `"lowerLetterParen"` is (a); default by depth 1. a. i.), `listStart?` (a whole number from 1, default 1; numbered items only) |
+| `Text` | `bold?`, `italic?`, `underline?` (`true` single, `"double"` the accounting double rule; a link is always underlined), `strike?`, `script?` (`"superscript" \| "subscript"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`), `variant?` (a block name; only its character settings apply), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` (points; give one and the other keeps the picture's proportions, neither is 120pt wide), `align?` (`"left" \| "center" \| "right"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`) |
 | `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `alt?`, `caption?`, `width?`, `height?` (points), `align?` (`"left" \| "center" \| "right"`), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `valueAxisMin?`, `valueAxisMax?`, `valueAxisStep?` (numbers; fix the value axis, Word picks any left out), `dataLabels?` |
 | `Table` | `columns` (required), `align?` (`"left" \| "center" \| "right"`, default left), `children?` |
@@ -72,21 +72,27 @@ interface PromptProps {
 | `Shape` | `width?`, `height?` (points), `children?` |
 | `TableOfContents` | `title?` |
 | `PageBreak` | nothing beyond the common props |
-| `PageNumber` | `format?` (`"current" \| "total" \| "currentOfTotal"`, default the last), `separator?` (default `" / "`) |
+| `PageNumber` | `format?` (`"current" \| "total" \| "currentOfTotal"`, default the last), `prefix?` (printed before the number as written, e.g. `"Page "`; default none), `separator?` (default `" / "`), `align?` (`"left" \| "center" \| "right" \| "justify"`; default none, so it inherits) |
 
 Notes worth knowing:
 
+- A `variant` on `PageNumber` draws like the same variant on a `Paragraph`: the
+  block's type on every run, both numbers included, and its fill, rules and
+  spacing on the line. `align` beats the block's `align`. Inside a `Cell` the
+  column's alignment wins, as it does for a paragraph.
 - A list is paragraphs with `list="bullet"` or `list="number"`. Items written
   one after another are one list and the renderer counts them; anything that is
   not an item ends it, and the next numbered list starts at one. Never type a
   bullet or a number into the text. `listLevel={1}` nests an item under the one
-  above. `listStyle` on a numbered item picks the numerals for that item's level in its list — `listStyle="lowerLetterParen"` on the first sub-clause makes every sub-clause (a), (b); the first item at a level to say decides it, so say it once. Without it a level counts 1., a., i. by depth. Ignored on bullets. Not drawn on a `<Shape>`.
+  above. `listStyle` on a numbered item picks the numerals for that item's level in its list — `listStyle="lowerLetterParen"` on the first sub-clause makes every sub-clause (a), (b); the first item at a level to say decides it, so say it once. Without it a level counts 1., a., i. by depth. Ignored on bullets. `listStart={4}` on the item that opens a numbered list (or a level of one) makes it count from 4: a list that resumes after a table or a quote is a new list, so say where it picks up. It is ignored on any later item and on bullets, and anything but a whole number from 1 is refused at build. Not drawn on a `<Shape>`.
 - `<Text>` sets some of a paragraph's words differently:
   `Due within <Text bold>thirty days</Text>.` One inside another takes both
   settings. m<Text script="superscript">2</Text>, CO<Text script="subscript">2</Text>
   and 1<Text script="superscript">st</Text> are raised or lowered by Word — never
-  type `²` or `₂` in their place. It carries no colour or size — a link is drawn in the theme's
-  accent. To make a phrase stand out, name a theme block:
+  type `²` or `₂` in their place. It carries no colour or size. A link is drawn in its block's `color` when the
+  paragraph's or cell's variant sets one, and in a header cell's ink. Otherwise it
+  is drawn in the theme's accent. Either way it is underlined, so a link on a
+  dark band stays readable. To make a phrase stand out, name a theme block:
   `The amount due is <Text variant="amountDue">£1,240.00</Text>.` The block's
   `color`, `fill` (shading behind the words), `fontSizePt`, `weight`, `font`,
   `transform` and `letterSpacingEm` apply. Borders, padding and spacing do not.
@@ -182,6 +188,12 @@ Notes worth knowing:
   shorter than the categories is padded with gaps; one with no categories is
   counted by position. Strings inside the payload are run through the template
   renderer, so a label containing `{{derived.total}}` resolves.
+- A chart's `title`, `alt`, `caption`, `categoryAxisTitle` and `valueAxisTitle`
+  are text like any other: interpolated request data publishes as a token and is
+  filled per document, by a direct build and by `resolveDocument` alike. On a
+  generated chart they are filled before `aiClient.generateGraph` is called, so
+  `request.node` carries the recipient's words. A `caption` the model returns is
+  printed as written, never rendered, so a token in an answer stays text.
 - `scatter` and `bubble` read the categories as their x values, so those are
   numbers written as text; anything that will not parse counts as its position.
   `sizes` is the third figure a `bubble` carries and no other type reads.
@@ -255,6 +267,7 @@ Each of these is an error naming the position, not a quiet reinterpretation:
 | A dynamic node in a build with no `aiClient` | Only a preview build may resolve those to placeholders |
 | A prompted `<Image>` among a paragraph's words, published to an engine | An engine draws block nodes only — give the `<Image>` its own place beside the paragraph |
 | A generated chart whose answer is not a chart (`"twelve"` as a value, an unknown `graphType`) | Word would draw it empty; the error names the node and the field |
+| A generated paragraph whose answer is not a string (a provider's response object, `undefined`) | It would pack as `[object Object]` or nothing; the error names the node |
 
 ## Component types
 
@@ -292,7 +305,7 @@ before any `return`.
 | `useShared` | `(key: string, initial) => [TValue, setter]` | A value left for the components rendered *after* this one, in document order. |
 | `useAi` | `(config: AiConfig) => PromptDraft` | Everything a generated node needs, in one call. Calling it is what makes the node dynamic. |
 | `useSetPrompts` | `(prompts: PromptDraft) => PromptDraft` | The same prompts under their downstream names, for a hook adding house style to a node it does not own. |
-| `useSetPlaceholders` | `(placeholder: string \| { placeholder?: string })` | What previews show in place of generated content. |
+| `useSetPlaceholders` | `(placeholder: string \| { placeholder?: string })` | What previews show in place of generated content. `useAi` takes it as `placeholder`; this is for a shared hook. |
 | `usePlaceholderData` | `() => PlaceholderData` | Stand-in values, seeded from where the component sits. |
 | `useFormat` | `(locale?: string) => Formatters` | Locale-aware formatting; defaults to the build locale (`en-GB`). |
 | `useAvailableTokens` | `() => number` | The token budget this build allotted — `2000` by default. |
@@ -323,6 +336,23 @@ holds still the opening, the order, the length and the register and leaves only
 the per-document parts to be written. Give it as finished text, not a form with
 blanks in it. Pass an array when the shape legitimately varies by case — they
 travel numbered, and read as a pattern rather than a template.
+
+What `aiClient.generateParagraph` returns is the paragraph itself, so return the
+text, not the provider's response object: anything but a string fails with an
+error naming the node. The answer is trimmed, so a model's trailing newline does
+not become a line break, and characters XML cannot hold — control characters
+other than tab, line feed and carriage return — are removed, so the `.docx`
+still opens. A line break or tab inside the answer is kept. An empty answer is
+an empty paragraph, not an error.
+
+`from` takes request data as it is and survives publishing: write
+`from: { period: invoice.period, lines: invoice.lines }`, not a sentence built
+from them. Each value read from the data publishes as the token the engine fills
+per document, so the model is sent that recipient's period and every one of
+their lines. Once filled, a string arrives without quotes and a list or object as
+compact JSON; literals you write beside them stay as they are. Name the fields —
+handing over the whole request data, or the result of a `.map()`, is refused at
+publish.
 
 The `useState` setter is not a re-render request — a build is a single pass. It
 updates the value this component reads later, and the value anything sharing it
@@ -437,6 +467,11 @@ build with. A generated `<Graph>` needs the engine's client to implement
 method is missing fails, naming the node. A generated image keeps the `alt`,
 `width` and `height` the template gave it unless the client returns its own.
 
+A missing method is never filled in with the placeholder: the placeholder is
+only what a preview shows before anything is asked. Every request's `node`
+arrives with its prompts already resolved against the request data — a
+paragraph's included — and whatever the client returns is printed as written.
+
 For a project, prefer `buildProjectPreviewDocument` over `buildDocument` — it is
 exactly what the preview app calls, so what you build in code matches what you
 saw in the browser.
@@ -457,6 +492,153 @@ interface ComponentRuntimeOptions {
 `branchMode: "decide"` is what a preview, a local pack and a live generation all
 want. `"publish"` is for the artifact that goes to an engine, where the decision
 belongs to a request that has not happened yet.
+
+## Resolving a published document
+
+An engine holding the artifact fills its `engineDocument` at request time:
+
+```ts
+import { createDeriverRegistryFromBundle, createRuntimeState, resolveDocument } from "docxcelerate";
+
+const doc = await resolveDocument(
+  artifact.engineDocument,
+  createRuntimeState({ data, aiClient }),
+  { derivers: await createDeriverRegistryFromBundle(artifact.derivers) },
+);
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `data` | required | What `{{data.…}}` reads; copied into `ctx`, never written to |
+| `aiClient` | none | Writes dynamic nodes; without one, the first dynamic node reached throws |
+| `locale` | the document's | A BCP 47 tag; an invalid one throws |
+| `availableTokens` | `2000` | What `{{ctx.availableTokens}}` prints — what `useAvailableTokens()` returned in the build |
+
+The third argument is `{ derivers?: DeriverRegistry }`. `artifact.derivers` is
+the bundle of the derivers the document references, and
+`createDeriverRegistryFromBundle` loads it over the built-in `sum`, `join` and
+`count`. Given `undefined`, it returns just those. A document invoking a deriver
+the registry does not hold rejects, naming the deriver.
+
+Build the state with `createRuntimeState`, not by hand. It is seeded exactly as
+`buildDocument` seeds its own, and a hand-built `ctx` without `availableTokens`
+silently prints nothing wherever a template read `useAvailableTokens()`. What it
+returns:
+
+```ts
+interface RuntimeState {
+  ctx: JsonObject;            // the data, plus availableTokens
+  derived: JsonObject;        // what derivers have written so far
+  dataProvider: DataProvider; // reads ctx by dotted path
+  aiClient: AiClient;         // yours, or one that throws on the first dynamic paragraph
+  locale?: string;            // canonical BCP 47; the document's when you gave none
+}
+```
+
+### The `AiClient` contract
+
+Any model or provider plugs in behind one interface. Nothing here is
+provider-specific, and the client is the only thing that touches a network.
+
+```ts
+interface AiClient {
+  generateParagraph(request: AiGenerationRequest): Promise<string> | string;      // required
+  generateGraph?(request: AiGraphGenerationRequest): Promise<AiGraphResult> | AiGraphResult;
+  generateImage?(request: AiImageGenerationRequest): Promise<AiImageResult> | AiImageResult;
+}
+
+// All three requests have this shape; `node` is a ParagraphNode, GraphNode or ImageNode.
+interface AiGenerationRequest {
+  node: ParagraphNode;    // the node being written, with its id
+  prompt: string;         // the prompts joined, one "KIND: text" line each
+  prompts: PromptSpec[];  // the same, kept apart: { kind, text }
+  state: RuntimeState;    // the data and locale this document is written for
+}
+
+interface AiGraphResult { graphType?: GraphType; data?: GraphData; caption?: string }
+interface AiImageResult { path: string; alt?: string; width?: number; height?: number }
+```
+
+The prompts come from `useAi` in a fixed order: `voice` → `system`, `ask` →
+`general`, `from` → `info`, `avoid` → `negative`, `example` → `example`. Every
+`{{…}}` token in them is already filled with this recipient's values. The
+placeholder is never sent. When the document has a locale, a paragraph's and a
+chart's prompts start with one more `system` entry, `Write in French (France),
+the language of this document.` An image's do not, since it has no words to
+write.
+
+What comes back is checked before it is packed:
+
+- **Paragraph:** a string, the text itself. Anything else rejects, naming the node.
+  `""` is an empty paragraph.
+- **Chart:** an `AiGraphResult`, read the way model JSON is written (see
+  `Graph.data` above). Absent or `null` fields keep the node's own, and an
+  unplottable answer rejects, naming the node and the field.
+- **Image:** an `AiImageResult` whose `path` is a `data:` URI. Only that is packed
+  into Word. A path or URL draws on screen and packs as `[image: <alt>]`. Absent
+  `alt`, `width` or `height` keep the node's own.
+
+A client is a few lines of `fetch`. The key stays inside it:
+
+```ts
+const aiClient: AiClient = {
+  async generateParagraph({ prompt }) {
+    const response = await fetch(MODEL_URL, {
+      method: "POST",
+      headers: { authorization: `Bearer ${MODEL_KEY}`, "content-type": "application/json" },
+      body: JSON.stringify({ input: prompt }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) throw new Error(`Model answered ${response.status}`);
+    const { text } = await response.json();
+    return text; // the string, not the response object
+  },
+};
+```
+
+Keep keys in the client, never in `data` or a prompt: a `{{data.…}}` token can
+print anything in `data`, and prompts are published with the document.
+
+### When the client fails
+
+`resolveDocument` asks one node at a time, in document order, and does not
+catch, retry or time out:
+
+| The client… | `resolveDocument` |
+| --- | --- |
+| throws or rejects | rejects with that error |
+| never settles | never settles — bound the call with `AbortSignal.timeout` |
+| returns a non-string paragraph, or a chart it cannot plot | rejects, naming the node |
+| lacks `generateGraph` / `generateImage` for a node that needs it | rejects, naming the node and the method |
+
+A dynamic node in an arm whose condition is false is never asked for. To show
+the placeholder, or a stock sentence, instead of failing the document, catch
+inside your client and return that text.
+
+### Stand-in AI clients
+
+Both come from `docxcelerate` and need no network. Use them in tests and offline previews.
+
+```ts
+import { EchoAiClient, ScriptedAiClient } from "docxcelerate";
+
+new EchoAiClient();
+// paragraph → "[AI draft for <id>] <prompt>"
+// graph     → three sample points, captioned with the echoed prompt; the node keeps its graphType
+// image     → a one-pixel grey PNG at the node's width/height, alt = the echoed prompt
+
+const ai = new ScriptedAiClient({
+  "tutor-note": "A warm note.",                                   // paragraph: a string
+  revenue: { data: { series: [{ values: [1, 2] }] }, caption: "" }, // graph: AiGraphResult
+  portrait: { path: "data:image/png;base64,…" },                  // image: AiImageResult
+});
+ai.requests; // ScriptedAiRequest[]: { id, kind, prompt, prompts }, in the order asked
+```
+
+`ScriptedAiClient` matches an exact id first, then the id with each trailing
+`-<index>` a repeat added taken off in turn (`note-1-2` → `note-1` → `note`). An
+id with no answer, or an answer of the wrong shape for the node, throws and the
+build or resolve rejects. Previews (`dynamicMode: "placeholder"`) never call it.
 
 ## The built document
 
@@ -548,7 +730,7 @@ blocks: {
 | Field | Means |
 | --- | --- |
 | `fill` | background, hex without the `#` |
-| `color` | text colour |
+| `color` | text colour, and the colour of any link in the block |
 | `border`, `borderWidthPt`, `borderSides`, `borderStyle` | a border, on all four edges unless sides are named. `borderStyle` is `"single"` (default) \| `"double"` \| `"dashed"` \| `"dotted"` and applies to every drawn edge — a double rule under a total, a dashed tear-off line. Paragraphs and cells only; a `<Shape>` outline is always solid |
 | `paddingPt` | the gap between a drawn border and the text. Word records it on the border, so a block with a fill and no border cannot be padded — see below |
 | `fontSizePt`, `weight`, `transform`, `letterSpacingEm`, `font`, `lineHeight` | how the text is set. `transform: "none"` turns capitals off where a heading or header row would otherwise use them |

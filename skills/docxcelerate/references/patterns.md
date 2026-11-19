@@ -182,7 +182,8 @@ export const documentTemplate = template<InvoiceData>(
 );
 ```
 
-`<PageNumber />` goes in the footer and prints `1 / 2` by default. A build cannot
+`<PageNumber />` goes in the footer and prints `1 / 2` by default;
+`<PageNumber prefix="Page " separator=" of " align="right" />` prints "Page 1 of 2" ranged right. A build cannot
 know the count — an engine writing a longer paragraph changes it — so Word gets
 a field it recounts and the preview counts its own pages. Reach for `<PageBreak>`
 only when the break is part of what the document *is*; nudging a paragraph off
@@ -210,7 +211,7 @@ export const Steps: Nodes = () => {
 
 `list="bullet"` for a marked list, `listLevel={1}` for a point under an item.
 Anything between two items ends the list, and a numbered list after it starts
-again at one. Published, the `.map()` is a loop the engine walks, and the steps
+again at one — unless its first item says `listStart`. Published, the `.map()` is a loop the engine walks, and the steps
 it writes are one list however many there are. An item on a `<Shape>` is drawn
 as a plain paragraph.
 
@@ -231,6 +232,7 @@ document like any other. `href` must be `https:`, `http:`, `mailto:` or `tel:`
 — anything else prints as plain words. There is no colour or size: a link is
 drawn in the theme's accent, and a phrase or a whole paragraph is restyled by
 naming a theme block with `variant`.
+`underline="double"` draws the double rule accounting puts under a final total — `Total due <Text bold underline="double">{state.total}</Text>` — under the figure alone, where a paragraph border would rule the whole line.
 
 The same works in a cell: `<Cell>Total <Text bold>due</Text></Cell>`.
 
