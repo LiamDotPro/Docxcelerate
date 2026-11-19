@@ -36,7 +36,7 @@ export interface ResolveOptions {
  * conditions, unrolls repeats, and substitutes every `{{...}}` token.
  *
  * @param doc The published document.
- * @param state The data, context and clients to resolve against.
+ * @param state The data, context and clients to resolve against; build it with {@linkcode createRuntimeState}.
  * @param options The derivers the document may invoke.
  * @returns The document with nothing left to decide.
  * @throws If the document invokes a deriver the registry does not hold.

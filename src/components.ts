@@ -140,22 +140,74 @@ export async function buildDocument<TData>(
   };
 }
 
+/** What {@linkcode createRuntimeState} builds a state from. */
+export interface RuntimeStateOptions {
+  /**
+   * The request data `{{data.…}}` tokens read. An object is copied into `ctx`,
+   * never written to; anything else is read as `{{data.value}}`.
+   */
+  data: unknown;
+  /**
+   * What writes dynamic nodes. Omitted, the first dynamic node the resolver
+   * reaches throws, so a document with none needs no client.
+   */
+  aiClient?: AiClient;
+  /**
+   * The locale, as a BCP 47 tag such as `fr-FR`. Omitted, the document's own
+   * locale is used.
+   */
+  locale?: string;
+  /**
+   * What `{{ctx.availableTokens}}` prints, as `useAvailableTokens` reported it
+   * in the build. Defaults to `2000`.
+   */
+  availableTokens?: number;
+}
+
+/**
+ * Builds the state {@linkcode resolveDocument} settles a published document
+ * against, seeded exactly as {@linkcode buildDocument} seeds its own: the data
+ * spread into `ctx` beside `availableTokens`, a provider reading that same
+ * object, and nothing derived yet.
+ *
+ * @example Filling a published artifact at request time
+ * ```ts
+ * import { createRuntimeState, resolveDocument } from "@docxcelerate/docxcelerate";
+ *
+ * const doc = await resolveDocument(
+ *   artifact.engineDocument,
+ *   createRuntimeState({ data, aiClient }),
+ * );
+ * ```
+ *
+ * @param options The data, the client, and what the build was told.
+ * @returns A fresh state; the caller's data object is not written to.
+ * @throws If `locale` is not a BCP 47 tag.
+ */
+export function createRuntimeState(options: RuntimeStateOptions): RuntimeState {
+  const ctx = dataToObject(options.data);
+  ctx.availableTokens = options.availableTokens ?? 2_000;
+
+  return {
+    ctx,
+    derived: {},
+    dataProvider: new InMemoryDataProvider(ctx),
+    aiClient: options.aiClient ?? missingAiClient,
+    ...(options.locale === undefined ? {} : { locale: canonicalLocale(options.locale) }),
+  };
+}
+
 function createRenderContext<TData>(
   data: TData,
   availableTokens: number,
   options: ComponentRuntimeOptions,
 ): RenderContext {
-  const aiClient = options.aiClient;
-  const ctx = dataToObject(data);
-  ctx.availableTokens = availableTokens;
-
-  const state: RuntimeState = {
-    ctx,
-    derived: {},
-    dataProvider: new InMemoryDataProvider(ctx),
-    aiClient: aiClient ?? missingAiClient,
-    ...(options.locale === undefined ? {} : { locale: options.locale }),
-  };
+  const state = createRuntimeState({
+    data,
+    aiClient: options.aiClient,
+    locale: options.locale,
+    availableTokens,
+  });
 
   return {
     data,
@@ -167,7 +219,7 @@ function createRenderContext<TData>(
     locale: options.locale ?? "en-GB",
     derivers: createDeriverRegistry(options.derivers),
     state,
-    aiClient,
+    aiClient: options.aiClient,
     shared: new Map<string, unknown>(),
     instances: new Map<string, ComponentInstance>(),
     usedIds: new Map<string, string>(),
