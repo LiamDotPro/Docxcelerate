@@ -313,6 +313,9 @@ function readRun(xml) {
     /** The rule's kind — `single`, `double` — or null for none. */
     underline: childAttr(rPr, "w:u", "w:val"),
     strike: toggle(rPr, "w:strike"),
+    vertAlign: childAttr(rPr, "w:vertAlign", "w:val"),
+    color: childAttr(rPr, "w:color", "w:val"),
+    shd: childAttr(rPr, "w:shd", "w:fill"),
     hasBreak: xml.includes("<w:br"),
   };
 }
@@ -754,6 +757,8 @@ export function measureOoxml(zip) {
         bottom: numAttr(pgMar, "w:bottom"),
         left: numAttr(pgMar, "w:left"),
       },
+      // Where the body sits between the top and bottom margins; null is Word's top.
+      vAlign: sectPr === null ? null : childAttr(sectPr, "w:vAlign", "w:val"),
       titlePg: sectPr === null ? null : toggle(sectPr, "w:titlePg"),
       // How far the running strips stand from the paper, in twips. A
       // different distance from the margin, and the one a document has no
@@ -1077,7 +1082,7 @@ export function ooxmlView(measure) {
       const wanted = anchor.toLowerCase();
       return measure.paragraphs.flatMap((p) => p.runs)
         .find((run) => run.text.toLowerCase().includes(wanted)) ??
-        { missing: true, anchor, text: "", bold: null, italics: null, underline: null, strike: null, hasBreak: false };
+        { missing: true, anchor, text: "", bold: null, italics: null, underline: null, strike: null, vertAlign: null, color: null, shd: null, hasBreak: false };
     },
 
     /**

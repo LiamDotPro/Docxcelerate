@@ -153,6 +153,8 @@ export interface CommonElementProps {
    * Which block style the theme should draw this node in — `"band"`, `"panel"`,
    * `"badge"`. A name for what the node is, never what it looks like: the
    * colours live in the style, so a document restyles without a node changing.
+   * The name can be read off the data — `variant={line.status}` — and a
+   * published document settles it per recipient, like any other token.
    */
   variant?: string;
 }
