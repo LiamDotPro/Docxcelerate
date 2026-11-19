@@ -1,9 +1,11 @@
 import { test } from "node:test";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
 import {
+  type AiGraphResult,
   createDeriverRegistry,
   type DocumentModel,
   type DocumentNode,
+  type GraphNode,
   InMemoryDataProvider,
   resolveDocument,
   type RuntimeState,
@@ -399,4 +401,135 @@ test("a shape produced by a loop gives each pass its own ids", async () => {
   assertEquals(doc.nodes.map((node) => node.id), ["banner-0", "banner-1"]);
   assertEquals(lines.map((node) => node.id), ["banner-line-0", "banner-line-1"]);
   assertEquals(texts(lines), ["First", "Second"]);
+});
+
+function generatedChart(answer: unknown, own: Partial<GraphNode> = {}): Promise<DocumentModel> {
+  const state = engineState({});
+  state.aiClient = {
+    generateParagraph: () => "",
+    generateGraph: () => answer as AiGraphResult,
+  };
+
+  return resolveDocument(
+    published([{
+      id: "trend",
+      kind: "graph",
+      mode: "dynamic",
+      graphType: "bar",
+      prompts: [{ kind: "general", text: "Plot it." }],
+      ...own,
+    } as DocumentNode]),
+    state,
+  );
+}
+
+function graphOf(doc: DocumentModel): GraphNode {
+  const node = doc.nodes[0];
+  if (node?.kind !== "graph") throw new Error("expected one graph");
+  return node;
+}
+
+test("a generated chart's numbers written as text are read as numbers", async () => {
+  const doc = await generatedChart({
+    data: {
+      categories: [2025, "2026"],
+      series: [{ label: "Paid", values: ["12", " 3.5 ", null], sizes: ["2"] }],
+    },
+  });
+
+  assertEquals(graphOf(doc).data, {
+    categories: ["2025", "2026"],
+    series: [{ label: "Paid", values: [12, 3.5, null], sizes: [2] }],
+  });
+});
+
+test("an absent caption, data or type keeps the node's own", async () => {
+  const kept = graphOf(
+    await generatedChart({}, {
+      graphType: "line",
+      caption: "Own caption",
+      data: { series: [{ values: [9] }] },
+    }),
+  );
+
+  assertEquals(kept.graphType, "line");
+  assertEquals(kept.caption, "Own caption");
+  assertEquals(kept.data, { series: [{ values: [9] }] });
+
+  const partial = graphOf(
+    await generatedChart(
+      { caption: null, data: { series: [{ values: [1] }] } },
+      { caption: "Own caption" },
+    ),
+  );
+
+  assertEquals(partial.caption, "Own caption");
+  assertEquals(partial.graphType, "bar");
+  assertEquals(partial.data, { series: [{ values: [1] }] });
+});
+
+test("a well-formed chart answer comes back as it was given", async () => {
+  const answer = {
+    graphType: "pie",
+    data: {
+      categories: ["a", "b"],
+      series: [{ label: "Share", values: [1, null], color: "FF0000" }],
+    },
+    caption: "Split",
+  };
+  const before = structuredClone(answer);
+
+  const graph = graphOf(await generatedChart(answer));
+
+  assertEquals(graph.graphType, "pie");
+  assertEquals(graph.data, before.data as GraphNode["data"]);
+  assertEquals(graph.caption, "Split");
+  assertEquals(answer, before);
+});
+
+test("a generated chart that cannot be plotted names the node and the field", async () => {
+  const cases: Array<[unknown, string]> = [
+    [undefined, 'Dynamic graph "trend" got an answer it cannot plot: it is not an object.'],
+    [{ graphType: "pyramid" }, 'graphType "pyramid" is not a chart type.'],
+    [{ graphType: "toString" }, 'graphType "toString" is not a chart type.'],
+    [{ data: [1, 2] }, "data is not an object."],
+    [{ data: { series: "1,2,3" } }, "data.series is not an array."],
+    [{ data: { series: [{ label: "x" }] } }, "data.series[0].values is not an array."],
+    [
+      { data: { series: [{ values: [1, "twelve"] }] } },
+      'data.series[0].values[1] is "twelve", not a number.',
+    ],
+    [{ data: { series: [{ values: [""] }] } }, 'data.series[0].values[0] is "", not a number.'],
+    [{ data: { categories: [{}], series: [] } }, "data.categories[0] is {}, not text."],
+    [{ caption: 42 }, "caption is not text."],
+  ];
+
+  for (const [answer, expected] of cases) {
+    await assertRejectsWith(() => generatedChart(answer), expected);
+  }
+});
+
+test("a chart client that throws is not caught", async () => {
+  const state = engineState({});
+  state.aiClient = {
+    generateParagraph: () => "",
+    generateGraph: () => {
+      throw new Error("model down");
+    },
+  };
+
+  await assertRejectsWith(
+    () =>
+      resolveDocument(
+        published([{
+          id: "trend",
+          kind: "graph",
+          mode: "dynamic",
+          graphType: "bar",
+          prompts: [{ kind: "general", text: "Plot it." }],
+        } as DocumentNode]),
+        state,
+      ),
+    "model down",
+  );
 });

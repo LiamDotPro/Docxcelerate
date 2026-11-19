@@ -875,6 +875,7 @@ async function renderGraph(
       when,
       graphType,
       ...drawn,
+      caption: await text(props.caption, context),
       placeholder: await placeholderText(prompts, id, context),
     });
   }
@@ -887,6 +888,7 @@ async function renderGraph(
     when,
     graphType,
     ...drawn,
+    caption: await text(props.caption, context),
     prompts: specs,
   };
 
@@ -895,8 +897,8 @@ async function renderGraph(
   return prune({
     ...node,
     graphType: result.graphType ?? graphType,
-    data: result.data,
-    caption: result.caption,
+    data: result.data ?? node.data,
+    caption: result.caption ?? node.caption,
   });
 }
 
