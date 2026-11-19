@@ -125,6 +125,7 @@ dxcl list components
 | `invoice-document-type` | What an invoice may call itself, and the dates it has to carry. |
 | `tax-treatment-notice` | The mention an invoice's tax treatment requires, or a warning when its ID is missing. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `exemption-certificate-check` | Which lines of a US sale go out exempt under the buyer's certificates, and why the rest stay taxable. |
 
 ## `dxcl show <id>`
 
