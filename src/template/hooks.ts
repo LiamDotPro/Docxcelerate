@@ -328,7 +328,7 @@ function outputKeyFor(instance: ComponentInstance, name: string): string {
 function assign(target: PromptDraft, source: PromptDraft): void {
   for (const [key, value] of Object.entries(source)) {
     if (value !== undefined) {
-      target[key as keyof PromptDraft] = value as string;
+      (target as Record<string, unknown>)[key] = value;
     }
   }
 }

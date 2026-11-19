@@ -21,6 +21,7 @@
 import type {
   DocumentStyle,
   GraphData,
+  GraphDataLabels,
   GraphLegend,
   GraphNode,
   GraphSeries,
@@ -51,6 +52,12 @@ export const DEFAULT_SERIES_COLORS: readonly string[] = [
   "4A3AA7",
   "E34948",
 ];
+
+/**
+ * The OOXML preset each series dash is drawn with: Word's "Dash" and its
+ * "Round Dot", which is `sysDot` under the round cap a series line already has.
+ */
+export const PRESET_DASH = { dashed: "dash", dotted: "sysDot" } as const;
 
 /** The ink a chart's own text is set in when the theme names none. */
 const DEFAULT_TEXT_COLOR = "595959";
@@ -389,11 +396,15 @@ function seriesXml(
   // checked side by side and reads as deliberate. A chart with nine series
   // wants fewer series, or a palette of its own.
   const fill = series.color ?? colors[index % colors.length];
+  // A stored model is data that travels, so a dash nobody defined draws solid rather than as a preset Word refuses.
+  const dash = series.dash !== undefined && Object.hasOwn(PRESET_DASH, series.dash)
+    ? `<a:prstDash val="${PRESET_DASH[series.dash]}"/>`
+    : "";
   const head = `<c:idx val="${index}"/><c:order val="${index}"/>` +
     nameXml(series.label, column);
 
   const paint = drawnAsLine(type)
-    ? `<c:spPr><a:ln w="28575" cap="rnd"><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:round/></a:ln><a:effectLst/></c:spPr>${
+    ? `<c:spPr><a:ln w="28575" cap="rnd"><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill>${dash}<a:round/></a:ln><a:effectLst/></c:spPr>${
       markerXml(fill)
     }`
     : paintXml(type, fill);
@@ -604,6 +615,15 @@ function valuesXml(
   }</c:formatCode><c:ptCount val="${rows}"/>${points}</c:numCache></c:numRef></c:val>`;
 }
 
+/** Which of OOXML's label flags each kind of label turns on. */
+const LABEL_FLAGS: Record<GraphDataLabels, { val: boolean; cat: boolean; percent: boolean }> = {
+  value: { val: true, cat: false, percent: false },
+  percent: { val: false, cat: false, percent: true },
+  category: { val: false, cat: true, percent: false },
+  categoryAndValue: { val: true, cat: true, percent: false },
+  categoryAndPercent: { val: false, cat: true, percent: true },
+};
+
 /**
  * Whether each point prints its own figure.
  *
@@ -611,23 +631,30 @@ function valuesXml(
  * depends on its type — a stacked bar takes `ctr` and a clustered one `outEnd`
  * — and a position the type does not allow is a file Word offers to repair.
  * Saying nothing takes the default, which is the right one for every type.
+ * What a label prints, by contrast, is the document's say: see {@linkcode GraphDataLabels}.
  */
 function dataLabelsXml(node: GraphNode): string {
-  if (node.dataLabels !== true) {
+  if (node.dataLabels === undefined || node.dataLabels === false) {
     return "";
   }
 
-  const percent = node.graphType === "pie" || node.graphType === "doughnut";
+  const pie = node.graphType === "pie" || node.graphType === "doughnut";
+  const flags =
+    LABEL_FLAGS[node.dataLabels === true ? (pie ? "percent" : "value") : node.dataLabels];
+  const bit = (on: boolean) => (on ? 1 : 0);
 
   return `<c:dLbls>${
     node.numberFormat === undefined
       ? ""
       : `<c:numFmt formatCode="${escapeXml(node.numberFormat)}" sourceLinked="0"/>`
   }<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr><c:showLegendKey val="0"/><c:showVal val="${
-    percent ? 0 : 1
-  }"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="${
-    percent ? 1 : 0
-  }"/><c:showBubbleSize val="0"/></c:dLbls>`;
+    bit(flags.val)
+  }"/><c:showCatName val="${bit(flags.cat)}"/><c:showSerName val="0"/><c:showPercent val="${
+    bit(flags.percent)
+  }"/><c:showBubbleSize val="0"/>${
+    // Stated rather than left to Word's default, so the preview and Word agree on it from the file.
+    flags.cat && (flags.val || flags.percent) ? "<c:separator>, </c:separator>" : ""
+  }</c:dLbls>`;
 }
 
 /** The axes a chart type has, ruled in the theme's own hairline. */
@@ -685,8 +712,8 @@ function categoryAxisXml(
 ): string {
   return `<c:catAx><c:axId val="${CATEGORY_AXIS_ID}"/><c:scaling><c:orientation val="${
     reversed ? "maxMin" : "minMax"
-  }"/></c:scaling><c:delete val="0"/><c:axPos val="${position}"/>` +
-    (webbed ? gridlinesXml(palette) : "") +
+  }"/></c:scaling>${deleteXml(node)}<c:axPos val="${position}"/>` +
+    (webbed ? gridlinesXml(node, palette) : "") +
     axisTitleXml(node.categoryAxisTitle, palette, position === "l") +
     `<c:numFmt formatCode="General" sourceLinked="1"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>` +
     axisLineXml(palette) +
@@ -700,7 +727,7 @@ function scatterCategoryAxisXml(
   palette: ChartPalette,
   position: string,
 ): string {
-  return `<c:valAx><c:axId val="${CATEGORY_AXIS_ID}"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="${position}"/>` +
+  return `<c:valAx><c:axId val="${CATEGORY_AXIS_ID}"/><c:scaling><c:orientation val="minMax"/></c:scaling>${deleteXml(node)}<c:axPos val="${position}"/>` +
     axisTitleXml(node.categoryAxisTitle, palette, position === "l") +
     `<c:numFmt formatCode="General" sourceLinked="1"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>` +
     axisLineXml(palette) +
@@ -727,8 +754,8 @@ function valueAxisXml(
   checkValueAxisBounds(node);
   const step = node.valueAxisStep;
 
-  return `<c:valAx><c:axId val="${VALUE_AXIS_ID}"/>${valueScalingXml(node)}<c:delete val="0"/><c:axPos val="${position}"/>` +
-    gridlinesXml(palette) +
+  return `<c:valAx><c:axId val="${VALUE_AXIS_ID}"/>${valueScalingXml(node)}${deleteXml(node)}<c:axPos val="${position}"/>` +
+    gridlinesXml(node, palette) +
     axisTitleXml(node.valueAxisTitle, palette, position === "l") +
     `<c:numFmt formatCode="${escapeXml(format ?? "General")}" sourceLinked="${
       format === undefined ? 1 : 0
@@ -793,8 +820,21 @@ function valueAxisFormat(node: GraphNode): string | undefined {
   return node.stacked === "percent" ? "0%" : undefined;
 }
 
-/** The grid a chart is ruled with, in the theme's own hairline. */
-function gridlinesXml(palette: ChartPalette): string {
+/**
+ * An axis's `c:delete`: how a chart drawn without axes says so.
+ *
+ * A deleted axis rather than a missing one. Every plot group names two
+ * `c:axId`s, and a part whose axes are not there is one Word will not open.
+ */
+function deleteXml(node: GraphNode): string {
+  return `<c:delete val="${node.axes === false ? 1 : 0}"/>`;
+}
+
+/** The grid a chart is ruled with, in the theme's own hairline; none where the document asked for none. */
+function gridlinesXml(node: GraphNode, palette: ChartPalette): string {
+  if (node.gridlines === false) {
+    return "";
+  }
   return `<c:majorGridlines><c:spPr><a:ln w="${GRIDLINE_WIDTH_EMU}" cap="flat"><a:solidFill><a:srgbClr val="${palette.rule}"/></a:solidFill></a:ln></c:spPr></c:majorGridlines>`;
 }
 

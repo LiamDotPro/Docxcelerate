@@ -194,7 +194,7 @@ case is the first case to write for that row.
 | Margins (mm, four sides) | yes | `DocumentPageMargins` | `page/margins` |
 | Multiple sections | no — one `sectPr` for the whole document | `createDocxDocument` builds one section | `page/second-section` |
 | Text columns | no | no `columns` in the model | `page/two-columns` |
-| Page borders / background | no | — | `page/border` |
+| Page borders / background | borders **yes — added** (background no) | `page.border`, `w:pgBorders` | `page/border` (ooxml and preview tiers ran; no Word tier on this Mac) |
 | Different first page | yes | `firstHeader` / `firstFooter`, `titlePg` | `furniture/first-page` |
 | Even/odd furniture | **yes — added** | `evenHeader` / `evenFooter`, `w:evenAndOddHeaders` | `furniture/even-odd` |
 

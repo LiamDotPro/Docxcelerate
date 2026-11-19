@@ -58,6 +58,17 @@ async function readBack(nodes: GraphNode[]): Promise<PreviewChart[]> {
   return await readPackedCharts(await renderDocxBytes(documentOf(nodes)));
 }
 
+test("a dashed or dotted line comes back as one, and a solid one with none", async () => {
+  const values = [1, 2, 3, 4];
+  const [line] = await readBack([
+    chart({ graphType: "line", data: { categories: quarters, series: [{ values }, { values, dash: "dashed" }, { values, dash: "dotted" }] } }),
+  ]);
+  const [bar] = await readBack([chart()]);
+
+  assertEquals(line.series.map((s) => s.dash), [undefined, "dashed", "dotted"]);
+  assertEquals(bar.series.map((s) => s.dash), [undefined, undefined]);
+});
+
 test("a chart comes back out of the file with its numbers intact", async () => {
   const [read] = await readBack([chart()]);
 
@@ -205,6 +216,16 @@ test("data labels come back, and which figure they print", async () => {
     }),
   ]);
 
+  const pieData = { categories: quarters, series: [{ label: "Share", values: [4, 3, 2, 1] }] };
+  const [category] = await readBack([chart({ dataLabels: "category" })]);
+  const [both] = await readBack([chart({ dataLabels: "categoryAndValue" })]);
+  const [pieBoth] = await readBack([
+    chart({ graphType: "pie", dataLabels: "categoryAndPercent", data: pieData }),
+  ]);
+
+  assertEquals(category.dataLabels, "category");
+  assertEquals(both.dataLabels, "categoryAndValue");
+  assertEquals(pieBoth.dataLabels, "categoryAndPercent");
   assertEquals(off.dataLabels, "none");
   assertEquals(values.dataLabels, "value");
   assertEquals(percent.dataLabels, "percent");
@@ -407,4 +428,22 @@ test("a pie's slice colours include an overridden slice", async () => {
 
   assertEquals([...read.sliceColors], ["2A78D6", "C0392B", "1BAF7A", "EDA100"]);
   assertEquals(read.series[0].pointColors[1], "C0392B");
+});
+
+test("whether the axes and the grid are drawn comes back as the file states it", async () => {
+  const [plain, bare, ungridded] = await readBack([
+    chart({ id: "plain" }),
+    chart({ id: "bare", axes: false, gridlines: false }),
+    chart({ id: "ungridded", gridlines: false }),
+  ]);
+
+  assertEquals(plain.axes, true);
+  assertEquals(plain.gridlines, true);
+  assertEquals(bare.axes, false);
+  assertEquals(bare.gridlines, false);
+  assertEquals(ungridded.axes, true);
+  assertEquals(ungridded.gridlines, false);
+  // The rule colour falls back to the axis line, so the theme's hairline survives.
+  assertEquals(ungridded.ruleColor, plain.ruleColor);
+  assertEquals(ungridded.ruleColor === undefined, false);
 });

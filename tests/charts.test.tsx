@@ -478,6 +478,86 @@ test("a series that names its own colour outranks the theme", async () => {
   assertStringIncludes(xml, `<a:srgbClr val="AA00BB"/>`);
 });
 
+test("a dashed series is drawn dashed, and a dotted one in round dots", async () => {
+  const line = (dash?: "dashed" | "dotted") => ({ label: "x", values: [1, 2, 3, 4], dash });
+  const xml = await chartXml(
+    documentOf([chart({ graphType: "line", data: { categories: quarters, series: [line(), line("dashed"), line("dotted")] } })]),
+  );
+
+  assertStringIncludes(xml, `<a:solidFill><a:srgbClr val="EB6834"/></a:solidFill><a:prstDash val="dash"/><a:round/></a:ln>`);
+  assertStringIncludes(xml, `<a:solidFill><a:srgbClr val="1BAF7A"/></a:solidFill><a:prstDash val="sysDot"/><a:round/></a:ln>`);
+  assertEquals(xml.match(/<a:prstDash /g)?.length, 2);
+});
+
+test("a series with no dash is solid, exactly as before", async () => {
+  const xml = await chartXml(documentOf([chart({ graphType: "line" })]));
+
+  assertEquals(xml.includes("prstDash"), false);
+  assertStringIncludes(xml, `<a:ln w="28575" cap="rnd"><a:solidFill><a:srgbClr val="2A78D6"/></a:solidFill><a:round/></a:ln>`);
+});
+
+test("scatter and radar take a dash, because they draw their series as lines", async () => {
+  for (const graphType of ["scatter", "radar"] as const) {
+    const xml = await chartXml(
+      documentOf([chart({ graphType, data: { categories: quarters, series: [{ values: [1, 2, 3, 4], dash: "dashed" }] } })]),
+    );
+
+    assertStringIncludes(xml, `<a:prstDash val="dash"/>`);
+  }
+});
+
+test("a bar, an area or a pie has no line to dash", async () => {
+  for (const graphType of ["bar", "area", "pie"] as const) {
+    const xml = await chartXml(
+      documentOf([chart({ graphType, data: { categories: quarters, series: [{ values: [1, 2, 3, 4], dash: "dotted" }] } })]),
+    );
+
+    assertEquals(xml.includes("prstDash"), false);
+  }
+});
+
+test("a dash nobody defined draws solid rather than breaking the file", async () => {
+  const xml = await chartXml(
+    documentOf([
+      chart({
+        graphType: "line",
+        data: {
+          categories: quarters,
+          series: [
+            { values: [1, 2, 3, 4], dash: "dashdot" as never },
+            { values: [1, 2, 3, 4], dash: "constructor" as never },
+          ],
+        },
+      }),
+    ]),
+  );
+
+  assertEquals(xml.includes("prstDash"), false);
+  assertEquals(xml.includes("undefined"), false);
+});
+
+test("a dash written as JSX reaches the node", async () => {
+  const doc = await buildDocument(
+    template(
+      <Document id="doc" title="Doc">
+        <Section id="body" title="Body" showTitle={false}>
+          <Graph
+            id="revenue"
+            graphType="line"
+            data={{ categories: quarters, series: [{ label: "Forecast", values: [1, 2, 3, 4], dash: "dashed" }] }}
+          />
+        </Section>
+      </Document>,
+    ),
+    {},
+    { branchMode: "decide", dynamicMode: "placeholder" },
+  );
+  const section = doc.nodes[0];
+  const node = section.kind === "section" ? section.children[0] as GraphNode : undefined;
+
+  assertEquals(node?.data?.series[0].dash, "dashed");
+});
+
 test("a chart is ruled and lettered in the theme's own ink, not the series' colours", async () => {
   const xml = await chartXml(documentOf([chart()]));
   const palette = cleanMinimalDocumentStyle.palette;
@@ -553,6 +633,124 @@ test("a pie's labels show the share, and a bar's show the figure", async () => {
   assertStringIncludes(pie, `<c:showPercent val="1"/>`);
   assertStringIncludes(bar, `<c:showVal val="1"/>`);
   assertStringIncludes(bar, `<c:showPercent val="0"/>`);
+  assertStringIncludes(pie, `<c:showCatName val="0"/>`);
+  assertEquals(pie.includes("<c:separator>"), false);
+  assertEquals(bar.includes("<c:separator>"), false);
+});
+
+test("labels are off unless asked for", async () => {
+  assertEquals((await chartXml(documentOf([chart()]))).includes("<c:dLbls>"), false);
+  assertEquals(
+    (await chartXml(documentOf([chart({ dataLabels: false })]))).includes("<c:dLbls>"),
+    false,
+  );
+});
+
+test("a pie can label each slice with its name and share", async () => {
+  const xml = await chartXml(
+    documentOf([
+      chart({
+        graphType: "pie",
+        dataLabels: "categoryAndPercent",
+        data: { categories: quarters, series: [twoSeries[0]] },
+      }),
+    ]),
+  );
+
+  assertStringIncludes(xml, `<c:showVal val="0"/>`);
+  assertStringIncludes(xml, `<c:showCatName val="1"/>`);
+  assertStringIncludes(xml, `<c:showPercent val="1"/>`);
+  assertStringIncludes(xml, `<c:showBubbleSize val="0"/><c:separator>, </c:separator></c:dLbls>`);
+});
+
+test("a bar can print its category on the bar, with no separator to write", async () => {
+  const xml = await chartXml(documentOf([chart({ dataLabels: "category" })]));
+
+  assertStringIncludes(xml, `<c:showVal val="0"/>`);
+  assertStringIncludes(xml, `<c:showCatName val="1"/>`);
+  assertStringIncludes(xml, `<c:showPercent val="0"/>`);
+  assertEquals(xml.includes("<c:separator>"), false);
+});
+
+test("a doughnut can label each slice with its name and value", async () => {
+  const xml = await chartXml(
+    documentOf([
+      chart({
+        graphType: "doughnut",
+        dataLabels: "categoryAndValue",
+        data: { categories: quarters, series: [twoSeries[0]] },
+      }),
+    ]),
+  );
+
+  assertStringIncludes(xml, `<c:showVal val="1"/>`);
+  assertStringIncludes(xml, `<c:showCatName val="1"/>`);
+  assertStringIncludes(xml, `<c:showPercent val="0"/>`);
+  assertStringIncludes(xml, `<c:separator>, </c:separator>`);
+});
+
+test("an explicit value on a pie overrides the share a pie defaults to", async () => {
+  const xml = await chartXml(
+    documentOf([
+      chart({
+        graphType: "pie",
+        dataLabels: "value",
+        data: { categories: quarters, series: [twoSeries[0]] },
+      }),
+    ]),
+  );
+
+  assertStringIncludes(xml, `<c:showVal val="1"/>`);
+  assertStringIncludes(xml, `<c:showPercent val="0"/>`);
+});
+
+test("label content written as JSX reaches the model", async () => {
+  const doc = await buildDocument(
+    template(
+      <Document id="doc" title="Doc">
+        <Section id="body" title="Body" showTitle={false}>
+          <Graph
+            id="spend"
+            graphType="pie"
+            dataLabels="categoryAndPercent"
+            data={{ categories: quarters, series: [twoSeries[0]] }}
+          />
+        </Section>
+      </Document>,
+    ),
+    {},
+    { branchMode: "decide", dynamicMode: "placeholder" },
+  );
+  const section = doc.nodes[0];
+  const node = section.kind === "section" ? section.children[0] as GraphNode : undefined;
+
+  assertEquals(node?.dataLabels, "categoryAndPercent");
+});
+
+test("a percentage label off a pie is an error", async () => {
+  for (const [graphType, dataLabels] of [["bar", "percent"], ["line", "categoryAndPercent"]] as const) {
+    await assertRejects(
+      () =>
+        buildDocument(
+          template(
+            <Document id="doc" title="Doc">
+              <Section id="body" title="Body" showTitle={false}>
+                <Graph
+                  id="r"
+                  graphType={graphType}
+                  dataLabels={dataLabels}
+                  data={{ categories: quarters, series: twoSeries }}
+                />
+              </Section>
+            </Document>,
+          ),
+          {},
+          { branchMode: "decide", dynamicMode: "placeholder" },
+        ),
+      Error,
+      "only a pie or a doughnut",
+    );
+  }
 });
 
 test("a label with an ampersand in it is still a label", async () => {
@@ -668,6 +866,8 @@ test("a chart written as JSX carries every drawing decision into the node", asyn
             valueAxisMax={100}
             valueAxisStep={2}
             dataLabels
+            axes={false}
+            gridlines={false}
             width={320}
             height={200}
             align="right"
@@ -696,10 +896,79 @@ test("a chart written as JSX carries every drawing decision into the node", asyn
   assertEquals(node?.valueAxisMax, 100);
   assertEquals(node?.valueAxisStep, 2);
   assertEquals(node?.dataLabels, true);
+  assertEquals(node?.axes, false);
+  assertEquals(node?.gridlines, false);
   assertEquals(node?.width, 320);
   assertEquals(node?.height, 200);
   assertEquals(node?.align, "right");
   assertEquals(node?.data?.series[1].values[3], 27);
+});
+
+test("a chart that sets neither axes nor gridlines carries no such keys", async () => {
+  const doc = await buildDocument(
+    template(
+      <Document id="doc" title="Doc">
+        <Graph id="plain" graphType="line" data={{ categories: quarters, series: twoSeries }} />
+      </Document>,
+    ),
+    {},
+    { branchMode: "decide", dynamicMode: "placeholder" },
+  );
+  const node = doc.nodes[0] as GraphNode;
+
+  assertEquals(node.kind, "graph");
+  assertEquals(Object.hasOwn(node, "axes"), false);
+  assertEquals(Object.hasOwn(node, "gridlines"), false);
+});
+
+// ---------------------------------------------------------------------------
+// Axes and gridlines
+// ---------------------------------------------------------------------------
+
+const count = (xml: string, tag: string) => [...xml.matchAll(new RegExp(tag, "g"))].length;
+
+test("a chart draws both axes and its grid unless it is told otherwise", async () => {
+  const xml = await chartXml(documentOf([chart()]));
+
+  assertEquals(count(xml, '<c:delete val="0"/>'), 2);
+  assertEquals(xml.includes('<c:delete val="1"/>'), false);
+  assertEquals(count(xml, "<c:majorGridlines>"), 1);
+});
+
+test("a chart without axes deletes them rather than dropping them", async () => {
+  const xml = await chartXml(documentOf([chart({ axes: false })]));
+
+  assertEquals(count(xml, '<c:delete val="1"/>'), 2);
+  assertEquals(xml.includes('<c:delete val="0"/>'), false);
+  assertStringIncludes(xml, "<c:catAx>");
+  assertStringIncludes(xml, "<c:valAx>");
+  assertEquals(count(xml, "<c:majorGridlines>"), 1);
+});
+
+test("a chart without gridlines keeps its axes", async () => {
+  const xml = await chartXml(documentOf([chart({ gridlines: false })]));
+
+  assertEquals(xml.includes("<c:majorGridlines>"), false);
+  assertEquals(count(xml, '<c:delete val="0"/>'), 2);
+});
+
+test("a radar without gridlines loses its spokes and its rings both", async () => {
+  const xml = await chartXml(documentOf([chart({ graphType: "radar", gridlines: false })]));
+
+  assertEquals(count(xml, "<c:majorGridlines>"), 0);
+});
+
+test("a scatter without axes deletes both of its measured axes", async () => {
+  const xml = await chartXml(documentOf([chart({ graphType: "scatter", axes: false })]));
+
+  assertEquals(count(xml, '<c:delete val="1"/>'), 2);
+});
+
+test("a pie ignores axes and gridlines, having neither", async () => {
+  assertEquals(
+    await chartXml(documentOf([chart({ graphType: "pie", axes: false, gridlines: false })])),
+    await chartXml(documentOf([chart({ graphType: "pie" })])),
+  );
 });
 
 // ---------------------------------------------------------------------------

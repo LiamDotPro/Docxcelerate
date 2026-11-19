@@ -3,14 +3,17 @@ import { assertEquals, assertRejects, assertStringIncludes, rejectionOf } from "
 import {
   AiGenerationError,
   type AiGraphResult,
+  aiGraphResultSchema,
   createDeriverRegistry,
   createRuntimeState,
   type DocumentModel,
   type DocumentNode,
   type GraphNode,
+  type GraphType,
   resolveDocument,
   type RuntimeState,
 } from "docxcelerate";
+import { renderDocxBytes } from "docxcelerate/docx";
 
 /**
  * What an engine does with a published document.
@@ -541,11 +544,113 @@ test("a generated chart that cannot be plotted names the node and the field", as
     [{ data: { series: [{ values: [""] }] } }, 'data.series[0].values[0] is "", not a number.'],
     [{ data: { categories: [{}], series: [] } }, "data.categories[0] is {}, not text."],
     [{ caption: 42 }, "caption is not text."],
+    [{ data: { series: [{ label: 7, values: [1] }] } }, "data.series[0].label is not text."],
   ];
 
   for (const [answer, expected] of cases) {
     await assertRejectsWith(() => generatedChart(answer), expected);
   }
+});
+
+test("a generated chart with nothing to plot names the node", async () => {
+  const cases: Array<[unknown, string]> = [
+    [{}, 'Dynamic graph "trend" got an answer it cannot plot: it has no data.'],
+    [{ data: null, caption: "Up" }, "it has no data."],
+    [{ data: { series: [] } }, "no series has a value to plot."],
+    [{ data: { series: [{ values: [] }] } }, "no series has a value to plot."],
+    [{ data: { series: [{ values: [null, null] }, { values: [] }] } }, "no series has a value to plot."],
+  ];
+
+  for (const [answer, expected] of cases) {
+    await assertRejectsWith(() => generatedChart(answer), expected);
+  }
+});
+
+test("a chart answer with one value to plot is drawn", async () => {
+  assertEquals(
+    graphOf(await generatedChart({ data: { series: [{ values: [null] }, { values: [null, 0] }] } })).data,
+    { series: [{ values: [null] }, { values: [null, 0] }] },
+  );
+});
+
+test("the chart schema offers exactly the chart types the check accepts", async () => {
+  const every: Record<GraphType, true> = {
+    bar: true,
+    barHorizontal: true,
+    line: true,
+    area: true,
+    pie: true,
+    doughnut: true,
+    scatter: true,
+    radar: true,
+    bubble: true,
+  };
+  const schema = aiGraphResultSchema as unknown as {
+    properties: { graphType: { anyOf: [{ enum: string[] }, { type: string }] } };
+  };
+  const named = schema.properties.graphType.anyOf[0].enum;
+
+  assertEquals([...named].sort(), Object.keys(every).sort());
+  assertEquals(schema.properties.graphType.anyOf[1], { type: "null" });
+
+  for (const graphType of named) {
+    const graph = graphOf(await generatedChart({ graphType, data: { series: [{ values: [1] }] } }));
+    assertEquals(graph.graphType, graphType);
+  }
+});
+
+test("an answer in the chart schema's shape, nulls and all, keeps the node's own and packs", async () => {
+  const doc = await generatedChart(
+    {
+      graphType: null,
+      data: { categories: null, series: [{ label: null, values: [4, null], sizes: null }] },
+      caption: null,
+    },
+    { caption: "Own caption" },
+  );
+  const graph = graphOf(doc);
+
+  assertEquals(graph.graphType, "bar");
+  assertEquals(graph.caption, "Own caption");
+  assertEquals(graph.data, { series: [{ values: [4, null] }] }); // deepStrictEqual: no label/sizes/categories keys
+  const bytes = await renderDocxBytes(doc);
+  assertEquals(bytes.byteLength > 0, true); // threw a TypeError in escapeXml before the label fix
+
+  const filled = graphOf(await generatedChart({
+    graphType: "line",
+    data: { categories: ["Q1", "Q2"], series: [{ label: "Paid", values: [1, 2], sizes: null }] },
+    caption: "Up",
+  }));
+  assertEquals(filled.graphType, "line");
+  assertEquals(filled.caption, "Up");
+  assertEquals(filled.data, { categories: ["Q1", "Q2"], series: [{ label: "Paid", values: [1, 2] }] });
+});
+
+test("the chart schema is plain JSON that strict structured-output modes accept", () => {
+  assertEquals(JSON.parse(JSON.stringify(aiGraphResultSchema)), aiGraphResultSchema);
+  assertEquals(aiGraphResultSchema.type, "object");
+
+  const objects: string[] = [];
+  const broken: string[] = [];
+  const walk = (value: unknown, at: string): void => {
+    if (Array.isArray(value)) return value.forEach((entry, index) => walk(entry, `${at}[${index}]`));
+    if (typeof value !== "object" || value === null) return;
+    const entry = value as Record<string, unknown>;
+    if (entry.properties) {
+      objects.push(at);
+      const keys = Object.keys(entry.properties as object).sort();
+      if (entry.additionalProperties !== false) broken.push(`${at} allows other fields`);
+      const required = (entry.required ?? []) as string[];
+      if (JSON.stringify([...required].sort()) !== JSON.stringify(keys)) {
+        broken.push(`${at} does not require every field`);
+      }
+    }
+    for (const [key, child] of Object.entries(entry)) walk(child, `${at}.${key}`);
+  };
+  walk(aiGraphResultSchema, "schema");
+
+  assertEquals(objects, ["schema", "schema.properties.data", "schema.properties.data.properties.series.items"]);
+  assertEquals(broken, []);
 });
 
 test("a chart client that throws fails as an AiGenerationError naming the node", async () => {
@@ -605,8 +710,6 @@ test("a generated paragraph's answer is trimmed and stripped of characters Word 
     ["Tab\there", "Tab\there"],
     ["Hello\u0001 world\u000b end", "Hello world end"],
     ["Hi\u0001\n", "Hi"],
-    ["\u0000\uffff \n", ""],
-    ["", ""],
   ];
 
   for (const [answer, expected] of cases) {
@@ -625,6 +728,15 @@ test("a generated paragraph that is not text names the node", async () => {
 
   for (const [answer, expected] of cases) {
     await assertRejectsWith(() => generatedParagraph(answer), expected);
+  }
+});
+
+test("a generated paragraph with nothing left once trimmed names the node", async () => {
+  for (const answer of ["", "  \n\t", "\u0000\uffff \n"]) {
+    await assertRejectsWith(
+      () => generatedParagraph(answer),
+      'Dynamic paragraph "note" got an empty answer.',
+    );
   }
 });
 
@@ -1022,6 +1134,7 @@ test("a generated chart's caption from the model is printed as written", async (
         graphType: "bar",
         prompts: [{ kind: "general", text: "Plot it." }],
         caption: "For {{data.city}}",
+        data: { series: [{ values: [1] }] },
       } as DocumentNode]),
       state,
     );
