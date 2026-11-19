@@ -51,6 +51,8 @@ export default deriver({
     const currency = typeof st.currency === "string" ? st.currency.toUpperCase() : "";
     let money: Intl.NumberFormat;
     try {
+      // The constructor accepts any well-formed code, so ask Intl which it knows.
+      if (!Intl.supportedValuesOf("currency").includes(currency)) throw new Error();
       money = new Intl.NumberFormat(rail.startsWith("ach") ? "en-US" : "en-GB", { style: "currency", currency });
     } catch {
       throw new Error("statement.currency must be an ISO 4217 code");

@@ -116,6 +116,11 @@ test("the reference is folded before it is measured", () => {
   const o = run(stmt(), [inv("A", 10, { reference: "Müller–Söhne 12345" })]);
   assertEquals(o.referenceLines, ["MULLER SOHNE 12345"]);
   assertEquals((o.referenceLines as string[])[0].length, 18);
+  // 24 raw characters, 18 once folded: measuring before folding would reject it.
+  const wide = run(stmt(), [inv("A", 10, { reference: "Müller  –  Söhne   12345" })]);
+  assertEquals(wide.referenceLines, ["MULLER SOHNE 12345"]);
+  const nfd = run(stmt(), [inv("A", 10, { reference: "Müller–Söhne 12345".normalize("NFD") })]);
+  assertEquals(nfd.referenceLines, ["MULLER SOHNE 12345"]);
 });
 
 test("a list too long for the rail falls to the RF or the account tag", () => {
@@ -236,7 +241,8 @@ test("zero outcomes", () => {
   const z = run(stmt(), items);
   assertEquals([z.outcome, z.net, z.rows, z.referenceLines, z.referenceRule], ["clear", "", [], [], null]);
   assertEquals(z.creditsNote, "Payment P1 (£150.00) is set against your oldest invoices first. It clears A and B.");
-  assertEquals(run(stmt(), [inv("A", 0.004)]).outcome, "clear");
+  const tiny = run(stmt(), [inv("A", 0.004)]);
+  assertEquals([tiny.outcome, tiny.creditsNote, tiny.rows], ["clear", null, []]);
   for (const none of [[], undefined]) {
     const o = run(stmt(), none);
     assertEquals([o.outcome, o.creditsNote, o.disputedNote, o.perItemNote], ["clear", null, null, null]);
@@ -256,6 +262,7 @@ test("invalid input throws, naming the field", () => {
   throws({ ...stmt(), rail: "wire" }, [ok], "statement.rail");
   throws({ ...stmt("sepa"), currency: "GBP" }, [ok], "statement.currency");
   throws({ ...stmt(), currency: "XX" }, [ok], "statement.currency");
+  throws({ ...stmt("swift"), currency: "ABC" }, [ok], "statement.currency");
   throws(stmt(), [ok, { ...ok }], "duplicates");
   throws({ ...stmt(), customerNumber: "  " }, [ok], "statement.customerNumber");
   throws({ ...stmt(), date: "30/11/2026" }, [ok], "statement.date");
