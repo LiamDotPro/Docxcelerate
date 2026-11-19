@@ -1,14 +1,7 @@
-import {
-  arrange,
-  Cell,
-  Paragraph,
-  Row,
-  Section,
-  type Section as SectionComponent,
-  Table,
-  useDeriver,
-  useState,
-} from "docxcelerate/template";
+import { arrange, Paragraph, Section, type Section as SectionComponent, useDeriver, useState } from "docxcelerate/template";
+import type { CisInvoiceDeductionLines } from "../arrangements/cis-invoice-deduction/lines.ts";
+import { stacked } from "../arrangements/cis-invoice-deduction/stacked.arrangement.tsx";
+import { table } from "../arrangements/cis-invoice-deduction/table.arrangement.tsx";
 import cisInvoiceDeduction from "../derivers/cis-invoice-deduction.deriver.ts";
 
 /**
@@ -40,7 +33,9 @@ import cisInvoiceDeduction from "../derivers/cis-invoice-deduction.deriver.ts";
  * application passes the same figure.
  *
  * Arrangement: where the lines sit is a separate choice from what they say.
- * Every arrangement prints the same lines under the same conditions.
+ * This file decides every line; each arrangement, in
+ * `arrangements/cis-invoice-deduction/`, only places them, so every
+ * arrangement prints the same lines under the same conditions.
  *
  * Installed by `dxcl add cis-invoice-deduction`, which also installs its deriver.
  */
@@ -138,66 +133,25 @@ export const CisInvoiceDeduction: SectionComponent<CisInvoiceDeductionProps> = a
   const [customer] = useState((data: CisInvoiceDeductionData) => data.customer);
   const cis = await useDeriver(cisInvoiceDeduction, [invoice, supplier, customer]);
 
+  const lines: CisInvoiceDeductionLines = {
+    gross: cis.gross,
+    materials: cis.materials,
+    plantHire: cis.plantHire,
+    consumables: cis.consumables,
+    labour: cis.labour,
+    vatLabel: cis.vatLabel,
+    vatValue: cis.vatValue,
+    cisLabel: cis.cisLabel,
+    cisDeduction: cis.cisDeduction,
+    payable: cis.payable,
+  };
+
   return (
     <Section id="cis-deduction" title="CIS deduction">
       {cis.warning && <Paragraph id="cis-deduction-warning">{cis.warning}</Paragraph>}
       {arrange(arrangement, {
-        table: () => (
-          <Table id="cis-deduction-lines" columns={[{ width: "auto" }, { width: 45, align: "right" }]}>
-            <Row id="cis-deduction-gross">
-              <Cell>Gross amount, excluding VAT</Cell>
-              <Cell>{cis.gross}</Cell>
-            </Row>
-            <Row id="cis-deduction-materials">
-              <Cell>Less materials at cost</Cell>
-              <Cell>{cis.materials}</Cell>
-            </Row>
-            {cis.plantHire && (
-              <Row id="cis-deduction-plant-hire">
-                <Cell>Less plant hire</Cell>
-                <Cell>{cis.plantHire}</Cell>
-              </Row>
-            )}
-            {cis.consumables && (
-              <Row id="cis-deduction-consumables">
-                <Cell>Less consumables</Cell>
-                <Cell>{cis.consumables}</Cell>
-              </Row>
-            )}
-            <Row id="cis-deduction-labour">
-              <Cell>Labour subject to CIS</Cell>
-              <Cell>{cis.labour}</Cell>
-            </Row>
-            {cis.vatLabel && (
-              <Row id="cis-deduction-vat">
-                <Cell>{cis.vatLabel}</Cell>
-                <Cell>{cis.vatValue}</Cell>
-              </Row>
-            )}
-            <Row id="cis-deduction-cis">
-              <Cell>Less {cis.cisLabel}</Cell>
-              <Cell>{cis.cisDeduction}</Cell>
-            </Row>
-            <Row id="cis-deduction-payable">
-              <Cell>Amount payable</Cell>
-              <Cell>{cis.payable}</Cell>
-            </Row>
-          </Table>
-        ),
-        stacked: () => (
-          <>
-            <Paragraph id="cis-deduction-gross">Gross amount, excluding VAT: {cis.gross}</Paragraph>
-            <Paragraph id="cis-deduction-materials">Less materials at cost: {cis.materials}</Paragraph>
-            {cis.plantHire && <Paragraph id="cis-deduction-plant-hire">Less plant hire: {cis.plantHire}</Paragraph>}
-            {cis.consumables && (
-              <Paragraph id="cis-deduction-consumables">Less consumables: {cis.consumables}</Paragraph>
-            )}
-            <Paragraph id="cis-deduction-labour">Labour subject to CIS: {cis.labour}</Paragraph>
-            {cis.vatLabel && <Paragraph id="cis-deduction-vat">{cis.vatLabel}: {cis.vatValue}</Paragraph>}
-            <Paragraph id="cis-deduction-cis">Less {cis.cisLabel}: {cis.cisDeduction}</Paragraph>
-            <Paragraph id="cis-deduction-payable">Amount payable: {cis.payable}</Paragraph>
-          </>
-        ),
+        table: () => table(lines),
+        stacked: () => stacked(lines),
       })}
       {supplier.verificationNumber && (
         <Paragraph id="cis-deduction-verification">

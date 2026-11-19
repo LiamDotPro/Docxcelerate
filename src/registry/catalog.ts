@@ -1159,7 +1159,7 @@ export const COMPONENTS: RegistryComponent[] = [
       { path: "customer.cisRegistered", type: "boolean", summary: "Required when VAT is charged at 20% or 5%." },
       { path: "customer.endUserNotified", type: '"end-user" | "intermediary" | undefined', summary: "Written notice that takes the invoice out of the reverse charge. Missing means reverse charge." },
     ],
-    files: node("cis-invoice-deduction", { deriver: true }),
+    files: node("cis-invoice-deduction", { deriver: true, arrangements: ["table", "stacked"] }),
     previewData: {
       invoice: {
         grossExVat: 486250.75,
