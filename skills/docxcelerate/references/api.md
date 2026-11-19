@@ -118,6 +118,7 @@ Notes worth knowing:
   both sides and bound — the reference belongs at the *outside* edge of each, so
   a folio in the same place on every sheet sits in the gutter on half of them.
   Naming either makes `header` and `footer` the right-hand page's.
+  Like every strip, they publish: a `{{data.…}}` token or a deriver in one is settled per document by the engine.
 - `Graph.data` is `{ categories?: string[], series: { label?, values: (number
   | null)[], color?, sizes? }[] }`. A `null` value is a gap in the plot, not a
   zero — a month nobody measured is not a month that measured nothing. A series

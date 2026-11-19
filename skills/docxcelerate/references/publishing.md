@@ -48,6 +48,8 @@ import { dataRef, derive, Paragraph, useState } from "docxcelerate/document";
 `useFormat` and `useDeriver` compute **during the build**, which is right whenever
 the value is already known. Reach for a `derivers` prop when it is not.
 
+Tokens and `derivers` work the same in running furniture as in the body. `header`, `footer`, `firstHeader` / `firstFooter` and `evenHeader` / `evenFooter` are all settled per document, and a deriver used only in one of them is bundled with the rest. A reference on every page of a duplex statement is written once, in the strip, not repeated in the body.
+
 ### 2. Loops are published as loops
 
 A branch has two arms and both can be published. A loop has as many arms as the

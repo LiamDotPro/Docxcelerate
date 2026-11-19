@@ -241,6 +241,7 @@ decision that depends on request data has to travel to the engine instead:
 - **Interpolating** a value publishes fine — it becomes a `{{data.x}}` token.
   **Computing** on one does not; use a **deriver**, which the engine runs per
   document. Never hand-write a `{{data.…}}` token; interpolation produces it.
+  This holds in every header and footer, the first-page and even-page ones included.
 - **A preview never waits.** It is rebuilt on every save, so generated nodes show
   the placeholder `useAi` required and derivers that declared a `placeholder`
   stand in rather than run. Cheap derivers still run, so the figures are real.

@@ -383,3 +383,55 @@ test("a shape produced by a loop gives each pass its own ids", async () => {
   assertEquals(lines.map((node) => node.id), ["banner-line-0", "banner-line-1"]);
   assertEquals(texts(lines), ["First", "Second"]);
 });
+
+const gt0 = {
+  type: "compare",
+  operator: "gt",
+  left: { type: "ref", ref: { scope: "data", path: "balanceDue" } },
+  right: { type: "literal", value: 0 },
+} as const;
+
+test("even-page furniture resolves like the rest of the furniture", async () => {
+  const doc = await resolveDocument(
+    {
+      ...published([]),
+      evenHeader: [paragraph("eh", "Ref {{data.reference}}")],
+      evenFooter: [
+        paragraph("ef", "Due {{derived.due}}", {
+          derivers: [{
+            name: "currencyLabel",
+            output: "due",
+            inputs: [{ type: "ref", ref: { scope: "data", path: "balanceDue" } }],
+          }],
+        }),
+      ],
+    },
+    engineState({ reference: "INV-1", balanceDue: 240 }),
+    {
+      derivers: createDeriverRegistry({
+        currencyLabel: ([amount]) => `£${Number(amount).toFixed(2)}`,
+      }),
+    },
+  );
+
+  assertEquals(texts(doc.evenHeader!), ["Ref INV-1"]);
+  assertEquals(texts(doc.evenFooter!), ["Due £240.00"]);
+});
+
+test("absent even furniture stays absent, and an empty one stays empty", async () => {
+  const absent = await resolveDocument(published([]), engineState({}));
+  const empty = await resolveDocument({ ...published([]), evenHeader: [] }, engineState({}));
+
+  assertEquals(absent.evenHeader, undefined);
+  assertEquals(absent.evenFooter, undefined);
+  assertEquals(empty.evenHeader, []);
+});
+
+test("a condition in even furniture is evaluated per document", async () => {
+  const model = { ...published([]), evenFooter: [paragraph("ef", "Owing", { when: gt0 })] };
+  const clear = await resolveDocument(model, engineState({ balanceDue: 0 }));
+  const owing = await resolveDocument(model, engineState({ balanceDue: 240 }));
+
+  assertEquals(clear.evenFooter, []);
+  assertEquals(owing.evenFooter!.length, 1);
+});

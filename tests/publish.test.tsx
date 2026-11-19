@@ -8,6 +8,7 @@ import {
   resolveDocument,
 } from "docxcelerate";
 import type { DocumentNode, ParagraphNode, RepeatNode, RuntimeState } from "docxcelerate";
+import { partNames, partXml, textOf } from "./docx.ts";
 import {
   __compare,
   __test,
@@ -739,4 +740,44 @@ test("a decision inside a loop body is carried per entry, not per document", asy
     type: "truthy",
     ref: { scope: "ctx", path: "lines.taxable" },
   });
+});
+
+test("an even footer's token publishes, settles, and reaches the even footer part", async () => {
+  function Folio() {
+    const [reference] = useState((data: InvoiceData) => data.reference);
+    return <Paragraph id="ef">Ref {reference}</Paragraph>;
+  }
+
+  const built = await buildDocument(
+    template<InvoiceData>(
+      <Document
+        id="duplex"
+        title="Duplex"
+        footer={<Paragraph id="f">Recto</Paragraph>}
+        evenFooter={<Folio />}
+      >
+        <Paragraph id="b">Body</Paragraph>
+      </Document>,
+    ),
+    createPublishData() as InvoiceData,
+    {
+      branchMode: "publish",
+      deriverMode: "preserve",
+      dynamicMode: "resolve",
+      aiClient: { generateParagraph: () => "" },
+    },
+  );
+
+  assertEquals((built.evenFooter![0] as ParagraphNode).text, "Ref {{data.reference}}");
+
+  const resolved = await resolveAgainst(built, invoice);
+
+  assertEquals((resolved.evenFooter![0] as ParagraphNode).text, "Ref INV-2026-0142");
+
+  const names = (await partNames(resolved)).filter((name) => /^word\/footer\d+\.xml$/.test(name));
+  const footers = await Promise.all(names.map(async (name) => textOf(await partXml(resolved, name))));
+
+  assertEquals(footers.includes("Ref INV-2026-0142"), true);
+  assertEquals(footers.some((text) => text.includes("{{")), false);
+  assertStringIncludes(await partXml(resolved, "word/settings.xml"), "<w:evenAndOddHeaders/>");
 });
