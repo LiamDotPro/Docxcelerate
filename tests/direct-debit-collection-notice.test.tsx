@@ -234,6 +234,10 @@ function texts(nodes: DocumentNode[]): string[] {
   });
 }
 
+// Passes are numbered (dd-notice-guarantee-0, ...), so an exact id never appears.
+const printedGuarantee = (got: string[]) =>
+  got.filter((id) => id.startsWith("dd-notice-guarantee-") && id !== "dd-notice-guarantee-missing").length;
+
 const dataOf = (debit: Obj, issuedAt = "2027-03-08") => ({ debit, document: { issuedAt } });
 const built = async (debit: Obj, issuedAt?: string, arrangement?: "stacked" | "table") =>
   (await buildDocument(document(arrangement), dataOf(debit, issuedAt), { dynamicMode: "placeholder" })).nodes;
@@ -264,7 +268,7 @@ test("Bacs without approved text warns", async () => {
   for (const guaranteeText of [undefined, [], ["", "x"]]) {
     const got = await idsOf({ ...bacs, guaranteeText }, "2026-12-14");
     assertEquals(got.includes("dd-notice-guarantee-missing"), true);
-    assertEquals(got.includes("dd-notice-guarantee"), false);
+    assertEquals(printedGuarantee(got), 0);
   }
 });
 
@@ -301,8 +305,8 @@ test("the arrangements differ but print the same details", async () => {
 });
 
 // Publishing, then resolving by an engine that only has the bundle.
-const published = () =>
-  buildDocument(document(), createPublishData() as ReturnType<typeof dataOf>, {
+const published = (arrangement?: "stacked" | "table") =>
+  buildDocument(document(arrangement), createPublishData() as ReturnType<typeof dataOf>, {
     branchMode: "publish",
     deriverMode: "preserve",
     dynamicMode: "resolve",
@@ -314,23 +318,26 @@ test("publishing carries the deriver invocation", async () => {
   assertStringIncludes(JSON.stringify(doc.nodes), "directDebitCollectionNotice");
 });
 
-for (const [name, debit, issuedAt, absent] of [
-  ["SEPA", sepa, "2027-03-08", "dd-notice-guarantee"],
-  ["Bacs", bacs, "2026-12-14", "dd-notice-sepa-refund"],
-] as const) {
-  test(`${name}: resolving the published document matches the local build`, async () => {
-    const data = dataOf(debit, issuedAt);
-    const state: RuntimeState = {
-      ctx: { ...data },
-      derived: {},
-      dataProvider: new InMemoryDataProvider(data),
-      aiClient: { generateParagraph: () => "" },
-    };
-    const resolved = await resolveDocument(await published(), state, { derivers: registry });
-    const direct = await buildDocument(document(), data, { dynamicMode: "placeholder" });
-    assertEquals(texts(resolved.nodes), texts(direct.nodes));
-    assertEquals(ids(resolved.nodes).includes(absent), false);
-  });
+for (const arrangement of ["stacked", "table"] as const) {
+  for (const [name, debit, issuedAt, absent] of [
+    ["SEPA", sepa, "2027-03-08", (got: string[]) => printedGuarantee(got) === 0],
+    ["Bacs", bacs, "2026-12-14", (got: string[]) => !got.includes("dd-notice-sepa-refund")],
+    ["ACH", ach, "2026-11-19", (got: string[]) => !got.includes("dd-notice-creditor-id")],
+  ] as const) {
+    test(`${arrangement} ${name}: resolving the published document matches the local build`, async () => {
+      const data = dataOf(debit, issuedAt);
+      const state: RuntimeState = {
+        ctx: { ...data },
+        derived: {},
+        dataProvider: new InMemoryDataProvider(data),
+        aiClient: { generateParagraph: () => "" },
+      };
+      const resolved = await resolveDocument(await published(arrangement), state, { derivers: registry });
+      const direct = await buildDocument(document(arrangement), data, { dynamicMode: "placeholder" });
+      assertEquals(texts(resolved.nodes), texts(direct.nodes));
+      assertEquals(absent(ids(resolved.nodes)), true);
+    });
+  }
 }
 
 test("publishing stays within the 13 branches the doc comment states, whichever arrangement", async () => {
