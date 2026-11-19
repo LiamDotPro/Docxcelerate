@@ -135,7 +135,7 @@ Nothing leaves the machine, and the same build gives the same page every time.
 | `Document` | sections and nodes | `id` and `title` both required; one per template; `header`/`footer` take running furniture; `properties` sets the file's author, subject, keywords, description and `custom` values a DMS indexes. Pass a function of the data for a per-document value, e.g. `custom: { invoiceNumber: data.invoice.number }` |
 | `Section` | any nodes, including sections | the **only** container; `title` required and becomes a heading, kept on the page with what follows it |
 | `Paragraph` | text children, or prompts | `text` prop says the same as children; a `\n` in the text is a line break; `list="bullet"` or `"number"` makes it a list item, counted by the renderer; on a numbered item, `listStyle="lowerLetterParen"` (or `upperRoman`, `lowerRomanParen`, …) sets that level's numerals: (a), I., (i) |
-| `Text` | words, inside a `Paragraph`, `Cell` or `Shape` | **not a node** — no `id`. `bold`, `italic`, `underline`, `strike`, `script` (`"superscript"` \| `"subscript"`), `href`. Never a colour or a size |
+| `Text` | words, inside a `Paragraph`, `Cell` or `Shape` | **not a node** — no `id`. `bold`, `italic`, `underline`, `strike`, `script` (`"superscript"` \| `"subscript"`), `href`, `variant` (a theme block name: colour, shading, size, face, weight, caps, tracking). Never a colour or a size |
 | `Image` | `src`, `alt`, `width`, `height`, `align`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below; give one of `width`/`height` and the other keeps the picture's proportions; `align` (`left`/`center`/`right`) places it in the column |
 | `Graph` | `graphType`, `data`, `title`, `alt`, `caption`, `align`, or prompts | packed as a real Word chart, never a picture of one — the numbers travel with it; `align` places a chart narrower than the column, and its caption follows; `alt` is what a screen reader hears |
 | `Table` | `Row`s, and any `.map()` producing them | `columns` declared once, in mm or `"auto"`, with `align`; `align` on the table (`"center"`/`"right"`) moves a narrow one across the column |
@@ -164,6 +164,8 @@ and a name the theme has not heard of draws as an ordinary block rather than
 failing. Never write a colour into a component.
 
 A `<Section variant="schedule">` sets its **heading** from that block — size, weight, `transform`, tracking, colour, `align`, a `border` rule, space before and after, and the keeps — over the theme's `sectionHeading`, and it is still a Heading 1 for the contents. That is how schedule or annex headings are centred capitals while clause headings stay as they are. `transform: "none"` turns off capitals the theme's headings ask for.
+
+`<Text variant="amountDue">` sets a phrase from a theme block, for an amount due inside a sentence or a defined term. Only the block's `color`, `fill`, `fontSizePt`, `weight`, `font`, `transform` and `letterSpacingEm` reach the words. `bold` and the other marks said beside it win.
 
 A block style says `fill`, `color`, `border` (with `borderWidthPt`,
 `borderSides`, `borderStyle`), `paddingPt`, `fontSizePt`, `weight`, `transform`,
