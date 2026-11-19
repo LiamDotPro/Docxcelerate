@@ -779,6 +779,7 @@ async function renderParagraph(
     align: props.align,
     list: listOf(props, id),
     prompts: specs,
+    aiOptions: prompts.aiOptions,
   };
 
   return prune({
@@ -862,6 +863,7 @@ async function renderImage(
     when,
     ...drawn,
     prompts: specs,
+    aiOptions: prompts.aiOptions,
   };
 
   const result = await generateImage(context.aiClient, node, specs, context.state);
@@ -940,6 +942,7 @@ async function renderGraph(
     ...drawn,
     caption: await text(props.caption, context),
     prompts: specs,
+    aiOptions: prompts.aiOptions,
   };
 
   const result = await generateGraph(context.aiClient, node, specs, context.state);

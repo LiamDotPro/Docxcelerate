@@ -5,7 +5,7 @@
  * @module
  */
 
-import type { AiClient, DeriverInvocation, PromptKind, RuntimeState } from "../domain/types.ts";
+import type { AiClient, DeriverInvocation, JsonObject, PromptKind, RuntimeState } from "../domain/types.ts";
 import type { DeriverRegistry } from "../runtime/derivers.ts";
 
 /**
@@ -58,9 +58,11 @@ export interface PromptDraft {
   examplePrompt?: string;
   /** What to show wherever the node has not been written yet. */
   placeholder?: string;
+  /** Settings handed to the engine's client untouched, as the node's `aiOptions`. */
+  aiOptions?: JsonObject;
 }
 
-export const promptPropByKind: Record<PromptKind, keyof PromptDraft> = {
+export const promptPropByKind: Record<PromptKind, Exclude<keyof PromptDraft, "aiOptions" | "placeholder">> = {
   system: "systemPrompt",
   general: "generalPrompt",
   info: "infoPrompt",
