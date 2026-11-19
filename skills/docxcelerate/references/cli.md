@@ -125,6 +125,7 @@ dxcl list components
 | `invoice-document-type` | What an invoice may call itself, and the dates it has to carry. |
 | `tax-treatment-notice` | The mention an invoice's tax treatment requires, or a warning when its ID is missing. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `net-payable-withholdings` | From a Spanish or Italian invoice total to what is actually transferred, after IRPF, ritenuta and split payment. |
 
 ## `dxcl show <id>`
 
