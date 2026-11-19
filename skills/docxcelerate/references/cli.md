@@ -149,6 +149,7 @@ dxcl list components
 | `preferential-origin-statement` | The statement on origin an agreement prescribes, or a warning when its exporter reference is missing. |
 | `dunning-reminder` | A payment reminder that escalates one level at a time, skips disputed or held invoices, and only threatens what you intend. |
 | `open-items-ageing` | Every invoice still open, aged by days past due, with unallocated credit kept out of the buckets. |
+| `nl-collection-costs` | Dutch statutory collection costs, and the fourteen-day letter that makes them due. |
 | `statement-of-account` | Every transaction in a period with a running balance, and what the closing balance means. |
 | `bank-transfer-details` | The one way to pay that fits this payer, checked, with a reference their bank won't cut short. |
 | `direct-debit-collection-notice` | The advance notice a direct debit needs, dated no earlier than its scheme allows. |
