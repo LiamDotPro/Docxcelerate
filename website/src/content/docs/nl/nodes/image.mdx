@@ -13,7 +13,7 @@ import NodeVariants from "../../../../components/NodeVariants.astro";
 
 ## Elk veld is een prop
 
-`src`, `alt`, `width` en `height` accepteren elk een gewone waarde of een functie
+`src`, `alt`, `width`, `height`, `align` en `href` accepteren elk een gewone waarde of een functie
 van je data. Een handtekening die per vestiging verschilt, een logo per merk, een
 foto op kenmerk — het blijft allemaal binnen de node in plaats van een vertakking
 in het template te worden:
@@ -35,6 +35,31 @@ export const Signature: Image = () => {
 
 De optie heet `src`; de opgeloste node noemt het `path`. Klap *Waartoe het wordt
 opgelost* open bij de eerste variant hieronder om het te zien.
+
+## Formaat en plaats
+
+Geef één zijde op en de andere volgt de eigen verhoudingen van het plaatje,
+gelezen uit de PNG, JPEG, GIF of BMP die het draagt (bij een SVG uit zijn
+`fallbackSrc`): `<Image src={logo} width={160} />` is een logo van 160pt in zijn
+echte vorm, geen vierkant. Zonder een van beide zijden is het 120pt breed; met
+beide is het het vak dat je gaf. Een plaatje dat nog geen bytes heeft — een URL,
+een prompt die nog niet is beantwoord — reserveert een vierkant.
+
+`align="center"` of `"right"` verschuift de eigen regel van het plaatje over de
+kolom. Niets zweeft en geen tekst loopt eromheen. In een cel of een vorm bepaalt
+de uitlijning van de kolom of van de vorm.
+
+## Een plaatje dat linkt
+
+`href` laat het plaatje een adres openen — een QR-code, een Nu-betalen-knop, een
+logo — met Ctrl+klik in Word, een klik in de preview. Dezelfde vier schema's als
+een [`<Text>`-link](/nl/docs/nodes/paragraph/#woorden-anders-gezet); al het
+andere tekent het plaatje zonder link, omdat het adres uit je data kan komen.
+De `alt` is wat een schermlezer voorleest, dus zeg waar het heen gaat:
+
+```tsx
+<Image src={state.qr} alt="Pay invoice 1042 online" width={96} align="right" href={state.payUrl} />
+```
 
 ## Dynamische afbeeldingen
 
