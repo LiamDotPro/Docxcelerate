@@ -261,6 +261,9 @@ async function resolveImage(
   node: ImageNode,
   state: RuntimeState,
 ): Promise<ImageNode> {
+  // Rendered before the client is called, so it sees what a direct build shows it.
+  const alt = node.alt ? await renderTemplate(node.alt, state) : node.alt;
+
   const href = node.href === undefined ? {} : { href: await renderTemplate(node.href, state) };
 
   if (node.mode === "static") {
@@ -268,21 +271,23 @@ async function resolveImage(
       ...node,
       ...href,
       path: node.path ? await renderTemplate(node.path, state) : node.path,
-      alt: node.alt ? await renderTemplate(node.alt, state) : node.alt,
+      alt,
     };
   }
 
   const prompts = await resolvePrompts(node.prompts, state);
-  const result = await generateImage(state.aiClient, { ...node, prompts }, prompts, state);
+  const result = await generateImage(state.aiClient, { ...node, prompts, alt }, prompts, state);
 
   return {
     ...node,
     ...href,
     prompts,
     path: result.path,
-    alt: result.alt,
-    width: result.width,
-    height: result.height,
+    // The size and description the template stated belong to the node, as they
+    // do in a direct build; a client that does not restate them keeps them.
+    alt: result.alt ?? alt,
+    width: result.width ?? node.width,
+    height: result.height ?? node.height,
   };
 }
 
@@ -307,12 +312,14 @@ async function resolveGraph(
   }
 
   const prompts = await resolvePrompts(node.prompts, state);
-  const result = await generateGraph(state.aiClient, { ...node, prompts }, prompts, state);
+  const title = node.title ? await renderTemplate(node.title, state) : node.title;
+  const result = await generateGraph(state.aiClient, { ...node, alt, prompts, title }, prompts, state);
 
   return {
     ...node,
     alt,
     prompts,
+    title,
     graphType: result.graphType ?? node.graphType,
     data: result.data ?? node.data,
     caption: result.caption ?? node.caption,
