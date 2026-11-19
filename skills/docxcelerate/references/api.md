@@ -402,8 +402,13 @@ export const documentStyle: DocumentStyle = {
 ```
 
 `DocumentStyle` covers `preset`, `page` (size `A4` or `LETTER`, orientation,
-margins in mm, and `headerMm` / `footerMm` — how far the running strips stand
-from the *paper's* edge rather than from the margin, 12.5mm unless said), and `firstPageNumber` / `numberStyle` — where page numbering starts (a whole number from 0, default 1) and how it is written (`"decimal"`, `"lowerRoman"`, `"upperRoman"`, `"lowerLetter"`, `"upperLetter"`; default decimal), for an appendix that continues its parent's numbering or front matter numbered i, ii, iii,
+margins in mm, `headerMm` / `footerMm` — how far the running strips stand
+from the *paper's* edge rather than from the margin, 12.5mm unless said — and
+`firstPageNumber` / `numberStyle`: where page numbering starts, a whole number
+from 0 (default 1), and how it is written, `"decimal"` (default),
+`"lowerRoman"`, `"upperRoman"`, `"lowerLetter"` or `"upperLetter"`, for an
+appendix that continues its parent's numbering or front matter numbered
+i, ii, iii),
 `typography` (body and heading font, body size in pt, line
 height, colour), `paragraph` (spacing after, in pt), and `title` and
 `sectionHeading` text blocks (font size, weight, spacing before and after).

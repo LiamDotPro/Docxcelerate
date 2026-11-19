@@ -1,10 +1,9 @@
 import { test } from "node:test";
-import { assertEquals, assertStringIncludes } from "./assert.ts";
+import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
 import { buildDocument } from "docxcelerate";
 import { createDocxDocument } from "docxcelerate/docx";
 import { JSDOM } from "jsdom";
 import { fillPageFields } from "docxcelerate/preview";
-import { assertRejects } from "./assert.ts";
 import { documentXml, partNames, partXml } from "./docx.ts";
 import type { DocumentModel, DocumentStyle } from "docxcelerate";
 import {
