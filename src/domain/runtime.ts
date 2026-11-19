@@ -27,8 +27,11 @@ export interface RuntimeState {
   derived: JsonObject;
   /** Where caller data is read from. */
   dataProvider: DataProvider;
-  /** What writes the content of dynamic nodes. */
-  aiClient: AiClient;
+  /**
+   * What writes the content of dynamic nodes. Absent when none was given, so a
+   * dynamic node fails naming itself rather than inside a stand-in client.
+   */
+  aiClient?: AiClient;
   /**
    * The document's locale, as a BCP 47 tag, when it declared one.
    *
@@ -114,7 +117,9 @@ export interface AiGraphGenerationRequest {
  * `<Graph>` survives a model that only sends numbers. The answer is read the
  * way model JSON is written: a number written as text, such as `"12"`, is a
  * number, and a numeric category is its text. Anything else that is not a
- * chart fails the document with an error naming the node and the field.
+ * chart fails the document with an error naming the node and the field, and
+ * so does an answer that leaves the chart nothing to plot: no `data` on a node
+ * with none of its own, no series, or every value `null`.
  */
 export interface AiGraphResult {
   /** Which chart to draw. */
@@ -135,6 +140,10 @@ export interface AiGraphResult {
  * naming the node. A placeholder is only what a preview build shows instead of
  * asking at all; it never stands in for a missing method.
  *
+ * A method that throws or rejects fails the build or resolve with an
+ * `AiGenerationError` carrying the node's id and kind, and the method's own
+ * error as `cause`.
+ *
  * Every request's `node` arrives with its prompts and the words its template
  * wrote on it already resolved against the request data, on a build and on an
  * engine alike. What the client returns is printed as written: a `{{data.x}}`
@@ -147,7 +156,8 @@ export interface AiClient {
    *
    * @param request The node, its prompts and the state around it.
    * @returns The paragraph text, as a string. It is trimmed and stripped of the
-   * characters XML cannot hold; anything that is not a string fails the node.
+   * characters XML cannot hold; anything that is not a string, or a string with
+   * nothing left once trimmed, fails the node.
    */
   generateParagraph(request: AiGenerationRequest): Promise<string> | string;
   /**
@@ -161,7 +171,8 @@ export interface AiClient {
    * Produces the data for a dynamic chart.
    *
    * @param request The node, its prompts and the state around it.
-   * @returns The series to plot, and optionally the chart type and caption.
+   * @returns The series to plot, and optionally the chart type and caption. At
+   * least one value must be a number, unless the node has data of its own.
    */
   generateGraph?(request: AiGraphGenerationRequest): Promise<AiGraphResult> | AiGraphResult;
 }

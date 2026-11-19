@@ -349,20 +349,21 @@ export async function buildProjectFinalDocument<TData>(
 }
 
 /**
- * The client the engine build is written with. It answers every kind with
- * nothing, so each dynamic node is assembled with its prompts on it and no
- * content, and {@linkcode removeEngineStandIns} takes the empty answers back
- * off. `Required` so a kind the client learns to write later cannot be left
- * off here and fail every publish that uses it.
+ * The client the engine build is written with. A paragraph and a chart get
+ * the smallest answer the checks in `ai_request.ts` accept, since an empty one
+ * is refused, and an image gets nothing; {@linkcode removeEngineStandIns} takes
+ * every one back off, so each dynamic node is published with its prompts on it
+ * and no content. `Required` so a kind the client learns to write later cannot
+ * be left off here and fail every publish that uses it.
  */
 const engineArtifactAiClient: Required<AiClient> = {
-  generateParagraph: () => "",
+  generateParagraph: () => "-",
   generateImage: () => ({ path: "" }),
-  generateGraph: () => ({}),
+  generateGraph: () => ({ data: { series: [{ values: [0] }] } }),
 };
 
 /**
- * Takes the empty answers {@linkcode engineArtifactAiClient} gave back off the
+ * Takes the answers {@linkcode engineArtifactAiClient} gave back off the
  * nodes, at every depth: a cell or a shape holds a generated paragraph as much
  * as a section does, and an engine reading `text: ""` reads it as written.
  */
@@ -379,10 +380,15 @@ function removeEngineStandIns(nodes: DocumentModel["nodes"]): DocumentModel["nod
         );
       }
 
-      if (node.mode === "dynamic" && node.text === "") {
+      if (node.mode === "dynamic") {
         const { text: _text, ...withoutText } = node;
         return withoutText;
       }
+    }
+
+    if (node.kind === "graph" && node.mode === "dynamic") {
+      const { data: _data, ...withoutData } = node;
+      return withoutData;
     }
 
     if (node.kind === "image" && node.mode === "dynamic" && node.path === "") {

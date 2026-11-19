@@ -17,6 +17,7 @@
 
 import type { JsonObject } from "../domain/types.ts";
 import { type PromptDraft, requireInstance } from "./context.ts";
+import type { PromptProps } from "./elements.ts";
 import { isTemplateElement } from "./element.ts";
 import { isPublishValue, publishRefOf } from "./publish.ts";
 
@@ -122,41 +123,46 @@ export interface AiConfig {
 export function useAi(config: AiConfig): PromptDraft {
   const instance = requireInstance("useAi");
 
-  if (typeof config.placeholder !== "string" || config.placeholder.trim() === "") {
-    throw new Error(
-      "useAi needs a placeholder. It is what a reader sees wherever the node has not been " +
-        "written — every preview, every proof, and every document whose generation was " +
-        "skipped or failed. Say what should stand there in one line.",
-    );
-  }
-
-  if (typeof config.ask !== "string" || config.ask.trim() === "") {
-    throw new Error(
-      "useAi needs an `ask`: what the node should say. A node with a voice and no request " +
-        "has nothing to write.",
-    );
-  }
-
-  if (config.options !== undefined) {
-    if (typeof config.options !== "object" || config.options === null || Array.isArray(config.options)) {
-      throw new Error(
-        "useAi `options` must be an object of settings for the engine's client, such as " +
-          '`{ model: "large" }`.',
-      );
-    }
-
-    if (holdsPublishValue(config.options)) {
-      throw new Error(
-        "useAi `options` was handed request data while publishing. Options are fixed when the " +
-          "document is built, and an engine would be sent the token rather than the value. " +
-          "Write the setting itself.",
-      );
-    }
-  }
-
-  Object.assign(instance.prompts, toPromptDraft(config));
+  Object.assign(instance.prompts, toPromptDraft(config, "useAi"));
 
   return { ...instance.prompts };
+}
+
+/**
+ * The prompts {@linkcode useAi} would set, as props to spread on the element.
+ *
+ * For a node written after `await useDeriver(...)`, where no hook can be
+ * called: a hook after an await cannot tell which component it belongs to, but
+ * props say so by where they are written. The deriver's result interpolates
+ * like any value, and in a publish build it writes its own `{{derived.…}}`
+ * token. Props win over what a hook set around the node, as any prompt prop
+ * does.
+ *
+ * @param config What to ask for, what to show until it arrives, and the limits.
+ * @returns The prompt props for the node's element.
+ * @throws If the placeholder or the ask is missing or blank.
+ *
+ * @example
+ * ```tsx
+ * export const Reminder: Paragraph = async () => {
+ *   const [lines] = useState((data: InvoiceData) => data.lines);
+ *   const totals = await useDeriver(invoiceTotals, [lines]);
+ *
+ *   return (
+ *     <Paragraph
+ *       id="reminder"
+ *       {...aiProps({
+ *         ask: `One sentence reminding the reader that ${totals.due} is due.`,
+ *         placeholder: "A one-line reminder of the amount due.",
+ *         from: { due: totals.due },
+ *       })}
+ *     />
+ *   );
+ * };
+ * ```
+ */
+export function aiProps(config: AiConfig): PromptProps {
+  return toPromptDraft(config, "aiProps");
 }
 
 /**
@@ -167,8 +173,43 @@ export function useAi(config: AiConfig): PromptDraft {
  * `negativePrompt` say where they end up. `example` is the one that takes more
  * than one value, and it still lands as one prompt: a node carries a block per
  * kind, so the several are joined here rather than counted everywhere after.
+ *
+ * It refuses a config with no placeholder or no ask, naming whichever of `useAi`
+ * or `aiProps` was called, so both get the same rule and the same reason.
  */
-function toPromptDraft(config: AiConfig): PromptDraft {
+function toPromptDraft(config: AiConfig, caller: string): PromptDraft {
+  if (typeof config.placeholder !== "string" || config.placeholder.trim() === "") {
+    throw new Error(
+      `${caller} needs a placeholder. It is what a reader sees wherever the node has not been ` +
+        "written — every preview, every proof, and every document whose generation was " +
+        "skipped or failed. Say what should stand there in one line.",
+    );
+  }
+
+  if (typeof config.ask !== "string" || config.ask.trim() === "") {
+    throw new Error(
+      `${caller} needs an \`ask\`: what the node should say. A node with a voice and no request ` +
+        "has nothing to write.",
+    );
+  }
+
+  if (config.options !== undefined) {
+    if (typeof config.options !== "object" || config.options === null || Array.isArray(config.options)) {
+      throw new Error(
+        `${caller} \`options\` must be an object of settings for the engine's client, such as ` +
+          '`{ model: "large" }`.',
+      );
+    }
+
+    if (holdsPublishValue(config.options)) {
+      throw new Error(
+        `${caller} \`options\` was handed request data while publishing. Options are fixed when the ` +
+          "document is built, and an engine would be sent the token rather than the value. " +
+          "Write the setting itself.",
+      );
+    }
+  }
+
   const draft: PromptDraft = {
     generalPrompt: config.ask,
     placeholder: config.placeholder,

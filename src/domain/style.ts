@@ -145,6 +145,33 @@ export interface DocumentPageStyle {
    * runs i, ii, iii. Absent, they are decimal.
    */
   numberStyle?: PageNumberStyle;
+  /**
+   * A rule drawn round every page, as a hex colour without the `#`.
+   *
+   * Word's own page border, for the frame of a certificate, a formal notice or a
+   * cover: it is measured from the paper's edge rather than from the text, and
+   * it takes up no room, so nothing on the page moves when it is added. Keep the
+   * margins wider than `borderOffsetMm`, or the text runs under the rule. It is
+   * drawn on all four edges of every page. Nothing is drawn without it.
+   */
+  border?: string;
+  /** The rule's width in points. Defaults to `1`. Draws nothing without `border`. */
+  borderWidthPt?: number;
+  /**
+   * One solid line, two lines, dashes or dots, as on a block. Defaults to
+   * `"single"`. Draws nothing without `border`.
+   */
+  borderStyle?: DocumentBlockStyle["borderStyle"];
+  /**
+   * How far the rule stands in from the paper's edge, in millimetres, to the
+   * rule's outer edge.
+   *
+   * Word holds it in whole points and stops at 31pt, so it is 0 to 11mm; past
+   * that the build throws rather than drawing a frame somewhere it was not asked
+   * for. Absent, it is Word's own 24pt, about 8.5mm, which clears a printer's
+   * unprintable edge.
+   */
+  borderOffsetMm?: number;
 }
 
 /**
