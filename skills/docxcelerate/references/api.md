@@ -60,7 +60,7 @@ interface PromptProps {
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` (points; give one and the other keeps the picture's proportions, neither is 120pt wide) |
 | `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `caption?`, `width?`, `height?` (points), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `dataLabels?` |
 | `Table` | `columns` (required), `children?` |
-| `Row` | `header?`, `children?` |
+| `Row` | `header?`, `keepTogether?`, `children?` |
 | `Cell` | `span?`, `align?`, `children?` |
 | `Shape` | `width?`, `height?` (points), `children?` |
 | `TableOfContents` | `title?` |
@@ -89,6 +89,10 @@ Notes worth knowing:
   none of it is a special case. `header` on a row draws it as a heading; only
   the rows a table *opens* with repeat across pages, so a totals row marked
   `header` stays where it is rather than being lifted above its own figures.
+  `keepTogether` on a row stops Word breaking it across a page — the whole row
+  moves over instead. Put it on the row a `.map()` produces and every line of an
+  invoice or schedule gets it; leave it off a long table's short rows, where a
+  break between them is fine.
 - **`Cell` takes text directly** — `<Cell>{line.qty}</Cell>` is the common case.
   Give it paragraphs when one line is not enough.
 - **`Shape` is a drawn box the words sit on top of**, and takes text directly

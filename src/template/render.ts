@@ -526,6 +526,7 @@ async function renderRow(
     id,
     kind: "tableRow",
     header: props.header ? true : undefined,
+    keepTogether: props.keepTogether ? true : undefined,
     when,
     children: await renderYield(props.children, context, {
       path: `${frame.path}/${id}`,

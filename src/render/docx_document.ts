@@ -1915,7 +1915,12 @@ function renderRow(
     column += span;
   }
 
-  return new TableRow({ tableHeader: repeats, children: cells });
+  // Only when asked: `false` would write `w:cantSplit w:val="false"`, a statement rather than silence.
+  return new TableRow({
+    tableHeader: repeats,
+    cantSplit: row.keepTogether === true ? true : undefined,
+    children: cells,
+  });
 }
 
 /**

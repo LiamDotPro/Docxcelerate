@@ -441,6 +441,17 @@ export interface TableRowNode extends BaseNode {
    * words in the wrong place.
    */
   header?: boolean;
+  /**
+   * Whether the row stays whole on one page rather than breaking across two.
+   *
+   * For a row holding several lines — an invoice line with a wrapped
+   * description, a clause in a schedule — where a break through the middle
+   * leaves half a row at the foot of one page and half at the head of the next.
+   * Word moves the whole row over instead. A row taller than a page breaks
+   * anyway, having nowhere else to go.
+   * Left out, Word may break the row wherever the page ends.
+   */
+  keepTogether?: boolean;
   /** The cells, left to right. */
   children: DocumentNode[];
 }
