@@ -140,6 +140,16 @@ export interface DocumentTextBlockStyle {
    * what a heading at 7pt has to be to read as one.
    */
   letterSpacingEm?: number;
+  /**
+   * Whether this heading refuses to be the last thing on a page.
+   *
+   * On unless set to `false`. A heading whose section starts overleaf is a
+   * heading in the wrong place, and nobody sees it in a preview of page one, so
+   * a document should not have to ask for the fix. Word draws the same
+   * distinction on its own Heading 1. A heading is also never split across a
+   * page, whatever this says, because half a heading is never what was meant.
+   */
+  keepWithNext?: boolean;
 }
 
 /**

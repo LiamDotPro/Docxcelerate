@@ -69,6 +69,15 @@ test("overriding one group leaves the rest of the style alone", () => {
   assertEquals(style.title.fontSizePt, boldBriefTheme.style.title.fontSizePt);
 });
 
+test("a heading's keep can be refused in one group without losing the rest of it", () => {
+  const style = themeStyle(boldBriefTheme, { sectionHeading: { keepWithNext: false } });
+
+  assertEquals(style.sectionHeading.keepWithNext, false);
+  assertEquals(style.sectionHeading.fontSizePt, boldBriefTheme.style.sectionHeading.fontSizePt);
+  // Shipped themes rely on the default.
+  assertEquals(boldBriefTheme.style.sectionHeading.keepWithNext, undefined);
+});
+
 test("the packed file is set from the document style", async () => {
   const doc = themedDocument(legalSerifTheme.id);
   const styles = await partXml(doc, "word/styles.xml");

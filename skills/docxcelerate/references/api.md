@@ -405,7 +405,11 @@ margins in mm, and `headerMm` / `footerMm` — how far the running strips stand
 from the *paper's* edge rather than from the margin, 12.5mm unless said),
 `typography` (body and heading font, body size in pt, line
 height, colour), `paragraph` (spacing after, in pt), and `title` and
-`sectionHeading` text blocks (font size, weight, spacing before and after).
+`sectionHeading` text blocks (font size, weight, spacing before and after, and
+`keepWithNext`). A heading is kept on the page with whatever follows it and never
+split across a page; that is on without asking, and
+`sectionHeading: { keepWithNext: false }` turns the first half off for a theme
+that wants headings to fall where they fall.
 `cleanMinimalDocumentStyle` is the one shipped preset — spread it and override
 what you need. `showTitle: false` stops a renderer printing the document's title
 above the body, for a document whose own letterhead already carries it; the
