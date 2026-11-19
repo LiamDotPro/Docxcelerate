@@ -177,16 +177,19 @@ and a name the theme has not heard of draws as an ordinary block rather than
 failing. Never write a colour into a component.
 
 A `<Section variant="schedule">` sets its **heading** from that block — size,
-weight, `transform`, tracking, colour, `align`, a `border` rule, space before
+weight, italic, `transform`, tracking, colour, `align`, a `border` rule, space before
 and after, and the keeps — over the theme's `sectionHeading`, and it is still a
 Heading 1 for the contents. That is how schedule or annex headings are centred
 capitals while clause headings stay as they are. `transform: "none"` turns off
-capitals the theme's headings ask for.
+capitals the theme's headings ask for. `transform: "smallCaps"` sets small
+capitals. A heading variant cannot undo the other casing the theme's
+`sectionHeading` sets; put that casing on `sectionHeading` itself.
 
 `<Text variant="amountDue">` sets a phrase from a theme block, for an amount due
 inside a sentence or a defined term. Only the block's `color`, `fill`,
-`fontSizePt`, `weight`, `font`, `transform` and `letterSpacingEm` reach the
-words. `bold` and the other marks said beside it win.
+`fontSizePt`, `weight`, `italic`, `font`, `transform` and `letterSpacingEm` reach
+the words. `bold` and the other marks said beside it win. A defined term in small
+capitals is `<Text variant="term">` over `term: { transform: "smallCaps" }`.
 
 A variant can be read off the data, so one published document styles each
 recipient and each row differently: `<Cell variant={line.status}>`,
@@ -197,8 +200,8 @@ document is published, every recipient gets the true arm. Interpolate the field
 itself, or use a deriver to produce the name.
 
 A block style says `fill`, `color`, `border` (with `borderWidthPt`,
-`borderSides`, `borderStyle`), `paddingPt`, `fontSizePt`, `weight`, `transform`,
-`letterSpacingEm` and `bleed`. **All of them mean the same thing on screen and
+`borderSides`, `borderStyle`), `paddingPt`, `fontSizePt`, `weight`, `italic`,
+`transform` (`"uppercase"`, `"smallCaps"` or `"none"`), `letterSpacingEm` and `bleed`. **All of them mean the same thing on screen and
 in the `.docx`** — a fill is shading, a border is a real border, a bleed is a
 negative indent past the margin. If a property cannot be expressed in Word it
 does not exist here, because a style that quietly did nothing in the format the

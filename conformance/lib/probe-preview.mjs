@@ -296,6 +296,7 @@ function harnessHtml(bodyFont) {
           color: rcs.color,
           letterSpacing: rcs.letterSpacing === "normal" ? 0 : r2(parseFloat(rcs.letterSpacing)),
           textTransform: rcs.textTransform,
+          fontVariantCaps: rcs.fontVariantCaps,
           runs: runsOf(el),
           // What is drawn in front of a list item. docx-preview draws it as
           // the paragraph's ::before, so it is in no text node and no range:
@@ -1179,6 +1180,7 @@ function missingParagraph(anchor) {
     background: null,
     letterSpacing: null,
     textTransform: null,
+    fontVariantCaps: null,
     textIndent: null,
     computedLineHeight: null,
     marginTop: null,

@@ -276,6 +276,7 @@ function readParagraph(xml, index) {
       bold: toggle(rPr, "w:b"),
       italics: toggle(rPr, "w:i"),
       caps: toggle(rPr, "w:caps"),
+      smallCaps: toggle(rPr, "w:smallCaps"),
       /** Letter spacing, in twips. */
       spacing: childNum(rPr, "w:spacing", "w:val"),
     },
@@ -1320,6 +1321,7 @@ function missingParagraph(anchor) {
       bold: null,
       italics: null,
       caps: null,
+      smallCaps: null,
       spacing: null,
     },
     runs: [],

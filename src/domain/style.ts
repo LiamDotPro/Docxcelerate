@@ -37,8 +37,15 @@ export type DocumentPageOrientation = "portrait" | "landscape";
 /** The weight text is set in. */
 export type DocumentFontWeight = "regular" | "bold";
 
-/** Whether a block of text is printed as written or shifted to capitals. */
-export type DocumentTextTransform = "none" | "uppercase";
+/**
+ * Whether a block of text is printed as written, in capitals, or in small capitals.
+ *
+ * `smallCaps` sets lower-case letters as capitals drawn at x-height and leaves
+ * capitals as they are, the way a defined term or a formal heading is set. Like
+ * `uppercase` it is how the text prints, not what it says: the words in the file
+ * keep the case they were written in.
+ */
+export type DocumentTextTransform = "none" | "uppercase" | "smallCaps";
 
 /**
  * The colours a theme sets, named by the job each one does rather than by the
@@ -175,6 +182,8 @@ export interface DocumentTextBlockStyle {
   fontSizePt: number;
   /** The weight the text is set in. */
   weight: DocumentFontWeight;
+  /** Whether the block is set in italic. Defaults to upright. */
+  italic?: boolean;
   /** Space left above the block, in points. */
   spacingBeforePt: number;
   /** Space left below the block, in points. */
@@ -314,6 +323,14 @@ export interface DocumentBlockStyle {
   fontSizePt?: number;
   /** Weight, for a block that carries emphasis. */
   weight?: DocumentFontWeight;
+  /**
+   * Whether the block is set in italic, for an epigraph, a note or a quotation.
+   *
+   * Omitted means no opinion: the words keep whatever they inherit. `false`
+   * sets them upright inside something that would otherwise be italic. A run's
+   * own `italic` wins over the block's.
+   */
+  italic?: boolean;
   /** Casing. */
   transform?: DocumentTextTransform;
   /** Letter spacing in ems, for small capitals that need opening up. */

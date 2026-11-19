@@ -3,7 +3,7 @@ import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { buildDocument } from "docxcelerate";
 import { documentXml, elementOf, partXml } from "./docx.ts";
 import type { DocumentModel, DocumentStyle } from "docxcelerate";
-import { Document, PageBreak, Paragraph, Section, template } from "docxcelerate/template";
+import { Cell, Document, PageBreak, Paragraph, Row, Section, Table, template, Text } from "docxcelerate/template";
 
 /**
  * What a paragraph can be told to do, and what Word is handed when it is.
@@ -70,6 +70,12 @@ const style: DocumentStyle = {
     },
     /** A signature block: a name, then a date halfway across. */
     signature: { tabStopsMm: [{ at: 90 }] },
+    /** An epigraph: italic, nothing else. */
+    epigraph: { italic: true },
+    /** A defined term, or a formal heading, in small capitals. */
+    smallCaps: { transform: "smallCaps" },
+    /** Full capitals, to lay over small ones. */
+    shout: { transform: "uppercase" },
     /** A bleed still wins over an indent — the two are different intentions. */
     bleedingQuote: { bleed: true, indentMm: 10 },
   },
@@ -583,4 +589,164 @@ test("the model carries a section's variant", async () => {
 
   assertEquals(model.nodes[0]?.kind, "section");
   assertEquals(model.nodes[0]?.variant, "schedule");
+});
+
+// ---------------------------------------------------------------------------
+// Italic and small capitals
+// ---------------------------------------------------------------------------
+
+/** The packed run holding this anchor, whole, so a test can say what it has and lacks. */
+function runOf(xml: string, anchor: string): string {
+  return [...xml.matchAll(/<w:r>[\s\S]*?<\/w:r>/g)].map((m) => m[0]).find((r) => r.includes(anchor)) ?? "";
+}
+
+test("a block's italic reaches the paragraph's runs", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="p" variant="epigraph">Epigraph.</Paragraph>
+      </Document>,
+    ),
+  );
+
+  assertStringIncludes(runOf(xml, "Epigraph."), "<w:i/>");
+  assertStringIncludes(runOf(xml, "Epigraph."), "<w:iCs/>");
+});
+
+test("small capitals are w:smallCaps with no w:caps", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="p" variant="smallCaps">Clause.</Paragraph>
+      </Document>,
+    ),
+  );
+
+  assertStringIncludes(runOf(xml, "Clause."), "<w:smallCaps/>");
+  assertEquals(runOf(xml, "Clause.").includes("<w:caps"), false);
+});
+
+test("a run's own italic wins over an italic block", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="p" variant="epigraph">
+          An italic note with one <Text italic={false}>upright</Text> word.
+        </Paragraph>
+      </Document>,
+    ),
+  );
+
+  assertStringIncludes(runOf(xml, "upright"), '<w:i w:val="false"/>');
+  assertStringIncludes(runOf(xml, "An italic note"), "<w:i/>");
+});
+
+test("a phrase variant in small capitals leaves the words around it alone", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="p">Meaning <Text variant="smallCaps">Services</Text> here</Paragraph>
+      </Document>,
+    ),
+  );
+
+  assertStringIncludes(runOf(xml, "Services"), "<w:smallCaps/>");
+  assertEquals(runOf(xml, "Meaning").includes("<w:smallCaps"), false);
+  assertEquals(runOf(xml, "here").includes("<w:smallCaps"), false);
+});
+
+test("a run's casing replaces the paragraph's as a pair", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="p" variant="smallCaps">Set <Text variant="shout">LOUD</Text> here</Paragraph>
+      </Document>,
+    ),
+  );
+
+  assertStringIncludes(runOf(xml, "LOUD"), "<w:caps/>");
+  assertEquals(runOf(xml, "LOUD").includes("<w:smallCaps"), false);
+  assertStringIncludes(runOf(xml, "Set"), "<w:smallCaps/>");
+});
+
+test("a section variant sets its heading in small capitals", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Section id="s" title="Schedule" variant="smallCaps" />
+      </Document>,
+    ),
+  );
+  const heading = elementOf(xml, "w:p", "Schedule");
+
+  assertStringIncludes(heading, '<w:pStyle w:val="Heading1"/>');
+  assertStringIncludes(heading, "<w:smallCaps/>");
+});
+
+test("a theme's title and section heading can be italic and in small capitals", async () => {
+  const model = await build(
+    <Document id="d" title="D">
+      <Section id="s" title="Schedule" />
+    </Document>,
+  );
+  const styles = await partXml({
+    ...model,
+    style: {
+      ...style,
+      title: { ...style.title, italic: true },
+      sectionHeading: { ...style.sectionHeading, transform: "smallCaps", italic: true },
+    },
+  }, "word/styles.xml");
+  const heading = styleOf(styles, "Heading1");
+
+  assertStringIncludes(heading, "<w:i/>");
+  assertStringIncludes(heading, "<w:smallCaps/>");
+  assertEquals(heading.includes("<w:caps"), false);
+  assertStringIncludes(styleOf(styles, "Title"), "<w:i/>");
+});
+
+test("a theme that says neither renders as it did", async () => {
+  const model = await build(
+    <Document id="d" title="D">
+      <Section id="s" title="Plain" />
+      <Paragraph id="p">Body.</Paragraph>
+    </Document>,
+  );
+  const xml = await documentXml(model);
+  const styles = await partXml(model, "word/styles.xml");
+
+  assertEquals(elementOf(xml, "w:p", "Plain"), PLAIN_HEADING.replace("%", "Plain"));
+  for (const id of ["Heading1", "Title"]) {
+    assertStringIncludes(styleOf(styles, id), '<w:caps w:val="false"/>');
+    assertEquals(/<w:i[/ >]|<w:smallCaps/.test(styleOf(styles, id)), false);
+  }
+  assertEquals(/<w:i[/ >]|<w:smallCaps/.test(runOf(xml, "Body.")), false);
+});
+
+test("a cell's variant reaches its words, and small capitals beat a header row's capitals", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Table id="t" columns={[{}]}>
+          <Row id="h" header><Cell id="hc" variant="smallCaps">Head</Cell></Row>
+          <Row id="r"><Cell id="c" variant="epigraph">Note</Cell></Row>
+        </Table>
+      </Document>,
+    ),
+  );
+
+  assertStringIncludes(runOf(xml, "Head"), "<w:smallCaps/>");
+  assertEquals(runOf(xml, "Head").includes("<w:caps"), false);
+  assertStringIncludes(runOf(xml, "Note"), "<w:i/>");
+});
+
+test("the style travels as data", async () => {
+  const model = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p" variant="epigraph">Epigraph.</Paragraph>
+    </Document>,
+  );
+
+  assertEquals(model.nodes[0]?.variant, "epigraph");
+  assertEquals(model.style?.blocks?.epigraph?.italic, true);
 });

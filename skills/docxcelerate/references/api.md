@@ -90,7 +90,7 @@ Notes worth knowing:
   is drawn in the theme's accent. Either way it is underlined, so a link on a
   dark band stays readable. To make a phrase stand out, name a theme block:
   `The amount due is <Text variant="amountDue">£1,240.00</Text>.` The block's
-  `color`, `fill` (shading behind the words), `fontSizePt`, `weight`, `font`,
+  `color`, `fill` (shading behind the words), `fontSizePt`, `weight`, `italic`, `font`,
   `transform` and `letterSpacingEm` apply. Borders, padding and spacing do not.
   An unknown name prints plain, and an inner `variant` replaces an outer one.
   A line end (`\n`) in a paragraph's text is a line break, not a new
@@ -587,7 +587,7 @@ appendix that continues its parent's numbering or front matter numbered
 i, ii, iii),
 `typography` (body and heading font, body size in pt, line
 height, colour), `paragraph` (spacing after, in pt), and `title` and
-`sectionHeading` text blocks (font size, weight, spacing before and after, and
+`sectionHeading` text blocks (font size, weight, `italic`, `transform` (`"uppercase"` \| `"smallCaps"` \| `"none"`), spacing before and after, and
 `keepWithNext`). A heading is kept on the page with whatever follows it and never
 split across a page; that is on without asking, and
 `sectionHeading: { keepWithNext: false }` turns the first half off for a theme
@@ -609,6 +609,8 @@ blocks: {
   badge: { fill: "FBF0DC", border: "E5C78A", color: "8A5A06", fontSizePt: 7,
            weight: "bold", transform: "uppercase", letterSpacingEm: 0.1, paddingPt: 5 },
   quote: { indentMm: 10, indentRightMm: 10 },
+  epigraph: { italic: true, indentMm: 40, align: "right" },
+  term: { transform: "smallCaps" },
   heading: { keepWithNext: true, spacingBeforePt: 18, spacingAfterPt: 4 },
   contentsLine: { tabStopsMm: [{ at: 170, align: "right", leader: "dot" }] },
 }
@@ -620,7 +622,7 @@ blocks: {
 | `color` | text colour, and the colour of any link in the block |
 | `border`, `borderWidthPt`, `borderSides`, `borderStyle` | a border, on all four edges unless sides are named. `borderStyle` is `"single"` (default) \| `"double"` \| `"dashed"` \| `"dotted"` and applies to every drawn edge — a double rule under a total, a dashed tear-off line. Paragraphs and cells only; a `<Shape>` outline is always solid |
 | `paddingPt` | the gap between a drawn border and the text. Word records it on the border, so a block with a fill and no border cannot be padded — see below |
-| `fontSizePt`, `weight`, `transform`, `letterSpacingEm`, `font`, `lineHeight` | how the text is set. `transform: "none"` turns capitals off where a heading or header row would otherwise use them |
+| `fontSizePt`, `weight`, `italic`, `transform`, `letterSpacingEm`, `font`, `lineHeight` | how the text is set. `italic: false` sets words upright inside italic. `transform` is `"uppercase"`, `"smallCaps"` (small capitals, for defined terms and formal headings) or `"none"`, which turns capitals off where a heading or header row would otherwise use them |
 | `align` | `"left" \| "center" \| "right" \| "justify"`. A node's own `align` wins |
 | `spacingBeforePt`, `spacingAfterPt` | space above and below, in points |
 | `indentMm`, `indentRightMm` | inset from the left and right margins |
@@ -665,7 +667,7 @@ Only the paragraph's own variant draws a border or fill on it; the cell's stays
 on the cell. A tab leader inside a `Shape` draws in Word; the preview shows the
 gap without the dots.
 
-A section's `variant` styles its printed heading, not its children. The heading takes the block's `fontSizePt`, `weight`, `transform`, `letterSpacingEm`, `color`, `font`, `align`, `border`/`borderWidthPt`/`borderSides`/`paddingPt`, `spacingBeforePt`, `spacingAfterPt`, `keepWithNext` and `keepLines`. Anything the block leaves out comes from `sectionHeading`, and it stays a Heading 1, so the contents still lists it. Fill, indents, bleed, measure, leading and tab stops are not applied to a heading. With `showTitle={false}` there is no heading and the variant does nothing.
+A section's `variant` styles its printed heading, not its children. The heading takes the block's `fontSizePt`, `weight`, `italic`, `transform`, `letterSpacingEm`, `color`, `font`, `align`, `border`/`borderWidthPt`/`borderSides`/`paddingPt`, `spacingBeforePt`, `spacingAfterPt`, `keepWithNext` and `keepLines`. Anything the block leaves out comes from `sectionHeading`, and it stays a Heading 1, so the contents still lists it. Fill, indents, bleed, measure, leading and tab stops are not applied to a heading. A heading variant cannot undo the other casing the theme's `sectionHeading` sets; put that casing on `sectionHeading` itself. With `showTitle={false}` there is no heading and the variant does nothing.
 
 ```tsx
 <Section id="schedule-1" title="Schedule 1: Services" variant="schedule">…</Section>
