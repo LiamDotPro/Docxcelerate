@@ -147,7 +147,7 @@ keeps every request on `.requests` so a test can assert what each node asked.
 | `Graph` | `graphType`, `data`, `title`, `alt`, `caption`, `align`, or prompts | packed as a real Word chart, never a picture of one — the numbers travel with it; `align` places a chart narrower than the column, and its caption follows; `alt` is what a screen reader hears; `valueAxisMin`/`valueAxisMax`/`valueAxisStep` fix the value axis when small changes must show. With prompts, the `caption` written here stays unless the model sends its own |
 | `Table` | `Row`s, and any `.map()` producing them | `columns` declared once, in mm or `"auto"`, with `align`; `align` on the table (`"center"`/`"right"`) moves a narrow one across the column |
 | `Row` | `Cell`s | `header` marks a heading row; only *leading* ones repeat across pages. `keepTogether` keeps a multi-line row whole on one page. `height` (pt) is a floor; `heightRule="exact"` fixes it and clips what overflows |
-| `Cell` | text, or paragraphs when a line is not enough | `span`, and `align` when it departs from its column |
+| `Cell` | text, or paragraphs when a line is not enough | `span`, and `align` when it departs from its column; `textDirection="up"` (reads bottom to top) or `"down"` turns its words on their side, for a heading over a narrow column or a side label; the row grows to fit them |
 | `TableOfContents` | nothing | a marker; renderers print the title and stop |
 | `PageBreak` | nothing | for a break that is part of what the document *is* |
 | `PageNumber` | nothing | `format` (`current`/`total`/`currentOfTotal`) and `separator`; counted by the renderer, from `style.page.firstPageNumber` in `style.page.numberStyle` (roman, letters) when set |

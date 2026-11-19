@@ -8,6 +8,7 @@
  */
 
 import type {
+  CellTextDirection,
   DocumentProperties,
   GraphData,
   GraphLegend,
@@ -425,6 +426,14 @@ export interface CellProps extends CommonElementProps {
   span?: number;
   /** Alignment, when this cell departs from its column's. */
   align?: TableAlign;
+  /**
+   * Turns the cell's words on their side. Horizontal unless it is said.
+   *
+   * For a heading over a column too narrow to hold it across — a day on a rota,
+   * a requirement in a compliance grid — or a label down the side of a form.
+   * The row grows to fit the turned words; give it a `height` for an even depth.
+   */
+  textDirection?: CellTextDirection;
   /**
    * What the cell holds.
    *

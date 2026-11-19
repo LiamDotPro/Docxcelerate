@@ -29,12 +29,14 @@ import {
   TableLayoutType,
   TableRow,
   TabStopType,
+  TextDirection,
   TextRun,
   VerticalAlign,
   WidthType,
 } from "docx";
 import type { IParagraphStyleOptions, IParagraphStylePropertiesOptions } from "docx";
 import type {
+  CellTextDirection,
   DocumentBlockStyle,
   DocumentModel,
   DocumentNode,
@@ -1998,6 +2000,7 @@ function renderRow(
       new TableCell({
         columnSpan: span > 1 ? span : undefined,
         verticalAlign: verticalAlignOf(block),
+        textDirection: child.textDirection === undefined ? undefined : textDirections[child.textDirection],
         shading: fill === undefined ? undefined : { type: ShadingType.CLEAR, fill },
         borders: blockBorders(block, "cell") ??
           (block?.borderSides?.length === 0
@@ -2158,6 +2161,11 @@ function trackingOf(em: number, size: number | undefined, style: DocumentStyle):
 
   return Math.round(em * sizePt * 20);
 }
+
+const textDirections: Record<CellTextDirection, (typeof TextDirection)[keyof typeof TextDirection]> = {
+  up: TextDirection.BOTTOM_TO_TOP_LEFT_TO_RIGHT,
+  down: TextDirection.TOP_TO_BOTTOM_RIGHT_TO_LEFT,
+};
 
 const alignments: Record<TableAlign, (typeof AlignmentType)[keyof typeof AlignmentType]> = {
   left: AlignmentType.LEFT,

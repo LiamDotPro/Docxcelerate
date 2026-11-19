@@ -395,6 +395,8 @@ function harnessHtml(bodyFont) {
 
                   background: cs.backgroundColor,
                   verticalAlign: cs.verticalAlign,
+                  writingMode: cs.writingMode,
+                  transform: cs.transform,
                   textAlign: pcs === null ? null : pcs.textAlign,
 
                   paddingLeft: r2(parseFloat(cs.paddingLeft) || 0),
@@ -1138,6 +1140,8 @@ function missingCell(anchor) {
     h: null,
     background: null,
     verticalAlign: null,
+    writingMode: null,
+    transform: null,
     textAlign: null,
     paddingLeft: null,
     paddingTop: null,
