@@ -344,6 +344,12 @@ function variantAxis(component) {
  * The component once per value of its axis, the rest of the preview data
  * unchanged. The value the preview data already holds reuses the render made
  * for it rather than drawing it twice.
+ *
+ * Flipping one field leaves the rest of the data as it was, and that can be
+ * data the component is right to refuse: a New Zealand invoice with a line
+ * still marked GST-free, a UK invoice with VAT in złoty. Such a value is left
+ * out of the previews rather than failing the build. The component's own
+ * preview data still has to render, and its tests are what hold it to that.
  */
 async function renderVariants(component, render, base) {
   const axis = variantAxis(component);
@@ -355,9 +361,21 @@ async function renderVariants(component, render, base) {
     const previewData = structuredClone(component.previewData);
     writePath(previewData, axis.path, value);
 
-    const { page, nodes } = value === axis.selected ? base : await render(previewData);
-    values.push({ value, previewData, resolved: nodes, page });
+    if (value === axis.selected) {
+      values.push({ value, previewData, resolved: base.nodes, page: base.page });
+      continue;
+    }
+
+    try {
+      const { page, nodes } = await render(previewData);
+      values.push({ value, previewData, resolved: nodes, page });
+    } catch (error) {
+      console.log(`registry: component ${component.id} refuses ${axis.path}="${value}" on its preview data, no preview: ${error.message}`);
+    }
   }
+
+  // One value left is the preview the page already shows, not a choice.
+  if (values.length < 2) return null;
 
   return { path: axis.path, selected: axis.selected, values };
 }
