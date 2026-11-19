@@ -585,6 +585,31 @@ export type DocumentNode =
   | RepeatNode;
 
 /**
+ * What a document says about itself to the software that files it — Word's
+ * File > Info, Explorer and Finder, and any DMS that indexes on properties.
+ *
+ * Written to `docProps/core.xml` and `docProps/custom.xml`. None of it is
+ * printed. The title is not here: it is the document's own `title`, and is
+ * written as the file's title whether or not it is printed.
+ */
+export interface DocumentProperties {
+  /** Who the document is from — Word's Author, and its Last Modified By. */
+  author?: string;
+  /** What the document is about, in a phrase. */
+  subject?: string;
+  /** Words to find it by, as one string — Word shows them as Tags. */
+  keywords?: string;
+  /** A longer note about the document — Word's Comments. */
+  description?: string;
+  /**
+   * Named values a DMS can index and filter on, such as an invoice number.
+   * Every value is text. One that comes out empty is left out of the file,
+   * rather than filed as a blank.
+   */
+  custom?: Record<string, string>;
+}
+
+/**
  * A built document: the JSON an engine is handed to write one copy from.
  *
  * @example Rendering a built document to a DOCX blob
@@ -621,6 +646,8 @@ export interface DocumentModel {
   locale?: string;
   /** Anything the caller wants to carry alongside the document. */
   metadata?: JsonObject;
+  /** What the file says about itself, beyond its title. Absent writes only the title. */
+  properties?: DocumentProperties;
   /** The body of the document, in order. */
   nodes: DocumentNode[];
   /**

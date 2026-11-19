@@ -132,7 +132,7 @@ Nothing leaves the machine, and the same build gives the same page every time.
 
 | Element | Holds | Notes |
 | --- | --- | --- |
-| `Document` | sections and nodes | `id` and `title` both required; one per template; `header`/`footer` take running furniture |
+| `Document` | sections and nodes | `id` and `title` both required; one per template; `header`/`footer` take running furniture; `properties` sets the file's author, subject, keywords, description and `custom` values a DMS indexes. Pass a function of the data for a per-document value, e.g. `custom: { invoiceNumber: data.invoice.number }` |
 | `Section` | any nodes, including sections | the **only** container; `title` required and becomes a heading |
 | `Paragraph` | text children, or prompts | `text` prop says the same as children; a `\n` in the text is a line break; `list="bullet"` or `"number"` makes it a list item, counted by the renderer |
 | `Text` | words, inside a `Paragraph`, `Cell` or `Shape` | **not a node** — no `id`. `bold`, `italic`, `underline`, `strike`, `href`. Never a colour or a size |
@@ -248,6 +248,7 @@ decision that depends on request data has to travel to the engine instead:
 - **Interpolating** a value publishes fine — it becomes a `{{data.x}}` token.
   **Computing** on one does not; use a **deriver**, which the engine runs per
   document. Never hand-write a `{{data.…}}` token; interpolation produces it.
+- **`<Document properties>` reads data only as a function** — `properties={(data: MyData) => ({ … })}`. Interpolation publishes as a token, like anywhere else; a computed value cannot reach it.
 - **A preview never waits.** It is rebuilt on every save, so generated nodes show
   the placeholder `useAi` required and derivers that declared a `placeholder`
   stand in rather than run. Cheap derivers still run, so the figures are real.

@@ -21,7 +21,7 @@ import type {
 import type { TemplateElement } from "./template/element.ts";
 import type { DocumentProps } from "./template/elements.ts";
 import { isPublishValue } from "./template/publish.ts";
-import { renderDocumentChildren, renderDocumentFurniture } from "./template/render.ts";
+import { renderDocumentChildren, renderDocumentFurniture, renderDocumentProperties } from "./template/render.ts";
 
 /**
  * Turning a template into a document: what a build is given, and what it hands
@@ -120,12 +120,15 @@ export async function buildDocument<TData>(
     context,
   );
 
+  const properties = await renderDocumentProperties(props, context);
+
   return {
     schemaVersion: "docxcelerate.letter/v0",
     id: template.id,
     title: template.title,
     ...(locale === undefined ? {} : { locale }),
     metadata: template.metadata,
+    ...(properties === undefined ? {} : { properties }),
     nodes,
     header,
     footer,

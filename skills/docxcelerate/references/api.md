@@ -53,7 +53,7 @@ interface PromptProps {
 
 | Element | Own props |
 | --- | --- |
-| `Document` | `id` (required), `title` (required), `metadata?`, `header?`, `footer?`, `firstHeader?`, `firstFooter?`, `evenHeader?`, `evenFooter?`, `children?` |
+| `Document` | `id` (required), `title` (required), `metadata?`, `properties?`, `header?`, `footer?`, `firstHeader?`, `firstFooter?`, `evenHeader?`, `evenFooter?`, `children?` |
 | `Section` | `title` (required), `children?` |
 | `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0) |
 | `Text` | `bold?`, `italic?`, `underline?`, `strike?`, `href?` (`https:`, `http:`, `mailto:` or `tel:`), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
@@ -295,6 +295,21 @@ lets a component decide what it is later, with data in hand. A template lives at
 module scope where no data exists, so structure that depends on data belongs in
 a component.
 
+`properties` is what the file says about itself — never printed, read by Word's
+File > Info, Explorer, Finder and DMS indexes. The title is the document's own
+`title`. Give an object, or a function of the data when a value differs per
+document:
+
+```ts
+interface DocumentProperties {
+  author?: string;       // Author and Last Modified By; absent writes none
+  subject?: string;
+  keywords?: string;     // one string — Word shows it as Tags
+  description?: string;  // Word's Comments
+  custom?: Record<string, string>;  // text only; an empty value is left out
+}
+```
+
 ## `defineDocumentProject`
 
 ```ts
@@ -368,6 +383,7 @@ interface DocumentModel {
   title: string;
   style?: DocumentStyle;
   metadata?: JsonObject;
+  properties?: DocumentProperties;   // docProps; tokens settled by resolveDocument
   nodes: DocumentNode[];
   header?: DocumentNode[];   // running furniture, drawn on every page
   footer?: DocumentNode[];

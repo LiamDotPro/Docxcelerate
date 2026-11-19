@@ -1,5 +1,6 @@
 import type {
   Condition,
+  DocumentProperties,
   DeriverInvocation,
   DocumentNode,
   GraphData,
@@ -22,6 +23,7 @@ import type {
 } from "../domain/types.ts";
 import { evaluateCondition, invertCondition } from "../runtime/conditions.ts";
 import { runDerivers } from "../runtime/derivers.ts";
+import { renderProperties } from "../runtime/templates.ts";
 import type { BranchProps } from "./branch.ts";
 import {
   type RenderContext,
@@ -79,6 +81,23 @@ export async function renderDocumentChildren(
   context: RenderContext,
 ): Promise<DocumentNode[]> {
   return await renderYield(props.children, context, { path: "" });
+}
+
+/**
+ * The document's properties, settled against the build's data.
+ *
+ * A function is called once, like a `useState` initializer, and its strings go
+ * through `requiredText` so a published value becomes a token the engine fills.
+ */
+export async function renderDocumentProperties(
+  props: DocumentProps,
+  context: RenderContext,
+): Promise<DocumentProperties | undefined> {
+  if (props.properties === undefined) return undefined;
+  const properties = typeof props.properties === "function"
+    ? (props.properties as (data: unknown) => DocumentProperties)(context.data)
+    : props.properties;
+  return await renderProperties(properties, (value) => requiredText(value, context));
 }
 
 /**
