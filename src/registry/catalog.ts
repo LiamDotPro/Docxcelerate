@@ -1127,6 +1127,58 @@ export const COMPONENTS: RegistryComponent[] = [
   },
   {
     kind: "component",
+    id: "voucher-redemption-lines",
+    title: "Voucher and coupon redemptions",
+    summary: "Vouchers, coupons and gift cards placed where their tax treatment puts them: above the tax or below the total.",
+    detail:
+      "The totals under an invoice's lines, with every voucher, coupon and gift card placed where its tax treatment puts it. " +
+      "A retailer's coupon, and in the US a free promotional card, reduces the taxable amount: it is spread across the VAT or " +
+      "sales-tax bands of the lines it applies to by largest remainder, so the parts add up to the coupon exactly, and it never " +
+      "takes a line below zero. A single-purpose voucher had its VAT accounted for when it was sold, so the part it covers is " +
+      "shown as paid by voucher and left out of the VAT analysis rather than taxed twice. A multi-purpose voucher and a gift " +
+      "card are payments: tax is charged on the full price and they reduce only the amount due. A US manufacturer's coupon " +
+      "leaves the pre-coupon price taxable unless the seller says its state treats it as a discount. Excess value on a voucher " +
+      "or card is printed as a remaining balance, never as change or a negative amount due. All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "invoice", "receipt", "vat", "sales-tax", "voucher", "coupon", "table", "deriver", "branching"],
+    exports: ["VoucherRedemptionLines"],
+    dataFields: [
+      { path: "sale.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required." },
+      { path: "sale.jurisdiction", type: '"UK" | "EU" | "US"', summary: "Whose voucher and tax rules apply, and which kinds are allowed. Required." },
+      { path: "sale.manufacturerCouponsReduceBase", type: "boolean | undefined", summary: "US: the state treats a manufacturer coupon as a discount. Missing taxes the pre-coupon price." },
+      { path: "sale.lines", type: "Array<{ key: string; netMinor: number; ratePercent: number }>", summary: "Pre-tax line amounts in minor units and their rates. Not printed. Required, non-empty." },
+      {
+        path: "sale.redemptions",
+        type:
+          'Array<{ kind: "spv" | "mpv" | "discount-coupon" | "retailer-coupon" | "manufacturer-coupon" | "gift-card" | "promo-card"; amountMinor: number; appliesToLineKeys?: string[]; code?: string; spvRatePercent?: number }>',
+        summary: "Every voucher, coupon or card used, in the order presented. Missing prints plain totals.",
+      },
+    ],
+    files: node("voucher-redemption-lines", { deriver: true }),
+    previewData: {
+      sale: {
+        currency: "GBP",
+        jurisdiction: "UK",
+        lines: [
+          { key: "spa-weekend", netMinor: 124999, ratePercent: 20 },
+          { key: "treatment-package", netMinor: 84950, ratePercent: 20 },
+          { key: "childrens-car-seat", netMinor: 18999, ratePercent: 5 },
+          { key: "printed-guidebooks", netMinor: 4500, ratePercent: 0 },
+        ],
+        redemptions: [
+          {
+            kind: "discount-coupon", amountMinor: 25000, code: "LOYALTY-ANNIVERSARY-25-OFF-2026",
+            appliesToLineKeys: ["spa-weekend", "treatment-package", "childrens-car-seat"],
+          },
+          { kind: "spv", amountMinor: 60000, appliesToLineKeys: ["spa-weekend"], spvRatePercent: 20, code: "SPA-GIFT-VOUCHER-0004817-UK" },
+          { kind: "mpv", amountMinor: 200000, code: "HIGH-STREET-GIFT-CARD-9921-3348-7710" },
+        ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
     id: "prepaid-hours-drawdown",
     title: "Prepaid hours drawdown",
     summary: "Time entries drawn against prepaid hour blocks soonest-expiring first, with overage, rollover and lapsed hours in a ledger.",
