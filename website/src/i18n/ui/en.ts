@@ -69,8 +69,6 @@ export const en = {
       "contents. Take advantage of our engine to generate documents at scale.",
     ctaStart: "Get started →",
     ctaHowItWorks: "How it works",
-    copyInstall: "Copy install command",
-    copy: "Copy",
     copied: "Copied",
     copyFallback: "Press ⌘C",
     /** {hash} is the full integrity hash. */
@@ -78,6 +76,26 @@ export const en = {
     /** Accessible name for the registry marks beside the version. */
     onNpm: "Docxcelerate on npm",
     onJsr: "Docxcelerate on JSR",
+
+    /** The hero's switch between the two builds of the document it shows. */
+    builds: {
+      label: "One template · two builds",
+      engine: "Engine",
+      preview: "Preview",
+      engineCaption: "Engine: the highlighted parts were written for this client by a model, and the decision was its call. Every figure is computed, never generated.",
+      previewCaption: "Preview: the same template on your machine. Generated parts show their placeholders, nothing is sent anywhere, and the page renders the same on every save.",
+    },
+
+    /** §1: one paragraph followed from source to preview to the engine. */
+    source: {
+      title: "Source. Preview. Document.",
+      lead: "One paragraph of the portfolio review, followed from the file you write to the page your client opens. The preview never waits for a model and nothing leaves your machine; the engine writes the real sentence per person.",
+      sourceLabel: "source",
+      previewLabel: "preview",
+      sourceNote: "Written once, in your repo. The prompt lives beside the node it fills.",
+      previewNote: "Rebuilt on every save. Generated nodes show their placeholder.",
+      engineNote: "Written per recipient. The sentences around it never move.",
+    },
 
     points: {
       authoring: {
@@ -88,15 +106,6 @@ export const en = {
           "already know the shape of this: props, composition, small files. A " +
           "frontend engineer is productive on the first afternoon rather than " +
           "learning a template language first.",
-      },
-      ai: {
-        label: "AI",
-        title: "AI at the component level",
-        body:
-          "AI goes in through hooks, inside the components you already write. A " +
-          "component hands the model its context and what you want written, so it " +
-          "produces that one part of the document while everything around it stays " +
-          "deterministic. You decide how much is generated, a component at a time.",
       },
       changeControl: {
         label: "Change control",
@@ -140,6 +149,8 @@ export const en = {
         "with a lot the free version does not have, and is coming soon.",
       ctaHow: "How the engine works →",
       ctaCloud: "Managed cloud",
+      /** {count} is a number of documents. */
+      volume: "{count} reviews this quarter",
       steps: {
         build: {
           title: "Build",
@@ -157,75 +168,7 @@ export const en = {
       },
     },
 
-    scale: {
-      eyebrow: "Enterprise",
-      title: "Built for the reports you already write by hand",
-      lead:
-        "A firm producing the same report hundreds of times a month already has " +
-        "the layout and most of the wording. What changes is the person it is " +
-        "written for. Rebuild that report as components, keep every run identical, " +
-        "and hand a model only the parts that depend on who is reading it.",
-      traits: {
-        volume: {
-          title: "One template, every recipient",
-          body:
-            "Publish the template once, then call it per person. One report or a " +
-            "hundred thousand is the same call, repeated.",
-        },
-        determinism: {
-          title: "The same document every time",
-          body:
-            "Anything you did not mark as generated renders identically on every " +
-            "run. Only the parts you chose can vary.",
-        },
-        integration: {
-          title: "Called by the systems you run",
-          body:
-            "Your CRM, case system or billing platform posts its data and gets a " +
-            ".docx back. Nobody exports a spreadsheet or opens Word.",
-        },
-        reproducibility: {
-          title: "Reproducible a year later",
-          body:
-            "Templates are versioned, so any document can be rebuilt from the same " +
-            "template and the same data. An audit gets a build, not an archive.",
-        },
-      },
-    },
 
-    openSource: {
-      eyebrow: "Open source",
-      title: "Open source, and built to stay that way",
-      bodyOne:
-        "The framework, the renderers, the node model and the CLI are MIT licensed " +
-        "and developed in the open. Read the code that writes your documents, fork " +
-        "it, or vendor it into your own build.",
-      bodyTwo:
-        "The engine is free to self-host, so running documents at scale never " +
-        "depends on a vendor staying in business or a price list staying the same. " +
-        "Our paid cloud adds the premium features on top of that same free core, so " +
-        "hosting and enterprise scale are ready from the first document you write. " +
-        "It is the convenience, not the way in.",
-      ctaSource: "View the source →",
-      ctaNpm: "See it on npm",
-
-      /**
-       * The labels around the licence drawn beside the copy. The licence text
-       * itself is not here: it is the licence, and a translated licence is a
-       * different one. "LICENSE" and "MIT" are the file and the licence by
-       * name, so they are not here either.
-       */
-      licence: {
-        /** Page count on a one-page document. */
-        pages: "1 of 1",
-        /** {year} is substituted at render time. */
-        copyright: "Copyright (c) {year} Docxcelerate",
-        fork: "Fork it",
-        vendor: "Vendor it",
-        ship: "Ship it",
-        read: "Read it →",
-      },
-    },
 
     docs: {
       eyebrow: "Documentation",
@@ -263,47 +206,6 @@ export const en = {
       },
     },
 
-    /**
-     * The skill itself is Markdown read out of the repository at build time, so
-     * only the words around it are here. It stays English in every language for
-     * the same reason the node catalog does: it is toolkit content, and a
-     * translated copy would be a second one to keep true.
-     */
-    agentSkill: {
-      eyebrow: "Agent skills",
-      title: "Hand the whole thing to your agent",
-      lead:
-        "One Markdown file teaches a coding agent how documents are put together " +
-        "here: the component model, the rules that catch agents out, and every " +
-        "command. Drop it in and ask for a document instead of writing the first " +
-        "one yourself.",
-      /** Names the picker for a screen reader; the tabs themselves are products. */
-      where: "Where the file goes",
-      copySkill: "Copy the skill",
-      references:
-        "It is plain Markdown, and four reference files sit beside it in " +
-        "skills/docxcelerate/.",
-      /**
-       * One line each, keyed by the agent ids in AgentSkill.astro. Paths and
-       * product names stay as they are typed; only the sentence around them is
-       * translated.
-       */
-      agents: {
-        "claude-code":
-          "Copy the folder into .claude/skills/ for one project, or " +
-          "~/.claude/skills/ for all of them. It loads itself when a document " +
-          "project turns up.",
-        "cursor":
-          "Save it as a rule file and Cursor reads it in that project. Or " +
-          "@-mention the file in chat when you want it.",
-        "copilot":
-          "Paste it into .github/copilot-instructions.md and Copilot applies it " +
-          "across the repository.",
-        "agents-md":
-          "Codex, Gemini CLI, Aider and Cline all read AGENTS.md at the root of " +
-          "the repo. Paste it in, or link to it if your agent opens files.",
-      },
-    },
   },
 
   demo: {
@@ -325,8 +227,10 @@ export const en = {
       housing: "Housing",
       insurance: "Insurance",
       consulting: "Professional services",
+      finance: "Finance",
     },
     documents: {
+      "portfolio-review": "Quarterly portfolio review",
       "offer-of-admission": "Offer of Admission",
       "repairs-appointment": "Repair Appointment",
       "policy-renewal": "Policy Renewal",
@@ -344,6 +248,12 @@ export const en = {
      * this one was built from, for anyone feeding it to an agent.
      */
     viewAsMarkdown: "Read this page as Markdown",
+    /** {version} is the release the page was built against. */
+    renderedAgainst: "Rendered against {version}",
+    previous: "Previous",
+    next: "Next",
+    /** Names the previous/next links at the foot of a page. */
+    pagination: "Previous and next page",
     /**
      * Shown when a page has no translation yet and the English original is
      * standing in for it. Better than a 404, and better than pretending: the
@@ -470,20 +380,25 @@ export const en = {
       heading: "Registry",
       lead:
         "Ready-made themes and components for your document projects. Install one with a single command, then edit it like your own code.",
-      filterByTag: "Filter by tag",
       allTags: "All",
       themesNote: "Installing a theme writes document-style.ts",
-      componentsNote: "Installing a component writes its file into nodes/",
       nodes: "nodes",
       noPreview: "No preview",
       /** Opens the data paths on a component row, and joins filtered tags. */
       readsPrefix: "reads",
-      andJoin: "and",
-      /** {tag} is the tag that matched nothing. */
-      noMatches: "No entries match {tag}.",
-      noMatchesTitle: "No matches",
-      noMatchesNote: "Try a different tag, or clear the filter.",
-      clearFilter: "Clear filter",
+      /** The page's headline; `heading` is the short name the nav uses. */
+      headline: "Start from paper that already works.",
+      /** {themes} and {components} are counts. */
+      counts: "{themes} themes · {components} components",
+      useTheme: "Use theme",
+      selected: "✓ Selected",
+      add: "+ Add",
+      added: "✓ Added",
+      familyLabel: "What it draws",
+      familyNote: "Grouped by what a component resolves to, read from the build — not a label someone maintains.",
+      /** {count} is how many themes and components are picked. */
+      trayCount: "Your install · {count} selected",
+      trayEmpty: "pick a theme or a component",
     },
     themes: {
       title: "Themes",
