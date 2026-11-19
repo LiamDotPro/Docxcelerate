@@ -145,7 +145,7 @@ export const Charges: Section = () => {
           <Cell>Amount</Cell>
         </Row>
         {state.lines.map((line) => (
-          <Row>
+          <Row keepTogether>
             <Cell>
               <Paragraph>{line.desc}</Paragraph>
               <Paragraph variant="muted">{line.meta}</Paragraph>
@@ -161,7 +161,8 @@ export const Charges: Section = () => {
 ```
 
 A cell takes text directly; give it paragraphs only when one line is not enough,
-as the description does above. Mark a totals row `header` to draw it as one — it
+as the description does above. `keepTogether` keeps a wrapped line whole on one
+page. Mark a totals row `header` to draw it as one — it
 stays where it is, because only the rows a table *opens* with repeat onto a new
 page.
 
@@ -224,11 +225,12 @@ as a plain paragraph.
 </Paragraph>
 ```
 
-`bold`, `italic`, `underline`, `strike` and `href`; one inside another takes
+`bold`, `italic`, `underline`, `strike`, `script` and `href`; one inside another takes
 both. An interpolated value inside it publishes as a token and is settled per
 document like any other. `href` must be `https:`, `http:`, `mailto:` or `tel:`
 — anything else prints as plain words. There is no colour or size: a link is
-drawn in the theme's accent, and a whole paragraph is restyled with `variant`.
+drawn in the theme's accent, and a phrase or a whole paragraph is restyled by
+naming a theme block with `variant`.
 
 The same works in a cell: `<Cell>Total <Text bold>due</Text></Cell>`.
 
@@ -523,22 +525,24 @@ prefer putting the value in your data first. If you do await, **every hook must
 be called before the first `await`**:
 
 ```tsx
-import { dataRef, Paragraph, useDeriver, useState } from "docxcelerate/document";
+import { deriver, Paragraph, useDeriver, useState } from "docxcelerate/document";
 import type { TenancyData } from "../types.ts";
 
-export const Summary: Paragraph = async () => {
-  const [state] = useState((data: TenancyData) => ({ ref: data.propertyRef }));
-  const runDeriver = useDeriver("monthsBetween");     // last hook
+const monthsBetween = deriver({
+  name: "monthsBetween",
+  run: (end: string) => Math.round((Date.parse(end) - Date.now()) / 2_629_800_000),
+});
 
-  const months = await runDeriver("monthsRemaining", dataRef("startDate"));
+export const Summary: Paragraph = async () => {
+  const [state] = useState((data: TenancyData) => ({
+    ref: data.propertyRef,
+    end: data.endDate,
+  }));
+  const months = await useDeriver(monthsBetween, [state.end]);
 
   return <Paragraph id="summary">{state.ref}: {String(months)} months remain.</Paragraph>;
 };
 ```
-
-`dataRef` and `derive` live on `docxcelerate` and are re-exported from
-`docxcelerate/document`, not from `/template` — which is why a node that uses
-them imports its elements from `/document` too.
 
 ## Build a document in code
 

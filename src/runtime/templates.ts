@@ -1,4 +1,4 @@
-import type { DataReference, RuntimeState, ValueExpression } from "../domain/types.ts";
+import type { DataReference, DocumentProperties, RuntimeState, ValueExpression } from "../domain/types.ts";
 import { getPath } from "./object_path.ts";
 
 const TEMPLATE_REF_PATTERN = /\{\{\s*(data|ctx|derived)\.([A-Za-z0-9_.-]+)\s*\}\}/g;
@@ -18,6 +18,28 @@ export async function renderTemplate(source: string, state: RuntimeState): Promi
     (rendered, replacement) => rendered.replaceAll(replacement.token, replacement.value),
     source,
   );
+}
+
+/**
+ * Every value a document's properties hold, put through `render` — the same
+ * text either way, so a build and an engine cannot settle them differently.
+ */
+export async function renderProperties(
+  properties: DocumentProperties,
+  render: (value: string) => Promise<string>,
+): Promise<DocumentProperties> {
+  const out: DocumentProperties = {};
+  for (const key of ["author", "subject", "keywords", "description"] as const) {
+    if (properties[key] !== undefined) out[key] = await render(properties[key]);
+  }
+  if (properties.custom !== undefined) {
+    out.custom = Object.fromEntries(
+      await Promise.all(
+        Object.entries(properties.custom).map(async ([name, value]) => [name, await render(value)]),
+      ),
+    );
+  }
+  return out;
 }
 
 export async function resolveValueExpression(
