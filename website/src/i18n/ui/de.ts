@@ -216,7 +216,6 @@ export const de: UiStrings = {
       "Eine echte Dokumentvorschau, live gerendert. Keine Screenshots und keine versteckten Tricks.",
     counts: "{documents} Dokumente · {files} Dateien",
     sectors: {
-      education: "Bildung",
       housing: "Wohnen",
       insurance: "Versicherung",
       consulting: "Dienstleistungen",
@@ -224,7 +223,6 @@ export const de: UiStrings = {
     },
     documents: {
       "portfolio-review": "Quartalsübersicht zum Portfolio",
-      "offer-of-admission": "Zulassungsbescheid",
       "repairs-appointment": "Reparaturtermin",
       "policy-renewal": "Vertragsverlängerung",
       invoice: "Rechnung",

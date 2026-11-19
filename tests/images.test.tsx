@@ -344,6 +344,61 @@ test("inside a cell the column governs, not the picture", async () => {
   assertEquals(paragraph.includes('w:val="right"'), false);
 });
 
+const columnPage = (over = {}) => ({
+  size: "A4",
+  orientation: "portrait",
+  margins: { topMm: 20, rightMm: 20, bottomMm: 20, leftMm: 20 },
+  ...over,
+});
+
+async function styled(node: unknown, pageOver = {}, blocks?: Record<string, unknown>) {
+  return documentXml({
+    ...await build(<Document id="d" title="D">{node as never}</Document>),
+    style: { ...cleanMinimalDocumentStyle, page: columnPage(pageOver), ...(blocks ? { blocks } : {}) },
+  } as never);
+}
+
+const hero = <Image id="m" src={pngWide} alt="M" width="full" />;
+
+test("full keeps its keyword in the model", async () => {
+  const doc = await build(<Document id="d" title="D">{hero}</Document>);
+  assertEquals((doc.nodes[0] as ImageNode).width, "full");
+});
+
+test("full is the text column of the page as turned", async () => {
+  assertStringIncludes(await styled(hero), '<wp:extent cx="6124575" cy="3057525"/>');
+  assertStringIncludes(await styled(hero, { orientation: "landscape" }), '<wp:extent cx="9248775" cy="4629150"/>');
+  assertStringIncludes(await styled(hero, { size: "LETTER" }), '<wp:extent cx="6334125" cy="3162300"/>');
+});
+
+test("full with a height draws exactly that box", async () => {
+  assertStringIncludes(
+    await styled(<Image id="m" src={pngWide} alt="M" width="full" height={100} />),
+    '<wp:extent cx="6124575" cy="1266825"/>',
+  );
+});
+
+test("full in a cell is the inside of the cell", async () => {
+  const xml = await styled(
+    <Table id="t" columns={[{ width: "auto" }, { width: "auto" }]}>
+      <Row><Cell>{hero}</Cell><Cell><Paragraph id="p">x</Paragraph></Cell></Row>
+    </Table>,
+  );
+
+  assertStringIncludes(elementOf(elementOf(xml, "w:tbl", "<w:drawing>"), "w:p", "<w:drawing>"), '<wp:extent cx="2857500" cy="1428750"/>');
+});
+
+test("a card's picture is the column less its padding", async () => {
+  const xml = await styled(
+    <Image id="m" variant="card" src={pngWide} alt="M" width="full" />,
+    {},
+    { card: { border: "D1D5DB", paddingPt: 4 } },
+  );
+
+  assertStringIncludes(xml, '<wp:extent cx="6019800"');
+  assertStringIncludes(elementOf(xml, "w:tbl", "<w:drawing>"), '<w:tblW w:type="dxa" w:w="9638"/>');
+});
+
 // ---------------------------------------------------------------------------
 // A picture that links somewhere
 // ---------------------------------------------------------------------------
