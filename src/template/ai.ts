@@ -17,6 +17,7 @@
 
 import type { JsonObject } from "../domain/types.ts";
 import { type PromptDraft, requireInstance } from "./context.ts";
+import type { PromptProps } from "./elements.ts";
 import { isTemplateElement } from "./element.ts";
 import { isPublishValue, publishRefOf } from "./publish.ts";
 
@@ -112,24 +113,46 @@ export interface AiConfig {
 export function useAi(config: AiConfig): PromptDraft {
   const instance = requireInstance("useAi");
 
-  if (typeof config.placeholder !== "string" || config.placeholder.trim() === "") {
-    throw new Error(
-      "useAi needs a placeholder. It is what a reader sees wherever the node has not been " +
-        "written — every preview, every proof, and every document whose generation was " +
-        "skipped or failed. Say what should stand there in one line.",
-    );
-  }
-
-  if (typeof config.ask !== "string" || config.ask.trim() === "") {
-    throw new Error(
-      "useAi needs an `ask`: what the node should say. A node with a voice and no request " +
-        "has nothing to write.",
-    );
-  }
-
-  Object.assign(instance.prompts, toPromptDraft(config));
+  Object.assign(instance.prompts, toPromptDraft(config, "useAi"));
 
   return { ...instance.prompts };
+}
+
+/**
+ * The prompts {@linkcode useAi} would set, as props to spread on the element.
+ *
+ * For a node written after `await useDeriver(...)`, where no hook can be
+ * called: a hook after an await cannot tell which component it belongs to, but
+ * props say so by where they are written. The deriver's result interpolates
+ * like any value, and in a publish build it writes its own `{{derived.…}}`
+ * token. Props win over what a hook set around the node, as any prompt prop
+ * does.
+ *
+ * @param config What to ask for, what to show until it arrives, and the limits.
+ * @returns The prompt props for the node's element.
+ * @throws If the placeholder or the ask is missing or blank.
+ *
+ * @example
+ * ```tsx
+ * export const Reminder: Paragraph = async () => {
+ *   const [lines] = useState((data: InvoiceData) => data.lines);
+ *   const totals = await useDeriver(invoiceTotals, [lines]);
+ *
+ *   return (
+ *     <Paragraph
+ *       id="reminder"
+ *       {...aiProps({
+ *         ask: `One sentence reminding the reader that ${totals.due} is due.`,
+ *         placeholder: "A one-line reminder of the amount due.",
+ *         from: { due: totals.due },
+ *       })}
+ *     />
+ *   );
+ * };
+ * ```
+ */
+export function aiProps(config: AiConfig): PromptProps {
+  return toPromptDraft(config, "aiProps");
 }
 
 /**
@@ -140,8 +163,26 @@ export function useAi(config: AiConfig): PromptDraft {
  * `negativePrompt` say where they end up. `example` is the one that takes more
  * than one value, and it still lands as one prompt: a node carries a block per
  * kind, so the several are joined here rather than counted everywhere after.
+ *
+ * It refuses a config with no placeholder or no ask, naming whichever of `useAi`
+ * or `aiProps` was called, so both get the same rule and the same reason.
  */
-function toPromptDraft(config: AiConfig): PromptDraft {
+function toPromptDraft(config: AiConfig, caller: string): PromptDraft {
+  if (typeof config.placeholder !== "string" || config.placeholder.trim() === "") {
+    throw new Error(
+      `${caller} needs a placeholder. It is what a reader sees wherever the node has not been ` +
+        "written — every preview, every proof, and every document whose generation was " +
+        "skipped or failed. Say what should stand there in one line.",
+    );
+  }
+
+  if (typeof config.ask !== "string" || config.ask.trim() === "") {
+    throw new Error(
+      `${caller} needs an \`ask\`: what the node should say. A node with a voice and no request ` +
+        "has nothing to write.",
+    );
+  }
+
   const draft: PromptDraft = {
     generalPrompt: config.ask,
     placeholder: config.placeholder,
@@ -156,7 +197,11 @@ function toPromptDraft(config: AiConfig): PromptDraft {
   }
 
   if (config.from !== undefined) {
-    draft.infoPrompt = typeof config.from === "string" ? config.from : describeFacts(config.from);
+    draft.infoPrompt = typeof config.from === "string"
+      ? config.from
+      : isPublishValue(config.from)
+      ? tokenOf(config.from)
+      : describeFacts(config.from);
   }
 
   const examples = collectExamples(config.example);
@@ -211,55 +256,61 @@ function collectExamples(example: string | string[] | undefined): string | undef
  *
  * A publish build hands over stand-ins rather than values, and `JSON.stringify`
  * would call the `toJSON` every stand-in answers. So each one is swapped for its
- * token before the serialiser reaches it, and the token is written unquoted, so
- * whatever the engine substitutes — a name, a number, a whole list — lands as
- * itself rather than as a string with JSON inside it.
+ * token before the serialiser reaches it. The token is a string, so it is quoted
+ * like any other; the engine substitutes the value inside it at resolve.
  */
 function describeFacts(facts: JsonObject): string {
-  const tokens = new Set<string>();
+  return JSON.stringify(withTokens(facts), null, 2);
+}
 
-  const swap = (value: unknown): unknown => {
-    if (isTemplateElement(value)) {
-      throw new Error(
-        "`from` was handed the result of a `.map()` while publishing. A `.map()` over request " +
-          "data publishes a loop, which is a run of nodes rather than a fact. Hand over the " +
-          "collection itself — `from: { lines: data.lines }` — and the model is sent every entry.",
-      );
-    }
-
-    if (!isPublishValue(value)) {
-      return value;
-    }
-
-    if (publishRefOf(value)?.path === "") {
-      throw new Error(
-        "`from` was handed the whole request data while publishing. The engine fills in a " +
-          "named field, not the request itself, so name the facts the node writes from: " +
-          "`from: { period: data.period, lines: data.lines }`.",
-      );
-    }
-
-    // String() rather than the ref, so a filtered collection refuses with its own message.
-    const token = String(value);
-    tokens.add(token);
-    return token;
-  };
-
-  const written = JSON.stringify(swap(facts), (_key, value: unknown) => {
-    if (value === null || typeof value !== "object") {
-      return value;
-    }
-
-    return Array.isArray(value)
-      ? value.map(swap)
-      : Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, swap(entry)]));
-  }, 2);
-
-  let unquoted = written;
-
-  for (const token of tokens) {
-    unquoted = unquoted.replaceAll(JSON.stringify(token), token);
+/**
+ * Swaps each publish stand-in among the facts for the token it stands for.
+ *
+ * `JSON.stringify` reads a value's `toJSON` before any replacer sees it, and a
+ * stand-in answers that as a path segment — so it has to be swapped out first.
+ * Only plain objects and arrays are walked; anything else keeps its own JSON.
+ */
+function withTokens(value: unknown): unknown {
+  if (isTemplateElement(value)) {
+    throw new Error(
+      "`from` was handed the result of a `.map()` while publishing. A `.map()` over request " +
+        "data publishes a loop, which is a run of nodes rather than a fact. Hand over the " +
+        "collection itself — `from: { lines: data.lines }` — and the model is sent every entry.",
+    );
   }
 
-  return unquoted;
+  if (isPublishValue(value)) {
+    return tokenOf(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(withTokens);
+  }
+
+  if (value !== null && typeof value === "object") {
+    const prototype = Object.getPrototypeOf(value);
+
+    if (prototype === Object.prototype || prototype === null) {
+      return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, withTokens(entry)]));
+    }
+  }
+
+  return value;
+}
+
+/**
+ * The token a stand-in stands for, refusing the whole request data, which names no field.
+ *
+ * String() rather than the ref, so a filtered collection refuses with its own message.
+ */
+function tokenOf(value: unknown): string {
+  if (publishRefOf(value)?.path === "") {
+    throw new Error(
+      "`from` was handed the whole request data while publishing. The engine fills in a " +
+        "named field, not the request itself, so name the facts the node writes from: " +
+        "`from: { period: data.period, lines: data.lines }`.",
+    );
+  }
+
+  return String(value);
 }
