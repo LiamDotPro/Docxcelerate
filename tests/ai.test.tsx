@@ -972,7 +972,7 @@ const Reminder = async () => {
   );
 };
 
-const RESOLVE = { dynamicMode: "resolve", aiClient: { generateParagraph: () => "" } } as const;
+const RESOLVE = { dynamicMode: "resolve", aiClient: { generateParagraph: () => "Written." } } as const;
 
 function publishDoc(component: () => unknown): Promise<DocumentModel> {
   const Body = component as () => never;
@@ -990,7 +990,7 @@ function publishDoc(component: () => unknown): Promise<DocumentModel> {
       branchMode: "publish",
       deriverMode: "preserve",
       dynamicMode: "resolve",
-      aiClient: { generateParagraph: () => "" },
+      aiClient: { generateParagraph: () => "Written." },
     },
   );
 }
