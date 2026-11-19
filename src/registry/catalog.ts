@@ -1186,6 +1186,59 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "incoterm-charges-and-customs-value",
+    title: "Incoterm charges and customs value",
+    summary: "Who pays each leg of the journey under the Incoterms rule, and the customs value that follows.",
+    detail:
+      "States the Incoterms 2020 rule with its named place and itemises every cost leg, from export " +
+      "packing to import VAT, by name and amount. Each leg is charged, included in the price or for the " +
+      "buyer's account, as the rule decides, and a buyer's leg never enters the total. From the same split " +
+      "it gives the customs value on the destination's basis: CIF to the place of entry for the EU and UK, " +
+      "with air freight apportioned by the Annex 23-01 percentage, or FOB at the place of export for the " +
+      "US, Canada and Australia, with freight and insurance itemised as 19 CFR 141.86(a)(8) requires. An " +
+      "EXW price gains the buyer's costs to the border, a CIF price loses its freight, and a DDP price " +
+      "gives back its duty. Figures are integer minor units, rounded once. It warns when a sea-only rule " +
+      "is used for air, container or land freight, when the named place is missing, when DDP has the " +
+      "seller paying import VAT, and when a CFR or CPT invoice shows insurance. All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "invoice", "trade", "customs", "incoterms", "table", "deriver", "branching", "section"],
+    exports: ["IncotermChargesAndCustomsValue"],
+    dataFields: [
+      { path: "shipment.incoterm", type: '"EXW" | "FCA" | "FAS" | "FOB" | "CFR" | "CIF" | "CPT" | "CIP" | "DAP" | "DPU" | "DDP"', summary: "The Incoterms 2020 rule. Required." },
+      { path: "shipment.namedPlace", type: "string | undefined", summary: "The named place or port. Missing prints a warning." },
+      { path: "shipment.mode", type: '"sea" | "sea-container" | "air" | "road" | "rail" | "multimodal" | undefined', summary: "How the main carriage travels. Drives the sea-only warning and air apportionment." },
+      { path: "shipment.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required." },
+      { path: "shipment.goodsMinor", type: "number", summary: "Goods price in integer minor units, including any leg marked inPrice. Required." },
+      { path: "shipment.legs", type: "Array<{ kind: IncotermLegKind; amountMinor: number; inPrice?: boolean }>", summary: "One entry per cost leg, any order, one per kind. Missing legs print no row." },
+      { path: "shipment.destination", type: '{ valuationBasis: "cif-border" | "fob-export"; airFreightDutiablePercent?: number }', summary: "How the importing country values goods. Required." },
+    ],
+    files: node("incoterm-charges-and-customs-value", { deriver: true }),
+    previewData: {
+      shipment: {
+        incoterm: "DAP",
+        namedPlace: "Unit 14, Maasvlakte Distribution Park, Europaweg 875, 3199 LD Rotterdam, Netherlands",
+        mode: "sea-container",
+        currency: "EUR",
+        goodsMinor: 128475000,
+        legs: [
+          { kind: "export-packing", amountMinor: 184500, inPrice: true },
+          { kind: "origin-inland", amountMinor: 386000 },
+          { kind: "export-clearance", amountMinor: 42500 },
+          { kind: "origin-terminal", amountMinor: 61800 },
+          { kind: "main-carriage", amountMinor: 1874000 },
+          { kind: "insurance", amountMinor: 154200 },
+          { kind: "destination-terminal", amountMinor: 58700 },
+          { kind: "onward-delivery", amountMinor: 212500 },
+          { kind: "import-duty", amountMinor: 5396000 },
+          { kind: "import-tax", amountMinor: 26791400 },
+        ],
+        destination: { valuationBasis: "cif-border" },
+      },
+    },
+    requires: [],
+  },
 
   {
     kind: "component",

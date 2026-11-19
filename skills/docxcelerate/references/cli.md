@@ -142,6 +142,7 @@ dxcl list components
 | `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
 | `be-consumer-debt-reminder` | A Belgian payment reminder: free the first time, exact deadline, capped agreed costs after. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `incoterm-charges-and-customs-value` | Who pays each leg of the journey under the Incoterms rule, and the customs value that follows. |
 | `de-mahnung-fee` | When each invoice went into Verzug, and what this Mahnung may lawfully charge. |
 | `royalty-earnings-by-format` | Royalty lines per format and price band, split where the period crosses an escalator. |
 | `royalty-reserve-and-recoupment` | The settlement from royalties earned to the amount paid: reserves against returns, advance recoupment and the minimum payment. |
