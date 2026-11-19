@@ -314,8 +314,8 @@ async function resolveGraph(
     alt,
     prompts,
     graphType: result.graphType ?? node.graphType,
-    data: result.data,
-    caption: result.caption,
+    data: result.data ?? node.data,
+    caption: result.caption ?? node.caption,
   };
 }
 
