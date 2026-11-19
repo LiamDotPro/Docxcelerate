@@ -82,7 +82,10 @@ export interface AiImageGenerationRequest {
 
 /** The image an {@linkcode AiClient} produced. */
 export interface AiImageResult {
-  /** Where the image was written. */
+  /**
+   * The picture, as a `data:` URI carrying its bytes. Only that is packed into
+   * Word; a path or URL draws on screen but packs as a note naming the image.
+   */
   path: string;
   /** Alternative text describing it. */
   alt?: string;
