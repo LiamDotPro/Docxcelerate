@@ -3629,6 +3629,77 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "de-mahnung-fee",
+    title: "German Mahnung fee and Verzug status",
+    summary: "When each invoice went into Verzug, and what this Mahnung may lawfully charge.",
+    detail:
+      "For each invoice in a German dunning letter, states since when the debtor " +
+      "is in Verzug and why: a contractual payment date, 30 days after due date " +
+      "and receipt of the invoice (for a consumer only if the invoice warned of " +
+      "it; for a business, from receipt of the goods when the invoice date is " +
+      "unknown), or the first Mahnung after the due date. Deadlines that end on a " +
+      "weekend or public holiday move to the next working day under § 193 BGB, " +
+      "nationwide holidays included. The Mahnung that causes Verzug is free and " +
+      "says so; later ones carry material costs once per letter, capped for " +
+      "consumers with the § 309 Nr. 5 proof clause. A business debtor gets the " +
+      "EUR 40 Pauschale once per invoice, with Mahnung fees credited against it " +
+      "so only the excess is charged; a consumer never does. All of it is one deriver.",
+    category: "Body",
+    tags: ["invoice", "dunning", "germany", "legal", "money", "deriver", "branching", "section"],
+    exports: ["DeMahnungFee"],
+    dataFields: [
+      { path: "mahnung.debtorType", type: '"consumer" | "business"', summary: "Decides the Pauschale, the 30-day rule and the fee cap. Anything else fails the document." },
+      { path: "mahnung.date", type: "string", summary: "ISO 8601 date this Mahnung reaches the debtor. Required." },
+      { path: "mahnung.fee", type: "number | undefined", summary: "Material cost of this letter in euros, charged once. Missing means none; above 2.50 fails for a consumer." },
+      { path: "mahnung.holidays", type: "string[] | undefined", summary: "The debtor's Land holidays, ISO 8601. Nationwide holidays are built in." },
+      {
+        path: "mahnung.invoices",
+        type: "Array<{ number: string; amount: number; dueDate: string; invoiceReceivedDate?: string; goodsReceivedDate?: string; contractPaymentDate?: string; contractPaymentFromEvent?: boolean; verzugWarningOnInvoice?: boolean; mahnungen?: Array<{ date: string; feeCharged?: number }> }>",
+        summary: "Every invoice the letter covers, euros, with earlier Mahnungen. Required and non-empty.",
+      },
+    ],
+    arrangements: [
+      { id: "stacked", title: "Stacked", summary: "Each invoice as a heading with its Verzug, fee and Pauschale lines beneath." },
+      { id: "table", title: "Table", summary: "One row per invoice, with Verzug, fee and Pauschale in columns." },
+    ],
+    files: node("de-mahnung-fee", { deriver: true, arrangements: ["stacked", "table"] }),
+    previewData: {
+      mahnung: {
+        debtorType: "business",
+        date: "2026-11-19",
+        fee: 6.5,
+        holidays: ["2026-11-18"],
+        invoices: [
+          {
+            number: "RE-2026-006233-WARTUNG-Q4-STANDORT-LEIPZIG",
+            amount: 92840.1,
+            dueDate: "2026-10-19",
+            invoiceReceivedDate: "2026-10-19",
+          },
+          {
+            number: "RE-2026-004817/TEILLIEFERUNG-3-RAHMENVERTRAG-NORD",
+            amount: 1284750.0,
+            dueDate: "2026-08-31",
+            contractPaymentDate: "2026-08-31",
+            mahnungen: [
+              { date: "2026-09-15", feeCharged: 6.5 }, { date: "2026-09-29", feeCharged: 6.5 },
+              { date: "2026-10-13", feeCharged: 6.5 }, { date: "2026-10-27", feeCharged: 6.5 },
+              { date: "2026-11-03", feeCharged: 6.5 }, { date: "2026-11-10", feeCharged: 6.5 },
+            ],
+          },
+          {
+            number: "RE-2026-005102-ERSATZTEILE-HYDRAULIK",
+            amount: 486320.75,
+            dueDate: "2026-09-01",
+            invoiceReceivedDate: "2026-09-03",
+          },
+        ],
+      },
+    },
+    requires: [],
+  },
 
   {
     kind: "component",

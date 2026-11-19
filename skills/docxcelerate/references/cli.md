@@ -141,6 +141,7 @@ dxcl list components
 | `vat-place-of-supply` | Whose VAT applies and at what rate, decided before anything is printed. |
 | `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `de-mahnung-fee` | When each invoice went into Verzug, and what this Mahnung may lawfully charge. |
 | `royalty-earnings-by-format` | Royalty lines per format and price band, split where the period crosses an escalator. |
 | `royalty-reserve-and-recoupment` | The settlement from royalties earned to the amount paid: reserves against returns, advance recoupment and the minimum payment. |
 | `good-faith-estimate-comparison` | Each provider's bill against its own good faith estimate, and the dispute rights a $400 overrun gives a self-pay patient. |
