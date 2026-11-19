@@ -10,6 +10,7 @@
 import type {
   DocumentProperties,
   GraphData,
+  GraphDataLabels,
   GraphLegend,
   GraphStacking,
   GraphType,
@@ -374,8 +375,13 @@ export interface GraphProps extends CommonElementProps, PromptProps {
    * picks it. Must be greater than zero.
    */
   valueAxisStep?: number;
-  /** Whether each point prints its own figure. Worth it on a pie, rarely elsewhere. */
-  dataLabels?: boolean;
+  /**
+   * Whether each point prints a label, and what it prints: `"value"`,
+   * `"percent"`, `"category"`, `"categoryAndValue"` or `"categoryAndPercent"`.
+   * `true` prints the share on a pie and the value elsewhere. A percentage
+   * exists only on a pie or a doughnut.
+   */
+  dataLabels?: boolean | GraphDataLabels;
 }
 
 /** Props for the `<Table>` element. */

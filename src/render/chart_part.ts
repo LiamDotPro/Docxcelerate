@@ -21,6 +21,7 @@
 import type {
   DocumentStyle,
   GraphData,
+  GraphDataLabels,
   GraphLegend,
   GraphNode,
   GraphSeries,
@@ -578,6 +579,15 @@ function valuesXml(
   }</c:formatCode><c:ptCount val="${rows}"/>${points}</c:numCache></c:numRef></c:val>`;
 }
 
+/** Which of OOXML's label flags each kind of label turns on. */
+const LABEL_FLAGS: Record<GraphDataLabels, { val: boolean; cat: boolean; percent: boolean }> = {
+  value: { val: true, cat: false, percent: false },
+  percent: { val: false, cat: false, percent: true },
+  category: { val: false, cat: true, percent: false },
+  categoryAndValue: { val: true, cat: true, percent: false },
+  categoryAndPercent: { val: false, cat: true, percent: true },
+};
+
 /**
  * Whether each point prints its own figure.
  *
@@ -585,23 +595,30 @@ function valuesXml(
  * depends on its type — a stacked bar takes `ctr` and a clustered one `outEnd`
  * — and a position the type does not allow is a file Word offers to repair.
  * Saying nothing takes the default, which is the right one for every type.
+ * What a label prints, by contrast, is the document's say: see {@linkcode GraphDataLabels}.
  */
 function dataLabelsXml(node: GraphNode): string {
-  if (node.dataLabels !== true) {
+  if (node.dataLabels === undefined || node.dataLabels === false) {
     return "";
   }
 
-  const percent = node.graphType === "pie" || node.graphType === "doughnut";
+  const pie = node.graphType === "pie" || node.graphType === "doughnut";
+  const flags =
+    LABEL_FLAGS[node.dataLabels === true ? (pie ? "percent" : "value") : node.dataLabels];
+  const bit = (on: boolean) => (on ? 1 : 0);
 
   return `<c:dLbls>${
     node.numberFormat === undefined
       ? ""
       : `<c:numFmt formatCode="${escapeXml(node.numberFormat)}" sourceLinked="0"/>`
   }<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr><c:showLegendKey val="0"/><c:showVal val="${
-    percent ? 0 : 1
-  }"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="${
-    percent ? 1 : 0
-  }"/><c:showBubbleSize val="0"/></c:dLbls>`;
+    bit(flags.val)
+  }"/><c:showCatName val="${bit(flags.cat)}"/><c:showSerName val="0"/><c:showPercent val="${
+    bit(flags.percent)
+  }"/><c:showBubbleSize val="0"/>${
+    // Stated rather than left to Word's default, so the preview and Word agree on it from the file.
+    flags.cat && (flags.val || flags.percent) ? "<c:separator>, </c:separator>" : ""
+  }</c:dLbls>`;
 }
 
 /** The axes a chart type has, ruled in the theme's own hairline. */
