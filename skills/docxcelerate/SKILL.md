@@ -137,6 +137,30 @@ downstream names (`systemPrompt`, `generalPrompt`, `infoPrompt`,
 hook that adds house style to a node it does not own. The same names work as
 props on the element, and a prop wins over what any hook set.
 
+Hooks cannot run after an `await`, so a node whose ask or facts read a
+deriver's result uses `aiProps` instead of `useAi`: the same config, returned as
+props to spread on the element. It refuses a missing `placeholder` or `ask` the
+same way, and in a publish build the deriver's result writes its own
+`{{derived.…}}` token — interpolate it, never hand-write it.
+
+```tsx
+export const Reminder: Paragraph = async () => {
+  const [lines] = useState((data: InvoiceData) => data.lines);
+  const totals = await useDeriver(invoiceTotals, [lines]);
+
+  return (
+    <Paragraph
+      id="reminder"
+      {...aiProps({
+        ask: `One sentence reminding the reader that ${totals.due} is due.`,
+        placeholder: "A one-line reminder of the amount due.",
+        from: { due: totals.due },
+      })}
+    />
+  );
+};
+```
+
 Previews resolve dynamic nodes to their placeholder, never to generated prose.
 Nothing leaves the machine, and the same build gives the same page every time.
 
@@ -146,6 +170,11 @@ fills charts and images with labelled samples. `new ScriptedAiClient({ "tutor-no
 revenue: { data: { … } } })` answers by node id (a repeat's `note-0` falls back
 to `note`), throws listing the ids it knows for any id it has no answer for, and
 keeps every request on `.requests` so a test can assert what each node asked.
+
+A client asking a real model for a chart passes `aiGraphResultSchema` (from
+`docxcelerate`) as the provider's structured-output schema, so the answer comes
+back in exactly the shape `generateGraph` returns. `null` in it keeps what the
+`<Graph>` itself says. See references/api.md for where each provider takes it.
 
 ## The elements
 
@@ -157,9 +186,9 @@ keeps every request on `.requests` so a test can assert what each node asked.
 | `Text` | words, inside a `Paragraph`, `Cell` or `Shape` | **not a node** — no `id`. `bold`, `italic`, `underline` (`true`, or `"double"` for the double rule under a grand total), `strike`, `script` (`"superscript"` \| `"subscript"`), `href`, `variant` (a theme block name: colour, shading, size, face, weight, caps, tracking). Never a colour or a size of its own — `variant` names a theme block that has them |
 | `Image` | `src`, `alt`, `width`, `height`, `align`, `href`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below; give one of `width`/`height` and the other keeps the picture's proportions; `align` (`left`/`center`/`right`) places it in the column; `href` makes the picture a link |
 | `Graph` | `graphType`, `data`, `title`, `alt`, `caption`, `align`, or prompts | packed as a real Word chart, never a picture of one — the numbers travel with it; `align` places a chart narrower than the column, and its caption follows; `alt` is what a screen reader hears; `valueAxisMin`/`valueAxisMax`/`valueAxisStep` fix the value axis when small changes must show. With prompts, the `caption` written here stays unless the model sends its own |
-| `Table` | `Row`s, and any `.map()` producing them | `columns` declared once, in mm or `"auto"`, with `align`; `align` on the table (`"center"`/`"right"`) moves a narrow one across the column |
+| `Table` | `Row`s, and any `.map()` producing them | `columns` declared once, in mm, as a share of the column (`"30%"`) or `"auto"`, with `align`; `align` on the table (`"center"`/`"right"`) moves a narrow one across the column; `keepTogether` keeps a short table (totals, bank details, signatures) whole on one page |
 | `Row` | `Cell`s | `header` marks a heading row; only *leading* ones repeat across pages. `keepTogether` keeps a multi-line row whole on one page. `height` (pt) is a floor; `heightRule="exact"` fixes it and clips what overflows |
-| `Cell` | text, or paragraphs when a line is not enough | `span`, and `align` when it departs from its column |
+| `Cell` | text, or paragraphs when a line is not enough | `span`, and `align` when it departs from its column; `textDirection="up"` (reads bottom to top) or `"down"` turns its words on their side, for a heading over a narrow column or a side label; the row grows to fit them |
 | `TableOfContents` | nothing | a marker; renderers print the title and stop |
 | `PageBreak` | nothing | for a break that is part of what the document *is* |
 | `PageNumber` | nothing | `format` (`current`/`total`/`currentOfTotal`), `prefix` and `separator` for "Page 3 of 10", `align`; a `variant` sets it in the theme's type, numbers included; counted by the renderer, from `style.page.firstPageNumber` in `style.page.numberStyle` (roman, letters) when set |
@@ -239,6 +268,8 @@ The page takes one setting of the same kind: `page.valign: "center"` in
 paragraphs — they stop being right the moment the text changes length. It
 applies to every page, so a short last page moves too; keep it for one-page
 documents.
+
+The page takes a border the same way a block does: `page.border: "1F3A5F"`, with `borderWidthPt`, `borderStyle` and `borderOffsetMm`, draws a rule round every page, set in from the paper's edge — the frame of a certificate, an award or a formal notice. It is Word's page border, so it takes up no room: keep the margins wider than the offset (8.5mm unless said, 0 to 11mm) or the text runs under the rule. Never fake a frame with a bordered table; it frames the text column, not the sheet, and breaks across pages.
 
 A paragraph keeps its own `align`, and its variant's indents, tab stops, border
 and fill, inside a `<Cell>` or `<Shape>` — a dotted `{"Signed\t"}` leader in a
@@ -365,6 +396,9 @@ decision that depends on request data has to travel to the engine instead:
 - **`generateParagraph` returns the text itself**, not a provider's response
   object; anything else fails, naming the node. Return what the model wrote as
   it is — the answer is trimmed and stripped of characters a `.docx` cannot hold.
+  An answer that is empty once trimmed fails, naming the node, and so does a
+  chart answer with no value to plot — return the placeholder or a stock sentence
+  from your client if you want one instead.
 - **A model call that fails rejects with an `AiGenerationError`** (from
   `docxcelerate`) carrying `nodeId`, `kind` and the client's own error as
   `cause`. Catch it around the build or resolve, not inside the client: log

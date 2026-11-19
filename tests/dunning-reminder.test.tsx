@@ -274,7 +274,7 @@ test("publishing keeps every generated arm and points the facts at the deriver",
     branchMode: "publish",
     deriverMode: "preserve",
     dynamicMode: "resolve",
-    aiClient: { generateParagraph: () => "" },
+    aiClient: { generateParagraph: () => "Written." },
   });
   const json = JSON.stringify(published.nodes);
   for (const level of ["first", "second", "final"]) assertStringIncludes(json, `dunning-reminder-opening-${level}`);
@@ -295,14 +295,14 @@ for (const arrangement of ["table", "stacked"] as const) {
       branchMode: "publish",
       deriverMode: "preserve",
       dynamicMode: "resolve",
-      aiClient: { generateParagraph: () => "" },
+      aiClient: { generateParagraph: () => "Written." },
     });
     const resolve = async (data: Obj) => {
       const runtime: RuntimeState = {
         ctx: { ...data },
         derived: {},
         dataProvider: new InMemoryDataProvider(data),
-        aiClient: { generateParagraph: () => "" },
+        aiClient: { generateParagraph: () => "Written." },
       };
       return (await resolveDocument(published, runtime, { derivers: registry })).nodes;
     };
