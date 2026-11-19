@@ -257,6 +257,16 @@ export interface DocumentBlockStyle {
   borderWidthPt?: number;
   /** Which edges the border is drawn on. Defaults to all four. */
   borderSides?: Array<"top" | "right" | "bottom" | "left">;
+  /**
+   * How the border is drawn: one solid line, two lines, dashes or dots.
+   *
+   * A double rule under a grand total and a dashed tear-off line above a
+   * remittance slip are both real Word borders, so they are drawn by the
+   * border's own style rather than by stacking blocks. It applies to every
+   * edge the block draws; it draws nothing without `border`. Defaults to
+   * `"single"`.
+   */
+  borderStyle?: "single" | "double" | "dashed" | "dotted";
   /** Space between the block's edge and its content, in points. */
   paddingPt?: number;
   /**

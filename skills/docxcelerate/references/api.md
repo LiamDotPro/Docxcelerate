@@ -473,6 +473,7 @@ theme decides what that means.
 
 ```ts
 blocks: {
+  grandTotal: { border: "1C2340", borderSides: ["bottom"], borderStyle: "double", weight: "bold" },
   band:  { fill: "F4F6FD", bleed: true, border: "E3E7F5", borderSides: ["bottom"], paddingPt: 10 },
   badge: { fill: "FBF0DC", border: "E5C78A", color: "8A5A06", fontSizePt: 7,
            weight: "bold", transform: "uppercase", letterSpacingEm: 0.1, paddingPt: 5 },
@@ -486,7 +487,7 @@ blocks: {
 | --- | --- |
 | `fill` | background, hex without the `#` |
 | `color` | text colour |
-| `border`, `borderWidthPt`, `borderSides` | a border, on all four edges unless sides are named |
+| `border`, `borderWidthPt`, `borderSides`, `borderStyle` | a border, on all four edges unless sides are named. `borderStyle` is `"single"` (default) \| `"double"` \| `"dashed"` \| `"dotted"` and applies to every drawn edge — a double rule under a total, a dashed tear-off line. Paragraphs and cells only; a `<Shape>` outline is always solid |
 | `paddingPt` | the gap between a drawn border and the text. Word records it on the border, so a block with a fill and no border cannot be padded — see below |
 | `fontSizePt`, `weight`, `transform`, `letterSpacingEm`, `font`, `lineHeight` | how the text is set. `transform: "none"` turns capitals off where a heading or header row would otherwise use them |
 | `align` | `"left" \| "center" \| "right" \| "justify"`. A node's own `align` wins |
