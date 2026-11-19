@@ -187,6 +187,9 @@ test("a refundable advance with no retention is refunded whole, with a credit no
     payments: [refundable(60, 20, 50, 10, "A"), refundable(60, 20, 50, 10, "B"), refundable(60, 20, 50, 10, "C")],
   });
   assertEquals(three.creditNote?.includes("against invoices A, B and C"), true);
+  // An advance with nothing refunded is not named.
+  const zero = await run({ payments: [refundable(120, 20, 100, 20, "A"), refundable(0, 0, 0, 0, "Z")] });
+  assertEquals(zero.creditNote?.endsWith(" against invoice A, will follow."), true);
 });
 
 test("retention bounds", async () => {
@@ -195,6 +198,12 @@ test("retention bounds", async () => {
   assertEquals(all.totals.retainedVat, 2000);
   assertEquals(all.totals.refundedVat, 0);
   assertEquals(all.lines.refunded, "£0.00");
+  // The band's own VAT is kept exactly, not re-derived from its rate: 99.99 + 20.01 is not 20%.
+  const odd = await run({
+    payments: [refundable(120, 20, 99.99, 20.01)],
+    retention: { percent: 100, reason: "r" },
+  });
+  assertEquals(odd.totals.retainedVat, 2001);
   assertEquals((await run({ payments: pay, retention: { percent: 0, reason: "r" } })).lines.retention, null);
   await assertRejects(() => run({ payments: pay, retention: { percent: 100.5, reason: "r" } }), Error, "order.retention.percent");
   await assertRejects(() => run({ payments: pay, retention: { amount: 120.01, reason: "r" } }), Error, "order.retention.amount");
@@ -212,30 +221,32 @@ test("a zero-rated advance has nothing to credit or to say about VAT", async () 
 });
 
 test("mixed rates: the spare minor unit goes to the largest remainder, the earlier band on a tie", async () => {
-  // Gross 0.10 / 0.10 / 0.10 with T = 0.10: shares 3,3,3 and the spare cent to the first.
+  // Tie: T = 5 over grosses 6 and 6 gives 2 and 2 with equal remainders, so the spare cent goes to band 1.
+  // Keeping 3 puts its retained VAT at round(3 * 2000 / 12000) = 1; keeping 2 would give 0.
   const r = await run({
     payments: [{
       kind: "refundable-advance",
-      gross: 0.3,
-      bands: [{ rate: 20, net: 0.08, vat: 0.02 }, { rate: 5, net: 0.1, vat: 0 }, { rate: 0, net: 0.1, vat: 0 }],
-    }],
-    retention: { amount: 0.1, reason: "r" },
-  });
-  // Band 1 keeps 4, so its retained VAT is round(4 * 2000 / 12000) = 1 minor unit; the others keep 3 and 3.
-  assertEquals(r.totals.retention, 10);
-  assertEquals(r.totals.retainedVat, 1);
-  assertEquals(r.totals.refundedVat, 1);
-  // Unequal remainders: T = 5 over grosses 7, 3, 10 gives 1.75, 0.75, 2.5, so the cent goes to band 2.
-  const s = await run({
-    payments: [{
-      kind: "refundable-advance",
-      gross: 0.2,
-      bands: [{ rate: 20, net: 0.06, vat: 0.01 }, { rate: 20, net: 0.02, vat: 0.01 }, { rate: 0, net: 0.1, vat: 0 }],
+      gross: 0.12,
+      bands: [{ rate: 20, net: 0.05, vat: 0.01 }, { rate: 0, net: 0.06, vat: 0 }],
     }],
     retention: { amount: 0.05, reason: "r" },
   });
-  assertEquals(s.totals.retention, 5);
-  assertEquals(s.totals.retainedVat + s.totals.refundedVat, 2);
+  assertEquals(r.totals.retention, 5);
+  assertEquals(r.totals.retainedVat, 1);
+  assertEquals(r.totals.refundedVat, 0);
+  // Unequal remainders: T = 4 over grosses 1, 7, 3 gives floors 0, 2, 1 and remainders 4, 6, 1.
+  // The spare cent goes to the middle band, which keeps 3 and so retains 1 of its VAT; any other order gives 0.
+  const s = await run({
+    payments: [{
+      kind: "refundable-advance",
+      gross: 0.11,
+      bands: [{ rate: 0, net: 0.01, vat: 0 }, { rate: 20, net: 0.06, vat: 0.01 }, { rate: 0, net: 0.03, vat: 0 }],
+    }],
+    retention: { amount: 0.04, reason: "r" },
+  });
+  assertEquals(s.totals.retention, 4);
+  assertEquals(s.totals.retainedVat, 1);
+  assertEquals(s.totals.refundedVat, 0);
 });
 
 test("Germany: VAT is corrected on repayment, the fee is consideration", async () => {
