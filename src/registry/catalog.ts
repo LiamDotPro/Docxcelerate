@@ -1128,6 +1128,628 @@ export const COMPONENTS: RegistryComponent[] = [
 
   {
     kind: "component",
+    id: "commodity-code-summary",
+    title: "Commodity code summary",
+    summary: "Tariff code, origin and mass on every line, and the summary a customs declaration is split on.",
+    detail:
+      "Prints each goods line's tariff code, origin, preference claim, quantity, " +
+      "supplementary unit, net mass and value, then one summary row per tariff " +
+      "code, origin and preference, which is how customs splits a declaration. " +
+      "Codes are text, so 0901 stays 0901, and each is checked against the " +
+      "destination's length: 6 for HS, 8 for EU CN, 10 for UK and US. A short " +
+      "or missing code warns on its line. Masses in lb are converted, summed " +
+      "exactly and rounded once per group, and the total is the sum of the " +
+      "groups, so the summary always adds up. Net mass above the declared gross " +
+      "mass prints a warning. All of it is one deriver.",
+    category: "Body",
+    tags: ["customs", "trade", "tariff", "invoice", "deriver", "table", "section"],
+    exports: ["CommodityCodeSummary"],
+    dataFields: [
+      { path: "customs.currency", type: "string", summary: "ISO 4217 code the values are in. Required." },
+      { path: "customs.destinationCodeLength", type: "6 | 8 | 10", summary: "Digits the destination's tariff needs: HS 6, EU CN 8, UK and US 10. Required." },
+      { path: "customs.grossMassKg", type: "number | undefined", summary: "Declared gross mass in kg. Missing means no gross line and no net-over-gross check." },
+      { path: "customs.lines", type: 'Array<{ ref?; description?; tariffCode: string; origin: string; preference?: boolean; quantity: number; supplementaryUnit?: { code: string; quantity: number }; netMass: { value: number; unit: "kg" | "g" | "lb" }; valueMinor: number }>', summary: "The goods lines, in invoice order. Empty prints one sentence and no tables." },
+    ],
+    arrangements: [
+      { id: "lines-then-summary", title: "Lines, then summary", summary: "Every goods line, with the summary by tariff code and origin under it." },
+      { id: "summary-first", title: "Summary first", summary: "The summary and its warnings first, the lines after, for a long invoice." },
+    ],
+    files: node("commodity-code-summary", { deriver: true, arrangements: ["lines-then-summary", "summary-first"] }),
+    // The tariff codes are illustrative, not checked against a live tariff.
+    previewData: {
+      customs: {
+        currency: "GBP",
+        destinationCodeLength: 10,
+        grossMassKg: 27850.5,
+        lines: [
+          { ref: "INV-2026-004817/0001", description: "Roasted arabica coffee beans, not decaffeinated, in 1 kg one-way valve bags", tariffCode: "0901210000", origin: "CO", preference: true, quantity: 12000, netMass: { value: 12000, unit: "kg" }, valueMinor: 15600000 },
+          { ref: "INV-2026-004817/0002", description: "Roasted arabica coffee beans, not decaffeinated, in 1 kg one-way valve bags", tariffCode: "0901210000", origin: "BR", quantity: 6000, netMass: { value: 6000, unit: "kg" }, valueMinor: 7245000 },
+          { ref: "INV-2026-004817/0003", description: "Men's leather lace-up boots with vulcanised rubber soles, assorted sizes UK 6 to 13", tariffCode: "6403919800", origin: "PT", preference: true, quantity: 2400, supplementaryUnit: { code: "pa", quantity: 2400 }, netMass: { value: 1420.5, unit: "kg" }, valueMinor: 10080000 },
+          { ref: "INV-2026-004817/0004", description: "Men's leather lace-up boots with vulcanised rubber soles, assorted sizes UK 6 to 13", tariffCode: "6403919800", origin: "PT", preference: true, quantity: 1500, supplementaryUnit: { code: "pa", quantity: 1500 }, netMass: { value: 1850.75, unit: "lb" }, valueMinor: 6300000 },
+          { ref: "INV-2026-004817/0005", description: "Red wine of fresh grapes with a protected designation of origin, in 75 cl glass bottles", tariffCode: "2204214200", origin: "FR", preference: true, quantity: 4800, supplementaryUnit: { code: "l", quantity: 3600 }, netMass: { value: 5280, unit: "kg" }, valueMinor: 2052500 },
+        ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "preferential-origin-statement",
+    title: "Preferential origin statement",
+    summary: "The statement on origin a trade agreement prescribes, or a warning when its exporter reference is missing.",
+    detail:
+      "Prints the statement on origin each agreement prescribes, in its own words: " +
+      "the EU-UK TCA statement on origin, the EU GSP REX statement, the CETA origin " +
+      "declaration, the EU-Japan statement and the UK DCTS statement, with the " +
+      "exporter reference, the origin, the origin criteria that agreement uses and " +
+      "the multiple-shipment period. The EUR 6,000 threshold is tested against the " +
+      "originating lines only, converted at the rate you supply, never against the " +
+      "invoice total or a fixed sterling figure. Above it the exporter's REX or EORI " +
+      "number is required, and when it is missing a warning prints in place of the " +
+      "statement, because an importer who claims preference on an incomplete " +
+      "statement faces a duty demand later. Non-originating lines are listed by " +
+      "reference, so \"except where otherwise clearly indicated\" is true. A period " +
+      "longer than 12 months is refused the same way. Nothing prints when no line is " +
+      "originating. Worked out by one deriver.",
+    category: "Legal",
+    tags: ["origin", "customs", "export", "invoice", "legal", "branching", "deriver"],
+    exports: ["PreferentialOriginStatement"],
+    dataFields: [
+      { path: "origin.agreement", type: '"eu-uk-tca" | "eu-gsp" | "ceta" | "eu-japan" | "uk-dcts"', summary: "Which agreement's prescribed wording, reference and criteria apply. Required." },
+      { path: "origin.originCountry", type: "string", summary: "UK or EU under the TCA, EU under CETA and EU-Japan, the beneficiary country under GSP and DCTS. Required." },
+      { path: "origin.exporterReference", type: "string | undefined", summary: "EORI for UK exporters, REX otherwise. Required when originating goods exceed EUR 6,000, or the statement is withheld." },
+      { path: "origin.eurRate", type: "number | undefined", summary: "Euros per unit of the consignment currency, for the EUR 6,000 test. Required unless the currency is EUR." },
+      { path: "origin.period", type: "{ from: string; to: string } | undefined", summary: "ISO dates for a multiple-shipment statement. Over 12 months withholds it." },
+      { path: "origin.place", type: "string", summary: "Where the statement is made. Required." },
+      { path: "origin.date", type: "string", summary: "ISO 8601 date of the statement. Required." },
+      { path: "origin.exporterName", type: "string", summary: "The exporter, closing the statement. Required." },
+      { path: "consignment.currency", type: "string", summary: "ISO 4217 code of the line values. Required." },
+      {
+        path: "consignment.lines",
+        type: "Array<{ ref: string; valueMinor: number; originating?: boolean; criterion?: string; hsHeading?: string }>",
+        summary: "Every line in integer minor units. Only lines marked originating count toward the threshold; the rest are listed as exceptions.",
+      },
+    ],
+    files: node("preferential-origin-statement", { deriver: true }),
+    previewData: {
+      origin: {
+        agreement: "eu-uk-tca",
+        originCountry: "UK",
+        exporterReference: "GB123456789000",
+        eurRate: 1.1712,
+        period: { from: "2026-12-01", to: "2027-11-30" },
+        place: "Newcastle upon Tyne, Tyne and Wear",
+        date: "2026-11-30",
+        exporterName: "Northumbrian Precision Engineering and Fabrication Holdings Limited",
+      },
+      consignment: {
+        currency: "GBP",
+        lines: [
+          { ref: "10", valueMinor: 128450000, originating: true, criterion: "A" },
+          { ref: "20", valueMinor: 96320075, originating: true, criterion: "A" },
+          { ref: "30", valueMinor: 18999900, originating: false },
+          { ref: "40", valueMinor: 254000000, originating: true, criterion: "C, D" },
+          { ref: "50", valueMinor: 7250050, originating: true, criterion: "E" },
+          { ref: "60", valueMinor: 4410000, originating: false },
+        ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "dunning-reminder",
+    title: "Dunning reminder",
+    summary: "A payment reminder that escalates one level at a time and never threatens what you won't do.",
+    detail:
+      "Chases only invoices past their grace period that are not disputed, on " +
+      "hold or paid down to zero, and prints nothing at all when none qualify. " +
+      "Each invoice moves up one level per reminder and only after the minimum " +
+      "interval, so a daily run never jumps from first reminder to final notice " +
+      "or re-sends the same one. The level sets the title and tone. The deadline " +
+      "is never shorter than the Dutch, Belgian or UK pre-action minimum you name " +
+      "and never falls on a weekend. A final reminder states only the " +
+      "consequences you mark as intended, and none if you mark none, because an " +
+      "empty threat is unlawful in the UK and the US. Every level says which " +
+      "date payments were checked up to. The opening can be generated per " +
+      "document. One deriver decides it all.",
+    category: "Body",
+    tags: ["reminder", "dunning", "invoice", "deriver", "branching", "section", "dynamic", "prompts", "ai"],
+    exports: ["DunningReminder"],
+    dataFields: [
+      { path: "reminder.sendDate", type: "string", summary: "ISO 8601 date the reminder is sent. Required." },
+      { path: "reminder.paymentsCheckedTo", type: "string", summary: "ISO 8601 date payments are reflected up to. Printed at every level. Required." },
+      { path: "reminder.currency", type: "string", summary: "ISO 4217 code for every amount. Required." },
+      { path: "reminder.graceDays", type: "number | undefined", summary: "Days past due before an invoice is chased. Missing means 7." },
+      { path: "reminder.minIntervalDays", type: "number | undefined", summary: "Days between reminders for one invoice. Missing means 14." },
+      { path: "reminder.deadlineDays", type: "{ first?: number; second?: number; final?: number } | undefined", summary: "Days to the deadline per level. Missing means 14, 10 and 7." },
+      { path: "reminder.legalFloor", type: '"NL-consumer" | "BE-consumer" | "UK-pre-action" | undefined', summary: "A statutory minimum the deadline is raised to. Missing means none." },
+      { path: "reminder.channel", type: '"post" | "email" | undefined', summary: "Delivery, read for the NL and BE floors only. Missing means post." },
+      { path: "reminder.intendedConsequences", type: '("agency" | "court" | "suspension")[] | undefined', summary: "What you will actually do after a final reminder. Missing prints no threat." },
+      { path: "reminder.customerSince", type: "string | undefined", summary: "ISO 8601 start of the relationship, told to the generated opening only." },
+      { path: "reminder.invoices", type: "Array<{ number; dueDate; openAmount; disputed?; onHold?; lastLevel?; lastReminderDate? }> | undefined", summary: "Every open invoice. The component picks which this reminder covers." },
+    ],
+    arrangements: [
+      { id: "table", title: "Table", summary: "Number, due date, days overdue and amount in columns, with a total row." },
+      { id: "stacked", title: "Stacked", summary: "One sentence per invoice down the text column, then the total." },
+    ],
+    files: node("dunning-reminder", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      reminder: {
+        sendDate: "2026-11-20",
+        paymentsCheckedTo: "2026-11-19",
+        currency: "GBP",
+        graceDays: 7,
+        minIntervalDays: 14,
+        legalFloor: "UK-pre-action",
+        channel: "post",
+        intendedConsequences: ["agency", "court"],
+        customerSince: "2019-03-01",
+        invoices: [
+          { number: "SI-2026-07-004817/REV-2", dueDate: "2026-07-31", openAmount: 184250.75, lastLevel: 2, lastReminderDate: "2026-11-02" },
+          { number: "SI-2026-08-005102-FACILITIES-NORTH", dueDate: "2026-08-31", openAmount: 96480.0, lastLevel: 2, lastReminderDate: "2026-11-02" },
+          { number: "SI-2026-09-005390", dueDate: "2026-09-30", openAmount: 12999.99, lastLevel: 1, lastReminderDate: "2026-10-30" },
+          { number: "SI-2026-09-005391", dueDate: "2026-09-30", openAmount: 7450.0, lastLevel: 1, lastReminderDate: "2026-11-12" },
+          { number: "SI-2026-10-005688", dueDate: "2026-10-31", openAmount: 48120.4, disputed: true },
+          { number: "SI-2026-10-005702", dueDate: "2026-10-31", openAmount: 23875.0 },
+          { number: "SI-2026-10-005703", dueDate: "2026-10-31", openAmount: 1250.0, onHold: true },
+          { number: "SI-2026-10-005750", dueDate: "2026-10-20", openAmount: 0 },
+          { number: "SI-2026-11-005940", dueDate: "2026-11-10", openAmount: 3600.0 },
+          { number: "SI-2026-11-006011", dueDate: "2026-11-15", openAmount: 9999.0 },
+        ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "open-items-ageing",
+    title: "Open items and ageing",
+    summary: "Every invoice still open, aged by days past due, with unallocated credit kept out of the buckets.",
+    detail:
+      "Lists every invoice not yet fully settled with the amount still open on it, then ages the " +
+      "open balance into not yet due, 1-30, 31-60, 61-90 and over 90 days overdue. Age is counted " +
+      "from the due date, not the invoice date, and each bucket includes its top edge, so 30 days is " +
+      "1-30 and an invoice due today is not yet due; one with no due date ages from its date plus the " +
+      "default terms, and the strip says so. A payment or credit note not set against an invoice is " +
+      "unallocated credit on a line of its own, never netted into a bucket, so no bucket goes negative " +
+      "and an old debt never disappears. A disputed invoice is listed, marked and aged in its own " +
+      "column, so it cannot drive the over-90 figure. The shares are largest-remainder rounded to sum " +
+      "to exactly 100, an over-allocated invoice fails the document, and when nothing is overdue the " +
+      "strip is one line. All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "statement", "ageing", "table", "deriver", "branching", "section"],
+    exports: ["OpenItemsAgeing"],
+    dataFields: [
+      { path: "account.currency", type: "string", summary: "ISO 4217 code. Sets the minor unit. Required." },
+      { path: "account.statementDate", type: "string", summary: "ISO 8601 date every age is counted to. Required." },
+      { path: "account.defaultTermsDays", type: "number | undefined", summary: "Days to due for an invoice with no due date. Required only when one is open without it." },
+      { path: "account.invoices", type: "Array<{ number: string; date: string; dueDate?: string; amount: number; disputed?: boolean }>", summary: "Every invoice, settled ones an allocation names included. Amounts in major units." },
+      { path: "account.credits", type: "Array<{ type: \"payment\" | \"credit-note\"; date: string; number: string; amount: number; allocations?: Array<{ invoice: string; amount: number }> }>", summary: "Payments and credit notes. What their allocations do not cover is unallocated credit." },
+    ],
+    arrangements: [
+      { id: "across", title: "Across", summary: "The buckets side by side: name, amount and share in three rows." },
+      { id: "down", title: "Down", summary: "One row per bucket with its amount and share, for narrow columns and large figures." },
+    ],
+    files: node("open-items-ageing", { deriver: true, arrangements: ["across", "down"] }),
+    previewData: {
+      account: {
+        currency: "GBP", statementDate: "2026-11-30", defaultTermsDays: 30,
+        invoices: [
+          { number: "INV-2026-0004211", date: "2026-06-12", dueDate: "2026-07-12", amount: 248750, disputed: true },
+          { number: "INV-2026-0004290", date: "2026-07-01", dueDate: "2026-07-31", amount: 54000 },
+          { number: "INV-2026-0004388", date: "2026-07-20", dueDate: "2026-08-19", amount: 1186420.5 },
+          { number: "INV-2026-0004502", date: "2026-08-28", dueDate: "2026-09-27", amount: 312980.75 },
+          { number: "INV-2026-0004617", date: "2026-09-30", amount: 97640 },
+          { number: "INV-2026-0004733", date: "2026-10-15", dueDate: "2026-11-14", amount: 1048215.4 },
+          { number: "INV-2026-0004851", date: "2026-11-02", dueDate: "2026-12-02", amount: 655300 },
+        ],
+        credits: [
+          { type: "credit-note", date: "2026-10-08", number: "CN-2026-000412", amount: 54000, allocations: [{ invoice: "INV-2026-0004290", amount: 54000 }] },
+          { type: "payment", date: "2026-11-03", number: "BACS-REMIT-20261103-000918", amount: 400000, allocations: [{ invoice: "INV-2026-0004388", amount: 400000 }] },
+          { type: "credit-note", date: "2026-11-18", number: "CN-2026-000431", amount: 18500, allocations: [{ invoice: "INV-2026-0004502", amount: 6250 }] },
+          { type: "payment", date: "2026-11-26", number: "BACS-REMIT-20261126-001147", amount: 125000 },
+        ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "statement-of-account",
+    title: "Statement of account",
+    summary: "Every transaction in a period with a running balance, and what the closing balance means.",
+    detail:
+      "A balance-forward statement: the opening balance as you state it, never " +
+      "rebuilt from older rows, then every invoice, credit note, payment, refund " +
+      "and adjustment dated inside the period with a running balance. Invoices and " +
+      "refunds are debits, payments and credit notes are credits, so a credit note " +
+      "is never a negative invoice and both columns add up. On the same day an " +
+      "invoice prints before the payment that settles it, so the balance never " +
+      "dips into credit first. The running balance is kept unrounded and each " +
+      "figure rounded half away from zero to the currency's minor unit, so the " +
+      "last line equals the closing balance; a closing balance you supply is " +
+      "checked against it and a mismatch fails the build. The closing sentence " +
+      "says the amount due, that the account is clear, or that a credit balance " +
+      "is in the customer's favour. Mixed currencies are refused, and an empty " +
+      "period prints the opening balance and says there were no transactions. " +
+      "All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "statement", "account", "ledger", "table", "deriver", "branching", "section"],
+    exports: ["StatementOfAccount"],
+    dataFields: [
+      { path: "statement.currency", type: "string", summary: "ISO 4217 code. Sets the decimals. Required." },
+      { path: "statement.periodStart", type: "string", summary: "ISO 8601 first day covered, inclusive. Required." },
+      { path: "statement.statementDate", type: "string", summary: "ISO 8601 last day covered, inclusive. Required." },
+      { path: "statement.openingBalance", type: "number", summary: "Balance brought forward in major units; negative is in credit. Required." },
+      { path: "statement.closingBalance", type: "number | undefined", summary: "Your ledger's closing balance, checked to half a minor unit. Missing means no check." },
+      { path: "statement.dueBy", type: "string | undefined", summary: "ISO 8601 due date for an amount owed. Ignored unless owing." },
+      {
+        path: "statement.entries",
+        type: 'Array<{ type: "invoice" | "credit-note" | "payment" | "refund" | "adjustment"; date: string; number: string; amount: number; currency?: string; reference?: string; description?: string }>',
+        summary: "Every document, any order; only those inside the period print. Amounts positive except a credit adjustment. Missing or empty prints no transactions.",
+      },
+    ],
+    files: node("statement-of-account", { deriver: true }),
+    previewData: {
+      statement: {
+        currency: "GBP",
+        periodStart: "2026-10-01",
+        statementDate: "2026-10-31",
+        openingBalance: 18452.75,
+        closingBalance: 116828.33,
+        dueBy: "2026-11-30",
+        entries: [
+          // Payment listed before the invoice it settles, on the same day, so the preview shows the ordering rule.
+          { type: "payment", date: "2026-10-03", number: "PAY-2026-0098211", reference: "BACS 20261003-HSBC-77120", amount: 18452.75, description: "Payment received, thank you" },
+          { type: "invoice", date: "2026-10-03", number: "INV-2026-104518", reference: "PO-4500098123-CC-EMEA-FIN", amount: 148926.40, description: "Managed infrastructure and 24/7 platform support, October 2026" },
+          { type: "credit-note", date: "2026-10-14", number: "CN-2026-002217", reference: "INV-2026-104518", amount: 12450.00, description: "Service credit for the 6 October outage under the availability commitment" },
+          { type: "adjustment", date: "2026-10-20", number: "ADJ-2026-000341", amount: 1286.33, description: "Late payment interest under the Late Payment of Commercial Debts (Interest) Act 1998" },
+          { type: "payment", date: "2026-10-24", number: "PAY-2026-0101876", reference: "CHAPS 20261024-BARC-00481", amount: 120000.00 },
+          { type: "refund", date: "2026-10-28", number: "RF-2026-000057", reference: "Overpayment on INV-2026-099874", amount: 2315.60 },
+          { type: "invoice", date: "2026-10-28", number: "INV-2026-106002", amount: 96750.00, description: "Professional services: data migration and cutover, phase 2 of 3" },
+        ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "bank-transfer-details",
+    title: "Bank transfer details",
+    summary: "The one way to pay that fits this payer, checked, with a reference their bank won't cut short.",
+    detail:
+      "Shows one set of bank details, picked from the payer's country and the " +
+      "invoice currency: sort code and account for a UK payer in sterling, IBAN " +
+      "and BIC for SEPA in euros, ABA routing and account for a US payer in " +
+      "dollars, and IBAN and BIC with a SWIFT note for anyone else. Every rail at " +
+      "once confuses payers. Each detail is checked (IBAN mod-97, the ABA 3-7-1 " +
+      "checksum, sort code shape), and a failed one is withheld rather than " +
+      "printed. The reference is fitted to the rail's limit and character set: 18 " +
+      "for Bacs and Faster Payments, 80 for ACH, 140 for SEPA and SWIFT. A longer " +
+      "one falls back to the customer reference rather than being cut short by " +
+      "the payer's bank. The account name prints exactly as given, for Confirmation " +
+      "of Payee. When the details have changed, a fixed warning to verify by phone " +
+      "comes first.",
+    category: "Closing",
+    tags: ["invoice", "payment", "bank", "fraud", "deriver", "branching", "section"],
+    exports: ["BankTransferDetails"],
+    dataFields: [
+      { path: "payee.accountName", type: "string", summary: "Exactly as the bank holds it, for Confirmation of Payee. Required." },
+      { path: "payee.uk", type: "{ sortCode: string; accountNumber: string } | undefined", summary: "UK domestic details. Used for a UK payer in GBP; withheld when either part is invalid." },
+      { path: "payee.iban", type: "string | undefined", summary: "Checked with mod-97, printed in groups of four. For SEPA and international payers." },
+      { path: "payee.bic", type: "string | undefined", summary: "8 or 11 characters. Optional for SEPA, required for international." },
+      { path: "payee.us", type: "{ achRouting: string; wireRouting?: string; accountNumber: string } | undefined", summary: "US details for a US payer in USD. Routing numbers are checked with the ABA checksum." },
+      { path: "payee.detailsChangedOn", type: "string | undefined", summary: "ISO date the details changed. When given, a verify-by-phone warning prints first." },
+      { path: "payer.country", type: "string | undefined", summary: "ISO 3166-1 alpha-2. With the currency, picks the rail. Missing means international." },
+      { path: "invoice.currency", type: "string", summary: "ISO 4217 code. Required." },
+      { path: "invoice.reference", type: "string", summary: "The reference to quote. Required; printed when it fits the rail." },
+      { path: "invoice.customerReference", type: "string | undefined", summary: "A shorter reference printed when the invoice reference won't fit. Neither fitting fails the document." },
+    ],
+    arrangements: [
+      { id: "stacked", title: "Stacked", summary: "One labelled line under another, down the text column." },
+      { id: "table", title: "Table", summary: "Labels in a narrow column with the values beside them, so each detail is copied from one place." },
+      { id: "split", title: "Split", summary: "Where to send the money on the left; the reference to quote ranged right." },
+    ],
+    files: node("bank-transfer-details", { deriver: true, arrangements: ["stacked", "table", "split"] }),
+    previewData: {
+      payee: {
+        accountName: "Northern Facilities Management Services (Holdings) Ltd",
+        uk: { sortCode: "60-16-13", accountNumber: "31926819" },
+        iban: "GB29 NWBK 6016 1331 9268 19",
+        bic: "NWBKGB2L",
+        us: { achRouting: "121000358", wireRouting: "026009593", accountNumber: "000123456789" },
+        detailsChangedOn: "2026-11-03",
+      },
+      payer: { country: "GB" },
+      invoice: { currency: "GBP", reference: "INV-2026-11-004817/REV-2", customerReference: "NFMS-004817" },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "direct-debit-collection-notice",
+    title: "Direct debit collection notice",
+    summary: "The advance notice a direct debit needs, dated no earlier than its scheme allows.",
+    detail:
+      "Replaces the how-to-pay block on an invoice collected by direct debit, and " +
+      "words the advance notice for SEPA Core, UK Bacs or US ACH. The notice " +
+      "period is counted the way each scheme counts it: 14 calendar days under " +
+      "SEPA unless a shorter one was agreed, 10 working days under Bacs (never " +
+      "fewer than 3) skipping the bank holidays you supply, and 10 days under ACH " +
+      "only when the amount differs from the last debit. A notice issued too late " +
+      "says 'on or after' the earliest lawful date instead of the date asked for, " +
+      "and the date moves to the next day the scheme settles on, with TARGET2's " +
+      "Easter closing days worked out for the year. The SEPA creditor identifier's " +
+      "check digits are verified without the business code, and a bad one stops " +
+      "the document. The IBAN is shown by its last four characters only. SEPA " +
+      "states the 8-week refund right. Bacs prints the Direct Debit Guarantee only " +
+      "from the approved text you supply, and warns when it is missing. A zero or " +
+      "negative amount says nothing will be collected. All of it is one deriver.",
+    category: "Legal",
+    tags: ["direct-debit", "sepa", "bacs", "ach", "payment", "invoice", "legal", "deriver", "branching", "section"],
+    exports: ["DirectDebitCollectionNotice"],
+    dataFields: [
+      { path: "debit.scheme", type: '"sepa-core" | "bacs" | "ach"', summary: "Which scheme collects. Sets the currency, lead time and wording. Required." },
+      { path: "debit.creditorName", type: "string", summary: "Who collects, as the payer's statement shows it. Required." },
+      { path: "debit.creditorId", type: "string | undefined", summary: "SEPA creditor identifier. Required for SEPA; a failed check digit fails the document." },
+      { path: "debit.sun", type: "string | undefined", summary: "Bacs six-digit Service User Number. Required for Bacs." },
+      { path: "debit.mandateReference", type: "string", summary: "Mandate or Direct Debit reference. At most 35 characters (SEPA) or 18 (Bacs). Required." },
+      { path: "debit.payerIban", type: "string | undefined", summary: "Payer's IBAN. Only the last four characters are printed." },
+      { path: "debit.payerAccountLast4", type: "string | undefined", summary: "Last four of the payer's account, when no IBAN is given. Neither omits the line." },
+      { path: "debit.requestedDate", type: "string", summary: "ISO 8601 date asked for. Moved later when the notice is short or the day is closed. Required." },
+      { path: "debit.amount", type: "number", summary: "Amount in the scheme's currency. Zero or negative collects nothing. Required." },
+      { path: "debit.previousAmount", type: "number | undefined", summary: "ACH only: the last debit. A different amount triggers the 10-day notice." },
+      { path: "debit.first", type: "boolean | undefined", summary: "First collection under the mandate. Missing means recurring." },
+      { path: "debit.agreedNoticeDays", type: "number | undefined", summary: "Agreed notice period: calendar days (SEPA), working days of at least 3 (Bacs). Missing means the default." },
+      { path: "debit.bankHolidays", type: "string[] | undefined", summary: "ISO dates the payer's banks are closed. Required for Bacs; optional for ACH." },
+      { path: "debit.guaranteeText", type: "string[] | undefined", summary: "Bacs only: the approved Direct Debit Guarantee, one entry per paragraph. Missing prints a warning." },
+      { path: "document.issuedAt", type: "string", summary: "ISO 8601 date the notice is issued. The notice period counts from here. Required." },
+    ],
+    arrangements: [
+      { id: "stacked", title: "Stacked", summary: "One labelled mandate detail under another, down the text column." },
+      { id: "table", title: "Table", summary: "Labels in a narrow column with the mandate details beside them." },
+    ],
+    files: node("direct-debit-collection-notice", { deriver: true, arrangements: ["stacked", "table"] }),
+    previewData: {
+      debit: {
+        scheme: "sepa-core",
+        creditorName: "Northwind Facilities & Estates Management Services GmbH",
+        creditorId: "IT58ZZZ0000012345678901",
+        mandateReference: "MNDT-2026-NORTHFACILITIES-000048172",
+        payerIban: "IT60 X054 2811 1010 0000 0123 456",
+        requestedDate: "2027-03-26",
+        amount: 1284750.0,
+        first: true,
+      },
+      document: { issuedAt: "2027-03-08" },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "structured-payment-reference",
+    title: "Structured payment reference",
+    summary: "A bank payment reference with its check digits worked out, or the invoice number when none can be issued.",
+    detail:
+      "Generates or validates the structured reference a bank matches a payment " +
+      "against: ISO 11649 RF, Norwegian KID (MOD10 or MOD11), the Finnish " +
+      "viitenumero and its RF form, the Belgian OGM/VCS, the Swiss QR reference " +
+      "and the Swedish OCR number with or without its length digit. Each is " +
+      "printed in its own grouping. Bases are strings, because a number drops the " +
+      "leading zeros OGM and QRR count and a 26-digit QR reference is past what a " +
+      "JS number holds exactly. A base too long for its scheme is refused, never " +
+      "truncated, because a truncated reference still validates and books the " +
+      "payment against the wrong invoice. A KID whose MOD11 check is '-' is " +
+      "treated as unissuable, since many banks reject it. Every failure falls " +
+      "back to asking the payer to quote the invoice number. All of it is one deriver.",
+    category: "Body",
+    tags: ["payment", "invoice", "reference", "bank", "deriver", "branching"],
+    exports: ["StructuredPaymentReference"],
+    dataFields: [
+      { path: "payment.scheme", type: '"rf" | "no-kid-mod10" | "no-kid-mod11" | "fi" | "fi-rf" | "be-ogm" | "ch-qrr" | "se-ocr" | "se-ocr-length"', summary: "Which scheme the reference follows. Required when payment is given; anything else fails the document." },
+      { path: "payment.base", type: "string | undefined", summary: "What the check digits are generated from, as a string. Invalid or too long prints the invoice-number fallback, never a truncated reference." },
+      { path: "payment.reference", type: "string | undefined", summary: "A reference the ERP already issued. Validated, not recalculated; takes precedence over base." },
+      { path: "invoice.number", type: "string", summary: "Printed in the fallback line. Required." },
+    ],
+    files: node("structured-payment-reference", { deriver: true }),
+    previewData: {
+      payment: { scheme: "ch-qrr", base: "21000000000313947143000901" },
+      invoice: { number: "SI-2026-11-004817/REV-2" },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "gst-inclusive-statement",
+    title: "GST-inclusive statement (AU/NZ)",
+    summary: "How GST shows on an Australian or New Zealand tax invoice, and who it must name at each threshold.",
+    detail:
+      "Prints the items and totals of an AU or NZ invoice and decides how GST appears. \"Total price includes GST.\" " +
+      "replaces the GST figure only when every item is standard-rated, prices include GST and the GST is exactly 1/11 " +
+      "(AU) or 3/23 (NZ) of the total. Otherwise the figure is shown, and on a mixed invoice each taxable item is marked " +
+      "and a legend says so. GST is worked in cents under the ATO total-invoice rule, or the taxable-sale rule when " +
+      "chosen. Thresholds use the GST-inclusive total: the supplier's ABN always and the buyer's name or ABN from " +
+      "A$1,000 in Australia; in New Zealand, the GST number above NZ$200 and the buyer's name plus one identifier above " +
+      "NZ$1,000. ABNs, IRD numbers and NZBNs are checksummed, and a failure or a missing identity fails the build. An " +
+      "unregistered seller gets no GST wording. All of it is one deriver.",
+    category: "Body",
+    tags: ["invoice", "tax", "gst", "australia", "new-zealand", "deriver"],
+    exports: ["GstInclusiveStatement"],
+    dataFields: [
+      { path: "gst.country", type: '"AU" | "NZ"', summary: "Whose GST rules apply. Required." },
+      { path: "gst.sellerRegistered", type: "boolean", summary: "Missing means not registered: no GST wording at all." },
+      { path: "gst.sellerTaxId", type: "string | undefined", summary: "ABN (AU) or GST number (NZ). Checksummed; required on an AU tax invoice and on NZ invoices above NZ$200." },
+      { path: "gst.pricesIncludeGst", type: "boolean | undefined", summary: "Whether line amounts include GST. Required when any line is taxable." },
+      { path: "gst.rounding", type: '"total-invoice" | "taxable-sale" | undefined', summary: "ATO rounding rule. Defaults to total-invoice." },
+      { path: "gst.lines", type: 'Array<{ description: string; amountMinor: number; treatment: "taxable" | "gst-free" | "input-taxed" | "margin-scheme" | "zero-rated" | "exempt" }>', summary: "The items, amounts in integer cents. At least one." },
+      { path: "gst.buyer", type: '{ name?: string; abn?: string; identifier?: { kind: "address" | "phone" | "email" | "nzbn" | "url" | "trading-name"; value: string } } | undefined', summary: "Required from A$1,000 (name or ABN) and above NZ$1,000 (name and one identifier)." },
+    ],
+    arrangements: [
+      { id: "table", title: "Table", summary: "Items and totals in two columns, amounts right-aligned." },
+      { id: "stacked", title: "Stacked", summary: "One line per item and per total, for an invoice laid out as text." },
+    ],
+    files: node("gst-inclusive-statement", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      gst: {
+        country: "AU",
+        sellerRegistered: true,
+        sellerTaxId: "51 824 753 556",
+        pricesIncludeGst: true,
+        rounding: "total-invoice",
+        lines: [
+          { description: "Commercial kitchen fit-out, Level 3, 1 Macquarie Place, Sydney: stage 2 of 3, labour and materials", amountMinor: 12950000, treatment: "taxable" },
+          { description: "Fresh produce supplied to the staff canteen under the September 2026 catering agreement", amountMinor: 880000, treatment: "gst-free" },
+          { description: "Residential lease, Unit 14/220 Sussex Street, Sydney: October 2026 rent", amountMinor: 429000, treatment: "input-taxed" },
+          { description: "Early-payment rebate agreed 14 August 2026 on the fit-out contract", amountMinor: -259000, treatment: "taxable" },
+        ],
+        buyer: {
+          name: "Harbourside Hospitality Group Holdings Pty Ltd as trustee for the Harbourside Unit Trust",
+          abn: "98 765 432 122",
+        },
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "exemption-certificate-check",
+    title: "Exemption certificate check (US)",
+    summary: "Which lines of a US sale may go out exempt, under which certificate, and why the rest stay taxable.",
+    detail:
+      "A certificate is tested line by line, never as a yes or no for the whole customer. It has to cover the " +
+      "ship-to state, not the billing state, and be a form that state accepts. Streamlined Form F0003 counts only " +
+      "in full member states, from a member list you supply with its as-of date, which is printed. The MTC " +
+      "uniform certificate counts only where it is accepted, and only for resale where a state says so. The " +
+      "certificate must be unexpired on the invoice date, and its reason must fit the line. Resale, " +
+      "agricultural, industrial and direct-mail reasons cover only their own lines, so a resale certificate " +
+      "never exempts the buyer's own-use items. Government, charity, diplomat, education and direct-pay reasons " +
+      "cover the whole order. In a Streamlined state, a promised certificate keeps a line exempt until 90 days " +
+      "after the sale, printed with that deadline, and the line turns taxable once the deadline passes. Every " +
+      "taxable line prints the rule it failed. All of it is one deriver, whose lines match the " +
+      "us-sales-tax-breakdown shape.",
+    category: "Body",
+    tags: ["tax", "sales-tax", "us", "invoice", "exemption", "table", "deriver", "branching", "section"],
+    exports: ["ExemptionCertificateCheck"],
+    dataFields: [
+      { path: "exemption.invoiceDate", type: "string", summary: "ISO 8601 sale date. Expiry and the 90-day window run from it. Required." },
+      { path: "exemption.checkedOn", type: "string | undefined", summary: "ISO 8601 date of the check. Decides whether a pending certificate has run out. Missing means the invoice date." },
+      { path: "exemption.shipToState", type: "string", summary: "Two-letter ship-to state. Every certificate is judged against it. Required." },
+      { path: "exemption.currency", type: "string | undefined", summary: "ISO 4217 code. Missing means USD." },
+      { path: "exemption.sstMembers", type: "{ asOf: string; states: string[] }", summary: "Streamlined full-member states and their as-of date, which is printed. Required." },
+      {
+        path: "exemption.mtcAcceptingStates",
+        type: "{ asOf: string; states: Array<{ code: string; resaleOnly: boolean }> } | undefined",
+        summary: "States accepting the MTC uniform certificate. Missing means none do.",
+      },
+      {
+        path: "exemption.certificates",
+        type:
+          'Array<{ form: "SST" | "MTC" | "state"; state?: string; states?: string[]; reason: "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M"; number?: string; expires?: string; receivedOn?: string; pending?: boolean }> | undefined',
+        summary: "The buyer's certificates, held or promised. Missing means none: every line is taxable.",
+      },
+      {
+        path: "exemption.lines",
+        type: "Array<{ description: string; amountMinor: number; category?: string }> | undefined",
+        summary:
+          "Invoice lines in minor units, at most 16. The category is the buyer's use: resale, agricultural, industrial, direct-mail. Missing or empty prints nothing.",
+      },
+    ],
+    arrangements: [
+      { id: "table", title: "Table", summary: "One row per line with its amount, status and reason, so the statuses line up." },
+      { id: "stacked", title: "Stacked", summary: "One paragraph per line, for a narrow column or long reasons." },
+    ],
+    files: node("exemption-certificate-check", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      exemption: {
+        invoiceDate: "2026-11-30",
+        checkedOn: "2026-12-14",
+        shipToState: "NC",
+        currency: "USD",
+        sstMembers: {
+          asOf: "2026-10-01",
+          states: ["AR", "GA", "IN", "IA", "KS", "KY", "MI", "MN", "NE", "NV", "NJ", "NC", "ND", "OH", "OK", "RI", "SD", "UT", "VT", "WA", "WV", "WI", "WY"],
+        },
+        mtcAcceptingStates: {
+          asOf: "2026-07-01",
+          states: [{ code: "MD", resaleOnly: true }, { code: "NJ", resaleOnly: false }, { code: "GA", resaleOnly: true }],
+        },
+        certificates: [
+          { form: "SST", states: ["NC", "GA", "TN", "OH"], reason: "G", number: "NC-SST-500194-7731-REV3", expires: "2028-12-31" },
+          { form: "state", state: "VA", reason: "I", number: "VA-ST11-2026-0044170-MFG" },
+          { form: "SST", states: ["NC"], reason: "H", pending: true },
+        ],
+        lines: [
+          { description: "Industrial-grade stainless steel conveyor assemblies, model CX-4400 (for resale)", amountMinor: 184250000, category: "resale" },
+          { description: "Replacement hydraulic press tooling, 48-station progressive die set", amountMinor: 96437550, category: "industrial" },
+          { description: "Commercial grain-drying fans and controllers, farm installation kit", amountMinor: 12834975, category: "agricultural" },
+          { description: "Annual on-site preventive maintenance and calibration service contract", amountMinor: 4875000, category: "own-use" },
+        ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "japan-qualified-invoice",
+    title: "Japan qualified invoice (適格請求書)",
+    summary: "The tax part of a Japanese qualified invoice: lines by rate, ※ marks, tax once per rate, and a checked T-number.",
+    detail:
+      "Lines are grouped into the 10% and reduced 8% bands, every reduced line is " +
+      "marked ※ with the legend 「※は軽減税率対象」, and each band prints its " +
+      "total and its tax. Tax is worked once per rate per invoice, never summed " +
+      "from rounded lines, which the NTA forbids, and is rounded the way the " +
+      "issuer chooses: floor, ceil or half-up. Tax-inclusive prices are taxed at " +
+      "10/110 and 8/108, not 10% and 8%. The registration number is T and 13 " +
+      "digits with a check digit, and a wrong one fails the build. A simplified " +
+      "qualified invoice drops only the buyer's name, never the T-number, the date " +
+      "or the reduced-rate marker. A seller with no registration gets a plain " +
+      "invoice with no T-number and no stated tax, plus a note of the share the " +
+      "buyer may still deduct, taken from the transaction date under the FY2026 " +
+      "schedule: 80%, then 70%, 50% and 30%, then nothing after September 2031. " +
+      "All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "invoice", "tax", "japan", "consumption-tax", "table", "deriver", "branching", "section"],
+    exports: ["JapanQualifiedInvoice"],
+    dataFields: [
+      { path: "jpInvoice.registrationNumber", type: "string | undefined", summary: "T and 13 digits, check digit verified. Missing means not registered: a plain invoice." },
+      { path: "jpInvoice.simplified", type: "boolean | undefined", summary: "A simplified qualified invoice, for retail, restaurants, taxis, parking and travel. Makes the buyer name optional." },
+      { path: "jpInvoice.rounding", type: '"floor" | "ceil" | "half-up"', summary: "How each rate's tax is rounded, once per invoice. Required when registered." },
+      { path: "jpInvoice.basis", type: '"exclusive" | "inclusive"', summary: "Whether amounts are before or including tax. Required when registered." },
+      { path: "jpInvoice.transactionDate", type: "string", summary: "ISO 8601, on or after 2023-10-01. Required." },
+      { path: "jpInvoice.buyerName", type: "string | undefined", summary: "Printed as given, honorific included. Required on a full qualified invoice." },
+      { path: "jpInvoice.lines", type: 'Array<{ description: string; amountYen: number; rate: "10" | "8" }>', summary: "1 to 10 items in whole yen. Reduced-rate items are marked ※." },
+    ],
+    arrangements: [
+      { id: "table", title: "Table", summary: "Items and band totals in one two-column table, amounts lined up on the right." },
+      { id: "stacked", title: "Stacked", summary: "One line per item and per total down the column, for a receipt or a narrow page." },
+    ],
+    files: node("japan-qualified-invoice", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      jpInvoice: {
+        registrationNumber: "T9234567890123",
+        simplified: false,
+        rounding: "floor",
+        basis: "exclusive",
+        transactionDate: "2026-11-30",
+        buyerName: "株式会社みちのく総合食品流通ホールディングス 仙台第二物流センター 御中",
+        lines: [
+          { description: "宮城県産ササニシキ 精米 30kg袋（特別栽培米・JAS有機認証）", amountYen: 46980000, rate: "8" },
+          { description: "業務用冷凍ショーケース（多段式・幅3,600mm）据付工事一式 仙台第二物流センター北棟", amountYen: 128450000, rate: "10" },
+          { description: "三陸産冷凍ほたて貝柱 Lサイズ 1kg×10袋入りケース", amountYen: 27315750, rate: "8" },
+          { description: "配送用折りたたみコンテナ（大型・蓋付き）リース料 2026年11月分", amountYen: 3862500, rate: "10" },
+          { description: "国産若鶏もも肉 正肉 2kg×6パック入りケース", amountYen: 18642300, rate: "8" },
+          { description: "コールドチェーン温度管理システム保守料 2026年11月分", amountYen: 1275000, rate: "10" },
+          { description: "業務用ミネラルウォーター 2L×6本入りケース", amountYen: 4215615, rate: "8" },
+        ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
     id: "vat-in-local-currency",
     title: "VAT in local currency",
     summary: "A foreign-currency invoice's VAT bands restated in the currency the VAT is owed in, band by band.",

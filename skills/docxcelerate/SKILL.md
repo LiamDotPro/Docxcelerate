@@ -128,13 +128,20 @@ override what a shared hook set around it.
 Previews resolve dynamic nodes to their placeholder, never to generated prose.
 Nothing leaves the machine, and the same build gives the same page every time.
 
+To see generated nodes filled without a model, pass a stand-in client to a
+resolving build. `new EchoAiClient()` writes each paragraph's prompt back and
+fills charts and images with labelled samples. `new ScriptedAiClient({ "tutor-note": "…",
+revenue: { data: { … } } })` answers by node id (a repeat's `note-0` falls back
+to `note`), throws listing the ids it knows for any id it has no answer for, and
+keeps every request on `.requests` so a test can assert what each node asked.
+
 ## The elements
 
 | Element | Holds | Notes |
 | --- | --- | --- |
 | `Document` | sections and nodes | `title` required, `id` is taken from it unless written; one per template; `header`/`footer` take running furniture; `properties` sets the file's author, subject, keywords, description and `custom` values a DMS indexes. a per-document value takes a function — see Publishing below; `trackChanges` opens it in Word with Track Changes on |
 | `Section` | any nodes, including sections | the **only** container; `title` required and becomes a heading, kept on the page with what follows it |
-| `Paragraph` | text children, or prompts | `text` prop says the same as children; a `\n` in the text is a line break; `list="bullet"` or `"number"` makes it a list item, counted by the renderer; on a numbered item, `listStyle="lowerLetterParen"` (or `upperRoman`, `lowerRomanParen`, …) sets that level's numerals: (a), I., (i) |
+| `Paragraph` | text children, or prompts | `text` prop says the same as children; a `\n` in the text is a line break; `list="bullet"` or `"number"` makes it a list item, counted by the renderer; on a numbered item, `listStyle="lowerLetterParen"` (or `upperRoman`, `lowerRomanParen`, …) sets that level's numerals: (a), I., (i); `listStart={4}` on a numbered list's first item makes it count 4, 5, 6 — for a list taken up again after a table |
 | `Text` | words, inside a `Paragraph`, `Cell` or `Shape` | **not a node** — no `id`. `bold`, `italic`, `underline`, `strike`, `script` (`"superscript"` \| `"subscript"`), `href`, `variant` (a theme block name: colour, shading, size, face, weight, caps, tracking). Never a colour or a size of its own — `variant` names a theme block that has them |
 | `Image` | `src`, `alt`, `width`, `height`, `align`, `href`, or prompts | `src` becomes `path`; only a `data:` URI travels — see below; give one of `width`/`height` and the other keeps the picture's proportions; `align` (`left`/`center`/`right`) places it in the column; `href` makes the picture a link |
 | `Graph` | `graphType`, `data`, `title`, `alt`, `caption`, `align`, or prompts | packed as a real Word chart, never a picture of one — the numbers travel with it; `align` places a chart narrower than the column, and its caption follows; `alt` is what a screen reader hears; `valueAxisMin`/`valueAxisMax`/`valueAxisStep` fix the value axis when small changes must show. With prompts, the `caption` written here stays unless the model sends its own |
@@ -196,6 +203,9 @@ in the `.docx`** — a fill is shading, a border is a real border, a bleed is a
 negative indent past the margin. If a property cannot be expressed in Word it
 does not exist here, because a style that quietly did nothing in the format the
 framework produces is worse than one that was never offered.
+
+A link inside a block with a `color` is drawn in that colour, not the accent, so a
+link on a dark band needs no colour of its own.
 
 The page takes one setting of the same kind: `page.valign: "center"` in
 `document-style.ts` sets a one-page certificate or cover sheet mid-page, and
@@ -293,6 +303,10 @@ decision that depends on request data has to travel to the engine instead:
   document. Never hand-write a `{{data.…}}` token; interpolation produces it.
   This holds in every header and footer, the first-page and even-page ones
   included.
+- **`useAi({ from: { … } })` takes request data as it is.** Each field you name
+  publishes as its token, so the model is sent the recipient's facts — a list
+  arrives whole, as JSON. Name the fields (`from: { period: data.period }`), never
+  the whole request data, and pass a collection itself rather than a `.map()` of it.
 - **`<Document properties>` reads data only as a function** —
   `properties={(data: MyData) => ({ … })}`. Interpolation publishes as a token,
   like anywhere else; a computed value cannot reach it.
