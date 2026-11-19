@@ -272,9 +272,12 @@ async function resolveGraph(
   node: GraphNode,
   state: RuntimeState,
 ): Promise<GraphNode> {
+  const alt = node.alt ? await renderTemplate(node.alt, state) : node.alt;
+
   if (node.mode === "static") {
     return {
       ...node,
+      alt,
       data: node.data
         ? await renderJsonObjectTemplates(
           node.data as unknown as JsonObject,
@@ -290,6 +293,7 @@ async function resolveGraph(
 
   return {
     ...node,
+    alt,
     prompts,
     graphType: result.graphType ?? node.graphType,
     data: result.data,

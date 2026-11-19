@@ -223,6 +223,15 @@ export interface GraphProps extends CommonElementProps, PromptProps {
    * chart with no title at all is one Word will invent a heading for.
    */
   title?: string;
+  /**
+   * What the chart shows, for a reader who cannot see it.
+   *
+   * Written as the drawing's description, which is what a screen reader
+   * announces and what Word's accessibility checker looks for. Say what the
+   * numbers mean rather than what the chart is called — the title already says
+   * that. Left out, the title stands in, then the caption, then the id.
+   */
+  alt?: string;
   /** Which chart to draw. Defaults to `bar`. */
   graphType?: GraphType;
   /** The numbers to plot, when they are known at build time. */

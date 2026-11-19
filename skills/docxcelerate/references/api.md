@@ -58,7 +58,7 @@ interface PromptProps {
 | `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0) |
 | `Text` | `bold?`, `italic?`, `underline?`, `strike?`, `href?` (`https:`, `http:`, `mailto:` or `tel:`), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` |
-| `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `caption?`, `width?`, `height?` (points), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `dataLabels?` |
+| `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `alt?`, `caption?`, `width?`, `height?` (points), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `dataLabels?` |
 | `Table` | `columns` (required), `children?` |
 | `Row` | `header?`, `children?` |
 | `Cell` | `span?`, `align?`, `children?` |
@@ -144,10 +144,12 @@ Notes worth knowing:
 - `barHorizontal` reads top-down, in the order the categories were written.
   OOXML's default is bottom-up — which is what Word's own bar charts do, and
   not what a document handing over an array means by it.
-- `barHorizontal` reads top-down in the order the categories were written,
-  rather than bottom-up the way Word.s own bar charts do.
 - `title` is drawn *on* the chart and travels with it; `caption` is a paragraph
   printed underneath, styled by a `chartCaption` block where the theme has one.
+- `alt` is the chart's description for screen readers and Word's
+  accessibility checker. Say what the numbers show — "Revenue rose 40% from
+  Q1 to Q4" — not what the chart is called. Left out, the title is read
+  instead, then the caption, then the id. Nothing prints it.
 - The local preview draws charts with ECharts, from the packed file — see
   `preview/charts.ts` in a scaffolded workspace. The frame comes from the file
   and is exact; the plot inside it is another renderer's drawing of the same
