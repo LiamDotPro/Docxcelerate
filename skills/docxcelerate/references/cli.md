@@ -137,6 +137,7 @@ dxcl list components
 | `vat-place-of-supply` | Whose VAT applies and at what rate, decided before anything is printed. |
 | `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `net-payable-withholdings` | From a Spanish or Italian invoice total to what is actually transferred, after IRPF, ritenuta and split payment. |
 | `invoice-change-explainer` | Why this invoice differs from the last, or nothing when it barely does. |
 | `renewal-and-price-change-notice` | The cancel-by date and what a renewal or price-change notice must say, measured from the right date. |
 | `commitment-drawdown` | Prepaid commitment and credit drawn down line by line before tax, with what is left and any true-up. |
