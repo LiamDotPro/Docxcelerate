@@ -15,6 +15,7 @@ import type {
   GraphType,
   JsonObject,
   ListKind,
+  ListMarker,
   ListStyle,
   PageNumberFormat,
   RowHeightRule,
@@ -184,6 +185,13 @@ export interface ParagraphProps extends CommonElementProps, PromptProps {
    * Omitted, a level counts from 1 as it always has. Ignored on a bullet.
    */
   listStart?: number;
+  /**
+   * The glyph a bulleted item is marked with: `"tick"` for ✓, `"cross"` for ✗,
+   * `"dash"` for –, `"square"` for ▪. Say it on each item that wants it; an
+   * item without it keeps the bullet. Omitted, bullets are •, ◦, ▪ by depth as
+   * they always have been. Ignored on a numbered item.
+   */
+  listMarker?: ListMarker;
   /** The paragraph's text, as children. */
   children?: Yield<"paragraph">;
 }

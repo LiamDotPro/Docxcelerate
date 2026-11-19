@@ -276,6 +276,15 @@ export type ListStyle =
   | "lowerRomanParen"
   | "upperRomanParen";
 
+/**
+ * The glyph a bulleted item is marked with, in place of the bullet.
+ *
+ * `"dash"` is an en dash (–), `"tick"` a check mark (✓), `"cross"` a ballot
+ * x (✗) and `"square"` a small square (▪). Each is a plain Unicode glyph in
+ * the paragraph's own face, like the bullet, so no symbol font is needed.
+ */
+export type ListMarker = "dash" | "tick" | "cross" | "square";
+
 /** A paragraph's place in a list. */
 export interface ParagraphList {
   /** Whether the item is marked or counted. */
@@ -297,6 +306,12 @@ export interface ParagraphList {
    * the level in its list. Absent means 1. A bulleted item has none.
    */
   start?: number;
+  /**
+   * The glyph this item is marked with, for a bulleted item. Each item says its
+   * own, so ticks and crosses can stand in one list. Absent means the bullet:
+   * •, ◦, ▪ by depth. A numbered item has none.
+   */
+  marker?: ListMarker;
 }
 
 /**
