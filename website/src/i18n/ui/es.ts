@@ -212,7 +212,6 @@ export const es: UiStrings = {
       "Una vista previa real del documento renderizándose, sin capturas de pantalla ni trucos ocultos.",
     counts: "{documents} documentos · {files} archivos",
     sectors: {
-      education: "Educación",
       housing: "Vivienda",
       insurance: "Seguros",
       consulting: "Servicios profesionales",
@@ -220,7 +219,6 @@ export const es: UiStrings = {
     },
     documents: {
       "portfolio-review": "Informe trimestral de cartera",
-      "offer-of-admission": "Carta de admisión",
       "repairs-appointment": "Cita de reparación",
       "policy-renewal": "Renovación de póliza",
       invoice: "Factura",

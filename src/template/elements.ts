@@ -11,6 +11,7 @@ import type {
   CellTextDirection,
   DocumentProperties,
   GraphData,
+  GraphDataLabels,
   GraphLegend,
   GraphStacking,
   GraphType,
@@ -257,8 +258,15 @@ export interface ImageProps extends CommonElementProps, PromptProps {
   fallbackSrc?: string;
   /** Alternative text describing the image. */
   alt?: string;
-  /** Rendered width, in points. Left out, it follows the picture's own proportions from `height`, or is 120pt when neither is given. */
-  width?: number;
+  /**
+   * Rendered width, in points, or `"full"` for the width of whatever it stands in:
+   * the text column of the page as turned, or the inside of its table cell or shape.
+   *
+   * Left out, it follows the picture's own proportions from `height`, or is 120pt
+   * when neither is given. With `"full"` the height follows the picture's
+   * proportions unless `height` is given too, which draws exactly that box.
+   */
+  width?: number | "full";
   /** Rendered height, in points. Left out, it follows the picture's own proportions from the width. */
   height?: number;
   /**
@@ -375,8 +383,25 @@ export interface GraphProps extends CommonElementProps, PromptProps {
    * picks it. Must be greater than zero.
    */
   valueAxisStep?: number;
-  /** Whether each point prints its own figure. Worth it on a pie, rarely elsewhere. */
-  dataLabels?: boolean;
+  /**
+   * Whether each point prints a label, and what it prints: `"value"`,
+   * `"percent"`, `"category"`, `"categoryAndValue"` or `"categoryAndPercent"`.
+   * `true` prints the share on a pie and the value elsewhere. A percentage
+   * exists only on a pie or a doughnut.
+   */
+  dataLabels?: boolean | GraphDataLabels;
+  /** Whether the chart draws its axes. `false` deletes both: no line, no labels, the plot fills the frame. */
+  axes?: boolean;
+  /** Whether the plot is ruled with gridlines. `false` draws no grid; independent of `axes`. */
+  gridlines?: boolean;
+  /**
+   * Whether the exact figures are printed in a grid under the plot.
+   *
+   * Bars, lines and areas only; other chart types ignore it. The table's rows
+   * carry the series' keys, so a chart with one drops its legend unless
+   * `legend` is given.
+   */
+  dataTable?: boolean;
 }
 
 /** Props for the `<Table>` element. */

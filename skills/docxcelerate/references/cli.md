@@ -140,7 +140,9 @@ dxcl list components
 | `advance-payment-invoice` | A deposit or prepayment against an order: the share, what's already requested, and what's left. |
 | `vat-place-of-supply` | Whose VAT applies and at what rate, decided before anything is printed. |
 | `invoice-billing-periods` | The periods an invoice bills for, in advance and in arrears, with month-end anchors kept. |
+| `be-consumer-debt-reminder` | A Belgian payment reminder: free the first time, exact deadline, capped agreed costs after. |
 | `plan-change-proration` | The credit and charge lines a mid-period plan change causes, and what the net means. |
+| `de-mahnung-fee` | When each invoice went into Verzug, and what this Mahnung may lawfully charge. |
 | `royalty-earnings-by-format` | Royalty lines per format and price band, split where the period crosses an escalator. |
 | `royalty-reserve-and-recoupment` | The settlement from royalties earned to the amount paid: reserves against returns, advance recoupment and the minimum payment. |
 | `good-faith-estimate-comparison` | Each provider's bill against its own good faith estimate, and the dispute rights a $400 overrun gives a self-pay patient. |
@@ -148,6 +150,7 @@ dxcl list components
 | `preferential-origin-statement` | The statement on origin an agreement prescribes, or a warning when its exporter reference is missing. |
 | `dunning-reminder` | A payment reminder that escalates one level at a time, skips disputed or held invoices, and only threatens what you intend. |
 | `open-items-ageing` | Every invoice still open, aged by days past due, with unallocated credit kept out of the buckets. |
+| `nl-collection-costs` | Dutch statutory collection costs, and the fourteen-day letter that makes them due. |
 | `statement-of-account` | Every transaction in a period with a running balance, and what the closing balance means. |
 | `bank-transfer-details` | The one way to pay that fits this payer, checked, with a reference their bank won't cut short. |
 | `direct-debit-collection-notice` | The advance notice a direct debit needs, dated no earlier than its scheme allows. |
