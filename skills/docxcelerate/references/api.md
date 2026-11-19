@@ -55,7 +55,7 @@ interface PromptProps {
 | --- | --- |
 | `Document` | `id` (required), `title` (required), `metadata?`, `properties?`, `header?`, `footer?`, `firstHeader?`, `firstFooter?`, `evenHeader?`, `evenFooter?`, `children?` |
 | `Section` | `title` (required), `children?` |
-| `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0) |
+| `Paragraph` | `text?`, `children?`, `align?` (`"left" \| "center" \| "right" \| "justify"`), `list?` (`"bullet" \| "number"`), `listLevel?` (0–8, default 0), `listStyle?` (`"decimal" \| "lowerLetter" \| "upperLetter" \| "lowerRoman" \| "upperRoman"`, or any of them with `Paren` appended: `"lowerLetterParen"` is (a); default by depth 1. a. i.) |
 | `Text` | `bold?`, `italic?`, `underline?`, `strike?`, `script?` (`"superscript" \| "subscript"`), `href?` (`https:`, `http:`, `mailto:` or `tel:`), `children?`. Not a node: no `id`, no common props. Only among the words of a `Paragraph`, `Cell` or `Shape` |
 | `Image` | `src?`, `fallbackSrc?`, `alt?`, `width?`, `height?` (points; give one and the other keeps the picture's proportions, neither is 120pt wide), `align?` (`"left" \| "center" \| "right"`) |
 | `Graph` | `graphType?` (`"bar" \| "barHorizontal" \| "line" \| "area" \| "pie" \| "doughnut" \| "scatter" \| "radar" \| "bubble"`, default `bar`), `data?`, `title?`, `alt?`, `caption?`, `width?`, `height?` (points), `align?` (`"left" \| "center" \| "right"`), `legend?`, `stacked?` (`true` stacks to a total, `"percent"` to a share), `numberFormat?`, `categoryAxisTitle?`, `valueAxisTitle?`, `dataLabels?` |
@@ -73,7 +73,7 @@ Notes worth knowing:
   one after another are one list and the renderer counts them; anything that is
   not an item ends it, and the next numbered list starts at one. Never type a
   bullet or a number into the text. `listLevel={1}` nests an item under the one
-  above. Not drawn on a `<Shape>`.
+  above. `listStyle` on a numbered item picks the numerals for that item's level in its list — `listStyle="lowerLetterParen"` on the first sub-clause makes every sub-clause (a), (b); the first item at a level to say decides it, so say it once. Without it a level counts 1., a., i. by depth. Ignored on bullets. Not drawn on a `<Shape>`.
 - `<Text>` sets some of a paragraph's words differently:
   `Due within <Text bold>thirty days</Text>.` One inside another takes both
   settings. m<Text script="superscript">2</Text>, CO<Text script="subscript">2</Text>

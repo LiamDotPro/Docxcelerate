@@ -15,6 +15,7 @@ import type {
   GraphType,
   JsonObject,
   ListKind,
+  ListStyle,
   PageNumberFormat,
   RowHeightRule,
   TableAlign,
@@ -158,6 +159,13 @@ export interface ParagraphProps extends CommonElementProps, PromptProps {
   list?: ListKind;
   /** How far under another item this one stands: `1` for a point under an item. */
   listLevel?: number;
+  /**
+   * The numerals a numbered list counts in at this item's level:
+   * `"lowerLetterParen"` for (a), `"upperRoman"` for I., and so on. Say it on
+   * the first item at that level; the rest of the list follows it. Omitted,
+   * a level counts 1., a., i. by depth as it always has. Ignored on a bullet.
+   */
+  listStyle?: ListStyle;
   /** The paragraph's text, as children. */
   children?: Yield<"paragraph">;
 }

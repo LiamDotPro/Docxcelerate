@@ -257,6 +257,25 @@ export type RowHeightRule = "atLeast" | "exact";
 /** Which kind of list a paragraph is an item of: marked with a bullet, or counted. */
 export type ListKind = "bullet" | "number";
 
+/**
+ * The numerals a numbered list counts in at one level, and how they are set.
+ *
+ * The name is Word's own number format (`w:numFmt`), so `"lowerLetter"` counts
+ * a, b, c and is followed by a full stop. The `Paren` form puts the numeral in
+ * brackets with no stop, which is how a contract writes a sub-clause: (a), (i).
+ */
+export type ListStyle =
+  | "decimal"
+  | "lowerLetter"
+  | "upperLetter"
+  | "lowerRoman"
+  | "upperRoman"
+  | "decimalParen"
+  | "lowerLetterParen"
+  | "upperLetterParen"
+  | "lowerRomanParen"
+  | "upperRomanParen";
+
 /** A paragraph's place in a list. */
 export interface ParagraphList {
   /** Whether the item is marked or counted. */
@@ -266,6 +285,13 @@ export interface ParagraphList {
    * `1` is a point under an item, and a renderer goes as deep as nine.
    */
   level?: number;
+  /**
+   * The numerals this item's level counts in, for a numbered item. The first
+   * item at a level in a list that says decides it for the whole list. Absent
+   * means the default: figures, then letters, then roman numerals by depth,
+   * each followed by a full stop. A bulleted item has none.
+   */
+  style?: ListStyle;
 }
 
 /**

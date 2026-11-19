@@ -783,7 +783,12 @@ async function renderParagraph(
 function listOf(props: ParagraphProps): ParagraphList | undefined {
   return props.list === undefined
     ? undefined
-    : prune({ kind: props.list, level: props.listLevel || undefined });
+    : prune({
+      kind: props.list,
+      level: props.listLevel || undefined,
+      // Bullets count nothing, so a style on one would only be noise in the model.
+      style: props.list === "number" ? props.listStyle : undefined,
+    });
 }
 
 async function renderImage(
