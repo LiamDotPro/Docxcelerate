@@ -1022,6 +1022,59 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "bank-transfer-details",
+    title: "Bank transfer details",
+    summary: "The one way to pay that fits this payer, checked, with a reference their bank won't cut short.",
+    detail:
+      "Shows one set of bank details, picked from the payer's country and the " +
+      "invoice currency: sort code and account for a UK payer in sterling, IBAN " +
+      "and BIC for SEPA in euros, ABA routing and account for a US payer in " +
+      "dollars, and IBAN and BIC with a SWIFT note for anyone else. Every rail at " +
+      "once confuses payers. Each detail is checked (IBAN mod-97, the ABA 3-7-1 " +
+      "checksum, sort code shape), and a failed one is withheld rather than " +
+      "printed. The reference is fitted to the rail's limit and character set: 18 " +
+      "for Bacs and Faster Payments, 80 for ACH, 140 for SEPA and SWIFT. A longer " +
+      "one falls back to the customer reference rather than being cut short by " +
+      "the payer's bank. The account name prints exactly as given, for Confirmation " +
+      "of Payee. When the details have changed, a fixed warning to verify by phone " +
+      "comes first.",
+    category: "Closing",
+    tags: ["invoice", "payment", "bank", "fraud", "deriver", "branching", "section"],
+    exports: ["BankTransferDetails"],
+    dataFields: [
+      { path: "payee.accountName", type: "string", summary: "Exactly as the bank holds it, for Confirmation of Payee. Required." },
+      { path: "payee.uk", type: "{ sortCode: string; accountNumber: string } | undefined", summary: "UK domestic details. Used for a UK payer in GBP; withheld when either part is invalid." },
+      { path: "payee.iban", type: "string | undefined", summary: "Checked with mod-97, printed in groups of four. For SEPA and international payers." },
+      { path: "payee.bic", type: "string | undefined", summary: "8 or 11 characters. Optional for SEPA, required for international." },
+      { path: "payee.us", type: "{ achRouting: string; wireRouting?: string; accountNumber: string } | undefined", summary: "US details for a US payer in USD. Routing numbers are checked with the ABA checksum." },
+      { path: "payee.detailsChangedOn", type: "string | undefined", summary: "ISO date the details changed. When given, a verify-by-phone warning prints first." },
+      { path: "payer.country", type: "string | undefined", summary: "ISO 3166-1 alpha-2. With the currency, picks the rail. Missing means international." },
+      { path: "invoice.currency", type: "string", summary: "ISO 4217 code. Required." },
+      { path: "invoice.reference", type: "string", summary: "The reference to quote. Required; printed when it fits the rail." },
+      { path: "invoice.customerReference", type: "string | undefined", summary: "A shorter reference printed when the invoice reference won't fit. Neither fitting fails the document." },
+    ],
+    arrangements: [
+      { id: "stacked", title: "Stacked", summary: "One labelled line under another, down the text column." },
+      { id: "table", title: "Table", summary: "Labels in a narrow column with the values beside them, so each detail is copied from one place." },
+      { id: "split", title: "Split", summary: "Where to send the money on the left; the reference to quote ranged right." },
+    ],
+    files: node("bank-transfer-details", { deriver: true, arrangements: ["stacked", "table", "split"] }),
+    previewData: {
+      payee: {
+        accountName: "Northern Facilities Management Services (Holdings) Ltd",
+        uk: { sortCode: "60-16-13", accountNumber: "31926819" },
+        iban: "GB29 NWBK 6016 1331 9268 19",
+        bic: "NWBKGB2L",
+        us: { achRouting: "121000358", wireRouting: "026009593", accountNumber: "000123456789" },
+        detailsChangedOn: "2026-11-03",
+      },
+      payer: { country: "GB" },
+      invoice: { currency: "GBP", reference: "INV-2026-11-004817/REV-2", customerReference: "NFMS-004817" },
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
