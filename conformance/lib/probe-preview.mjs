@@ -39,7 +39,6 @@ const execFileAsync = promisify(execFile);
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-const PORT = 8902;
 
 /**
  * Where Chrome is. The environment variable is the escape hatch for a machine
@@ -655,11 +654,12 @@ async function startServer(root) {
           }
         });
         server.once("error", rejectPromise);
-        server.listen(PORT, "127.0.0.1", () => resolvePromise(server));
+        // Port 0: the system picks a free one, so parallel runs never fight over a fixed port.
+        server.listen(0, "127.0.0.1", () => resolvePromise(server));
       });
     } catch (error) {
       if (error?.code !== "EADDRINUSE" || attempt >= 4) {
-        throw new Error(`static server could not bind 127.0.0.1:${PORT}: ${error?.message ?? error}`);
+        throw new Error(`static server could not bind 127.0.0.1: ${error?.message ?? error}`);
       }
       await sleep(1000);
     }
@@ -736,11 +736,12 @@ export async function runPreviewProbe({ outDir, htmlPath, bodyFont, screenshots 
     await writeFile(join(tempDir, "__probe-b.html"), harnessHtml(bodyFont), "utf8");
 
     server = await startServer(tempDir);
+    const port = server.address().port;
 
     const dom = await runChrome(chrome, [
       `--window-size=${VIEWPORT_WIDTH},900`,
       "--dump-dom",
-      `http://127.0.0.1:${PORT}/__probe-b.html`,
+      `http://127.0.0.1:${port}/__probe-b.html`,
     ]);
 
     const measured = decodeMeasurement(dom);
@@ -764,7 +765,7 @@ export async function runPreviewProbe({ outDir, htmlPath, bodyFont, screenshots 
       await runChrome(chrome, [
         `--window-size=${VIEWPORT_WIDTH},${height}`,
         `--screenshot=${fullPngPath}`,
-        `http://127.0.0.1:${PORT}/case.html`,
+        `http://127.0.0.1:${port}/case.html`,
       ]);
       output.screenshots = await cropPages(fullPngPath, measured.sections, outDir);
     }

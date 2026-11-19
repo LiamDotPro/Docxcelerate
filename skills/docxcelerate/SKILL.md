@@ -178,6 +178,11 @@ revenue: { data: { … } } })` answers by node id (a repeat's `note-0` falls bac
 to `note`), throws listing the ids it knows for any id it has no answer for, and
 keeps every request on `.requests` so a test can assert what each node asked.
 
+A client asking a real model for a chart passes `aiGraphResultSchema` (from
+`docxcelerate`) as the provider's structured-output schema, so the answer comes
+back in exactly the shape `generateGraph` returns. `null` in it keeps what the
+`<Graph>` itself says. See references/api.md for where each provider takes it.
+
 ## The elements
 
 | Element | Holds | Notes |

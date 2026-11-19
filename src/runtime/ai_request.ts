@@ -296,6 +296,74 @@ const GRAPH_TYPES: Record<GraphType, true> = {
 };
 
 /**
+ * The {@linkcode AiGraphResult} a chart client returns, as a JSON Schema a
+ * model's structured output can be held to.
+ *
+ * Pass it as the schema of the provider's structured-output or forced tool
+ * call — OpenAI's `response_format` `json_schema` with `strict: true`, an
+ * Anthropic tool's `input_schema`, Gemini's `responseJsonSchema` — and return
+ * the parsed answer from `generateGraph` as it is. It is written for the
+ * strictest of those modes: every field is required, and a field the model
+ * has nothing to say for is `null`, which is read as "keep the node's own".
+ * The chart types are taken from the same list the answer is checked against,
+ * so the two cannot drift. A series' `color` is left out on purpose: a colour
+ * a model picks is one the theme can no longer change.
+ */
+export const aiGraphResultSchema: { readonly type: "object"; readonly [key: string]: unknown } = {
+  type: "object",
+  additionalProperties: false,
+  required: ["graphType", "data", "caption"],
+  properties: {
+    graphType: {
+      description: "The chart to draw, or null to keep the one the document chose.",
+      anyOf: [{ type: "string", enum: Object.keys(GRAPH_TYPES) }, { type: "null" }],
+    },
+    data: {
+      type: "object",
+      additionalProperties: false,
+      required: ["categories", "series"],
+      properties: {
+        categories: {
+          description:
+            "What the values are counted against, in order, or null to count by position. For a scatter or bubble chart, the x values written as text.",
+          type: ["array", "null"],
+          items: { type: "string" },
+        },
+        series: {
+          description: "The runs of numbers to plot, in the order they are drawn.",
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["label", "values", "sizes"],
+            properties: {
+              label: {
+                description: "The name printed in the key, or null for none.",
+                type: ["string", "null"],
+              },
+              values: {
+                description: "One number per category, in the same order; null is a gap, not a zero.",
+                type: "array",
+                items: { type: ["number", "null"] },
+              },
+              sizes: {
+                description: "A bubble chart's point sizes, one per value; null for every other chart.",
+                type: ["array", "null"],
+                items: { type: ["number", "null"] },
+              },
+            },
+          },
+        },
+      },
+    },
+    caption: {
+      description: "A caption printed beneath the chart, or null to keep the document's.",
+      type: ["string", "null"],
+    },
+  },
+};
+
+/**
  * A model's chart in the shape the renderer reads, or an error saying where it
  * is not. Model JSON writes numbers as text often enough that a chart packed
  * from it raw is empty in Word with nothing having failed, and it writes `null`
@@ -351,10 +419,15 @@ function graphData(node: GraphNode, data: unknown): GraphData {
         refuse(node, `${where} is not an object`);
       }
 
-      const { values, sizes, ...described } = entry;
+      const { values, sizes, label, ...described } = entry;
+
+      if (label != null && typeof label !== "string") {
+        refuse(node, `${where}.label is not text`);
+      }
 
       return {
         ...described,
+        ...(label == null ? {} : { label }),
         values: numbers(node, values, `${where}.values`),
         ...(sizes == null ? {} : { sizes: numbers(node, sizes, `${where}.sizes`) }),
       } as unknown as GraphSeries;
