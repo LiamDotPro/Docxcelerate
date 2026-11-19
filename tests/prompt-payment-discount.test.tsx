@@ -227,6 +227,10 @@ test("a billion-pound net has no float drift", () => {
   assertEquals(odd.payableMinor, 99989999999 + Math.round((99989999999 * 175) / 1000));
 });
 
+test("a valid large two-decimal net is not rejected for float error", () => {
+  run(uk({ bands: [band("standard", 20, 656870881.93, 0)] }));
+});
+
 // ---------------------------------------------------------------------------
 // Publishing
 // ---------------------------------------------------------------------------

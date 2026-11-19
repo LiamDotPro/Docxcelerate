@@ -129,7 +129,7 @@ export default deriver({
         throw new Error(field + " must be a finite number of 0 or more");
       }
       const scaled = value * 10 ** exponent;
-      if (Math.abs(scaled - Math.round(scaled)) > 1e-6) {
+      if (Math.round(scaled) / 10 ** exponent !== value) {
         throw new Error(field + " has more decimals than " + currency + " allows");
       }
       return Math.round(scaled);
