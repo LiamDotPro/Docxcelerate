@@ -66,7 +66,12 @@ export interface DocumentProjectManifest {
    * locale's are `previewDocument` and `engineDocument`, so an engine that
    * knows nothing of locales goes on reading what it always read.
    */
-  localizedDocuments?: Record<string, { previewDocument: string; engineDocument: string }>;
+  localizedDocuments?: Record<string, {
+    previewDocument: string;
+    engineDocument: string;
+    /** The style this locale's documents are on, when it is not the manifest's own `style`. */
+    style?: DocumentModel["style"];
+  }>;
   /** The file holding the deriver bundle, when the document uses any. */
   derivers?: string;
   /** The derivers the engine document invokes. */
@@ -195,14 +200,16 @@ export async function createDocumentProjectArtifact<TData>(
       engineLetter: engineFileName,
       locales: project.locales,
       localizedDocuments: localizedDocuments && Object.fromEntries(
-        Object.keys(localizedDocuments).map((locale) => [locale, {
+        Object.entries(localizedDocuments).map(([locale, documents]) => [locale, {
           previewDocument: withLocale(previewFileName, locale),
           engineDocument: withLocale(engineFileName, locale),
+          // Only a locale on a style of its own says so; the rest are on the manifest's.
+          ...(documents.engineDocument.style === engineDocument.style ? {} : { style: documents.engineDocument.style }),
         }]),
       ),
       derivers: derivers ? deriversFileName : undefined,
       deriverNames,
-      style: project.style,
+      style: engineDocument.style,
       metadata: project.metadata,
     },
   };
@@ -264,11 +271,7 @@ export async function buildProjectPreviewDocument<TData>(
     dynamicMode: "placeholder",
   });
 
-  return {
-    ...doc,
-    style: project.style,
-    metadata: project.metadata ? { ...project.metadata, ...doc.metadata } : doc.metadata,
-  };
+  return withProjectLook(project, doc);
 }
 
 /**
@@ -304,7 +307,7 @@ export async function buildProjectEngineDocument<TData>(
     branchMode: "publish",
   });
 
-  return {
+  return withProjectLook(project, {
     ...doc,
     nodes: removeEngineStandIns(doc.nodes),
     header: doc.header && removeEngineStandIns(doc.header),
@@ -313,9 +316,7 @@ export async function buildProjectEngineDocument<TData>(
     firstFooter: doc.firstFooter && removeEngineStandIns(doc.firstFooter),
     evenHeader: doc.evenHeader && removeEngineStandIns(doc.evenHeader),
     evenFooter: doc.evenFooter && removeEngineStandIns(doc.evenFooter),
-    style: project.style,
-    metadata: project.metadata ? { ...project.metadata, ...doc.metadata } : doc.metadata,
-  };
+  });
 }
 
 /**
@@ -341,9 +342,21 @@ export async function buildProjectFinalDocument<TData>(
     dynamicMode: "resolve",
   });
 
+  return withProjectLook(project, doc);
+}
+
+/**
+ * Puts the project's look on a document it built: the style for the locale the
+ * document was built in, and the project's metadata under the document's own.
+ */
+function withProjectLook<TData>(project: DocumentProject<TData>, doc: DocumentModel): DocumentModel {
+  // The build records its locale canonicalised; BCP 47 tags compare without regard to case.
+  const locale = doc.locale?.toLowerCase();
+  const own = Object.entries(project.localeStyles ?? {}).find(([tag]) => tag.toLowerCase() === locale)?.[1];
+
   return {
     ...doc,
-    style: project.style,
+    style: own ?? project.style,
     metadata: project.metadata ? { ...project.metadata, ...doc.metadata } : doc.metadata,
   };
 }
@@ -358,9 +371,13 @@ export async function buildProjectFinalDocument<TData>(
  */
 const engineArtifactAiClient: Required<AiClient> = {
   generateParagraph: () => "-",
-  generateImage: () => ({ path: "" }),
+  // A picture Word embeds, so the build accepts it; it is taken back off below.
+  generateImage: () => ({ path: ENGINE_STAND_IN_PICTURE }),
   generateGraph: () => ({ data: { series: [{ values: [0] }] } }),
 };
+
+/** The picture {@linkcode engineArtifactAiClient} answers with: a one-pixel PNG, which the build takes as a real picture. */
+const ENGINE_STAND_IN_PICTURE = "data:image/png;base64,iVBORw0KGgo=";
 
 /**
  * Takes the answers {@linkcode engineArtifactAiClient} gave back off the
@@ -391,7 +408,7 @@ function removeEngineStandIns(nodes: DocumentModel["nodes"]): DocumentModel["nod
       return withoutData;
     }
 
-    if (node.kind === "image" && node.mode === "dynamic" && node.path === "") {
+    if (node.kind === "image" && node.mode === "dynamic" && node.path === ENGINE_STAND_IN_PICTURE) {
       const { path: _path, ...withoutPath } = node;
       return withoutPath;
     }

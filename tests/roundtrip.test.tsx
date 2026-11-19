@@ -388,7 +388,7 @@ test("a project with a generated chart builds an artifact whose preview shows th
   assertEquals(previewTrend !== undefined && "data" in previewTrend, false);
 });
 
-test("a model that answers a chart with nothing fails on both paths, naming the node", async () => {
+test("a model that answers a chart or an image with nothing fails on both paths, naming the node", async () => {
   const emptyChart: AiClient = { ...drawingClient, generateGraph: () => ({}) };
   const expected = 'Dynamic graph "trend" got an answer it cannot plot: it has no data.';
 
@@ -401,6 +401,16 @@ test("a model that answers a chart with nothing fails on both paths, naming the 
     () => buildProjectFinalDocument(reportProject, { data: leeds, aiClient: emptyChart }),
     Error,
     expected,
+  );
+
+  const published = await buildProjectEngineDocument(reportProject);
+  const emptyImage: AiClient = { ...drawingClient, generateImage: () => ({}) };
+  const undrawable = 'Dynamic image "cover" got an answer it cannot draw: it has neither a data: path nor bytes.';
+  await assertRejects(() => resolveDocument(published, reportState(leeds, emptyImage)), Error, undrawable);
+  await assertRejects(
+    () => buildProjectFinalDocument(reportProject, { data: leeds, aiClient: emptyImage }),
+    Error,
+    undrawable,
   );
 });
 

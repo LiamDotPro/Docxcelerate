@@ -1,13 +1,16 @@
+import assert from "node:assert/strict";
 import { test } from "node:test";
 import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
 import {
   buildDocument,
+  buildProjectFinalDocument,
   cleanMinimalDocumentStyle,
   createDeriverRegistryFromBundle,
   createDocumentProjectArtifact,
   defineDocumentProject,
   type DocumentModel,
   type DocumentNode,
+  type DocumentStyle,
   InMemoryDataProvider,
   resolveDocument,
 } from "docxcelerate";
@@ -238,7 +241,7 @@ test("a chart is told the document's language and an image is not", async () => 
     },
     generateImage({ node, prompt }: { node: { id: string }; prompt: string }) {
       asked[node.id] = prompt;
-      return { path: "data:image/png;base64," };
+      return { path: "data:image/png;base64,iVBORw0KGgo=" };
     },
   };
   const Trend: Graph = () => {
@@ -314,4 +317,70 @@ test("a deriver handed the locale formats for it, through the engine's own bundl
     texts((await resolve(artifact.localizedDocuments!["de-DE"].engineDocument)).nodes).map(plain),
     ["1.234,50 €"],
   );
+});
+
+const a4 = cleanMinimalDocumentStyle;
+const letter: DocumentStyle = { ...a4, page: { ...a4.page, size: "LETTER" } };
+const paper = template(<Document id="d" title="D"><Paragraph id="p">x</Paragraph></Document>);
+const paperProject = (locales: string[]) =>
+  defineDocumentProject({
+    id: "p",
+    name: "p",
+    template: paper,
+    previewData: {},
+    style: a4,
+    locales,
+    localeStyles: { "en-US": letter },
+  });
+
+test("each locale's documents are on its own style, and the rest on style", async () => {
+  const artifact = await createDocumentProjectArtifact(paperProject(["en-GB", "en-US"]), { builtAt: "x" });
+  const us = artifact.localizedDocuments!["en-US"];
+  assertEquals(artifact.previewDocument.style, a4);
+  assertEquals(artifact.engineDocument.style, a4);
+  assertEquals(us.previewDocument.style, letter);
+  assertEquals(us.engineDocument.style, letter);
+  const usXml = await documentXml(us.previewDocument);
+  assertStringIncludes(usXml, 'w:w="12240"');
+  assertStringIncludes(usXml, 'w:h="15840"');
+  const gbXml = await documentXml(artifact.previewDocument);
+  assertStringIncludes(gbXml, 'w:w="11906"');
+  assertStringIncludes(gbXml, 'w:h="16838"');
+  assertEquals(artifact.manifest.style, a4);
+  assertEquals(artifact.manifest.localizedDocuments, {
+    "en-US": { previewDocument: "preview.en-US.json", engineDocument: "document.en-US.json", style: letter },
+  });
+
+  const plain = await createDocumentProjectArtifact(
+    defineDocumentProject({ id: "p", name: "p", template: paper, previewData: {}, style: a4, locales: ["en-GB", "fr-FR"] }),
+    { builtAt: "x" },
+  );
+  assertEquals(plain.localizedDocuments!["fr-FR"].engineDocument.style, a4);
+  assertEquals("style" in plain.manifest.localizedDocuments!["fr-FR"], false);
+});
+
+test("the default locale can have a style of its own", async () => {
+  const artifact = await createDocumentProjectArtifact(paperProject(["en-US", "en-GB"]), { builtAt: "x" });
+  assertEquals(artifact.previewDocument.style, letter);
+  assertEquals(artifact.manifest.style, letter);
+  assertEquals(artifact.manifest.localizedDocuments!["en-GB"], {
+    previewDocument: "preview.en-GB.json",
+    engineDocument: "document.en-GB.json",
+    style: a4,
+  });
+});
+
+test("a final document follows the locale it is written in, ignoring case, with no fallback", async () => {
+  const project = paperProject(["en-GB", "en-US"]);
+  assertEquals((await buildProjectFinalDocument(project, { locale: "en-us" })).style, letter);
+  assertEquals((await buildProjectFinalDocument(project, { locale: "en-GB" })).style, a4);
+  assertEquals((await buildProjectFinalDocument(project, {})).style, a4);
+  assertEquals((await buildProjectFinalDocument(project, { locale: "en-CA" })).style, a4);
+});
+
+test("a style for a locale the project does not build is refused", () => {
+  const define = (locales?: string[], tag = "en_US") =>
+    defineDocumentProject({ id: "p", name: "p", template: paper, previewData: {}, locales, localeStyles: { [tag]: letter } });
+  assert.throws(() => define(["en-GB", "en-US"]), /"en_US", which is not one of its locales/);
+  assert.throws(() => define(undefined, "en-US"), /not one of its locales/);
 });

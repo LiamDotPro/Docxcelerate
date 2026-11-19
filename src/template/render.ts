@@ -779,6 +779,7 @@ async function renderParagraph(
     align: props.align,
     list: listOf(props, id),
     prompts: specs,
+    aiOptions: prompts.aiOptions,
   };
 
   return prune({
@@ -862,6 +863,7 @@ async function renderImage(
     when,
     ...drawn,
     prompts: specs,
+    aiOptions: prompts.aiOptions,
   };
 
   const result = await generateImage(context.aiClient, node, specs, context.state);
@@ -878,6 +880,14 @@ async function renderGraph(
 ): Promise<GraphNode> {
   const prompts = settled(props.data === undefined ? undefined : "data", props, frame, id);
   const graphType = props.graphType ?? "bar";
+  const pie = graphType === "pie" || graphType === "doughnut";
+
+  if (!pie && (props.dataLabels === "percent" || props.dataLabels === "categoryAndPercent")) {
+    throw new Error(
+      `<Graph id="${id}"> asks its labels for a percentage, which only a pie or a doughnut has.`,
+    );
+  }
+
   // How the chart is drawn is the same whether its numbers were written here
   // or are still to be produced, so it is settled once and spread onto every
   // node this returns.
@@ -895,6 +905,9 @@ async function renderGraph(
     valueAxisMax: props.valueAxisMax,
     valueAxisStep: props.valueAxisStep,
     dataLabels: props.dataLabels,
+    dataTable: props.dataTable,
+    axes: props.axes,
+    gridlines: props.gridlines,
     align: props.align,
   };
 
@@ -940,6 +953,7 @@ async function renderGraph(
     ...drawn,
     caption: await text(props.caption, context),
     prompts: specs,
+    aiOptions: prompts.aiOptions,
   };
 
   const result = await generateGraph(context.aiClient, node, specs, context.state);
