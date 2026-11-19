@@ -92,8 +92,8 @@ export interface AiImageResult {
   path: string;
   /** Alternative text describing it. */
   alt?: string;
-  /** Rendered width, in points. */
-  width?: number;
+  /** Rendered width, in points, or `"full"`; see `ImageNode.width`. */
+  width?: number | "full";
   /** Rendered height, in points. */
   height?: number;
 }
