@@ -1022,6 +1022,49 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "credits-applied-to-invoice",
+    title: "Credits applied to invoice",
+    summary: "Open credit notes and payments on account set against an invoice, from total to amount due.",
+    detail:
+      "Credits reduce the amount due, never the total or its VAT: a credit note " +
+      "adjusted VAT when it was issued and a payment on account is a means of " +
+      "payment, so the section sits below the VAT analysis. Credits are taken " +
+      "oldest first, or by your allocation, each capped at what is still owed, " +
+      "and what is left of each is printed as carried forward. Only credits in " +
+      "the invoice currency are applied; others, expired credits and disputed " +
+      "ones are listed with the reason. Credit notes and payments on account are " +
+      "grouped apart. The amount due never goes negative: when credits cover it, " +
+      "the section says there is nothing to pay. Integer minor units throughout, " +
+      "so the figures tie out, worked by a deriver that ships with it.",
+    category: "Body",
+    tags: ["invoice", "credit", "payment", "vat", "table", "deriver", "branching", "section"],
+    exports: ["CreditsAppliedToInvoice"],
+    dataFields: [
+      { path: "invoice.currency", type: "string", summary: "ISO 4217 code. Only credits in this currency are applied. Required." },
+      { path: "invoice.issueDate", type: "string", summary: "ISO 8601 issue date. Expiry is judged against it. Required." },
+      { path: "invoice.totalMinor", type: "number", summary: "VAT-inclusive total in minor units, as the VAT analysis printed it. Never reduced. Required." },
+      { path: "invoice.vatTotalMinor", type: "number | undefined", summary: "VAT within the total, in minor units. When given, a sentence says credits leave it unchanged." },
+      { path: "credits.open", type: "Array<{ id; kind: \"credit-note\" | \"payment-on-account\"; issuedOn; currency; remainingMinor; expiresOn?; disputed? }> | undefined", summary: "Open credits in any order. Missing or empty prints nothing." },
+      { path: "credits.allocation", type: "Array<{ creditId: string; amountMinor: number }> | undefined", summary: "Your ledger's allocation, used in place of oldest first. Each amount is capped." },
+    ],
+    files: node("credits-applied-to-invoice", { deriver: true }),
+    previewData: {
+      invoice: { currency: "GBP", issueDate: "2026-11-30", totalMinor: 128475000, vatTotalMinor: 21412500 },
+      credits: {
+        open: [
+          { id: "CN-2026-000418/REV-1-FACILITIES-NORTH", kind: "credit-note", issuedOn: "2026-03-14", currency: "GBP", remainingMinor: 4250000 },
+          { id: "CN-2026-000771-SERVICE-LEVEL-REBATE-Q2", kind: "credit-note", issuedOn: "2026-05-30", currency: "GBP", remainingMinor: 1892745 },
+          { id: "POA-2026-07-0093-ADVANCE-MOBILISATION", kind: "payment-on-account", issuedOn: "2026-07-02", currency: "GBP", remainingMinor: 125000000 },
+          { id: "CN-2025-001207-GOODWILL-ADJUSTMENT", kind: "credit-note", issuedOn: "2025-10-31", currency: "GBP", remainingMinor: 975000, expiresOn: "2026-10-31" },
+          { id: "POA-2026-09-0117-RETENTION-RELEASE", kind: "payment-on-account", issuedOn: "2026-09-15", currency: "GBP", remainingMinor: 3500000, disputed: true },
+          { id: "CN-US-2026-000052-FREIGHT-OVERCHARGE", kind: "credit-note", issuedOn: "2026-06-01", currency: "USD", remainingMinor: 1250000 },
+        ],
+      },
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
