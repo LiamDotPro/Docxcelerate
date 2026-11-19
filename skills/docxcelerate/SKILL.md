@@ -197,6 +197,9 @@ negative indent past the margin. If a property cannot be expressed in Word it
 does not exist here, because a style that quietly did nothing in the format the
 framework produces is worse than one that was never offered.
 
+A link inside a block with a `color` is drawn in that colour, not the accent, so a
+link on a dark band needs no colour of its own.
+
 The page takes one setting of the same kind: `page.valign: "center"` in
 `document-style.ts` sets a one-page certificate or cover sheet mid-page, and
 `"bottom"` rests it on the bottom margin. Never push text down with empty
