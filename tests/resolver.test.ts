@@ -552,6 +552,27 @@ test("a generated chart that cannot be plotted names the node and the field", as
   }
 });
 
+test("a generated chart with nothing to plot names the node", async () => {
+  const cases: Array<[unknown, string]> = [
+    [{}, 'Dynamic graph "trend" got an answer it cannot plot: it has no data.'],
+    [{ data: null, caption: "Up" }, "it has no data."],
+    [{ data: { series: [] } }, "no series has a value to plot."],
+    [{ data: { series: [{ values: [] }] } }, "no series has a value to plot."],
+    [{ data: { series: [{ values: [null, null] }, { values: [] }] } }, "no series has a value to plot."],
+  ];
+
+  for (const [answer, expected] of cases) {
+    await assertRejectsWith(() => generatedChart(answer), expected);
+  }
+});
+
+test("a chart answer with one value to plot is drawn", async () => {
+  assertEquals(
+    graphOf(await generatedChart({ data: { series: [{ values: [null] }, { values: [null, 0] }] } })).data,
+    { series: [{ values: [null] }, { values: [null, 0] }] },
+  );
+});
+
 test("the chart schema offers exactly the chart types the check accepts", async () => {
   const every: Record<GraphType, true> = {
     bar: true,
@@ -689,8 +710,6 @@ test("a generated paragraph's answer is trimmed and stripped of characters Word 
     ["Tab\there", "Tab\there"],
     ["Hello\u0001 world\u000b end", "Hello world end"],
     ["Hi\u0001\n", "Hi"],
-    ["\u0000\uffff \n", ""],
-    ["", ""],
   ];
 
   for (const [answer, expected] of cases) {
@@ -709,6 +728,15 @@ test("a generated paragraph that is not text names the node", async () => {
 
   for (const [answer, expected] of cases) {
     await assertRejectsWith(() => generatedParagraph(answer), expected);
+  }
+});
+
+test("a generated paragraph with nothing left once trimmed names the node", async () => {
+  for (const answer of ["", "  \n\t", "\u0000\uffff \n"]) {
+    await assertRejectsWith(
+      () => generatedParagraph(answer),
+      'Dynamic paragraph "note" got an empty answer.',
+    );
   }
 });
 
@@ -1106,6 +1134,7 @@ test("a generated chart's caption from the model is printed as written", async (
         graphType: "bar",
         prompts: [{ kind: "general", text: "Plot it." }],
         caption: "For {{data.city}}",
+        data: { series: [{ values: [1] }] },
       } as DocumentNode]),
       state,
     );

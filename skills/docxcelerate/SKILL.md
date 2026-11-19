@@ -393,6 +393,9 @@ decision that depends on request data has to travel to the engine instead:
 - **`generateParagraph` returns the text itself**, not a provider's response
   object; anything else fails, naming the node. Return what the model wrote as
   it is — the answer is trimmed and stripped of characters a `.docx` cannot hold.
+  An answer that is empty once trimmed fails, naming the node, and so does a
+  chart answer with no value to plot — return the placeholder or a stock sentence
+  from your client if you want one instead.
 - **A model call that fails rejects with an `AiGenerationError`** (from
   `docxcelerate`) carrying `nodeId`, `kind` and the client's own error as
   `cause`. Catch it around the build or resolve, not inside the client: log
