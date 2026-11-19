@@ -1022,6 +1022,60 @@ export const COMPONENTS: RegistryComponent[] = [
     },
     requires: [],
   },
+  {
+    kind: "component",
+    id: "stage-payment-schedule",
+    title: "Stage payment schedule",
+    summary: "Stage payments that add up to the contract sum to the penny, with each stage's VAT tax point.",
+    detail:
+      "Turns a contract sum and its milestones into a schedule that adds up to the " +
+      "contract sum exactly. Percentage stages are floored to the penny and the " +
+      "pennies lost go on one stage, so the total is never a penny out; the last " +
+      "stage can be the balance. The deposit is netted off by the contract's rule " +
+      "(first stage, final stage or pro rata), and any part bigger than its stage " +
+      "carries on rather than leaving a negative stage. Each stage is pending, " +
+      "reached, invoiced or paid, and the totals split into paid, invoiced and not " +
+      "yet invoiced. Under UK VAT regulation 93 a stage's tax point is the earlier " +
+      "of its invoice and its payment, never the milestone, so a reached stage " +
+      "shows no VAT due; and because the deposit was taxed when it was received, " +
+      "stage VAT is worked on what is left after it. A single-payment contract " +
+      "gets one line saying its tax point is completion. All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "construction", "contract", "vat", "tax", "table", "deriver", "branching", "section"],
+    exports: ["StagePaymentSchedule"],
+    dataFields: [
+      { path: "contract.currency", type: "string | undefined", summary: "ISO 4217 code. Missing means GBP." },
+      { path: "contract.contractSumMinor", type: "number", summary: "Contract sum ex VAT, integer minor units. Required." },
+      { path: "contract.vat", type: '{ jurisdiction: "UK"; ratePercent: number } | undefined', summary: "UK VAT and its rate. Missing means no VAT or tax point columns." },
+      { path: "contract.singlePayment", type: "boolean | undefined", summary: "One payment on completion: exactly one stage, outside regulation 93." },
+      { path: "contract.deposit", type: '{ amountMinor: number; receivedDate: string; application: "first" | "final" | "proRata" } | undefined', summary: "Deposit ex VAT, when received, and how it is netted off. Missing or 0 means none." },
+      {
+        path: "contract.stages",
+        type: 'Array<{ label: string; percent?: number; amountMinor?: number; balance?: true; state: "pending" | "reached" | "invoiced" | "paid"; reachedDate?: string; invoiceDate?: string; paidDate?: string }>',
+        summary: "1 to 8 stages in contract order; each a percent, a fixed amount or the balance (last only). Must add up to the contract sum.",
+      },
+    ],
+    files: node("stage-payment-schedule", { deriver: true }),
+    previewData: {
+      contract: {
+        currency: "GBP",
+        contractSumMinor: 4875250033,
+        vat: { jurisdiction: "UK", ratePercent: 20 },
+        deposit: { amountMinor: 487525003, receivedDate: "2026-02-16", application: "first" },
+        stages: [
+          { label: "Site establishment, enabling works and temporary services", amountMinor: 350000000, state: "paid", reachedDate: "2026-03-02", invoiceDate: "2026-03-06", paidDate: "2026-03-27" },
+          { label: "Substructure, piling and ground-floor slab complete", percent: 12.5, state: "paid", reachedDate: "2026-05-11", invoiceDate: "2026-05-15", paidDate: "2026-05-13" },
+          { label: "Frame, upper floors and roof structure topped out", percent: 17.5, state: "invoiced", reachedDate: "2026-08-03", invoiceDate: "2026-08-07" },
+          { label: "Building envelope weathertight, including curtain walling", percent: 15, state: "reached", reachedDate: "2026-10-19" },
+          { label: "Mechanical, electrical and plumbing first fix complete", percent: 15, state: "pending" },
+          { label: "Internal finishes, second fix and commissioning", percent: 12.5, state: "pending" },
+          { label: "Practical completion and handover of the building", percent: 10, state: "pending" },
+          { label: "Making good defects at the end of the rectification period", balance: true, state: "pending" },
+        ],
+      },
+    },
+    requires: [],
+  },
 ];
 
 /** Kept in this order everywhere the catalog is listed. */
