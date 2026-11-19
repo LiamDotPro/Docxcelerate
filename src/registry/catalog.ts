@@ -1068,6 +1068,67 @@ export const COMPONENTS: RegistryComponent[] = [
   },
   {
     kind: "component",
+    id: "be-consumer-debt-reminder",
+    title: "Belgian consumer debt reminder (Book XIX CEL)",
+    summary: "A Belgian payment reminder: free the first time, with its exact deadline, and only capped, agreed costs after.",
+    detail:
+      "A payment reminder that follows Book XIX of the Belgian Code of Economic Law. A consumer's first " +
+      "reminder is free and carries the four statutory mentions; if one is missing it prints an 'incomplete' " +
+      "warning instead, because without them the 14-day period never starts. That period runs from the third " +
+      "working day after a paper reminder is sent, or the day after an electronic one, and the exact last day is " +
+      "printed. Only a later reminder, sent after the period has lapsed unpaid, adds anything, and only what the " +
+      "contract expressly provides: a lump sum capped by bands on the outstanding amount (EUR 20, then EUR 30 plus " +
+      "10%, then EUR 65 plus 5% up to EUR 2,000), and late interest capped at the reference rate plus 8 points. " +
+      "Nothing else is ever charged. A business debtor gets the fixed EUR 40 per invoice of the Act of 2 August " +
+      "2002. All dates and amounts come from one deriver.",
+    category: "Body",
+    tags: ["money", "legal", "belgium", "debt-collection", "reminder", "branching", "deriver", "section"],
+    exports: ["BeConsumerDebtReminder"],
+    dataFields: [
+      { path: "debt.debtorType", type: '"consumer" | "business"', summary: "Consumer applies Book XIX; business applies the 2002 Act's EUR 40 per invoice. Required." },
+      { path: "debt.stage", type: '"first" | "subsequent"', summary: "The free first reminder, or a later one that may carry costs. Required for a consumer." },
+      { path: "debt.asOf", type: "string", summary: "ISO date this document is issued; interest runs to it. Required." },
+      { path: "debt.amountDue", type: "number", summary: 'Outstanding principal in euros. Zero or less prints "nothing outstanding". Required.' },
+      { path: "debt.dueDate", type: "string", summary: "ISO date the debt fell due. Required." },
+      { path: "debt.creditorName", type: "string | undefined", summary: "Statutory mention on the first reminder; missing prints a warning." },
+      { path: "debt.creditorEnterpriseNumber", type: "string | undefined", summary: "KBO/BCE number; statutory mention on the first reminder; missing prints a warning." },
+      { path: "debt.description", type: "string | undefined", summary: "What the debt is for; statutory mention on the first reminder; missing prints a warning." },
+      { path: "debt.firstReminder", type: '{ sentDate: string; channel: "paper" | "electronic" } | undefined', summary: "When and how the first reminder was sent; the 14-day period counts from it." },
+      { path: "debt.contractProvidesDamages", type: "boolean | undefined", summary: "An accepted clause expressly provides a lump sum. Missing means none." },
+      { path: "debt.agreedLumpSum", type: "number | undefined", summary: "The clause's figure in euros, capped by the statutory bands. Missing means the cap." },
+      { path: "debt.contractProvidesInterest", type: "boolean | undefined", summary: "An accepted clause provides late interest. Missing means none." },
+      { path: "debt.agreedRate", type: "number | undefined", summary: "The clause's annual rate in percent, capped at reference + 8. Missing means the cap." },
+      { path: "debt.referenceRate", type: "number | undefined", summary: "2002 Act reference rate in percent; needed whenever interest is provided for." },
+      { path: "debt.creditorIsSme", type: "boolean | undefined", summary: "An SME may run interest from the day after the first reminder was sent." },
+      { path: "debt.holidays", type: "string[] | undefined", summary: "Extra non-working ISO dates on top of the ten Belgian legal holidays." },
+      { path: "debt.invoiceCount", type: "number | undefined", summary: "Business only: unpaid invoices, EUR 40 each. Missing means 1." },
+    ],
+    files: node("be-consumer-debt-reminder", { deriver: true }),
+    previewData: {
+      debt: {
+        debtorType: "consumer",
+        stage: "subsequent",
+        asOf: "2026-11-30",
+        amountDue: 48730.6,
+        dueDate: "2026-09-15",
+        creditorName: "Vandenbroucke-Delacroix Ameublement, Literie et Décoration SRL",
+        creditorEnterpriseNumber: "0712.345.678",
+        description:
+          "the corner sofa 'Ardennes XL' in cognac leather with two electric recliners, delivery and assembly included (order 2026-118734-B, invoice F-2026-0045817)",
+        firstReminder: { sentDate: "2026-10-14", channel: "paper" },
+        contractProvidesDamages: true,
+        contractProvidesInterest: true,
+        agreedRate: 14,
+        referenceRate: 4.25,
+        creditorIsSme: false,
+        holidays: ["2026-09-27"],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
     id: "plan-change-proration",
     title: "Plan change proration",
     summary: "The credit and charge lines a mid-period plan change causes, and what the net means.",
