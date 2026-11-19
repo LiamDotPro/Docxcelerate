@@ -429,12 +429,24 @@ function renderNode(
       return renderNodes(node.children, style, furniture, breakBefore);
     }
 
+    // The heading keeps its Heading1 style, which is how the TOC and the outline find
+    // it. A variant restyles it on top as direct formatting, field by field.
+    const block = blockOf(style, node.variant);
+    const spacing = {
+      ...blockSpacingBefore(block),
+      ...(block?.spacingAfterPt === undefined ? {} : { after: ptToTwips(block.spacingAfterPt) }),
+    };
+
     return [
-      new Paragraph(
-        broken === true
-          ? { text: node.title ?? node.id, style: BREAK_HEADING_STYLE_ID }
-          : { text: node.title ?? node.id, heading: HeadingLevel.HEADING_1 },
-      ),
+      new Paragraph({
+        children: [textRun(node.title ?? node.id, blockRun(block, style, style.sectionHeading.fontSizePt))],
+        ...(broken === true ? { style: BREAK_HEADING_STYLE_ID } : { heading: HeadingLevel.HEADING_1 }),
+        alignment: textAlignmentOf(block?.align),
+        border: blockBorders(block, "paragraph"),
+        // docx writes an empty <w:spacing/> for {}; a heading that said nothing writes none.
+        ...(Object.keys(spacing).length === 0 ? {} : { spacing }),
+        ...blockKeeps(block),
+      }),
       ...renderNodes(node.children, style, furniture),
     ];
   }
@@ -592,11 +604,13 @@ function blockFor(
  *
  * The same fields the screen reads, so a variant means one thing rather than
  * two. Character spacing is in twentieths of a point rather than ems, so the
- * font size is what turns one into the other.
+ * font size is what turns one into the other. A heading passes its own size
+ * as `inheritedSizePt`, since its text is not body-sized.
  */
 function blockRun(
   block: DocumentBlockStyle | undefined,
   style: DocumentStyle,
+  inheritedSizePt = style.typography.bodySizePt,
 ): {
   bold?: boolean;
   size?: number;
@@ -609,13 +623,13 @@ function blockRun(
     return {};
   }
 
-  const sizePt = block.fontSizePt ?? style.typography.bodySizePt;
+  const sizePt = block.fontSizePt ?? inheritedSizePt;
 
   return {
     bold: block.weight === undefined ? undefined : block.weight === "bold",
     size: block.fontSizePt === undefined ? undefined : ptToHalfPoints(block.fontSizePt),
     color: block.color,
-    allCaps: block.transform === "uppercase" || undefined,
+    allCaps: block.transform === undefined ? undefined : block.transform === "uppercase",
     characterSpacing: block.letterSpacingEm === undefined
       ? undefined
       : Math.round(block.letterSpacingEm * sizePt * 20),
