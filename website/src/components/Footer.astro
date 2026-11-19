@@ -89,14 +89,13 @@ const COLUMNS: { heading: string; links: FooterLink[] }[] = [
              marks keep their brand colours on the green — they are the only
              thing here that is a logo rather than a word.
 
-             Static, unlike the homepage line: that one carries an id the hero
-             script rewrites from the registry, and the footer is on every page,
-             so repeating the id would give the document two of it. */
+             Marked with data attributes rather than ids so the script below
+             corrects this line and the homepage's from one registry answer. */
         }
         <p
           class="m-0 mt-5 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[0.68rem] text-white/55"
         >
-          <span>v{release.version}</span>
+          <span data-release-version>v{release.version}</span>
           <RegistryMark registry="npm" href={NPM_URL} label={t.home.onNpm} />
           <RegistryMark registry="jsr" href={JSR_URL} label={t.home.onJsr} />
           <span aria-hidden="true">·</span>
@@ -150,7 +149,49 @@ const COLUMNS: { heading: string; links: FooterLink[] }[] = [
       class="mt-14 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-white/15 pt-5 font-mono text-[0.68rem] tracking-[0.04em] text-white/45"
     >
       <p class="m-0">{fill(t.footer.copyright, { year })}</p>
-      <p class="m-0 max-w-full truncate" title={release.integrity}>{shortIntegrity}</p>
+      <p class="m-0 max-w-full truncate" title={release.integrity} data-release-integrity={release.integrity}>
+        {shortIntegrity}
+      </p>
     </div>
   </div>
 </footer>
+
+<script>
+  import { NPM_LATEST_URL } from "../site";
+
+  /**
+   * The version and checksum are baked at build time, so they are right the
+   * moment the site is built and stale the moment a release goes out without
+   * one. This asks the registry what it is actually serving and corrects every
+   * copy in place — the footer on every page, and the homepage's install line.
+   * It lives here because the footer is the one thing on every page.
+   *
+   * Failure is silence: no network, an offline reader or a registry hiccup all
+   * leave the built-in values on screen, which are a real release either way.
+   */
+  async function refreshRelease() {
+    const response = await fetch(NPM_LATEST_URL, {
+      headers: { accept: "application/vnd.npm.install-v1+json, application/json" },
+    });
+    if (!response.ok) return;
+
+    const latest = await response.json();
+    if (typeof latest?.version !== "string" || typeof latest?.dist?.integrity !== "string") return;
+
+    for (const version of document.querySelectorAll("[data-release-version]")) {
+      version.textContent = `v${latest.version}`;
+    }
+
+    // Each element holds the full hash and shows a shortened one; both have to
+    // move together or copying gives you the checksum of a different release.
+    for (const integrity of document.querySelectorAll<HTMLElement>("[data-release-integrity]")) {
+      const previous = integrity.dataset.releaseIntegrity;
+      const title = integrity.getAttribute("title");
+      if (title && previous) integrity.setAttribute("title", title.replace(previous, latest.dist.integrity));
+      integrity.dataset.releaseIntegrity = latest.dist.integrity;
+      integrity.textContent = `${latest.dist.integrity.slice(0, 24)}…`;
+    }
+  }
+
+  refreshRelease().catch(() => {});
+</script>

@@ -81,29 +81,18 @@ const FACTS: { label: string; value: string }[] = [
 
   {
     type.options.length > 0 && (
-      <table class="options">
-        <thead>
-          <tr>
-            <th scope="col">{t.nodes.option}</th>
-            <th scope="col">{t.nodes.type}</th>
-            <th scope="col">{t.nodes.whatItDoes}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {type.options.map((option) => (
-            <tr>
-              <th scope="row">
-                <code>{option.name}</code>
-                {option.required && <span class="required">{t.nodes.required}</span>}
-              </th>
-              <td>
-                <code class="type">{option.type}</code>
-              </td>
-              <td set:html={inlineCode(option.summary)} />
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <dl class="options">
+        {type.options.map((option) => (
+          <div class="option">
+            <dt class="option-head">
+              <code class="name">{option.name}</code>
+              <code class="type">{option.type}</code>
+              {option.required && <span class="required">{t.nodes.required}</span>}
+            </dt>
+            <dd class="option-body" set:html={inlineCode(option.summary)} />
+          </div>
+        ))}
+      </dl>
     )
   }
 </div>
@@ -194,39 +183,62 @@ const FACTS: { label: string; value: string }[] = [
     line-height: 1.6;
   }
 
+  /* A list rather than a three-column table: summaries run to a paragraph, and
+     squeezed beside the name and type they wrapped into rows a screen tall. */
   .options {
-    font-size: 0.85rem;
+    margin: 0 0 1.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
   }
 
-  .options th[scope="row"] {
-    /* The prose stylesheet uppercases header cells; a row header here is an
-       option name, which must read exactly as it is typed. */
-    font-family: var(--font-mono);
-    font-size: inherit;
+  .option {
+    padding: 0.85rem 1rem;
+    background: var(--surface);
+  }
+
+  .option + .option {
+    border-top: 1px solid var(--border);
+  }
+
+  /* Overrides the uppercase label the facts list gives a dt: this one is an
+     option name, which must read exactly as it is typed. */
+  .option-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.6rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.85rem;
     letter-spacing: 0;
     text-transform: none;
-    color: var(--ink);
-    background: transparent;
-    white-space: nowrap;
-    vertical-align: top;
+    line-height: 1.5;
   }
 
-  .options td {
-    vertical-align: top;
+  .option-head .name {
+    font-weight: 600;
+  }
+
+  .option-head .type {
+    background: transparent;
+    padding: 0;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+
+  .option-body {
+    max-width: 68ch;
+    font-size: 0.9rem;
+    line-height: 1.65;
+    color: var(--ink);
   }
 
   .required {
-    display: block;
-    margin-top: 0.15rem;
     font-family: var(--font-mono);
     font-size: 0.6rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--accent);
-  }
-
-  .type {
-    white-space: nowrap;
   }
 
   @media (max-width: 40rem) {
