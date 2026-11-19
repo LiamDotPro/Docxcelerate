@@ -124,6 +124,21 @@ export interface GraphSeries {
    */
   color?: string;
   /**
+   * A colour for single points, as RGB hex without the `#`, in the same order
+   * as `values`.
+   *
+   * What it is for is picking one point out: the current month, an overdue
+   * bucket, one outlier. `null` (or a list shorter than the categories) leaves
+   * a point in the series' own colour, and on a pie in the theme's slice
+   * colour. Like `color`, a colour written here is one the next theme cannot
+   * change, which is why it is per point and not a palette.
+   *
+   * Read by every chart type but `area`. An area series is one filled shape
+   * with no separate points to paint. On a line, scatter or radar chart only
+   * the point's marker takes the colour, not the line running through it.
+   */
+  pointColors?: (string | null)[];
+  /**
    * Whether this series' line is dashed or dotted rather than solid.
    *
    * What sets a forecast, a budget or a target apart from the actuals beside
