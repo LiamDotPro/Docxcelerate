@@ -233,6 +233,7 @@ test("negative lines", () => {
   assertEquals([r.total, r.statement, r.items[1].amount], ["$99.00", "Total price includes GST.", "-$11.00"]);
   throws(au([line(1000), line(-2000)]), "negative");
   throws(au([line(-1000, "taxable"), line(5000, "gst-free")]), "negative");
+  throws(au([line(-1000, "taxable"), line(5000, "gst-free")], { sellerRegistered: false }), "negative");
 });
 
 test("bad fields throw", () => {

@@ -60,9 +60,7 @@ export default deriver({
     const linesTotal = sum(gst.lines);
     const taxableTotal = sum(taxable);
     if (linesTotal < 0) throw new Error("gst.lines total is negative; adjustment notes are not supported");
-    if (counted && taxableTotal < 0) {
-      throw new Error("gst.lines taxable total is negative; adjustment notes are not supported");
-    }
+    if (taxableTotal < 0) throw new Error("gst.lines taxable total is negative; adjustment notes are not supported");
 
     let gstMinor = 0;
     if (counted) {
