@@ -451,6 +451,23 @@ export interface GraphNode extends BaseNode {
   /** What the value axis measures. */
   valueAxisTitle?: string;
   /**
+   * Where the value axis starts, in the units of the values. Left out, Word
+   * picks it, which for most data is zero. A value below it is drawn clipped
+   * at the axis; on a percent stack the axis is a share, so `0.5` is 50%.
+   * Ignored on a pie and a doughnut, which have no axis.
+   */
+  valueAxisMin?: number;
+  /**
+   * Where the value axis ends, in the units of the values. Left out, Word
+   * picks it. Must be above `valueAxisMin` when both are given.
+   */
+  valueAxisMax?: number;
+  /**
+   * The distance between ticks and gridlines on the value axis. Left out, Word
+   * picks it. Must be greater than zero.
+   */
+  valueAxisStep?: number;
+  /**
    * Whether each point prints its own figure.
    *
    * Off for most charts — a number on every point is a table drawn badly — and

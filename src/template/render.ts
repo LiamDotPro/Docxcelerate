@@ -879,6 +879,9 @@ async function renderGraph(
     numberFormat: props.numberFormat,
     categoryAxisTitle: props.categoryAxisTitle,
     valueAxisTitle: props.valueAxisTitle,
+    valueAxisMin: props.valueAxisMin,
+    valueAxisMax: props.valueAxisMax,
+    valueAxisStep: props.valueAxisStep,
     dataLabels: props.dataLabels,
     align: props.align,
   };

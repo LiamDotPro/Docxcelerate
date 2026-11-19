@@ -406,6 +406,9 @@ function missingChart(anchor) {
     categories: [],
     plotWidth: null,
     plotHeight: null,
+    valueMin: null,
+    valueMax: null,
+    valueStep: null,
     altText: null,
   };
 }

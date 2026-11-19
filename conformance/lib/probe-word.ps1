@@ -432,6 +432,9 @@ function Read-Charts {
                 categories  = @()
                 plotWidth   = $null
                 plotHeight  = $null
+                valueMin    = $null
+                valueMax    = $null
+                valueStep   = $null
                 altText     = $null
             }
 
@@ -467,6 +470,9 @@ function Read-Charts {
             try { $record.hasTitle = [bool]$c.HasTitle } catch { }
             if ($record.hasTitle) { try { $record.title = [string]$c.ChartTitle.Text } catch { } }
             try { $record.hasLegend = [bool]$c.HasLegend } catch { }
+            try { $record.valueMin = [double]$c.Axes(2).MinimumScale } catch { }
+            try { $record.valueMax = [double]$c.Axes(2).MaximumScale } catch { }
+            try { $record.valueStep = [double]$c.Axes(2).MajorUnit } catch { }
             try { $record.plotWidth = [math]::Round([double]$c.PlotArea.Width, 2) } catch { }
             try { $record.plotHeight = [math]::Round([double]$c.PlotArea.Height, 2) } catch { }
 
