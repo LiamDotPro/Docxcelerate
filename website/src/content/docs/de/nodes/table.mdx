@@ -13,6 +13,10 @@ import NodeVariants from "../../../../components/NodeVariants.astro";
 
 ## So schreibt man eine
 
+Eine Tabelle braucht von Ihnen zwei Dinge: die Spalten und die Zeilen. Die
+Spalten deklarieren Sie einmal an der `<Table>`, dann füllen Sie sie mit `<Row>`s
+aus `<Cell>`s.
+
 ```tsx
 import { Cell, Row, Table, useFormat, useState } from "docxcelerate/template";
 
@@ -23,8 +27,8 @@ export const VisitLog: Table = () => {
   return (
     <Table id="visit-log" columns={[{ width: "auto" }, { width: 28, align: "right" }]}>
       <Row header>
-        <Cell>Monat</Cell>
-        <Cell>Besuche</Cell>
+        <Cell>Month</Cell>
+        <Cell>Visits</Cell>
       </Row>
       {state.months.map((entry) => (
         <Row>
@@ -37,17 +41,110 @@ export const VisitLog: Table = () => {
 };
 ```
 
-**Die Spalten gehören der Tabelle** — in Millimetern oder `"auto"`, um aufzuteilen, was die festen übrig lassen, jede mit optionalem `align`. Sie werden einmal deklariert, weil jede Zeile sie teilt: eine Tabelle, deren Spalten nicht fluchten, ist keine Tabelle.
+Jede Spalte nimmt eine `width` — in Millimetern oder `"auto"`, um aufzuteilen, was
+die festen übrig lassen — und ein optionales `align`.
 
-**Alles andere ist ein gewöhnlicher Node.** Ein `.map()` erzeugt Zeilen, eine Bedingung lässt eine weg, und jede benennt sich selbst. Genau das lässt eine veröffentlichte Rechnung eine Schleife tragen, die die Engine abläuft, statt einer Tabelle voller Sonderfälle.
+`align` an der `<Table>` verschiebt die ganze Tabelle, nicht ihre Wörter: Ein
+Summenblock aus festen Spalten mit `align="right"` sitzt am rechten Rand, ohne
+dass eine Abstandsspalte ihn dort hält. Nur eine Tabelle, die schmaler als die
+Spalte ist, kann sich bewegen — eine `"auto"`-Spalte oder ein `bleed` füllt sie.
+
+**Warum die Spalten an der Tabelle deklarieren statt je Zelle?** Weil jede Zeile
+sie teilt, und sie einmal zu deklarieren lässt die Zeilen fluchten. Außerdem muss
+eine Zelle dann nur noch sagen, was in ihr steht.
+
+Eine Breite, die Sie angeben, ist eine Breite, die Sie bekommen. Die Tabelle wird
+mit festem Layout gepackt, Word legt die Spalten also dorthin, wo Sie sie
+hinsetzen, statt sie um das herum zu verändern, was zufällig in den Zellen steht —
+was eine Geldspalte mit der Summe darunter fluchten lässt. Das wird geprüft statt
+angenommen: Die Konformitätssuite packt diese Tabelle, öffnet sie in Word und hält
+jede Spaltengrenze auf einen Millimeter an die Stelle, an der die Vorschau sie
+zeichnete.
+
+## Zeilen sind gewöhnliche Nodes
+
+Das ist der Teil, den man kennen sollte, weil er bedeutet, dass es weniger zu
+lernen gibt, als man erwarten würde.
+
+Zeilen und Zellen sind Nodes, genau wie ein Absatz oder ein Abschnitt. Alles, was
+Sie schon kennen, funktioniert also auf ihnen:
+
+- `.map()` über Ihre Daten erzeugt eine Zeile je Eintrag, wie oben.
+- Eine Bedingung lässt eine Zeile weg, genauso wie jeden anderen Node.
+- Ids benennen sich selbst, Sie müssen also nicht je Zeile eine erfinden.
+
+Nichts davon ist für Tabellen als Sonderfall behandelt. Genau das lässt eine
+veröffentlichte Rechnung eine einzige Schleife tragen, die die Engine abläuft,
+statt einer Tabelle voller Ausnahmen.
 
 ## Was eine Zelle enthält
 
-Text kommt direkt hinein, also ist `<Cell>{line.qty}</Cell>` der Normalfall und liest sich auch so. Gib einer Zelle Absätze, wenn eine Zeile nicht reicht — eine Beschreibung über einer leisen Notiz — und sie bleiben auf getrennten Zeilen.
+Die meisten Zellen enthalten einen Wert, also kommt Text direkt hinein:
+
+```tsx
+<Cell>{line.qty}</Cell>
+```
+
+Ein [`<Text>`](/de/docs/nodes/paragraph/#anders-gesetzte-wörter) zwischen den
+Wörtern setzt einige davon ab, und die Zelle bleibt eine Textzeile:
+
+```tsx
+<Cell>Total <Text bold>due</Text></Cell>
+```
+
+Reicht eine Zeile nicht — eine Beschreibung mit einer leiseren Notiz darunter —,
+geben Sie der Zelle stattdessen Absätze, und sie bleiben auf getrennten Zeilen:
+
+```tsx
+<Cell>
+  <Paragraph>{line.desc}</Paragraph>
+  <Paragraph variant="muted">{line.meta}</Paragraph>
+</Cell>
+```
+
+Jeder behält sein eigenes `align` und seine `variant` — die
+[Absatzseite](/de/docs/nodes/paragraph/#wie-er-auf-der-seite-sitzt) beschreibt,
+was übernommen wird.
 
 ## Kopfzeilen
 
-`header` an einer Zeile zeichnet sie als Kopfzeile. Nur die Zeilen, mit denen eine Tabelle **beginnt**, wiederholen sich auf jeder neuen Seite — eine als `header` markierte Summenzeile wird also als solche gezeichnet, bleibt aber unter den Zahlen, die sie addiert.
+Eine Zeile mit `header` zu markieren zeichnet sie als Überschrift:
+
+```tsx
+<Row header>
+  <Cell>Description</Cell>
+  <Cell>Amount</Cell>
+</Row>
+```
+
+Nur die Zeilen, mit denen eine Tabelle **beginnt**, wiederholen sich auf jeder
+neuen Seite. Das zählt, wenn Sie eine Summenzeile als Kopfzeile markieren, um sie
+zu betonen: Sie wird weiterhin als Überschrift gezeichnet, bleibt aber unten, unter
+den Zahlen, die sie addiert. Sie wird nicht an den Anfang von Seite zwei gehoben.
+
+Die Vorschau wiederholt sie ebenfalls. Eine Tabelle, die länger als eine Seite
+ist, wird zwischen zwei ihrer Zeilen umbrochen — an derselben Naht wie in Word —,
+und die Kopfzeile wird oben auf jedem Stück erneut gezeichnet, sodass eine
+Rechnung mit fünfzig Posten am Bildschirm so aussieht, wie sie gedruckt wird.
+
+## Zeilen, die ihre Form halten
+
+Word bricht eine lange Zeile dort über eine Seite, wo die Seite endet, was eine
+halbe Rechnungszeile am Fuß der einen und die andere Hälfte am Kopf der nächsten
+Seite hinterlässt. `keepTogether` schiebt stattdessen die ganze Zeile hinüber;
+setzen Sie es an die Zeile, die ein `.map()` erzeugt, und jede Zeile bekommt es.
+Eine Zeile, die höher als eine Seite ist, bricht trotzdem.
+
+`height` gibt einer Zeile eine eigene Höhe, in Punkt — ein Feld zum Unterschreiben,
+eine Zeile eines Formulars. Es ist ein Mindestmaß, über das die Zeile hinauswächst,
+wenn ihre Zellen mehr brauchen; `heightRule="exact"` macht sie fest, für ein
+Etikettenblatt, bei dem das Raster mehr zählt als die Wörter, und Word schneidet ab,
+was nicht passt (die Vorschau lässt die Zeile wachsen, statt etwas zu verbergen).
+
+```tsx
+{state.lines.map((line) => <Row keepTogether>…</Row>)}
+<Row height={56}><Cell>Signed</Cell><Cell>Date</Cell></Row>
+```
 
 ## Varianten
 
@@ -55,7 +152,11 @@ Text kommt direkt hinein, also ist `<Cell>{line.qty}</Cell>` der Normalfall und 
 
 ## Anmerkungen
 
-- Eine leere Zelle ist immer noch eine Zelle. Word nimmt keine leere an, also wird sie als leeres Feld gepackt statt als fehlende Spalte.
-- `span` zieht eine Zelle über mehrere Spalten; `align` überschreibt die Ausrichtung der Spalte für genau diese Zelle.
-- Ein `variant` an einer Zelle sticht eines an ihrer Zeile, und das eines an der Tabelle — die engere Aussage ist die bewusstere.
-- Beide mitgelieferten Renderer zeichnen eine echte Tabelle: eine `<table>` am Bildschirm und eine Word-Tabelle mit den deklarierten Spaltenbreiten in der `.docx`.
+- Eine leere Zelle ist immer noch eine Zelle. Word nimmt keine leere an, also wird
+  sie als leeres Feld gepackt statt als fehlende Spalte.
+- `span` zieht eine Zelle über mehrere Spalten; `align` überschreibt die
+  Ausrichtung der Spalte für genau diese Zelle.
+- Ein `variant` an einer Zelle sticht eines an ihrer Zeile, und das eines an der
+  Tabelle — meist ist die engere Aussage die gemeinte.
+- Beide Renderer zeichnen eine echte Tabelle: eine `<table>` am Bildschirm und eine
+  Word-Tabelle mit den deklarierten Spaltenbreiten in der `.docx`.
