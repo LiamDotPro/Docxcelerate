@@ -126,7 +126,8 @@ export default {
 // derivers/money.ts — cheap, so the preview shows the real figure
 export default {
   name: "money",
-  run: ([amount]) => `£${Number(amount).toLocaleString("en-GB")}`,
+  run: ([amount, locale]) =>
+    Number(amount).toLocaleString(locale, { style: "currency", currency: "GBP" }),
 };
 ```
 
@@ -168,5 +169,6 @@ instead of a finished document.
 ## Where to go next
 
 - [Templates](/docs/essentials/templates/) — computed structure, reusable pieces, and what changes when you publish
+- [Localisation](/docs/essentials/localisation/) — one project in several languages
 - [The engine](/docs/generation/endpoint/) — publishing a document and writing from it
 - [Commands](/docs/cli/commands/) — every CLI flag

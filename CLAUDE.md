@@ -110,7 +110,12 @@ one.
 **A registry component that can be placed more than one way says so with
 arrangements.** It takes an `arrangement` prop and picks with `arrange()` from
 `docxcelerate/template`; the catalog entry lists them under `arrangements`, the
-default first. Never compare the prop: the branch compiler publishes a
+default first. Each arrangement is its own file,
+`registry/components/arrangements/<id>/<name>.arrangement.tsx`, beside a
+`lines.ts` typing what the node hands them, and the node imports them from
+`../arrangements/<id>/` — the deriver layout, so the import resolves before and
+after `dxcl add`. `node(id, { arrangements: [...] })` writes the file list. The
+node decides every line; an arrangement only places them. Never compare the prop: the branch compiler publishes a
 comparison of two literals rather than settling it, so `arrangement === "table"`
 ships every arrangement as a branch. Every arrangement prints the same lines
 under the same conditions — only where they sit changes — and

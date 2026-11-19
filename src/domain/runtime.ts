@@ -32,8 +32,10 @@ export interface RuntimeState {
   /**
    * The document's locale, as a BCP 47 tag, when it declared one.
    *
-   * Here so a deriver formats a figure the way the document's reader writes
-   * it, and so a dynamic node is written in the document's language.
+   * Here so a dynamic node is written in the document's language, and so a
+   * deriver written as a plain `run(inputs, state)` can read it. One written
+   * with `deriver()` is called with its inputs alone, and takes the locale as
+   * one of them.
    */
   locale?: string;
 }
