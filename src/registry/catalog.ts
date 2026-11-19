@@ -883,6 +883,51 @@ export const COMPONENTS: RegistryComponent[] = [
 
   {
     kind: "component",
+    id: "finnish-virtual-barcode",
+    title: "Finnish virtual bank barcode (virtuaaliviivakoodi)",
+    summary: "The 54-digit virtuaaliviivakoodi a Finnish payer pastes into their bank, or the IBAN and reference alone when it can't be trusted.",
+    detail:
+      "Builds the 54-digit virtual bank barcode from the Finanssiala bank barcode " +
+      "guide, or checks the one the ERP issued against it. The reference decides " +
+      "the version: a viitenumero gives version 4, an RF reference gives version 5, " +
+      "whose RF check digits take the place of version 4's reserved zeros, with the " +
+      "padding after them, not before. Obsolete version 2 is never produced. The code " +
+      "is printed only for a Finnish IBAN that passes mod-97, a euro invoice, a " +
+      "reference whose check digit is right and an RF that is numeric; any failure, " +
+      "or an ERP code that disagrees, withholds it and prints the IBAN and reference " +
+      "on their own. An amount over 999 999,99 or an open amount zero-fills the amount " +
+      "field rather than truncating it, and a missing or on-receipt due date becomes " +
+      "000000. A credit note or paid invoice prints nothing. The code is one unbroken " +
+      "run, without the drawn barcode's mod-103 check. All of it is one deriver.",
+    category: "Closing",
+    tags: ["payment", "invoice", "finland", "barcode", "bank", "reference", "deriver", "branching"],
+    exports: ["FinnishVirtualBarcode"],
+    dataFields: [
+      { path: "payee.iban", type: "string", summary: "The account to pay. Must be a valid FI IBAN for a code; otherwise printed alone." },
+      { path: "invoice.currency", type: "string", summary: "Must be EUR for a code." },
+      { path: "invoice.total", type: "number", summary: "Euros to the cent. Zero or less prints nothing; over 999 999,99 zero-fills the amount." },
+      { path: "invoice.dueDate", type: "string | undefined", summary: "ISO 8601. Missing gives 000000; not a real date withholds the code." },
+      { path: "invoice.onReceipt", type: "boolean | undefined", summary: "Payable on receipt: the due-date field is 000000." },
+      { path: "invoice.openAmount", type: "boolean | undefined", summary: "The payer sets the amount: the amount field is zero-filled and total is not read." },
+      { path: "payment.reference", type: "string", summary: "A viitenumero (version 4) or a numeric RF reference (version 5). A bad check digit withholds the code." },
+      { path: "virtualBarcode", type: "string | undefined", summary: "The ERP's own 54 digits. Printed only if it matches the code built from the fields above." },
+    ],
+    files: node("finnish-virtual-barcode", { deriver: true, arrangements: ["stacked", "table"] }),
+    arrangements: [
+      { id: "stacked", title: "Stacked", summary: "Each labelled line under the last, the code on its own line under its label." },
+      { id: "table", title: "Table", summary: "IBAN and reference as label/value rows, the code under them at full width." },
+    ],
+    previewData: {
+      payee: { iban: "FI79 4405 2020 0360 82" },
+      invoice: { currency: "EUR", total: 987654.32, dueDate: "2026-12-31" },
+      payment: { reference: "RF26 2026 1100 4817 3500 1234 5" },
+      virtualBarcode: "579440520200360829876543226202611004817350012345261231",
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
     id: "invoice-document-type",
     title: "Invoice document type",
     summary: "What an invoice may call itself, and the dates it has to carry.",
@@ -1068,6 +1113,67 @@ export const COMPONENTS: RegistryComponent[] = [
   },
   {
     kind: "component",
+    id: "be-consumer-debt-reminder",
+    title: "Belgian consumer debt reminder (Book XIX CEL)",
+    summary: "A Belgian payment reminder: free the first time, with its exact deadline, and only capped, agreed costs after.",
+    detail:
+      "A payment reminder that follows Book XIX of the Belgian Code of Economic Law. A consumer's first " +
+      "reminder is free and carries the four statutory mentions; if one is missing it prints an 'incomplete' " +
+      "warning instead, because without them the 14-day period never starts. That period runs from the third " +
+      "working day after a paper reminder is sent, or the day after an electronic one, and the exact last day is " +
+      "printed. Only a later reminder, sent after the period has lapsed unpaid, adds anything, and only what the " +
+      "contract expressly provides: a lump sum capped by bands on the outstanding amount (EUR 20, then EUR 30 plus " +
+      "10%, then EUR 65 plus 5% up to EUR 2,000), and late interest capped at the reference rate plus 8 points. " +
+      "Nothing else is ever charged. A business debtor gets the fixed EUR 40 per invoice of the Act of 2 August " +
+      "2002. All dates and amounts come from one deriver.",
+    category: "Body",
+    tags: ["money", "legal", "belgium", "debt-collection", "reminder", "branching", "deriver", "section"],
+    exports: ["BeConsumerDebtReminder"],
+    dataFields: [
+      { path: "debt.debtorType", type: '"consumer" | "business"', summary: "Consumer applies Book XIX; business applies the 2002 Act's EUR 40 per invoice. Required." },
+      { path: "debt.stage", type: '"first" | "subsequent"', summary: "The free first reminder, or a later one that may carry costs. Required for a consumer." },
+      { path: "debt.asOf", type: "string", summary: "ISO date this document is issued; interest runs to it. Required." },
+      { path: "debt.amountDue", type: "number", summary: 'Outstanding principal in euros. Zero or less prints "nothing outstanding". Required.' },
+      { path: "debt.dueDate", type: "string", summary: "ISO date the debt fell due. Required." },
+      { path: "debt.creditorName", type: "string | undefined", summary: "Statutory mention on the first reminder; missing prints a warning." },
+      { path: "debt.creditorEnterpriseNumber", type: "string | undefined", summary: "KBO/BCE number; statutory mention on the first reminder; missing prints a warning." },
+      { path: "debt.description", type: "string | undefined", summary: "What the debt is for; statutory mention on the first reminder; missing prints a warning." },
+      { path: "debt.firstReminder", type: '{ sentDate: string; channel: "paper" | "electronic" } | undefined', summary: "When and how the first reminder was sent; the 14-day period counts from it." },
+      { path: "debt.contractProvidesDamages", type: "boolean | undefined", summary: "An accepted clause expressly provides a lump sum. Missing means none." },
+      { path: "debt.agreedLumpSum", type: "number | undefined", summary: "The clause's figure in euros, capped by the statutory bands. Missing means the cap." },
+      { path: "debt.contractProvidesInterest", type: "boolean | undefined", summary: "An accepted clause provides late interest. Missing means none." },
+      { path: "debt.agreedRate", type: "number | undefined", summary: "The clause's annual rate in percent, capped at reference + 8. Missing means the cap." },
+      { path: "debt.referenceRate", type: "number | undefined", summary: "2002 Act reference rate in percent; needed whenever interest is provided for." },
+      { path: "debt.creditorIsSme", type: "boolean | undefined", summary: "An SME may run interest from the day after the first reminder was sent." },
+      { path: "debt.holidays", type: "string[] | undefined", summary: "Extra non-working ISO dates on top of the ten Belgian legal holidays." },
+      { path: "debt.invoiceCount", type: "number | undefined", summary: "Business only: unpaid invoices, EUR 40 each. Missing means 1." },
+    ],
+    files: node("be-consumer-debt-reminder", { deriver: true }),
+    previewData: {
+      debt: {
+        debtorType: "consumer",
+        stage: "subsequent",
+        asOf: "2026-11-30",
+        amountDue: 48730.6,
+        dueDate: "2026-09-15",
+        creditorName: "Vandenbroucke-Delacroix Ameublement, Literie et Décoration SRL",
+        creditorEnterpriseNumber: "0712.345.678",
+        description:
+          "the corner sofa 'Ardennes XL' in cognac leather with two electric recliners, delivery and assembly included (order 2026-118734-B, invoice F-2026-0045817)",
+        firstReminder: { sentDate: "2026-10-14", channel: "paper" },
+        contractProvidesDamages: true,
+        contractProvidesInterest: true,
+        agreedRate: 14,
+        referenceRate: 4.25,
+        creditorIsSme: false,
+        holidays: ["2026-09-27"],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
     id: "plan-change-proration",
     title: "Plan change proration",
     summary: "The credit and charge lines a mid-period plan change causes, and what the net means.",
@@ -1121,6 +1227,59 @@ export const COMPONENTS: RegistryComponent[] = [
             to: { label: "Enterprise Analytics Suite with Extended Data Retention and Dedicated Support", quantity: 1, periodAmountMinor: 3149900 },
           },
         ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "incoterm-charges-and-customs-value",
+    title: "Incoterm charges and customs value",
+    summary: "Who pays each leg of the journey under the Incoterms rule, and the customs value that follows.",
+    detail:
+      "States the Incoterms 2020 rule with its named place and itemises every cost leg, from export " +
+      "packing to import VAT, by name and amount. Each leg is charged, included in the price or for the " +
+      "buyer's account, as the rule decides, and a buyer's leg never enters the total. From the same split " +
+      "it gives the customs value on the destination's basis: CIF to the place of entry for the EU and UK, " +
+      "with air freight apportioned by the Annex 23-01 percentage, or FOB at the place of export for the " +
+      "US, Canada and Australia, with freight and insurance itemised as 19 CFR 141.86(a)(8) requires. An " +
+      "EXW price gains the buyer's costs to the border, a CIF price loses its freight, and a DDP price " +
+      "gives back its duty. Figures are integer minor units, rounded once. It warns when a sea-only rule " +
+      "is used for air, container or land freight, when the named place is missing, when DDP has the " +
+      "seller paying import VAT, and when a CFR or CPT invoice shows insurance. All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "invoice", "trade", "customs", "incoterms", "table", "deriver", "branching", "section"],
+    exports: ["IncotermChargesAndCustomsValue"],
+    dataFields: [
+      { path: "shipment.incoterm", type: '"EXW" | "FCA" | "FAS" | "FOB" | "CFR" | "CIF" | "CPT" | "CIP" | "DAP" | "DPU" | "DDP"', summary: "The Incoterms 2020 rule. Required." },
+      { path: "shipment.namedPlace", type: "string | undefined", summary: "The named place or port. Missing prints a warning." },
+      { path: "shipment.mode", type: '"sea" | "sea-container" | "air" | "road" | "rail" | "multimodal" | undefined', summary: "How the main carriage travels. Drives the sea-only warning and air apportionment." },
+      { path: "shipment.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required." },
+      { path: "shipment.goodsMinor", type: "number", summary: "Goods price in integer minor units, including any leg marked inPrice. Required." },
+      { path: "shipment.legs", type: "Array<{ kind: IncotermLegKind; amountMinor: number; inPrice?: boolean }>", summary: "One entry per cost leg, any order, one per kind. Missing legs print no row." },
+      { path: "shipment.destination", type: '{ valuationBasis: "cif-border" | "fob-export"; airFreightDutiablePercent?: number }', summary: "How the importing country values goods. Required." },
+    ],
+    files: node("incoterm-charges-and-customs-value", { deriver: true }),
+    previewData: {
+      shipment: {
+        incoterm: "DAP",
+        namedPlace: "Unit 14, Maasvlakte Distribution Park, Europaweg 875, 3199 LD Rotterdam, Netherlands",
+        mode: "sea-container",
+        currency: "EUR",
+        goodsMinor: 128475000,
+        legs: [
+          { kind: "export-packing", amountMinor: 184500, inPrice: true },
+          { kind: "origin-inland", amountMinor: 386000 },
+          { kind: "export-clearance", amountMinor: 42500 },
+          { kind: "origin-terminal", amountMinor: 61800 },
+          { kind: "main-carriage", amountMinor: 1874000 },
+          { kind: "insurance", amountMinor: 154200 },
+          { kind: "destination-terminal", amountMinor: 58700 },
+          { kind: "onward-delivery", amountMinor: 212500 },
+          { kind: "import-duty", amountMinor: 5396000 },
+          { kind: "import-tax", amountMinor: 26791400 },
+        ],
+        destination: { valuationBasis: "cif-border" },
       },
     },
     requires: [],
@@ -3542,6 +3701,50 @@ export const COMPONENTS: RegistryComponent[] = [
 
   {
     kind: "component",
+    id: "boleto-linha-digitavel",
+    title: "Boleto typeable line (Brazil)",
+    summary: "A boleto's 47-digit typeable line, built from the invoice or checked against the bank's.",
+    detail:
+      "Builds the linha digitável from the bank code, the due date, the amount " +
+      "and the bank's 25-digit free field, or checks the line the bank returned " +
+      "digit for digit. If that line disagrees with the invoice's due date or " +
+      "amount, the document fails, because the bank collects what its line " +
+      "says. The due-date factor handles the 2025 rollover: it reached 9999 on " +
+      "2025-02-21 and restarted at 1000. The general check digit is modulus 11 " +
+      "over the barcode order and the field checks are modulus 10 over the line " +
+      "order. A line it cannot build is withheld with the reason: an invoice " +
+      "not in reais, a free field of the wrong length, a due date before " +
+      "2000-07-03, or nothing to pay. It does not draw the ITF barcode. It is " +
+      "one deriver, so it publishes.",
+    category: "Closing",
+    tags: ["boleto", "brazil", "payment", "invoice", "checksum", "deriver", "section"],
+    exports: ["BoletoLinhaDigitavel"],
+    dataFields: [
+      { path: "boleto.bankCode", type: "string", summary: "Three-digit FEBRABAN bank code. Anything else withholds the line." },
+      { path: "boleto.freeField", type: "string", summary: "The bank's 25-digit free field, carrying the nosso número. Any other length withholds the line." },
+      { path: "boleto.line", type: "string | undefined", summary: "The line the bank returned. Checked digit for digit; any difference fails the document." },
+      { path: "invoice.total", type: "number", summary: "Amount in reais, rounded half up to centavos. Zero, negative or over R$ 99.999.999,99 withholds the line." },
+      { path: "invoice.dueDate", type: "string | undefined", summary: "ISO 8601 due date. Missing prints 'Contra apresentação'; before 2000-07-03 withholds; not a date fails." },
+      { path: "invoice.currency", type: '"BRL"', summary: "Must be BRL. Anything else withholds the line." },
+    ],
+    arrangements: [
+      { id: "stacked", title: "Stacked", summary: "Due date and amount as labelled lines, the typeable line on its own line beneath." },
+      { id: "table", title: "Table", summary: "Due date and amount in a label/value table, the typeable line full width beneath it." },
+    ],
+    files: node("boleto-linha-digitavel", { deriver: true, arrangements: ["stacked", "table"] }),
+    previewData: {
+      boleto: {
+        bankCode: "341",
+        freeField: "1090000012345678901234561",
+        line: "34191.09008 00012.345674 89012.345610 4 16610875043219",
+      },
+      invoice: { total: 8750432.19, dueDate: "2026-12-15", currency: "BRL" },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
     id: "royalty-earnings-by-format",
     title: "Royalty earnings by format",
     summary: "Royalty lines per format and price band, split where the period crosses an escalator.",
@@ -3682,6 +3885,138 @@ export const COMPONENTS: RegistryComponent[] = [
         accountLast4: "4417",
         negativeBalanceMethod: "carry",
         closingBalance: 19039259,
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "de-mahnung-fee",
+    title: "German Mahnung fee and Verzug status",
+    summary: "When each invoice went into Verzug, and what this Mahnung may lawfully charge.",
+    detail:
+      "For each invoice in a German dunning letter, states since when the debtor " +
+      "is in Verzug and why: a contractual payment date, 30 days after due date " +
+      "and receipt of the invoice (for a consumer only if the invoice warned of " +
+      "it; for a business, from receipt of the goods when the invoice date is " +
+      "unknown), or the first Mahnung after the due date. Deadlines that end on a " +
+      "weekend or public holiday move to the next working day under § 193 BGB, " +
+      "nationwide holidays included. The Mahnung that causes Verzug is free and " +
+      "says so; later ones carry material costs once per letter, capped for " +
+      "consumers with the § 309 Nr. 5 proof clause. A business debtor gets the " +
+      "EUR 40 Pauschale once per invoice, with Mahnung fees credited against it " +
+      "so only the excess is charged; a consumer never does. All of it is one deriver.",
+    category: "Body",
+    tags: ["invoice", "dunning", "germany", "legal", "money", "deriver", "branching", "section"],
+    exports: ["DeMahnungFee"],
+    dataFields: [
+      { path: "mahnung.debtorType", type: '"consumer" | "business"', summary: "Decides the Pauschale, the 30-day rule and the fee cap. Anything else fails the document." },
+      { path: "mahnung.date", type: "string", summary: "ISO 8601 date this Mahnung reaches the debtor. Required." },
+      { path: "mahnung.fee", type: "number | undefined", summary: "Material cost of this letter in euros, charged once. Missing means none; above 2.50 fails for a consumer." },
+      { path: "mahnung.holidays", type: "string[] | undefined", summary: "The debtor's Land holidays, ISO 8601. Nationwide holidays are built in." },
+      {
+        path: "mahnung.invoices",
+        type: "Array<{ number: string; amount: number; dueDate: string; invoiceReceivedDate?: string; goodsReceivedDate?: string; contractPaymentDate?: string; contractPaymentFromEvent?: boolean; verzugWarningOnInvoice?: boolean; mahnungen?: Array<{ date: string; feeCharged?: number }> }>",
+        summary: "Every invoice the letter covers, euros, with earlier Mahnungen. Required and non-empty.",
+      },
+    ],
+    arrangements: [
+      { id: "stacked", title: "Stacked", summary: "Each invoice as a heading with its Verzug, fee and Pauschale lines beneath." },
+      { id: "table", title: "Table", summary: "One row per invoice, with Verzug, fee and Pauschale in columns." },
+    ],
+    files: node("de-mahnung-fee", { deriver: true, arrangements: ["stacked", "table"] }),
+    previewData: {
+      mahnung: {
+        debtorType: "business",
+        date: "2026-11-19",
+        fee: 6.5,
+        holidays: ["2026-11-18"],
+        invoices: [
+          {
+            number: "RE-2026-006233-WARTUNG-Q4-STANDORT-LEIPZIG",
+            amount: 92840.1,
+            dueDate: "2026-10-19",
+            invoiceReceivedDate: "2026-10-19",
+          },
+          {
+            number: "RE-2026-004817/TEILLIEFERUNG-3-RAHMENVERTRAG-NORD",
+            amount: 1284750.0,
+            dueDate: "2026-08-31",
+            contractPaymentDate: "2026-08-31",
+            mahnungen: [
+              { date: "2026-09-15", feeCharged: 6.5 }, { date: "2026-09-29", feeCharged: 6.5 },
+              { date: "2026-10-13", feeCharged: 6.5 }, { date: "2026-10-27", feeCharged: 6.5 },
+              { date: "2026-11-03", feeCharged: 6.5 }, { date: "2026-11-10", feeCharged: 6.5 },
+            ],
+          },
+          {
+            number: "RE-2026-005102-ERSATZTEILE-HYDRAULIK",
+            amount: 486320.75,
+            dueDate: "2026-09-01",
+            invoiceReceivedDate: "2026-09-03",
+          },
+        ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "nl-collection-costs",
+    title: "Dutch collection costs",
+    summary: "Dutch statutory collection costs on the WIK staffel, and the fourteen-day letter that makes them due.",
+    detail:
+      "Collection costs under Dutch law are all or nothing: one mistake voids the claim. " +
+      "A consumer owes them only after a veertiendagenbrief that states the exact figure, " +
+      "and the fourteen days run from the day after receipt, so the letter prints a payment " +
+      "date fifteen days after the expected receipt, rolled past weekends and public holidays. " +
+      "The staffel is applied once to every invoice the letter names, with interest that has " +
+      "run a year added first, and rounded to the cent once. btw is added only when the " +
+      "creditor cannot reclaim it. A consumer's low instalments get EUR 40 and then EUR 20 in " +
+      "a six-month window. A business owes the staffel or EUR 40 per invoice, whichever is " +
+      "more, or what its contract says, with no letter. A later letter claims costs only once " +
+      "the earlier deadline has passed and it stated an amount; otherwise nothing is printed. " +
+      "An agency prints its Wki number. All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "collection", "netherlands", "dutch", "legal", "deriver", "branching", "section"],
+    exports: ["NlCollectionCosts"],
+    dataFields: [
+      { path: "collection.debtorType", type: '"consumer" | "business"', summary: "Decides which rules apply. Required." },
+      { path: "collection.creditorCanReclaimVat", type: "boolean | undefined", summary: "false adds 21% btw to the costs. Missing means no btw." },
+      { path: "collection.sendDate", type: "string", summary: "ISO 8601 date this document is sent. Required." },
+      { path: "collection.channel", type: '"post" | "email" | undefined', summary: "Sets the expected receipt. Required on a consumer's veertiendagenbrief." },
+      { path: "collection.postDeliveryDays", type: "number | undefined", summary: "Days a posted letter takes. Missing means 4." },
+      { path: "collection.invoices", type: "Array<{ number: string; principal: number; dueDate: string }>", summary: "Every overdue invoice claimed, in euros. Added together before the staffel. Required." },
+      { path: "collection.interestAccrued", type: "number | undefined", summary: "Statutory interest in euros; added to the base once it has run a year." },
+      { path: "collection.interestRunningSince", type: "string | undefined", summary: "ISO 8601 date the interest started." },
+      { path: "collection.instalment", type: "{ priorCharged: number; windowStart?: string } | undefined", summary: "A consumer instalment: EUR 40, then EUR 20 in a six-month window, under EUR 266.67." },
+      { path: "collection.contractualCosts", type: "number | undefined", summary: "Business only: the contract clause's costs, excluding btw. Replaces the staffel." },
+      { path: "collection.previousLetter", type: "{ deadline: string; statedCosts?: number; receivedDate?: string } | undefined", summary: "Consumer only: the veertiendagenbrief already sent. Costs print only after its deadline, and only if it stated them." },
+      { path: "collection.agency", type: "{ name: string; registrationNumber: string } | undefined", summary: "A collection agency sender; its Wki number is printed." },
+    ],
+    arrangements: [
+      { id: "stacked", title: "Stacked", summary: "One labelled figure under another, below the statement." },
+      { id: "table", title: "Table", summary: "Labels on the left, amounts right-aligned, so the figures add up down the page." },
+    ],
+    files: node("nl-collection-costs", { deriver: true, arrangements: ["stacked", "table"] }),
+    previewData: {
+      collection: {
+        debtorType: "consumer",
+        creditorCanReclaimVat: false,
+        sendDate: "2026-11-19",
+        channel: "post",
+        invoices: [
+          { number: "VF-2025-0004817-ENERGIE-NOORD", principal: 7845.32, dueDate: "2025-09-30" },
+          { number: "VF-2025-0005129-ENERGIE-NOORD", principal: 6912.75, dueDate: "2025-10-31" },
+          { number: "VF-2026-0000318-EINDAFREKENING", principal: 3991.93, dueDate: "2026-01-31" },
+        ],
+        interestAccrued: 612.48,
+        interestRunningSince: "2025-10-01",
+        agency: {
+          name: "Incassobureau Noord-Holland Gerechtsdeurwaarders en Juridische Dienstverlening B.V.",
+          registrationNumber: "2024-0048176",
+        },
       },
     },
     requires: [],

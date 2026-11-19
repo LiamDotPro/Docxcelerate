@@ -83,17 +83,37 @@ export interface AiImageGenerationRequest {
   state: RuntimeState;
 }
 
-/** The image an {@linkcode AiClient} produced. */
+/**
+ * The image an {@linkcode AiClient} produced: its bytes, or a `data:` URI
+ * carrying them — exactly one of the two.
+ *
+ * Bytes are what an image API gives after a fetch or a base64 decode. They are
+ * written into the document as a `data:` URI and are never kept on the node.
+ * Word embeds PNG, JPEG, GIF and BMP. Anything else — a URL or file path, an
+ * empty picture, SVG or WebP, both forms or neither — fails the build or the
+ * resolve with an error naming the node, rather than packing a note where the
+ * picture should be. Absent or `null` `alt`, `width` and `height` keep the
+ * node's own.
+ *
+ * @example
+ * ```ts
+ * async generateImage({ prompt }) {
+ *   const response = await fetch(IMAGE_URL, { method: "POST", body: JSON.stringify({ prompt }) });
+ *   return { bytes: new Uint8Array(await response.arrayBuffer()), mediaType: "image/png" };
+ * }
+ * ```
+ */
 export interface AiImageResult {
-  /**
-   * The picture, as a `data:` URI carrying its bytes. Only that is packed into
-   * Word; a path or URL draws on screen but packs as a note naming the image.
-   */
-  path: string;
+  /** The picture as a `data:` URI, such as `data:image/png;base64,…`. Leave it off when giving `bytes`. */
+  path?: string;
+  /** The picture's bytes. Give `mediaType` with them, and leave `path` off. */
+  bytes?: Uint8Array;
+  /** What `bytes` are: `image/png`, `image/jpeg`, `image/gif` or `image/bmp`. Required with `bytes`, ignored without. */
+  mediaType?: string;
   /** Alternative text describing it. */
   alt?: string;
-  /** Rendered width, in points. */
-  width?: number;
+  /** Rendered width, in points, or `"full"`; see `ImageNode.width`. */
+  width?: number | "full";
   /** Rendered height, in points. */
   height?: number;
 }

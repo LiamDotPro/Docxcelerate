@@ -136,12 +136,12 @@ export class ScriptedAiClient implements AiClient {
    *
    * @param request The node, its prompts and the state around it.
    * @returns The scripted image.
-   * @throws If the script has no answer for the node, or its answer has no `path`.
+   * @throws If the script has no answer for the node, or its answer has neither a `path` nor `bytes`.
    */
   generateImage(request: AiImageGenerationRequest): AiImageResult {
     const answer = this.#answer(request);
 
-    if (typeof answer !== "object" || typeof (answer as AiImageResult).path !== "string") {
+    if (typeof answer !== "object" || (typeof (answer as AiImageResult).path !== "string" && (answer as AiImageResult).bytes === undefined)) {
       throw unusable(request.node.id, "image");
     }
 
