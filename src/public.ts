@@ -39,6 +39,9 @@ export * from "./project/style.ts";
 // renderer should do differently from another.
 export * from "./render/image_source.ts";
 export * from "./runtime/ai.ts";
+// The shape a chart client's answer is checked against, for a model's
+// structured output; the rest of that module is internal to the runtime.
+export { aiGraphResultSchema } from "./runtime/ai_request.ts";
 // An engine resolving a published document evaluates its conditions, so the
 // two functions that do it are part of the surface rather than an internal.
 export * from "./runtime/conditions.ts";

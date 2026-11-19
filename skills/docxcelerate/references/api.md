@@ -200,11 +200,11 @@ Notes worth knowing:
 - **A generated chart's answer is checked before it is drawn.** What
   `aiClient.generateGraph` returns is read the way model JSON is written: a
   number written as text (`"12"`, `" 3.5 "`) is a number, a numeric category
-  (`2024`) is its text, and `null` is the same as leaving a field out. An absent
+  (`2024`) is its text, and `null` is the same as leaving a field out, a series `label` included. An absent
   `graphType`, `data` or `caption` keeps the node's own, so a `caption` written
   on a prompted `<Graph>` survives a model that only sends numbers. Anything else
   that is not a chart — a `graphType` that is not one of the nine, a `series`
-  that is not an array, a series without a `values` array, a value such as
+  that is not an array, a series without a `values` array, a `label` that is not text, a value such as
   `"twelve"` — fails with an error naming the node and the field, rather than
   packing a chart that is empty in Word.
 - **A chart is packed as a real Word chart**, not as a picture of one: a
@@ -595,6 +595,36 @@ const aiClient: AiClient = {
   },
 };
 ```
+
+A chart client holds the model to `aiGraphResultSchema`, exported from
+`docxcelerate`: a plain JSON Schema object for exactly the answer
+`generateGraph` returns. Its chart types are the nine the check accepts, every
+field is required, and a field the model has nothing to say for is `null`,
+which keeps the node's own. Pass it to whatever structured output the provider
+has:
+
+```ts
+import { aiGraphResultSchema } from "docxcelerate";
+
+// OpenAI:    response_format: { type: "json_schema", json_schema: { name: "chart", strict: true, schema: aiGraphResultSchema } }
+// Anthropic: tools: [{ name: "chart", input_schema: aiGraphResultSchema }], tool_choice: { type: "tool", name: "chart" } — the answer is the tool_use block's `input`
+// Gemini:    generationConfig: { responseMimeType: "application/json", responseJsonSchema: aiGraphResultSchema }
+
+async generateGraph({ prompt }) {
+  const response = await fetch(MODEL_URL, {
+    method: "POST",
+    headers: { authorization: `Bearer ${MODEL_KEY}`, "content-type": "application/json" },
+    body: JSON.stringify({ input: prompt, schema: aiGraphResultSchema }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!response.ok) throw new Error(`Model answered ${response.status}`);
+  const { text } = await response.json();
+  return JSON.parse(text); // checked before it is drawn; a reply cut off mid-JSON rejects here
+},
+```
+
+The schema leaves out a series' `color` on purpose: a colour a model picks is
+one the theme can no longer change.
 
 Keep keys in the client, never in `data` or a prompt: a `{{data.…}}` token can
 print anything in `data`, and prompts are published with the document.
