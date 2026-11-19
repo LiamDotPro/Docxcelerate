@@ -57,14 +57,32 @@ export const nl: UiStrings = {
       "beslist. Benut onze engine om documenten op schaal te genereren.",
     ctaStart: "Aan de slag →",
     ctaHowItWorks: "Hoe het werkt",
-    copyInstall: "Installatiecommando kopiëren",
-    copy: "Kopiëren",
     copied: "Gekopieerd",
     copyFallback: "Druk op ⌘C",
     integrityTitle: "{hash} · klik om te kopiëren",
     /** Accessible name for the registry marks beside the version. */
     onNpm: "Docxcelerate op npm",
     onJsr: "Docxcelerate op JSR",
+
+    /** The hero's switch between the two builds of the document it shows. */
+    builds: {
+      label: "Eén template · twee builds",
+      engine: "Engine",
+      preview: "Preview",
+      engineCaption: "Engine: de gemarkeerde delen zijn door een model voor deze klant geschreven, en de beslissing was aan het model. Elk bedrag wordt berekend, nooit gegenereerd.",
+      previewCaption: "Preview: hetzelfde template op je eigen machine. Gegenereerde delen tonen hun placeholder, er wordt niets verstuurd en de pagina ziet er na elke save hetzelfde uit.",
+    },
+
+    /** §1: one paragraph followed from source to preview to the engine. */
+    source: {
+      title: "Bron. Preview. Document.",
+      lead: "Eén alinea uit het portefeuilleoverzicht, gevolgd van het bestand dat je schrijft tot de pagina die je klant opent. De preview wacht nooit op een model en er verlaat niets je machine; de engine schrijft de echte zin per persoon.",
+      sourceLabel: "bron",
+      previewLabel: "preview",
+      sourceNote: "Eén keer geschreven, in je repo. De prompt staat naast de node die hij vult.",
+      previewNote: "Opnieuw gebouwd bij elke save. Gegenereerde nodes tonen hun placeholder.",
+      engineNote: "Per ontvanger geschreven. De zinnen eromheen veranderen nooit.",
+    },
 
     points: {
       authoring: {
@@ -75,16 +93,6 @@ export const nl: UiStrings = {
           "hebt geschreven, ken je deze vorm al: props, compositie, kleine " +
           "bestanden. Een frontend-engineer is de eerste middag al productief " +
           "in plaats van eerst een templatetaal te moeten leren.",
-      },
-      ai: {
-        label: "AI",
-        title: "AI op componentniveau",
-        body:
-          "AI komt binnen via hooks, in de componenten die je toch al schrijft. Een " +
-          "component geeft het model zijn context en wat je geschreven wilt hebben, " +
-          "zodat het precies dat ene deel van het document maakt terwijl alles " +
-          "eromheen deterministisch blijft. Jij bepaalt hoeveel er gegenereerd " +
-          "wordt, één component tegelijk.",
       },
       changeControl: {
         label: "Wijzigingsbeheer",
@@ -126,6 +134,8 @@ export const nl: UiStrings = {
         "niet heeft, en komt binnenkort.",
       ctaHow: "Hoe de engine werkt →",
       ctaCloud: "Managed cloud",
+      /** {count} is a number of documents. */
+      volume: "{count} overzichten dit kwartaal",
       steps: {
         build: {
           title: "Bouwen",
@@ -145,69 +155,7 @@ export const nl: UiStrings = {
       },
     },
 
-    scale: {
-      eyebrow: "Enterprise",
-      title: "Gebouwd voor de rapporten die je nu met de hand schrijft",
-      lead:
-        "Een kantoor dat hetzelfde rapport honderden keren per maand maakt, heeft de " +
-        "opmaak en het meeste van de tekst allang. Wat verandert, is de persoon voor " +
-        "wie het geschreven wordt. Bouw dat rapport opnieuw op uit componenten, houd " +
-        "elke run identiek, en geef een model alleen de delen die afhangen van wie " +
-        "het leest.",
-      traits: {
-        volume: {
-          title: "Eén template, elke ontvanger",
-          body:
-            "Publiceer de template één keer en roep hem daarna per persoon aan. Eén " +
-            "rapport of honderdduizend is dezelfde aanroep, herhaald.",
-        },
-        determinism: {
-          title: "Elke keer hetzelfde document",
-          body:
-            "Alles wat je niet als gegenereerd hebt gemarkeerd, rendert bij elke run " +
-            "identiek. Alleen de delen die jij koos mogen variëren.",
-        },
-        integration: {
-          title: "Aangeroepen door de systemen die je draait",
-          body:
-            "Je CRM, zaaksysteem of facturatiesysteem stuurt zijn gegevens en krijgt " +
-            "een .docx terug. Niemand exporteert een spreadsheet of opent Word.",
-        },
-        reproducibility: {
-          title: "Een jaar later nog reproduceerbaar",
-          body:
-            "Templates hebben een versie, dus elk document kan opnieuw worden " +
-            "gebouwd uit dezelfde template en dezelfde gegevens. Een audit krijgt een " +
-            "build, geen archief.",
-        },
-      },
-    },
 
-    openSource: {
-      eyebrow: "Open source",
-      title: "Open source, en gebouwd om dat te blijven",
-      bodyOne:
-        "Het framework, de renderers, het nodemodel en de CLI staan onder een " +
-        "MIT-licentie en worden in de openbaarheid ontwikkeld. Lees de code die je " +
-        "documenten schrijft, fork hem, of neem hem op in je eigen build.",
-      bodyTwo:
-        "De engine mag je gratis zelf hosten, dus documenten op schaal maken hangt " +
-        "nooit af van een leverancier die blijft bestaan of van een prijslijst die " +
-        "gelijk blijft. Onze betaalde cloud legt de premiumfuncties op diezelfde " +
-        "vrije kern, zodat hosting en schaal er zijn vanaf het eerste document dat " +
-        "je schrijft. Hij is het gemak, niet de deur naar binnen.",
-      ctaSource: "Bekijk de broncode →",
-      ctaNpm: "Bekijk het op npm",
-
-      licence: {
-        pages: "1 van 1",
-        copyright: "Copyright (c) {year} Docxcelerate",
-        fork: "Fork hem",
-        vendor: "Neem hem op",
-        ship: "Lever hem uit",
-        read: "Lees hem →",
-      },
-    },
 
     docs: {
       eyebrow: "Documentatie",
@@ -245,34 +193,6 @@ export const nl: UiStrings = {
       },
     },
 
-    agentSkill: {
-      eyebrow: "Agent skills",
-      title: "Geef het geheel aan je agent",
-      lead:
-        "Één Markdown-bestand leert een coding agent hoe documenten hier in elkaar " +
-        "zitten: het componentmodel, de regels waar agents over struikelen en elk " +
-        "commando. Zet het erin en vraag om een document in plaats van het eerste " +
-        "zelf te schrijven.",
-      where: "Waar het bestand hoort",
-      copySkill: "Kopieer de skill",
-      references:
-        "Het is gewone Markdown, en er staan vier referentiebestanden naast in " +
-        "skills/docxcelerate/.",
-      agents: {
-        "claude-code":
-          "Zet de map in .claude/skills/ voor één project, of in ~/.claude/skills/ " +
-          "voor allemaal. Hij laadt zichzelf zodra er een documentproject opduikt.",
-        "cursor":
-          "Sla het op als rule-bestand, dan leest Cursor het in dat project. Of " +
-          "@-mention het bestand in de chat wanneer je het nodig hebt.",
-        "copilot":
-          "Plak het in .github/copilot-instructions.md, dan past Copilot het toe in " +
-          "de hele repository.",
-        "agents-md":
-          "Codex, Gemini CLI, Aider en Cline lezen allemaal AGENTS.md in de root van " +
-          "de repo. Plak het erin, of verwijs ernaar als je agent bestanden opent.",
-      },
-    },
   },
 
   demo: {
@@ -290,13 +210,13 @@ export const nl: UiStrings = {
       "Een echte documentpreview die live wordt gerenderd, geen screenshots en geen verborgen trucs.",
     counts: "{documents} documenten · {files} bestanden",
     sectors: {
-      education: "Onderwijs",
       housing: "Wonen",
       insurance: "Verzekeringen",
       consulting: "Zakelijke dienstverlening",
+      finance: "Financiën",
     },
     documents: {
-      "offer-of-admission": "Toelatingsbrief",
+      "portfolio-review": "Kwartaaloverzicht portefeuille",
       "repairs-appointment": "Reparatieafspraak",
       "policy-renewal": "Polisverlenging",
       invoice: "Factuur",
@@ -309,6 +229,12 @@ export const nl: UiStrings = {
     onThisPage: "Op deze pagina",
     editOnGithub: "Deze pagina bewerken op GitHub ↗",
     viewAsMarkdown: "Deze pagina als Markdown lezen",
+    /** {version} is the release the page was built against. */
+    renderedAgainst: "Gerenderd met {version}",
+    previous: "Vorige",
+    next: "Volgende",
+    /** Names the previous/next links at the foot of a page. */
+    pagination: "Vorige en volgende pagina",
     untranslatedNote:
       "Deze pagina is nog niet vertaald en wordt daarom in het Engels getoond.",
 
@@ -416,20 +342,25 @@ export const nl: UiStrings = {
       heading: "Registry",
       lead:
         "Kant-en-klare themas en componenten voor je documentprojecten. Installeer er een met één commando en bewerk het daarna als je eigen code.",
-      filterByTag: "Filteren op tag",
       allTags: "Alles",
       themesNote: "Een thema installeren schrijft document-style.ts",
-      componentsNote: "Een component installeren schrijft het bestand naar nodes/",
       nodes: "nodes",
       noPreview: "Geen voorbeeld",
       /** Opent de datapaden op een componentrij; verbindt gefilterde tags. */
       readsPrefix: "leest",
-      andJoin: "en",
-      /** {tag} is the tag that matched nothing. */
-      noMatches: "Geen items met {tag}.",
-      noMatchesTitle: "Geen resultaten",
-      noMatchesNote: "Probeer een andere tag of wis het filter.",
-      clearFilter: "Filter wissen",
+      /** The page's headline; `heading` is the short name the nav uses. */
+      headline: "Begin met papier dat al werkt.",
+      /** {themes} and {components} are counts. */
+      counts: "{themes} thema's · {components} componenten",
+      useTheme: "Thema gebruiken",
+      selected: "✓ Gekozen",
+      add: "+ Toevoegen",
+      added: "✓ Toegevoegd",
+      familyLabel: "Wat het tekent",
+      familyNote: "Gegroepeerd op waar een component in uitkomt, gelezen uit de build — geen label dat iemand bijhoudt.",
+      /** {count} is how many themes and components are picked. */
+      trayCount: "Je installatie · {count} gekozen",
+      trayEmpty: "kies een thema of een component",
     },
     themes: {
       title: "Thema's",

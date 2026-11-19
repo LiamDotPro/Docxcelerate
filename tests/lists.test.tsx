@@ -1,5 +1,5 @@
 import { test } from "node:test";
-import { assertEquals, assertStringIncludes } from "./assert.ts";
+import { assertEquals, assertRejects, assertStringIncludes } from "./assert.ts";
 import {
   buildDocument,
   createDeriverRegistry,
@@ -56,19 +56,30 @@ function spaceAfter(xml: string, anchor: string): string | undefined {
   return /<w:spacing [^>]*w:after="(\d+)"/.exec(paragraphOf(xml, anchor))?.[1];
 }
 
-/** A numbering level's format and text, followed from the `w:num` to its abstract one. */
-function markerOf(numbering: string, numId: string, level = 0): { format?: string; text?: string } {
+/** A numbering level's `w:lvl` block, followed from the `w:num` to its abstract one. */
+function levelOf(numbering: string, numId: string, level = 0): string {
   const abstract = new RegExp(
     `<w:num w:numId="${numId}"[^>]*><w:abstractNumId w:val="(\\d+)"`,
   ).exec(numbering)?.[1];
   const block = new RegExp(
     `<w:abstractNum [^>]*w:abstractNumId="${abstract}"[\\s\\S]*?</w:abstractNum>`,
   ).exec(numbering)?.[0] ?? "";
-  const found = new RegExp(
-    `<w:lvl w:ilvl="${level}"[^>]*>[\\s\\S]*?<w:numFmt w:val="(\\w+)"/>[\\s\\S]*?<w:lvlText w:val="([^"]*)"/>`,
-  ).exec(block);
+
+  return new RegExp(`<w:lvl w:ilvl="${level}"[^>]*>[\\s\\S]*?</w:lvl>`).exec(block)?.[0] ?? "";
+}
+
+/** A numbering level's format and text. */
+function markerOf(numbering: string, numId: string, level = 0): { format?: string; text?: string } {
+  const found = /<w:numFmt w:val="(\w+)"\/>[\s\S]*?<w:lvlText w:val="([^"]*)"\/>/.exec(
+    levelOf(numbering, numId, level),
+  );
 
   return { format: found?.[1], text: found?.[2] };
+}
+
+/** The number a numbering level counts from. */
+function startOf(numbering: string, numId: string, level = 0): string | undefined {
+  return /<w:start w:val="(\d+)"\/>/.exec(levelOf(numbering, numId, level))?.[1];
 }
 
 test("a list prop puts the paragraph's place in the model, and nothing else changes", async () => {
@@ -355,4 +366,216 @@ test("the preview lets an item's marker tab to its hang, and leaves other paragr
   const [item, plain] = [...page.querySelectorAll("p")].map((p) => p.getAttribute("style") ?? "");
   assertStringIncludes(item, "white-space: pre-wrap; tab-size: 18.00pt;");
   assertEquals(plain, "margin-bottom: 10pt;");
+});
+
+test("listStart is recorded on a numbered item and dropped from a bullet", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="a" list="number" listStart={4}>A</Paragraph>
+      <Paragraph id="x">Between</Paragraph>
+      <Paragraph id="b" list="bullet" listStart={4}>B</Paragraph>
+    </Document>,
+  );
+  const [a, , b] = doc.nodes as ParagraphNode[];
+
+  assertEquals(a.list, { kind: "number", start: 4 });
+  assertEquals(b.list, { kind: "bullet" });
+});
+
+test("a list counts from the number its first item gives, and the other levels from one", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="a" list="number" listStart={4}>First</Paragraph>
+      <Paragraph id="b" list="number">Second</Paragraph>
+      <Paragraph id="c" list="number">Third</Paragraph>
+    </Document>,
+  );
+  const n = await partXml(doc, "word/numbering.xml");
+  const id = numberingOf(await documentXml(doc), "First")?.numId ?? "";
+
+  assertEquals(numberingOf(await documentXml(doc), "Third")?.numId, id);
+  assertEquals(startOf(n, id, 0), "4");
+  assertEquals(startOf(n, id, 1), "1");
+});
+
+test("a list taken up after a table is its own numbering, counting from the number it is given", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="a" list="number">One</Paragraph>
+      <Paragraph id="b" list="number">Two</Paragraph>
+      <Table id="t" columns={[{}]}>
+        <Row id="r">
+          <Cell id="c">
+            <Paragraph id="in-cell">In a cell</Paragraph>
+          </Cell>
+        </Row>
+      </Table>
+      <Paragraph id="d" list="number" listStart={3}>Three</Paragraph>
+      <Paragraph id="e" list="number">Four</Paragraph>
+    </Document>,
+  );
+  const xml = await documentXml(doc);
+  const n = await partXml(doc, "word/numbering.xml");
+  const first = numberingOf(xml, "One")?.numId ?? "";
+  const second = numberingOf(xml, "Three")?.numId ?? "";
+
+  assertEquals(first !== second, true);
+  assertEquals(startOf(n, first), "1");
+  assertEquals(startOf(n, second), "3");
+  assertEquals(numberingOf(xml, "Four")?.numId, second);
+});
+
+test("only the item that opens a level says where it counts from", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="a" list="number">One</Paragraph>
+      <Paragraph id="b" list="number" listStart={7}>Two</Paragraph>
+    </Document>,
+  );
+
+  assertEquals(
+    startOf(await partXml(doc, "word/numbering.xml"), numberingOf(await documentXml(doc), "One")?.numId ?? ""),
+    "1",
+  );
+});
+
+test("a level has its numerals and its start together", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="a" list="number">L0</Paragraph>
+      <Paragraph id="b" list="number" listLevel={1} listStyle="lowerLetterParen" listStart={4}>L1</Paragraph>
+    </Document>,
+  );
+  const n = await partXml(doc, "word/numbering.xml");
+  const id = numberingOf(await documentXml(doc), "L0")?.numId ?? "";
+
+  assertEquals(startOf(n, id, 0), "1");
+  assertEquals(startOf(n, id, 1), "4");
+  assertEquals(markerOf(n, id, 1), { format: "lowerLetter", text: "(%2)" });
+});
+
+test("without listStart every level counts from one", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="a" list="number">L0</Paragraph>
+    </Document>,
+  );
+  const n = await partXml(doc, "word/numbering.xml");
+  const id = numberingOf(await documentXml(doc), "L0")?.numId ?? "";
+
+  for (let level = 0; level < 9; level += 1) {
+    assertEquals(startOf(n, id, level), "1");
+  }
+});
+
+test("a listStart that is not a whole number from one is refused, except on a bullet", async () => {
+  for (const start of [0, 2.5, Number.NaN]) {
+    await assertRejects(
+      () =>
+        build(
+          <Document id="d" title="D">
+            <Paragraph id="p" list="number" listStart={start}>X</Paragraph>
+          </Document>,
+        ),
+      Error,
+      "listStart",
+    );
+  }
+
+  await build(
+    <Document id="d" title="D">
+      <Paragraph id="p" list="bullet" listStart={0}>X</Paragraph>
+    </Document>,
+  );
+});
+
+/** A document's numbering part and body, with the numbering each anchored item counts in. */
+async function packed(doc: DocumentModel) {
+  const xml = await documentXml(doc);
+  const n = await partXml(doc, "word/numbering.xml");
+  const id = (anchor: string) => numberingOf(xml, anchor)?.numId ?? "";
+
+  return { xml, n, id };
+}
+
+test("listMarker is recorded on a bulleted item and dropped from a numbered one", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="a" list="bullet" listMarker="tick">A</Paragraph>
+      <Paragraph id="between">Between</Paragraph>
+      <Paragraph id="b" list="number" listMarker="cross">B</Paragraph>
+    </Document>,
+  );
+  const [a, , b] = doc.nodes as ParagraphNode[];
+
+  assertEquals(a.list, { kind: "bullet", marker: "tick" });
+  assertEquals(b.list, { kind: "number" });
+});
+
+test("each marker is drawn at every level of its own numbering", async () => {
+  const { xml, n, id } = await packed(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a" list="bullet" listMarker="tick">Tick</Paragraph>
+        <Paragraph id="b" list="bullet" listMarker="tick" listLevel={1}>Tick under</Paragraph>
+        <Paragraph id="c" list="bullet" listMarker="cross">Cross</Paragraph>
+        <Paragraph id="d" list="bullet" listMarker="dash">Dash</Paragraph>
+        <Paragraph id="e" list="bullet" listMarker="square">Square</Paragraph>
+      </Document>,
+    ),
+  );
+
+  assertEquals(markerOf(n, id("Tick"), 0), { format: "bullet", text: "\u2713" });
+  assertEquals(markerOf(n, id("Tick"), 1).text, "\u2713");
+  assertEquals(id("Tick under"), id("Tick"));
+  assertEquals(numberingOf(xml, "Tick under")?.level, "1");
+  assertEquals(markerOf(n, id("Cross")).text, "\u2717");
+  assertEquals(markerOf(n, id("Dash")).text, "\u2013");
+  assertEquals(markerOf(n, id("Square")).text, "\u25AA");
+  assertEquals(id("Cross") !== id("Tick"), true);
+});
+
+test("without listMarker a bullet is \u2022, \u25E6, \u25AA by depth, as it always was", async () => {
+  const { n, id } = await packed(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a" list="bullet">Plain</Paragraph>
+      </Document>,
+    ),
+  );
+
+  assertEquals(markerOf(n, id("Plain"), 0), { format: "bullet", text: "\u2022" });
+  assertEquals(markerOf(n, id("Plain"), 1).text, "\u25E6");
+  assertEquals(markerOf(n, id("Plain"), 2).text, "\u25AA");
+});
+
+test("a marker used twice shares one numbering, and only markers used are written", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="a" list="bullet" listMarker="tick">First tick</Paragraph>
+      <Paragraph id="b">Break</Paragraph>
+      <Paragraph id="c" list="bullet" listMarker="tick">Second tick</Paragraph>
+      <Paragraph id="d" list="bullet" listMarker="cross">A cross</Paragraph>
+    </Document>,
+  );
+  const { id } = await packed(doc);
+
+  assertEquals(id("First tick"), id("Second tick"));
+  // The library's own, the default bullet, tick and cross.
+  assertEquals([...(await partXml(doc, "word/numbering.xml")).matchAll(/<w:abstractNum /g)].length, 4);
+});
+
+test("a marked point under a numbered step does not stop the steps counting", async () => {
+  const { xml, n } = await packed(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="a" list="number">First step</Paragraph>
+        <Paragraph id="b" list="bullet" listMarker="tick" listLevel={1}>A tick under it</Paragraph>
+        <Paragraph id="c" list="number">Second step</Paragraph>
+      </Document>,
+    ),
+  );
+
+  assertEquals(numberingOf(xml, "Second step")?.numId, numberingOf(xml, "First step")?.numId);
+  assertEquals(markerOf(n, numberingOf(xml, "A tick under it")!.numId, 1).text, "\u2713");
 });

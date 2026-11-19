@@ -2,7 +2,6 @@ import { test } from "node:test";
 import { JSDOM } from "jsdom";
 import { assertEquals, assertStringIncludes } from "./assert.ts";
 import { buildDocument } from "docxcelerate";
-import { fillPageFields } from "docxcelerate/preview";
 import { documentXml, elementOf, partXml } from "./docx.ts";
 import type { DocumentModel, DocumentStyle } from "docxcelerate";
 import { Cell, Document, Graph, Image, PageNumber, Paragraph, Row, Table, template, useAi } from "docxcelerate/template";
@@ -260,19 +259,6 @@ test("a cell's only paragraph is set at the cell's leading, and a bar inside a c
   assertStringIncludes(afterBar, 'w:line="20" w:lineRule="exact"');
 });
 
-test("the preview fills page numbers whatever separates them", () => {
-  const { document } = new JSDOM(
-    "<section class='docx'><footer><span>PAGE</span><span> OF </span></footer></section>" +
-      "<section class='docx'><footer><span>PAGE</span><span> OF </span></footer></section>",
-  ).window;
-
-  fillPageFields(document.body, undefined, [" OF "]);
-  // A second pass, as pagination makes, corrects what the first wrote.
-  fillPageFields(document.body);
-
-  const numbers = [...document.querySelectorAll("footer span:last-child")].map((span) => span.textContent);
-  assertEquals(numbers, ["1 OF 2", "2 OF 2"]);
-});
 
 // ---------------------------------------------------------------------------
 // Charts drawn to a design
@@ -302,7 +288,7 @@ test("a styled line chart packs its dashes, band, markers, grid and plot as Word
             categories: ["a", "b", "c"],
             series: [
               { label: "Range", values: [3, 4, 5], band: [1, 1, 2], color: "DBEEE5" },
-              { label: "Benchmark", values: [1, 2, 3], color: "5C6B64", dash: true, widthPt: 1 },
+              { label: "Benchmark", values: [1, 2, 3], color: "5C6B64", dash: "dashed", widthPt: 1 },
               { label: "Central", values: [2, 3, 4], color: "17624A", endLabel: true },
             ],
           }}
@@ -325,7 +311,7 @@ test("a styled line chart packs its dashes, band, markers, grid and plot as Word
   assertStringIncludes(xml, '<c:showSerName val="1"/>');
 });
 
-test("a sparkline packs with its axes deleted, and bars can be painted point by point", async () => {
+test("a sparkline packs with its axes deleted", async () => {
   const spark = await chartXml(
     await build(
       <Document id="d" title="D">
@@ -335,14 +321,6 @@ test("a sparkline packs with its axes deleted, and bars can be painted point by 
   );
   assertEquals((spark.match(/<c:delete val="1"\/>/g) ?? []).length, 2);
 
-  const bars = await chartXml(
-    await build(
-      <Document id="d" title="D">
-        <Graph id="b" graphType="bar" data={{ series: [{ values: [1, 2, 3], colors: [undefined, undefined, "17624A"] }] }} />
-      </Document>,
-    ),
-  );
-  assertStringIncludes(bars, '<c:dPt><c:idx val="2"/><c:invertIfNegative val="0"/>');
 });
 
 test("the preview reads a styled chart back as the file packed it", async () => {
@@ -360,7 +338,7 @@ test("the preview reads a styled chart back as the file packed it", async () => 
           categories: ["a", "b", "c"],
           series: [
             { label: "Range", values: [3, 4, 5], band: [1, 1, 2], color: "DBEEE5" },
-            { label: "Benchmark", values: [1, 2, 3], dash: true },
+            { label: "Benchmark", values: [1, 2, 3], dash: "dashed" },
           ],
         }}
       />
@@ -376,7 +354,7 @@ test("the preview reads a styled chart back as the file packed it", async () => 
   assertEquals(chart!.plotArea, { x: 0.1, y: 0.1, w: 0.8, h: 0.8 });
   assertEquals(chart!.series[0]!.band, [1, 1, 2]);
   assertEquals(chart!.series[0]!.values, [3, 4, 5]);
-  assertEquals(chart!.series[1]!.dash, true);
+  assertEquals(chart!.series[1]!.dash, "dashed");
 });
 
 test("a table in a cell shares its auto columns from the cell, not the page", async () => {

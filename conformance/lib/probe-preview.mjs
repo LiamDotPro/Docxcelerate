@@ -39,7 +39,6 @@ const execFileAsync = promisify(execFile);
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-const PORT = 8902;
 
 /**
  * Where Chrome is. The environment variable is the escape hatch for a machine
@@ -135,6 +134,7 @@ function harnessHtml(bodyFont) {
       var padBottom = parseFloat(cs.paddingBottom) + parseFloat(cs.borderBottomWidth);
       return {
         el: s,
+        cs: cs,
         page: { x: rect.x, y: rect.y, w: rect.width, h: rect.height },
         content: {
           x: rect.x + padLeft, y: rect.y + padTop,
@@ -230,6 +230,7 @@ function harnessHtml(bodyFont) {
           fontStyle: cs.fontStyle,
           verticalAlign: view.getComputedStyle(span.querySelector(":scope > sup, :scope > sub") || span).verticalAlign,
           textDecoration: cs.textDecorationLine,
+          textDecorationStyle: cs.textDecorationStyle,
           color: cs.color,
           background: cs.backgroundColor,
           href: link === null ? null : link.getAttribute("href")
@@ -296,6 +297,7 @@ function harnessHtml(bodyFont) {
           color: rcs.color,
           letterSpacing: rcs.letterSpacing === "normal" ? 0 : r2(parseFloat(rcs.letterSpacing)),
           textTransform: rcs.textTransform,
+          fontVariantCaps: rcs.fontVariantCaps,
           runs: runsOf(el),
           // What is drawn in front of a list item. docx-preview draws it as
           // the paragraph's ::before, so it is in no text node and no range:
@@ -395,6 +397,8 @@ function harnessHtml(bodyFont) {
 
                   background: cs.backgroundColor,
                   verticalAlign: cs.verticalAlign,
+                  writingMode: cs.writingMode,
+                  transform: cs.transform,
                   textAlign: pcs === null ? null : pcs.textAlign,
 
                   paddingLeft: r2(parseFloat(cs.paddingLeft) || 0),
@@ -589,7 +593,8 @@ function harnessHtml(bodyFont) {
       sections: boxes.map(function (b) {
         return {
           page: { w: r2(b.page.w), h: r2(b.page.h), x: r2(b.page.x), y: r2(b.page.y) },
-          content: { w: r2(b.content.w), h: r2(b.content.h) }
+          content: { w: r2(b.content.w), h: r2(b.content.h) },
+          outline: { style: b.cs.outlineStyle, width: r2(parseFloat(b.cs.outlineWidth)), offset: r2(parseFloat(b.cs.outlineOffset)) }
         };
       }),
       furniture: furniture,
@@ -649,11 +654,12 @@ async function startServer(root) {
           }
         });
         server.once("error", rejectPromise);
-        server.listen(PORT, "127.0.0.1", () => resolvePromise(server));
+        // Port 0: the system picks a free one, so parallel runs never fight over a fixed port.
+        server.listen(0, "127.0.0.1", () => resolvePromise(server));
       });
     } catch (error) {
       if (error?.code !== "EADDRINUSE" || attempt >= 4) {
-        throw new Error(`static server could not bind 127.0.0.1:${PORT}: ${error?.message ?? error}`);
+        throw new Error(`static server could not bind 127.0.0.1: ${error?.message ?? error}`);
       }
       await sleep(1000);
     }
@@ -730,11 +736,12 @@ export async function runPreviewProbe({ outDir, htmlPath, bodyFont, screenshots 
     await writeFile(join(tempDir, "__probe-b.html"), harnessHtml(bodyFont), "utf8");
 
     server = await startServer(tempDir);
+    const port = server.address().port;
 
     const dom = await runChrome(chrome, [
       `--window-size=${VIEWPORT_WIDTH},900`,
       "--dump-dom",
-      `http://127.0.0.1:${PORT}/__probe-b.html`,
+      `http://127.0.0.1:${port}/__probe-b.html`,
     ]);
 
     const measured = decodeMeasurement(dom);
@@ -758,7 +765,7 @@ export async function runPreviewProbe({ outDir, htmlPath, bodyFont, screenshots 
       await runChrome(chrome, [
         `--window-size=${VIEWPORT_WIDTH},${height}`,
         `--screenshot=${fullPngPath}`,
-        `http://127.0.0.1:${PORT}/case.html`,
+        `http://127.0.0.1:${port}/case.html`,
       ]);
       output.screenshots = await cropPages(fullPngPath, measured.sections, outDir);
     }
@@ -844,7 +851,7 @@ export function previewView(measure) {
       const wanted = anchor.toLowerCase();
       return measure.paragraphs.flatMap((p) => p.runs ?? [])
         .find((run) => run.text.toLowerCase().includes(wanted)) ??
-        { missing: true, anchor, text: "", fontWeight: null, fontStyle: null, textDecoration: null, verticalAlign: null, color: null, background: null, href: null };
+        { missing: true, anchor, text: "", fontWeight: null, fontStyle: null, textDecoration: null, textDecorationStyle: null, verticalAlign: null, color: null, background: null, href: null };
     },
 
     /** Whether the named face resolved rather than falling back silently. */
@@ -1138,6 +1145,8 @@ function missingCell(anchor) {
     h: null,
     background: null,
     verticalAlign: null,
+    writingMode: null,
+    transform: null,
     textAlign: null,
     paddingLeft: null,
     paddingTop: null,
@@ -1179,6 +1188,7 @@ function missingParagraph(anchor) {
     background: null,
     letterSpacing: null,
     textTransform: null,
+    fontVariantCaps: null,
     textIndent: null,
     computedLineHeight: null,
     marginTop: null,

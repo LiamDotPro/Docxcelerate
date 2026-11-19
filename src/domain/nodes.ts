@@ -77,6 +77,24 @@ export type GraphType =
  */
 export type GraphStacking = boolean | "percent";
 
+/**
+ * What each data label prints.
+ *
+ * `value` is the point's own figure, `percent` its share of the whole, and
+ * `category` the name it is counted against. The two `categoryAnd…` forms print
+ * the name and then the figure, separated by a comma — "Rent, 42%".
+ *
+ * A share only exists on a pie or a doughnut, where the slices add up to
+ * something. Word has no percentage to print on any other chart, so asking for
+ * one there is an error rather than a label left blank.
+ */
+export type GraphDataLabels =
+  | "value"
+  | "percent"
+  | "category"
+  | "categoryAndValue"
+  | "categoryAndPercent";
+
 /** Where a chart's key sits, or that it has none. */
 export type GraphLegend = "none" | "top" | "bottom" | "left" | "right";
 
@@ -106,6 +124,31 @@ export interface GraphSeries {
    */
   color?: string;
   /**
+   * A colour for single points, as RGB hex without the `#`, in the same order
+   * as `values`.
+   *
+   * What it is for is picking one point out: the current month, an overdue
+   * bucket, one outlier. `null` (or a list shorter than the categories) leaves
+   * a point in the series' own colour, and on a pie in the theme's slice
+   * colour. Like `color`, a colour written here is one the next theme cannot
+   * change, which is why it is per point and not a palette.
+   *
+   * Read by every chart type but `area`. An area series is one filled shape
+   * with no separate points to paint. On a line, scatter or radar chart only
+   * the point's marker takes the colour, not the line running through it.
+   */
+  pointColors?: (string | null)[];
+  /**
+   * Whether this series' line is dashed or dotted rather than solid.
+   *
+   * What sets a forecast, a budget or a target apart from the actuals beside
+   * it without leaning on colour alone, which a greyscale print throws away.
+   * Read by the charts that draw a series as a line — `line`, `scatter` and
+   * `radar` — and by no other: a bar, an area or a slice is a filled shape
+   * with no line to dash. Left out, the line is solid.
+   */
+  dash?: "dashed" | "dotted";
+  /**
    * How big each point is drawn, for a `bubble` chart and nothing else.
    *
    * The third figure a bubble carries: the categories are the x, `values` the
@@ -115,8 +158,12 @@ export interface GraphSeries {
    * sizes a scatter rather than a bubble chart nobody asked for.
    */
   sizes?: (number | null)[];
-  /** Drawn dashed: the benchmark beside the portfolio, the line before costs. Line charts. */
-  dash?: boolean;
+  /**
+   * A line of best fit over this series. See {@linkcode GraphTrendline}.
+   *
+   * Left out, the series is drawn as it stands, with no trendline.
+   */
+  trendline?: GraphTrendline;
   /**
    * The lower edge of a band this series fills up to, on a line chart.
    *
@@ -126,8 +173,6 @@ export interface GraphSeries {
    * one itself: a stacked area whose first part is left unfilled.
    */
   band?: (number | null)[];
-  /** A colour for each point, in order, where the points differ: this quarter's bars among the year's. Bars. */
-  colors?: (string | undefined)[];
   /** How heavy the line is drawn, in points. Line charts; Word's own is 2.25, and 0 draws none. */
   widthPt?: number;
   /**
@@ -137,6 +182,26 @@ export interface GraphSeries {
    */
   endLabel?: boolean;
 }
+
+/**
+ * A line of best fit drawn over one series, which Word works out from the
+ * series' own numbers.
+ *
+ * `"linear"` is the straight line through the readings by least squares: the
+ * direction the figures are heading. `{ movingAverage: n }` is the mean of each
+ * run of n readings in a row, which smooths a noisy series into its trend
+ * without pretending it is straight. n is a whole number of at least 2 and
+ * fewer than the chart's categories. A fraction is rounded and anything under 2
+ * is read as 2. A window as long as the series has no average to draw, so no
+ * trendline is written.
+ *
+ * Packed as a native trendline, not as figures, so a reader who edits the data
+ * gets a line that follows it. Word allows a trendline on unstacked bars,
+ * lines, areas, scatters and bubbles. A pie, a doughnut, a radar and any
+ * stacked chart have none, and on those the field is ignored. That is Word's
+ * rule, not this toolkit's.
+ */
+export type GraphTrendline = "linear" | { movingAverage: number };
 
 /** The numbers a {@linkcode GraphNode} plots, and what they are counted against. */
 export interface GraphData {
@@ -185,6 +250,12 @@ export interface BaseNode {
   when?: Condition;
   /** Instructions for an engine writing this node's content. */
   prompts?: PromptSpec[];
+  /**
+   * Settings for the engine writing this node — a model name, a token limit —
+   * passed to its `AiClient` untouched. Nothing in docxcelerate reads them.
+   * Only a generated node carries them.
+   */
+  aiOptions?: JsonObject;
   /** Computations to run before the node is written. */
   derivers?: DeriverInvocation[];
 }
@@ -286,6 +357,13 @@ export interface ParagraphNode extends BaseNode {
  */
 export type RowHeightRule = "atLeast" | "exact";
 
+/**
+ * Which way a cell's words run when they are turned on their side: `"up"` reads
+ * from the foot of the cell to its head, as a spine label does, and `"down"`
+ * from the head to the foot.
+ */
+export type CellTextDirection = "up" | "down";
+
 /** Which kind of list a paragraph is an item of: marked with a bullet, or counted. */
 export type ListKind = "bullet" | "number";
 
@@ -311,6 +389,15 @@ export type ListStyle =
   | "lowerRomanParen"
   | "upperRomanParen";
 
+/**
+ * The glyph a bulleted item is marked with, in place of the bullet.
+ *
+ * `"dash"` is an en dash (–), `"tick"` a check mark (✓), `"cross"` a ballot
+ * x (✗) and `"square"` a small square (▪). Each is a plain Unicode glyph in
+ * the paragraph's own face, like the bullet, so no symbol font is needed.
+ */
+export type ListMarker = "dash" | "tick" | "cross" | "square";
+
 /** A paragraph's place in a list. */
 export interface ParagraphList {
   /** Whether the item is marked or counted. */
@@ -327,6 +414,17 @@ export interface ParagraphList {
    * each followed by a full stop. A bulleted item has none.
    */
   style?: ListStyle;
+  /**
+   * The number this item's level counts from, for a numbered item that opens
+   * the level in its list. Absent means 1. A bulleted item has none.
+   */
+  start?: number;
+  /**
+   * The glyph this item is marked with, for a bulleted item. Each item says its
+   * own, so ticks and crosses can stand in one list. Absent means the bullet:
+   * •, ◦, ▪ by depth. A numbered item has none.
+   */
+  marker?: ListMarker;
 }
 
 /**
@@ -344,8 +442,11 @@ export interface ParagraphRun {
   bold?: boolean;
   /** Set in italics. */
   italic?: boolean;
-  /** Set with a rule beneath. */
-  underline?: boolean;
+  /**
+   * Set with a rule beneath: `true` for a single rule, `"double"` for the
+   * accounting double rule under a grand total. Left out or `false`, no rule.
+   */
+  underline?: boolean | "double";
   /** Set struck through. */
   strike?: boolean;
   /** Raised above the line or dropped below it, smaller. Absent, the words sit on it. */
@@ -396,8 +497,15 @@ export interface ImageNode extends BaseNode {
   fallbackPath?: string;
   /** Alternative text describing the image. */
   alt?: string;
-  /** Rendered width, in points. Left out, it follows the picture's own proportions from `height`, or is 120pt when neither is given. */
-  width?: number;
+  /**
+   * Rendered width, in points, or `"full"` for the width of whatever it stands in:
+   * the text column of the page as turned, or the inside of its table cell or shape.
+   *
+   * Left out, it follows the picture's own proportions from `height`, or is 120pt
+   * when neither is given. With `"full"` the height follows the picture's
+   * proportions unless `height` is given too, which draws exactly that box.
+   */
+  width?: number | "full";
   /** Rendered height, in points. Left out, it follows the picture's own proportions from the width. */
   height?: number;
   /**
@@ -526,21 +634,51 @@ export interface GraphNode extends BaseNode {
    */
   valueAxisStep?: number;
   /**
-   * Whether each point prints its own figure.
+   * Whether each point prints a label, and what it prints. See
+   * {@linkcode GraphDataLabels}.
    *
    * Off for most charts — a number on every point is a table drawn badly — and
-   * worth turning on for a pie, where the slices are the reading.
+   * worth turning on for a pie, where the slices are the reading. `true` prints
+   * the figure the chart is read by: the share on a pie or a doughnut, the value
+   * everywhere else. `false` and absent print nothing.
    */
-  dataLabels?: boolean;
-  /** Whether a line's points are marked with a dot. On unless this says `false`. */
-  markers?: boolean;
-  /** Whether lines run across the plot at each step of the value axis. On unless this says `false`. */
-  gridlines?: boolean;
+  dataLabels?: boolean | GraphDataLabels;
   /**
-   * Whether the axes are drawn at all. Off for a sparkline, which is the shape
-   * of a line and nothing else; gridlines go with them.
+   * Whether the chart draws its axes.
+   *
+   * Absent or `true` draws them. `false` writes both axes deleted, so there is
+   * no axis line and no tick labels, and Word lets the plot take the frame: a
+   * sparkline. The axes are still in the part, because every plot group points
+   * at two of them and the scale still comes from them. Axis titles that are
+   * given are still printed. Pie and doughnut have no axes and ignore it.
    */
   axes?: boolean;
+  /**
+   * Whether the plot is ruled with gridlines.
+   *
+   * Absent or `true` rules the value axis, and on a radar the spokes too.
+   * `false` draws no grid. It is independent of `axes`: a chart can keep its
+   * axes and lose its grid, or the other way round. Pie and doughnut have no
+   * grid and ignore it.
+   */
+  gridlines?: boolean;
+  /**
+   * Whether the figures are printed in a grid under the plot — Word's data
+   * table.
+   *
+   * One row per series, headed by that series' key, and one column per
+   * category, so the exact numbers travel with the picture. Because the rows
+   * carry the keys, a chart with a table needs no legend of its own: left
+   * unsaid, `legend` becomes `"none"`; said, it is kept.
+   *
+   * Bars, lines and areas only — the charts Word draws a data table for. A
+   * pie, doughnut, scatter, radar or bubble ignores it, the way a pie ignores
+   * `stacked`: a chart's type can still be decided when its data is produced,
+   * so refusing the option up front would refuse a chart that ends up a bar.
+   */
+  dataTable?: boolean;
+  /** Whether a line's points are marked with a dot. On unless this says `false`. */
+  markers?: boolean;
   /** The size the chart's labels are set in, in points. Left out, 9. */
   textSizePt?: number;
   /**
@@ -579,12 +717,16 @@ export interface GraphPlotArea {
  */
 export interface TableColumn {
   /**
-   * Width in millimetres, or `"auto"` to share out what the fixed ones leave.
+   * Width in millimetres, a share of the text column such as `"30%"`, or
+   * `"auto"` to share out what the others leave. Left out, it is `"auto"`.
    *
    * Millimetres rather than points because a page is measured in them: a
    * 26mm money column against a 210mm page is a proportion a reader can check.
+   * A percentage is for the table that has to keep its proportions on any
+   * paper: it is a share of the text column, or of the paper for a `bleed`
+   * table, worked out when the page is known.
    */
-  width?: number | "auto";
+  width?: number | "auto" | `${number}%`;
   /** How this column's cells are aligned. Left unless it is said. */
   align?: TableAlign;
 }
@@ -605,6 +747,17 @@ export interface TableNode extends BaseNode {
   columns: TableColumn[];
   /** Where the table sits across the text column. Left unless it is said. */
   align?: TableAlign;
+  /**
+   * Whether the whole table stays on one page rather than breaking between rows.
+   *
+   * For a short table that reads as one thing — a totals box, bank details, a
+   * signature block — where a page break between two of its rows leaves a
+   * subtotal on one page and the total it leads to on the next. Word moves the
+   * whole table over instead. Every row is also kept whole, as `keepTogether`
+   * on a row does. A table taller than a page breaks anyway, having nowhere
+   * else to go. Left out, Word may break the table between any two rows.
+   */
+  keepTogether?: boolean;
   /** The rows, and any loops that produce them. */
   children: DocumentNode[];
 }
@@ -652,6 +805,8 @@ export interface TableCellNode extends BaseNode {
   span?: number;
   /** Alignment, when this cell departs from its column's. */
   align?: TableAlign;
+  /** Turns the cell's words on their side. Absent, they run across. */
+  textDirection?: CellTextDirection;
   /** What the cell holds — paragraphs, usually, but any node fits. */
   children: DocumentNode[];
 }
@@ -736,6 +891,21 @@ export interface PageNumberNode extends BaseNode {
   format?: PageNumberFormat;
   /** What sits between the two numbers in `currentOfTotal`. Defaults to ` / `. */
   separator?: string;
+  /**
+   * Words printed before the number: `"Page "` for "Page 3 of 10".
+   *
+   * Printed as written, spaces included, and set in the same type as the
+   * numbers. Absent prints nothing before them.
+   */
+  prefix?: string;
+  /**
+   * How the line sits across the column, the same as a paragraph's.
+   *
+   * Absent writes no `w:jc`, so the line inherits whatever the style around it
+   * decides, which is what a page number did before it could say. A theme can
+   * also say it through `variant`, and when both do the node wins.
+   */
+  align?: TextAlign;
 }
 
 /**

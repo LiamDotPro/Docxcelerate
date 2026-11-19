@@ -49,7 +49,7 @@ export const Plan: Nodes = () => {
             // The band's two edges, named where they end and not drawn.
             { label: `Strong £${end(p.strong)}k`, values: p.strong, color: "5C6B64", widthPt: 0, endLabel: true },
             { label: `Weak £${end(p.weak)}k`, values: p.weak, color: "5C6B64", widthPt: 0, endLabel: true },
-            { label: `Goal £${p.goal}k`, values: p.years.map(() => p.goal), color: "16211C", dash: true, widthPt: 1.2, endLabel: true },
+            { label: `Goal £${p.goal}k`, values: p.years.map(() => p.goal), color: "16211C", dash: "dashed", widthPt: 1.2, endLabel: true },
             { label: `Central £${end(p.central)}k`, values: p.central, color: "17624A", widthPt: 2.8, endLabel: true },
           ],
         }}

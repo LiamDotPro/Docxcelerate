@@ -883,6 +883,51 @@ export const COMPONENTS: RegistryComponent[] = [
 
   {
     kind: "component",
+    id: "finnish-virtual-barcode",
+    title: "Finnish virtual bank barcode (virtuaaliviivakoodi)",
+    summary: "The 54-digit virtuaaliviivakoodi a Finnish payer pastes into their bank, or the IBAN and reference alone when it can't be trusted.",
+    detail:
+      "Builds the 54-digit virtual bank barcode from the Finanssiala bank barcode " +
+      "guide, or checks the one the ERP issued against it. The reference decides " +
+      "the version: a viitenumero gives version 4, an RF reference gives version 5, " +
+      "whose RF check digits take the place of version 4's reserved zeros, with the " +
+      "padding after them, not before. Obsolete version 2 is never produced. The code " +
+      "is printed only for a Finnish IBAN that passes mod-97, a euro invoice, a " +
+      "reference whose check digit is right and an RF that is numeric; any failure, " +
+      "or an ERP code that disagrees, withholds it and prints the IBAN and reference " +
+      "on their own. An amount over 999 999,99 or an open amount zero-fills the amount " +
+      "field rather than truncating it, and a missing or on-receipt due date becomes " +
+      "000000. A credit note or paid invoice prints nothing. The code is one unbroken " +
+      "run, without the drawn barcode's mod-103 check. All of it is one deriver.",
+    category: "Closing",
+    tags: ["payment", "invoice", "finland", "barcode", "bank", "reference", "deriver", "branching"],
+    exports: ["FinnishVirtualBarcode"],
+    dataFields: [
+      { path: "payee.iban", type: "string", summary: "The account to pay. Must be a valid FI IBAN for a code; otherwise printed alone." },
+      { path: "invoice.currency", type: "string", summary: "Must be EUR for a code." },
+      { path: "invoice.total", type: "number", summary: "Euros to the cent. Zero or less prints nothing; over 999 999,99 zero-fills the amount." },
+      { path: "invoice.dueDate", type: "string | undefined", summary: "ISO 8601. Missing gives 000000; not a real date withholds the code." },
+      { path: "invoice.onReceipt", type: "boolean | undefined", summary: "Payable on receipt: the due-date field is 000000." },
+      { path: "invoice.openAmount", type: "boolean | undefined", summary: "The payer sets the amount: the amount field is zero-filled and total is not read." },
+      { path: "payment.reference", type: "string", summary: "A viitenumero (version 4) or a numeric RF reference (version 5). A bad check digit withholds the code." },
+      { path: "virtualBarcode", type: "string | undefined", summary: "The ERP's own 54 digits. Printed only if it matches the code built from the fields above." },
+    ],
+    files: node("finnish-virtual-barcode", { deriver: true, arrangements: ["stacked", "table"] }),
+    arrangements: [
+      { id: "stacked", title: "Stacked", summary: "Each labelled line under the last, the code on its own line under its label." },
+      { id: "table", title: "Table", summary: "IBAN and reference as label/value rows, the code under them at full width." },
+    ],
+    previewData: {
+      payee: { iban: "FI79 4405 2020 0360 82" },
+      invoice: { currency: "EUR", total: 987654.32, dueDate: "2026-12-31" },
+      payment: { reference: "RF26 2026 1100 4817 3500 1234 5" },
+      virtualBarcode: "579440520200360829876543226202611004817350012345261231",
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
     id: "invoice-document-type",
     title: "Invoice document type",
     summary: "What an invoice may call itself, and the dates it has to carry.",
@@ -1068,6 +1113,67 @@ export const COMPONENTS: RegistryComponent[] = [
   },
   {
     kind: "component",
+    id: "be-consumer-debt-reminder",
+    title: "Belgian consumer debt reminder (Book XIX CEL)",
+    summary: "A Belgian payment reminder: free the first time, with its exact deadline, and only capped, agreed costs after.",
+    detail:
+      "A payment reminder that follows Book XIX of the Belgian Code of Economic Law. A consumer's first " +
+      "reminder is free and carries the four statutory mentions; if one is missing it prints an 'incomplete' " +
+      "warning instead, because without them the 14-day period never starts. That period runs from the third " +
+      "working day after a paper reminder is sent, or the day after an electronic one, and the exact last day is " +
+      "printed. Only a later reminder, sent after the period has lapsed unpaid, adds anything, and only what the " +
+      "contract expressly provides: a lump sum capped by bands on the outstanding amount (EUR 20, then EUR 30 plus " +
+      "10%, then EUR 65 plus 5% up to EUR 2,000), and late interest capped at the reference rate plus 8 points. " +
+      "Nothing else is ever charged. A business debtor gets the fixed EUR 40 per invoice of the Act of 2 August " +
+      "2002. All dates and amounts come from one deriver.",
+    category: "Body",
+    tags: ["money", "legal", "belgium", "debt-collection", "reminder", "branching", "deriver", "section"],
+    exports: ["BeConsumerDebtReminder"],
+    dataFields: [
+      { path: "debt.debtorType", type: '"consumer" | "business"', summary: "Consumer applies Book XIX; business applies the 2002 Act's EUR 40 per invoice. Required." },
+      { path: "debt.stage", type: '"first" | "subsequent"', summary: "The free first reminder, or a later one that may carry costs. Required for a consumer." },
+      { path: "debt.asOf", type: "string", summary: "ISO date this document is issued; interest runs to it. Required." },
+      { path: "debt.amountDue", type: "number", summary: 'Outstanding principal in euros. Zero or less prints "nothing outstanding". Required.' },
+      { path: "debt.dueDate", type: "string", summary: "ISO date the debt fell due. Required." },
+      { path: "debt.creditorName", type: "string | undefined", summary: "Statutory mention on the first reminder; missing prints a warning." },
+      { path: "debt.creditorEnterpriseNumber", type: "string | undefined", summary: "KBO/BCE number; statutory mention on the first reminder; missing prints a warning." },
+      { path: "debt.description", type: "string | undefined", summary: "What the debt is for; statutory mention on the first reminder; missing prints a warning." },
+      { path: "debt.firstReminder", type: '{ sentDate: string; channel: "paper" | "electronic" } | undefined', summary: "When and how the first reminder was sent; the 14-day period counts from it." },
+      { path: "debt.contractProvidesDamages", type: "boolean | undefined", summary: "An accepted clause expressly provides a lump sum. Missing means none." },
+      { path: "debt.agreedLumpSum", type: "number | undefined", summary: "The clause's figure in euros, capped by the statutory bands. Missing means the cap." },
+      { path: "debt.contractProvidesInterest", type: "boolean | undefined", summary: "An accepted clause provides late interest. Missing means none." },
+      { path: "debt.agreedRate", type: "number | undefined", summary: "The clause's annual rate in percent, capped at reference + 8. Missing means the cap." },
+      { path: "debt.referenceRate", type: "number | undefined", summary: "2002 Act reference rate in percent; needed whenever interest is provided for." },
+      { path: "debt.creditorIsSme", type: "boolean | undefined", summary: "An SME may run interest from the day after the first reminder was sent." },
+      { path: "debt.holidays", type: "string[] | undefined", summary: "Extra non-working ISO dates on top of the ten Belgian legal holidays." },
+      { path: "debt.invoiceCount", type: "number | undefined", summary: "Business only: unpaid invoices, EUR 40 each. Missing means 1." },
+    ],
+    files: node("be-consumer-debt-reminder", { deriver: true }),
+    previewData: {
+      debt: {
+        debtorType: "consumer",
+        stage: "subsequent",
+        asOf: "2026-11-30",
+        amountDue: 48730.6,
+        dueDate: "2026-09-15",
+        creditorName: "Vandenbroucke-Delacroix Ameublement, Literie et Décoration SRL",
+        creditorEnterpriseNumber: "0712.345.678",
+        description:
+          "the corner sofa 'Ardennes XL' in cognac leather with two electric recliners, delivery and assembly included (order 2026-118734-B, invoice F-2026-0045817)",
+        firstReminder: { sentDate: "2026-10-14", channel: "paper" },
+        contractProvidesDamages: true,
+        contractProvidesInterest: true,
+        agreedRate: 14,
+        referenceRate: 4.25,
+        creditorIsSme: false,
+        holidays: ["2026-09-27"],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
     id: "plan-change-proration",
     title: "Plan change proration",
     summary: "The credit and charge lines a mid-period plan change causes, and what the net means.",
@@ -1120,6 +1226,240 @@ export const COMPONENTS: RegistryComponent[] = [
             from: { label: "Enterprise Analytics Suite with Extended Data Retention", quantity: 1, paidMinor: 2499900 },
             to: { label: "Enterprise Analytics Suite with Extended Data Retention and Dedicated Support", quantity: 1, periodAmountMinor: 3149900 },
           },
+        ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "incoterm-charges-and-customs-value",
+    title: "Incoterm charges and customs value",
+    summary: "Who pays each leg of the journey under the Incoterms rule, and the customs value that follows.",
+    detail:
+      "States the Incoterms 2020 rule with its named place and itemises every cost leg, from export " +
+      "packing to import VAT, by name and amount. Each leg is charged, included in the price or for the " +
+      "buyer's account, as the rule decides, and a buyer's leg never enters the total. From the same split " +
+      "it gives the customs value on the destination's basis: CIF to the place of entry for the EU and UK, " +
+      "with air freight apportioned by the Annex 23-01 percentage, or FOB at the place of export for the " +
+      "US, Canada and Australia, with freight and insurance itemised as 19 CFR 141.86(a)(8) requires. An " +
+      "EXW price gains the buyer's costs to the border, a CIF price loses its freight, and a DDP price " +
+      "gives back its duty. Figures are integer minor units, rounded once. It warns when a sea-only rule " +
+      "is used for air, container or land freight, when the named place is missing, when DDP has the " +
+      "seller paying import VAT, and when a CFR or CPT invoice shows insurance. All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "invoice", "trade", "customs", "incoterms", "table", "deriver", "branching", "section"],
+    exports: ["IncotermChargesAndCustomsValue"],
+    dataFields: [
+      { path: "shipment.incoterm", type: '"EXW" | "FCA" | "FAS" | "FOB" | "CFR" | "CIF" | "CPT" | "CIP" | "DAP" | "DPU" | "DDP"', summary: "The Incoterms 2020 rule. Required." },
+      { path: "shipment.namedPlace", type: "string | undefined", summary: "The named place or port. Missing prints a warning." },
+      { path: "shipment.mode", type: '"sea" | "sea-container" | "air" | "road" | "rail" | "multimodal" | undefined', summary: "How the main carriage travels. Drives the sea-only warning and air apportionment." },
+      { path: "shipment.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required." },
+      { path: "shipment.goodsMinor", type: "number", summary: "Goods price in integer minor units, including any leg marked inPrice. Required." },
+      { path: "shipment.legs", type: "Array<{ kind: IncotermLegKind; amountMinor: number; inPrice?: boolean }>", summary: "One entry per cost leg, any order, one per kind. Missing legs print no row." },
+      { path: "shipment.destination", type: '{ valuationBasis: "cif-border" | "fob-export"; airFreightDutiablePercent?: number }', summary: "How the importing country values goods. Required." },
+    ],
+    files: node("incoterm-charges-and-customs-value", { deriver: true }),
+    previewData: {
+      shipment: {
+        incoterm: "DAP",
+        namedPlace: "Unit 14, Maasvlakte Distribution Park, Europaweg 875, 3199 LD Rotterdam, Netherlands",
+        mode: "sea-container",
+        currency: "EUR",
+        goodsMinor: 128475000,
+        legs: [
+          { kind: "export-packing", amountMinor: 184500, inPrice: true },
+          { kind: "origin-inland", amountMinor: 386000 },
+          { kind: "export-clearance", amountMinor: 42500 },
+          { kind: "origin-terminal", amountMinor: 61800 },
+          { kind: "main-carriage", amountMinor: 1874000 },
+          { kind: "insurance", amountMinor: 154200 },
+          { kind: "destination-terminal", amountMinor: 58700 },
+          { kind: "onward-delivery", amountMinor: 212500 },
+          { kind: "import-duty", amountMinor: 5396000 },
+          { kind: "import-tax", amountMinor: 26791400 },
+        ],
+        destination: { valuationBasis: "cif-border" },
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "royalty-reserve-and-recoupment",
+    title: "Royalty reserve and advance recoupment",
+    summary:
+      "The settlement from royalties earned to the amount paid: reserves against returns, advance recoupment and the minimum payment.",
+    detail:
+      "The settlement from a period's earned royalties to the amount paid, reconciled " +
+      "line by line in integer minor units. A reserve against returns is held on " +
+      "physical formats only, never on e-books or digital audio, rounded once per " +
+      "title. Returns are charged against the reserves held for that title, oldest " +
+      "first; only returns beyond them reduce this period's royalties, and any " +
+      "reserve held for the contract's liquidation limit is released in full after " +
+      "returns are charged against it. The statement shows what was withheld and how " +
+      "each earlier reserve was applied or released. Recoupment pools only the " +
+      "titles an advance cross-collateralises; every other title recoups on its own, " +
+      "so one title's earnings never pay another's advance. Each advance is still " +
+      "unrecouped, earned out this period or already earned out, each in its own " +
+      "words, and an unrecouped advance is never called a debt. A total below the " +
+      "minimum payment is carried forward and the statement says so. All of it is one deriver.",
+    category: "Closing",
+    tags: ["money", "royalties", "publishing", "statement", "reserve", "table", "deriver", "branching", "section"],
+    exports: ["RoyaltyReserveAndRecoupment"],
+    dataFields: [
+      { path: "royalty.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required." },
+      { path: "royalty.periodIndex", type: "number", summary: "This statement's period number; reserve ages are measured from it. Required." },
+      { path: "royalty.periodLabel", type: "string | undefined", summary: 'How the period is named. Missing means "period N".' },
+      { path: "royalty.earned", type: "Array<{ title: string; physicalMinor?: number; digitalMinor?: number }>", summary: "Royalties earned per title this period, in minor units. A reserve is held on physical only." },
+      { path: "royalty.reservePercent", type: "number | undefined", summary: "Share of physical royalties held against returns. Missing means none." },
+      { path: "royalty.reserveLiquidationPeriods", type: "number | undefined", summary: "Periods a reserve may be held before release. Required when any reserve exists." },
+      { path: "royalty.openReserves", type: "Array<{ title: string; setInPeriod: number; amountMinor: number; label?: string }>", summary: "Earlier reserves still held, by title and the period that set them." },
+      { path: "royalty.returnsCharged", type: "Array<{ title: string; amountMinor: number }>", summary: "Royalties on copies returned this period, charged against the oldest reserve first." },
+      { path: "royalty.advances", type: "Array<{ titles: string[]; unrecoupedOpeningMinor: number }>", summary: "Each advance, its pooled titles and the unearned part at the start. Other titles settle alone." },
+      { path: "royalty.minimumPaymentMinor", type: "number | undefined", summary: "Smallest amount paid out; less is carried forward. Missing means no threshold." },
+      { path: "royalty.carriedForwardMinor", type: "number | undefined", summary: "Carried from the last statement under the minimum. Missing means 0." },
+    ],
+    files: node("royalty-reserve-and-recoupment", { deriver: true }),
+    previewData: {
+      royalty: {
+        currency: "USD",
+        periodIndex: 9,
+        periodLabel: "1 January to 30 June 2026",
+        reservePercent: 25,
+        reserveLiquidationPeriods: 4,
+        minimumPaymentMinor: 2500,
+        carriedForwardMinor: 1840,
+        earned: [
+          { title: "The Cartographer's Daughter: A Novel of the Hudson Valley, 1849–1863", physicalMinor: 4812365, digitalMinor: 1975040 },
+          { title: "Saltmarsh and Other Stories from the Eastern Seaboard", physicalMinor: 1236710, digitalMinor: 402385 },
+          { title: "A Field Guide to Disappearing Places (Illustrated Anniversary Edition)", physicalMinor: 2104900, digitalMinor: 0 },
+          { title: "Tidewater: Essays on Rivers, Memory and the Shoreline", physicalMinor: 0, digitalMinor: 312480 },
+        ],
+        openReserves: [
+          { title: "The Cartographer's Daughter: A Novel of the Hudson Valley, 1849–1863", setInPeriod: 5, amountMinor: 1184220, label: "the statement to 30 June 2024" },
+          { title: "The Cartographer's Daughter: A Novel of the Hudson Valley, 1849–1863", setInPeriod: 7, amountMinor: 965310, label: "the statement to 30 June 2025" },
+          { title: "A Field Guide to Disappearing Places (Illustrated Anniversary Edition)", setInPeriod: 8, amountMinor: 610000, label: "the statement to 31 December 2025" },
+        ],
+        returnsCharged: [
+          { title: "The Cartographer's Daughter: A Novel of the Hudson Valley, 1849–1863", amountMinor: 702560 },
+          { title: "A Field Guide to Disappearing Places (Illustrated Anniversary Edition)", amountMinor: 845900 },
+        ],
+        advances: [
+          { titles: ["The Cartographer's Daughter: A Novel of the Hudson Valley, 1849–1863", "Saltmarsh and Other Stories from the Eastern Seaboard"], unrecoupedOpeningMinor: 5250000 },
+          { titles: ["A Field Guide to Disappearing Places (Illustrated Anniversary Edition)"], unrecoupedOpeningMinor: 7500000 },
+        ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "commodity-code-summary",
+    title: "Commodity code summary",
+    summary: "Tariff code, origin and mass on every line, and the summary a customs declaration is split on.",
+    detail:
+      "Prints each goods line's tariff code, origin, preference claim, quantity, " +
+      "supplementary unit, net mass and value, then one summary row per tariff " +
+      "code, origin and preference, which is how customs splits a declaration. " +
+      "Codes are text, so 0901 stays 0901, and each is checked against the " +
+      "destination's length: 6 for HS, 8 for EU CN, 10 for UK and US. A short " +
+      "or missing code warns on its line. Masses in lb are converted, summed " +
+      "exactly and rounded once per group, and the total is the sum of the " +
+      "groups, so the summary always adds up. Net mass above the declared gross " +
+      "mass prints a warning. All of it is one deriver.",
+    category: "Body",
+    tags: ["customs", "trade", "tariff", "invoice", "deriver", "table", "section"],
+    exports: ["CommodityCodeSummary"],
+    dataFields: [
+      { path: "customs.currency", type: "string", summary: "ISO 4217 code the values are in. Required." },
+      { path: "customs.destinationCodeLength", type: "6 | 8 | 10", summary: "Digits the destination's tariff needs: HS 6, EU CN 8, UK and US 10. Required." },
+      { path: "customs.grossMassKg", type: "number | undefined", summary: "Declared gross mass in kg. Missing means no gross line and no net-over-gross check." },
+      { path: "customs.lines", type: 'Array<{ ref?; description?; tariffCode: string; origin: string; preference?: boolean; quantity: number; supplementaryUnit?: { code: string; quantity: number }; netMass: { value: number; unit: "kg" | "g" | "lb" }; valueMinor: number }>', summary: "The goods lines, in invoice order. Empty prints one sentence and no tables." },
+    ],
+    arrangements: [
+      { id: "lines-then-summary", title: "Lines, then summary", summary: "Every goods line, with the summary by tariff code and origin under it." },
+      { id: "summary-first", title: "Summary first", summary: "The summary and its warnings first, the lines after, for a long invoice." },
+    ],
+    files: node("commodity-code-summary", { deriver: true, arrangements: ["lines-then-summary", "summary-first"] }),
+    // The tariff codes are illustrative, not checked against a live tariff.
+    previewData: {
+      customs: {
+        currency: "GBP",
+        destinationCodeLength: 10,
+        grossMassKg: 27850.5,
+        lines: [
+          { ref: "INV-2026-004817/0001", description: "Roasted arabica coffee beans, not decaffeinated, in 1 kg one-way valve bags", tariffCode: "0901210000", origin: "CO", preference: true, quantity: 12000, netMass: { value: 12000, unit: "kg" }, valueMinor: 15600000 },
+          { ref: "INV-2026-004817/0002", description: "Roasted arabica coffee beans, not decaffeinated, in 1 kg one-way valve bags", tariffCode: "0901210000", origin: "BR", quantity: 6000, netMass: { value: 6000, unit: "kg" }, valueMinor: 7245000 },
+          { ref: "INV-2026-004817/0003", description: "Men's leather lace-up boots with vulcanised rubber soles, assorted sizes UK 6 to 13", tariffCode: "6403919800", origin: "PT", preference: true, quantity: 2400, supplementaryUnit: { code: "pa", quantity: 2400 }, netMass: { value: 1420.5, unit: "kg" }, valueMinor: 10080000 },
+          { ref: "INV-2026-004817/0004", description: "Men's leather lace-up boots with vulcanised rubber soles, assorted sizes UK 6 to 13", tariffCode: "6403919800", origin: "PT", preference: true, quantity: 1500, supplementaryUnit: { code: "pa", quantity: 1500 }, netMass: { value: 1850.75, unit: "lb" }, valueMinor: 6300000 },
+          { ref: "INV-2026-004817/0005", description: "Red wine of fresh grapes with a protected designation of origin, in 75 cl glass bottles", tariffCode: "2204214200", origin: "FR", preference: true, quantity: 4800, supplementaryUnit: { code: "l", quantity: 3600 }, netMass: { value: 5280, unit: "kg" }, valueMinor: 2052500 },
+        ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "preferential-origin-statement",
+    title: "Preferential origin statement",
+    summary: "The statement on origin a trade agreement prescribes, or a warning when its exporter reference is missing.",
+    detail:
+      "Prints the statement on origin each agreement prescribes, in its own words: " +
+      "the EU-UK TCA statement on origin, the EU GSP REX statement, the CETA origin " +
+      "declaration, the EU-Japan statement and the UK DCTS statement, with the " +
+      "exporter reference, the origin, the origin criteria that agreement uses and " +
+      "the multiple-shipment period. The EUR 6,000 threshold is tested against the " +
+      "originating lines only, converted at the rate you supply, never against the " +
+      "invoice total or a fixed sterling figure. Above it the exporter's REX or EORI " +
+      "number is required, and when it is missing a warning prints in place of the " +
+      "statement, because an importer who claims preference on an incomplete " +
+      "statement faces a duty demand later. Non-originating lines are listed by " +
+      "reference, so \"except where otherwise clearly indicated\" is true. A period " +
+      "longer than 12 months is refused the same way. Nothing prints when no line is " +
+      "originating. Worked out by one deriver.",
+    category: "Legal",
+    tags: ["origin", "customs", "export", "invoice", "legal", "branching", "deriver"],
+    exports: ["PreferentialOriginStatement"],
+    dataFields: [
+      { path: "origin.agreement", type: '"eu-uk-tca" | "eu-gsp" | "ceta" | "eu-japan" | "uk-dcts"', summary: "Which agreement's prescribed wording, reference and criteria apply. Required." },
+      { path: "origin.originCountry", type: "string", summary: "UK or EU under the TCA, EU under CETA and EU-Japan, the beneficiary country under GSP and DCTS. Required." },
+      { path: "origin.exporterReference", type: "string | undefined", summary: "EORI for UK exporters, REX otherwise. Required when originating goods exceed EUR 6,000, or the statement is withheld." },
+      { path: "origin.eurRate", type: "number | undefined", summary: "Euros per unit of the consignment currency, for the EUR 6,000 test. Required unless the currency is EUR." },
+      { path: "origin.period", type: "{ from: string; to: string } | undefined", summary: "ISO dates for a multiple-shipment statement. Over 12 months withholds it." },
+      { path: "origin.place", type: "string", summary: "Where the statement is made. Required." },
+      { path: "origin.date", type: "string", summary: "ISO 8601 date of the statement. Required." },
+      { path: "origin.exporterName", type: "string", summary: "The exporter, closing the statement. Required." },
+      { path: "consignment.currency", type: "string", summary: "ISO 4217 code of the line values. Required." },
+      {
+        path: "consignment.lines",
+        type: "Array<{ ref: string; valueMinor: number; originating?: boolean; criterion?: string; hsHeading?: string }>",
+        summary: "Every line in integer minor units. Only lines marked originating count toward the threshold; the rest are listed as exceptions.",
+      },
+    ],
+    files: node("preferential-origin-statement", { deriver: true }),
+    previewData: {
+      origin: {
+        agreement: "eu-uk-tca",
+        originCountry: "UK",
+        exporterReference: "GB123456789000",
+        eurRate: 1.1712,
+        period: { from: "2026-12-01", to: "2027-11-30" },
+        place: "Newcastle upon Tyne, Tyne and Wear",
+        date: "2026-11-30",
+        exporterName: "Northumbrian Precision Engineering and Fabrication Holdings Limited",
+      },
+      consignment: {
+        currency: "GBP",
+        lines: [
+          { ref: "10", valueMinor: 128450000, originating: true, criterion: "A" },
+          { ref: "20", valueMinor: 96320075, originating: true, criterion: "A" },
+          { ref: "30", valueMinor: 18999900, originating: false },
+          { ref: "40", valueMinor: 254000000, originating: true, criterion: "C, D" },
+          { ref: "50", valueMinor: 7250050, originating: true, criterion: "E" },
+          { ref: "60", valueMinor: 4410000, originating: false },
         ],
       },
     },
@@ -1802,6 +2142,65 @@ export const COMPONENTS: RegistryComponent[] = [
           { kind: "spv", amountMinor: 60000, appliesToLineKeys: ["spa-weekend"], spvRatePercent: 20, code: "SPA-GIFT-VOUCHER-0004817-UK" },
           { kind: "mpv", amountMinor: 200000, code: "HIGH-STREET-GIFT-CARD-9921-3348-7710" },
         ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "financial-assistance-notice",
+    title: "Financial assistance and collections timeline (501(r))",
+    summary: "The financial assistance notice a US tax-exempt hospital's bill must carry, and the dates collections may start and applications close.",
+    detail:
+      "Every statement from a tax-exempt hospital carries the 501(r) notice: " +
+      "assistance is available, and where to get the policy, the application and " +
+      "the plain-language summary. A missing phone number or web address prints " +
+      "an 'incomplete' warning instead. Collections may not start until 120 days " +
+      "after the first post-discharge statement and 30 days after the written " +
+      "collections notice, and the later date is printed. Until that notice is " +
+      "sent, the statement says collection waits for it. Applications are " +
+      "accepted for 240 days, or until the collections date if later. A pending " +
+      "application suspends collections and the statement says so. A partial " +
+      "approval caps the balance at the amount generally billed, worked out in " +
+      "whole cents and rounded half-up, and the statement shows the working. " +
+      "Free care says nothing is owed. A for-profit facility prints nothing " +
+      "unless state law asks for the notice, and then gets the notice alone. One " +
+      "deriver decides all of it.",
+    category: "Legal",
+    tags: ["healthcare", "legal", "us", "collections", "branching", "deriver"],
+    exports: ["FinancialAssistanceNotice"],
+    dataFields: [
+      { path: "facility.taxExempt", type: "boolean", summary: "Whether 501(r) applies. Missing is read as true." },
+      { path: "facility.stateNoticeRequired", type: "boolean | undefined", summary: "For a for-profit facility: print the notice alone because state law requires it." },
+      { path: "facility.fapUrl", type: "string", summary: "Where the policy, form and plain-language summary are. Missing prints a warning." },
+      { path: "facility.fapPhone", type: "string", summary: "Who to call about the policy. Missing prints a warning." },
+      { path: "billing.currency", type: "string | undefined", summary: "ISO 4217 code. Defaults to USD." },
+      { path: "billing.firstPostDischargeStatementDate", type: "string", summary: "ISO 8601. Both clocks start here. Required." },
+      { path: "billing.ecaNoticeDate", type: "string | undefined", summary: "ISO 8601 date of the written collections notice. Missing means none sent." },
+      {
+        path: "billing.application",
+        type: '{ status?: "none" | "pending" | "approved" | "denied"; discount?: "free" | "partial" } | undefined',
+        summary: "The application. Missing means none.",
+      },
+      { path: "billing.grossCharges", type: "number | undefined", summary: "Gross charges. Required for a partial approval." },
+      { path: "billing.agbPercent", type: "number | undefined", summary: "AGB percentage, such as 37.85. Required for a partial approval." },
+      { path: "billing.balanceDue", type: "number | undefined", summary: "What would otherwise be billed. The patient owes the lower of this and AGB." },
+    ],
+    files: node("financial-assistance-notice", { deriver: true }),
+    previewData: {
+      facility: {
+        taxExempt: true,
+        fapUrl: "https://www.stmarysregionalmedicalcenter.org/patients/billing/financial-assistance-policy",
+        fapPhone: "1-800-555-0142 (TTY 711), Monday to Friday 8am-6pm Central",
+      },
+      billing: {
+        currency: "USD",
+        firstPostDischargeStatementDate: "2026-11-02",
+        ecaNoticeDate: "2027-02-25",
+        application: { status: "approved", discount: "partial" },
+        grossCharges: 1284567.89,
+        agbPercent: 37.85,
+        balanceDue: 812450.0,
       },
     },
     requires: [],
@@ -3095,6 +3494,530 @@ export const COMPONENTS: RegistryComponent[] = [
         { hsnSac: "30049099", taxableMinor: 234567891, rate: 5 },
         { hsnSac: "71023910", taxableMinor: 9876543, rate: 0.25 },
       ],
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "patient-responsibility-breakdown",
+    title: "Patient responsibility breakdown",
+    summary: "What the patient owes on each claim line, from billed to allowed to deductible, copay and coinsurance.",
+    detail:
+      "Each claim line goes from billed charge to allowed amount, and the gap is printed as the " +
+      "provider's write-off, never as owed, unless the line is out of network and not protected by " +
+      "the No Surprises Act, when it is a balance bill. Copay, deductible and coinsurance are taken " +
+      "in the plan's own order: copay before or after the deductible, counting toward it or not. " +
+      "Coinsurance is on what is left after both, not on the allowed amount. The deductible and " +
+      "out-of-pocket balances carry from line to line in date order, cost share stops at the " +
+      "out-of-pocket maximum, and later covered lines say the plan pays 100%. Non-covered charges " +
+      "and balance bills come after the cap because they never count toward it. Everything is in " +
+      "integer cents, with coinsurance rounded once per line, so the totals are the sum of the " +
+      "printed rows. A denied line is not billed. All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "healthcare", "statement", "insurance", "table", "deriver", "branching", "section"],
+    exports: ["PatientResponsibilityBreakdown"],
+    arrangements: [
+      {
+        id: "table",
+        title: "Table",
+        summary: "One row per claim line, with billed, allowed, deductible, copay, coinsurance and what you owe in columns.",
+      },
+      { id: "stacked", title: "Stacked", summary: "One labelled block per claim line, down the text column." },
+    ],
+    dataFields: [
+      { path: "patientResponsibility.currency", type: "string | undefined", summary: "ISO 4217 code. Missing means USD." },
+      {
+        path: "patientResponsibility.plan",
+        type:
+          "{ deductibleRemainingMinor: number; oopRemainingMinor: number; coinsuranceRate: number; copayAppliesBeforeDeductible?: boolean; copayCountsTowardDeductible?: boolean }",
+        summary:
+          "Accumulators before the first line, in integer minor units, and the plan's order of operations. Copay first and not counting toward the deductible when missing.",
+      },
+      {
+        path: "patientResponsibility.lines",
+        type:
+          'Array<{ serviceDate: string; description: string; code?: string; billedMinor: number; allowedMinor?: number; copayMinor?: number; copayOnly?: boolean; covered?: boolean; network?: "in" | "out"; nsaProtected?: boolean }>',
+        summary: "Claim lines in any order, amounts in integer minor units. Missing or empty prints nothing.",
+      },
+    ],
+    files: node("patient-responsibility-breakdown", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      patientResponsibility: {
+        currency: "USD",
+        plan: {
+          deductibleRemainingMinor: 285000,
+          oopRemainingMinor: 912500,
+          coinsuranceRate: 0.3,
+          copayAppliesBeforeDeductible: true,
+          copayCountsTowardDeductible: false,
+        },
+        lines: [
+          {
+            serviceDate: "2026-09-02", code: "99215",
+            description: "Office visit, established patient, high complexity, with extended review of outside imaging",
+            billedMinor: 48500, allowedMinor: 21437, copayMinor: 6500, copayOnly: true, network: "in", covered: true,
+          },
+          {
+            serviceDate: "2026-09-14", code: "27447",
+            description: "Total knee arthroplasty, right knee, including surgeon's intraoperative and post-operative care",
+            billedMinor: 7845000, allowedMinor: 3196428, network: "in", covered: true,
+          },
+          {
+            serviceDate: "2026-09-14", code: "0120",
+            description: "Inpatient surgical admission, semi-private room and board, four days, with operating and recovery room",
+            billedMinor: 24875000, allowedMinor: 9641237, network: "in", covered: true,
+          },
+          {
+            serviceDate: "2026-09-15", code: "01402",
+            description: "Anesthesia for knee arthroplasty by an out-of-network anesthesiologist at an in-network hospital",
+            billedMinor: 1265000, allowedMinor: 412850, network: "out", nsaProtected: true, covered: true,
+          },
+          {
+            serviceDate: "2026-10-06", code: "97110",
+            description: "Therapeutic exercise, eight 15-minute units, outpatient physical therapy at an out-of-network clinic",
+            billedMinor: 192000, allowedMinor: 84000, network: "out", nsaProtected: false, covered: true,
+          },
+          {
+            serviceDate: "2026-10-20", code: "S9451",
+            description: "Exercise classes by a non-physician provider, not a covered benefit under this plan",
+            billedMinor: 36000, covered: false,
+          },
+        ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "good-faith-estimate-comparison",
+    title: "Good faith estimate comparison (No Surprises Act)",
+    summary: "Each provider's bill against its own good faith estimate, and the dispute rights a $400 overrun gives a self-pay patient.",
+    detail:
+      "For a patient who is uninsured or paying for their own care, each provider or facility " +
+      "is compared with its own line on the good faith estimate, never with the estimate as a " +
+      "whole, and everything it billed counts, including items that were not on the estimate. " +
+      "A provider missing from the estimate is compared with nothing. Where a provider billed " +
+      "at least $400 more, counted in whole cents, the patient is told they can dispute that " +
+      "bill, by a deadline 120 days from the date on the initial bill, that it will not go to " +
+      "collections or gather late fees while the dispute is open, and whom to contact: CMS, or " +
+      "the state where it runs its own process. A statement can offer the dispute for one " +
+      "provider and not another. Under $400 it says so without dispute wording. A patient " +
+      "billing their plan or enrolled in a federal programme, or with no estimate, gets nothing. " +
+      "All of it is one deriver.",
+    category: "Legal",
+    tags: ["legal", "healthcare", "billing", "no-surprises-act", "dispute", "table", "deriver", "branching", "section"],
+    exports: ["GoodFaithEstimateComparison"],
+    dataFields: [
+      { path: "patientBill.coverage", type: '"uninsured" | "self-pay" | "insured" | "federal-program"', summary: "How the patient pays. Only uninsured and self-pay print anything. Required." },
+      { path: "patientBill.initialBillDate", type: "string", summary: "ISO 8601 date on the initial bill; the deadline is 120 days on. Required when anything prints." },
+      { path: "patientBill.estimate", type: "{ date: string } | undefined", summary: "The good faith estimate. Missing prints nothing." },
+      { path: "patientBill.stateProcess", type: "{ name: string; contact: string } | undefined", summary: "The state's own dispute process. Missing means the federal one." },
+      { path: "patientBill.providers", type: "Array<{ name: string; estimateCents?: number; billedLines: Array<{ amountCents: number }> }>", summary: "Up to 6 providers, amounts in integer cents. A missing estimate means not on it." },
+    ],
+    files: node("good-faith-estimate-comparison", { deriver: true }),
+    previewData: {
+      patientBill: {
+        coverage: "self-pay",
+        initialBillDate: "2026-11-02",
+        estimate: { date: "2026-09-14" },
+        providers: [
+          {
+            name: "Northwestern Lakeshore Regional Medical Center Ambulatory Surgery Department",
+            estimateCents: 4850000,
+            billedLines: [{ amountCents: 4612500 }, { amountCents: 186750 }, { amountCents: 39999 }],
+          },
+          {
+            name: "Associated Anesthesiologists of the Greater Metropolitan Area, P.C.",
+            estimateCents: 640000,
+            billedLines: [{ amountCents: 702500 }, { amountCents: 118289 }],
+          },
+          {
+            name: "Lakeshore Pathology and Laboratory Medicine Consultants, LLC",
+            billedLines: [{ amountCents: 48250 }],
+          },
+        ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "statement-remittance-reference",
+    title: "Statement remittance reference",
+    summary: "The one reference a payer quotes for several open items, and the tear-off advice.",
+    detail:
+      "Credit notes and unallocated payments are set against open invoices oldest " +
+      "due date first, so the advice shows exactly which invoices the payment " +
+      "clears, and the one left part-paid says what remains. Disputed items are " +
+      "listed with an unticked box and never counted in the amount to pay. The " +
+      "reference follows the rail: one item's own reference, else the invoice list " +
+      "with its common prefix written once, else a statement RF where the rail " +
+      "takes one, else the account number with a statement tag. It is folded to " +
+      "the rail's case and characters before it is measured, and never truncated: " +
+      "a reference that fits nowhere fails the document. KID and OCR rails take " +
+      "one reference per payment, so there the advice asks for one payment per " +
+      "item. The advice has the account number, statement date, a tick box, " +
+      "amount and running total per item, and an amount-paid box. All of it is " +
+      "one deriver.",
+    category: "Closing",
+    tags: ["money", "statement", "payment", "remittance", "reference", "table", "deriver", "branching", "section"],
+    exports: ["StatementRemittanceReference"],
+    dataFields: [
+      { path: "statement.currency", type: "string", summary: "ISO 4217 code; sets the minor units and must match the rail. Required." },
+      { path: "statement.date", type: "string", summary: "ISO 8601 statement date. Required." },
+      { path: "statement.customerNumber", type: "string", summary: "The account number, printed on the advice and used in RF and account-tag references. Required." },
+      {
+        path: "statement.rail",
+        type: '"bacs" | "fps" | "sepa" | "sepa-rf" | "ach-ccd" | "ach-ctx" | "swift" | "nz" | "kid" | "se-ocr"',
+        summary: "The payer's rail; sets the reference's length, characters and shape.",
+      },
+      { path: "statement.acceptsRf", type: "boolean | undefined", summary: "Whether an RF is matched on bacs, fps, sepa or swift. Missing means no." },
+      {
+        path: "items",
+        type:
+          'Array<{ type: "invoice" | "credit-note" | "payment"; number: string; date: string; dueDate?: string; amount: number; reference?: string; disputed?: boolean }>',
+        summary: "Every open item, amounts unsigned in major units. Missing or empty means nothing to pay.",
+      },
+    ],
+    files: node("statement-remittance-reference", { deriver: true }),
+    previewData: {
+      statement: { currency: "EUR", date: "2026-11-30", customerNumber: "CUST-00482137-DE", rail: "sepa", acceptsRf: true },
+      items: [
+        { type: "invoice", number: "INV-2026-0041873", date: "2026-08-04", dueDate: "2026-09-03", amount: 184250.0 },
+        { type: "invoice", number: "INV-2026-0041902", date: "2026-08-11", dueDate: "2026-09-10", amount: 96400.5 },
+        { type: "invoice", number: "INV-2026-0042177", date: "2026-09-01", dueDate: "2026-10-01", amount: 1284750.0 },
+        { type: "invoice", number: "INV-2026-0042318", date: "2026-09-15", dueDate: "2026-10-15", amount: 412980.75 },
+        { type: "invoice", number: "INV-2026-0042406", date: "2026-10-01", dueDate: "2026-10-31", amount: 73615.2 },
+        { type: "invoice", number: "INV-2026-0042555", date: "2026-10-20", dueDate: "2026-11-19", amount: 258300.0, disputed: true },
+        { type: "invoice", number: "INV-2026-0042690", date: "2026-11-02", dueDate: "2026-12-02", amount: 339125.4 },
+        { type: "credit-note", number: "CN-2026-0003318", date: "2026-09-22", amount: 215000.0 },
+        { type: "payment", number: "PAY-2026-0118842", date: "2026-10-28", amount: 100000.0 },
+      ],
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "boleto-linha-digitavel",
+    title: "Boleto typeable line (Brazil)",
+    summary: "A boleto's 47-digit typeable line, built from the invoice or checked against the bank's.",
+    detail:
+      "Builds the linha digitável from the bank code, the due date, the amount " +
+      "and the bank's 25-digit free field, or checks the line the bank returned " +
+      "digit for digit. If that line disagrees with the invoice's due date or " +
+      "amount, the document fails, because the bank collects what its line " +
+      "says. The due-date factor handles the 2025 rollover: it reached 9999 on " +
+      "2025-02-21 and restarted at 1000. The general check digit is modulus 11 " +
+      "over the barcode order and the field checks are modulus 10 over the line " +
+      "order. A line it cannot build is withheld with the reason: an invoice " +
+      "not in reais, a free field of the wrong length, a due date before " +
+      "2000-07-03, or nothing to pay. It does not draw the ITF barcode. It is " +
+      "one deriver, so it publishes.",
+    category: "Closing",
+    tags: ["boleto", "brazil", "payment", "invoice", "checksum", "deriver", "section"],
+    exports: ["BoletoLinhaDigitavel"],
+    dataFields: [
+      { path: "boleto.bankCode", type: "string", summary: "Three-digit FEBRABAN bank code. Anything else withholds the line." },
+      { path: "boleto.freeField", type: "string", summary: "The bank's 25-digit free field, carrying the nosso número. Any other length withholds the line." },
+      { path: "boleto.line", type: "string | undefined", summary: "The line the bank returned. Checked digit for digit; any difference fails the document." },
+      { path: "invoice.total", type: "number", summary: "Amount in reais, rounded half up to centavos. Zero, negative or over R$ 99.999.999,99 withholds the line." },
+      { path: "invoice.dueDate", type: "string | undefined", summary: "ISO 8601 due date. Missing prints 'Contra apresentação'; before 2000-07-03 withholds; not a date fails." },
+      { path: "invoice.currency", type: '"BRL"', summary: "Must be BRL. Anything else withholds the line." },
+    ],
+    arrangements: [
+      { id: "stacked", title: "Stacked", summary: "Due date and amount as labelled lines, the typeable line on its own line beneath." },
+      { id: "table", title: "Table", summary: "Due date and amount in a label/value table, the typeable line full width beneath it." },
+    ],
+    files: node("boleto-linha-digitavel", { deriver: true, arrangements: ["stacked", "table"] }),
+    previewData: {
+      boleto: {
+        bankCode: "341",
+        freeField: "1090000012345678901234561",
+        line: "34191.09008 00012.345674 89012.345610 4 16610875043219",
+      },
+      invoice: { total: 8750432.19, dueDate: "2026-12-15", currency: "BRL" },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "royalty-earnings-by-format",
+    title: "Royalty earnings by format",
+    summary: "Royalty lines per format and price band, split where the period crosses an escalator.",
+    detail:
+      "Escalator tiers are counted on life-to-date copies, so a period that " +
+      "crosses a threshold is split into two lines at the copy where the rate " +
+      "changes, never paid at one rate. Each format is priced on its own basis, " +
+      "list price or net receipts. A high-discount sale earns a fraction of the " +
+      "rate, or the full rate on net receipts where the contract switches the " +
+      "base. Returns are charged at the highest rate reached and never pull the " +
+      "life-to-date count back below a tier. Subsidiary-rights income is shared " +
+      "after the licensee's withholding tax, which is shown once and not " +
+      "deducted again. Each line is rounded once in minor units and the total is " +
+      "the sum of the lines, the way a publisher's ledger adds up. A tier list " +
+      "that does not ascend, or a format with no basis, fails the document. All " +
+      "of it is one deriver.",
+    category: "Body",
+    tags: ["money", "royalty", "publishing", "statement", "table", "deriver", "section"],
+    exports: ["RoyaltyEarningsByFormat"],
+    dataFields: [
+      { path: "royalty.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required." },
+      { path: "royalty.formats", type: 'Array<{ format: "hardback" | "paperback" | "ebook" | "audio"; label?: string; basis: "list" | "net"; listPriceMinor?: number; tiers: Array<{ fromUnit: number; percent: number }>; lifeToDateUnitsBefore: number; sales?: Array<{ units: number; discountPercent?: number; netReceiptsMinor?: number }>; returns?: { units: number; netReceiptsMinor?: number } }> | undefined', summary: "One per format, amounts in integer minor units. Tiers start at copy 1 and ascend; the life-to-date count is required. Missing prints no format lines." },
+      { path: "royalty.highDiscount", type: '{ thresholdPercent?: number; treatment?: "fraction" | "net"; fraction?: { numerator: number; denominator: number }; deeper?: Array<{ thresholdPercent: number; numerator: number; denominator: number }> } | undefined', summary: "The high-discount clause for list-price formats. Threshold defaults to 55, the fraction to 4/5. Missing means no clause." },
+      { path: "royalty.subRights", type: "Array<{ right: string; licensee: string; grossMinor: number; foreignTaxWithheldMinor?: number; authorSharePercent: number }> | undefined", summary: "Licence income before withholding, shared after the tax. Missing prints none." },
+    ],
+    files: node("royalty-earnings-by-format", { deriver: true }),
+    previewData: {
+      royalty: {
+        currency: "GBP",
+        highDiscount: {
+          thresholdPercent: 55, treatment: "fraction", fraction: { numerator: 4, denominator: 5 },
+          deeper: [{ thresholdPercent: 62.5, numerator: 3, denominator: 5 }],
+        },
+        formats: [
+          {
+            format: "hardback", label: "Hardback (slipcased collector's edition with illustrated endpapers)",
+            basis: "list", listPriceMinor: 2500,
+            tiers: [{ fromUnit: 1, percent: 10 }, { fromUnit: 2501, percent: 12.5 }, { fromUnit: 5001, percent: 15 }],
+            lifeToDateUnitsBefore: 1850,
+            sales: [
+              { units: 2400, discountPercent: 45 },
+              { units: 38600, discountPercent: 52 },
+              { units: 9200, discountPercent: 60 },
+            ],
+            returns: { units: 3150 },
+          },
+          {
+            format: "paperback", label: "B-format paperback (export and open market edition)",
+            basis: "list", listPriceMinor: 1099,
+            tiers: [{ fromUnit: 1, percent: 7.5 }, { fromUnit: 150001, percent: 10 }],
+            lifeToDateUnitsBefore: 112480,
+            sales: [{ units: 184300, discountPercent: 50 }, { units: 41900, discountPercent: 63 }],
+            returns: { units: 22750 },
+          },
+          {
+            format: "ebook", basis: "net", tiers: [{ fromUnit: 1, percent: 25 }],
+            lifeToDateUnitsBefore: 63210, sales: [{ units: 58420, netReceiptsMinor: 23368000 }],
+          },
+          {
+            format: "audio", label: "Unabridged audiobook (download and streaming)", basis: "net",
+            tiers: [{ fromUnit: 1, percent: 25 }], lifeToDateUnitsBefore: 9400,
+            sales: [{ units: 21800, netReceiptsMinor: 9810000 }],
+            returns: { units: 140, netReceiptsMinor: 63000 },
+          },
+        ],
+        subRights: [
+          { right: "Spanish-language translation (Latin America)", licensee: "Editorial Planeta Mexicana S.A. de C.V.", grossMinor: 4500000, foreignTaxWithheldMinor: 1125000, authorSharePercent: 80 },
+          { right: "First serial rights", licensee: "Guardian News & Media Limited", grossMinor: 1800000, authorSharePercent: 90 },
+        ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "marketplace-payout-statement",
+    title: "Marketplace payout statement",
+    summary: "A period's sales, refunds, fees, chargebacks and reserve, reconciled row by row to what reaches the seller's bank.",
+    detail:
+      "One reconciled row per step, in a fixed order, closing on a balance proved " +
+      "against the opening one. Sales tax the marketplace collected as facilitator " +
+      "is shown and taken straight back out, never counted as sales. A refund " +
+      "returns the commission less the platform's administration fee, and never " +
+      "the fulfilment fee. VAT on fees is rounded once per fee line, or replaced by " +
+      "a reverse-charge note. A won chargeback is the reversal of a deduction, not " +
+      "income, and its dispute fee stays deducted. New reserve holds come off, and " +
+      "matured ones come back. The outcome is a payout to an account shown by its " +
+      "last four digits only, nothing to pay, a negative balance carried forward, " +
+      "or a debit to the card on file, never a negative payout. Give it the " +
+      "platform's closing figure and it refuses a statement that does not tie. " +
+      "All of it is one deriver over integer minor units.",
+    category: "Body",
+    tags: ["money", "marketplace", "payout", "statement", "reconciliation", "vat", "table", "deriver", "branching", "section"],
+    exports: ["MarketplacePayoutStatement"],
+    dataFields: [
+      { path: "payout.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required." },
+      { path: "payout.openingBalance", type: "number", summary: "Last statement's unpaid balance in minor units; negative is owed. Required, 0 for a first statement." },
+      { path: "payout.orders", type: "Array<{ id: string; itemTotal: number; shipping?: number; facilitatorTax?: number }> | undefined", summary: "Orders settled in the period, minor units, tax excluded from the item total. Missing means no sales." },
+      { path: "payout.refunds", type: "Array<{ orderId: string; amount: number; commissionRefunded: number; adminFee: number }> | undefined", summary: "Refunds; the admin fee is required (0 if none) and cannot exceed the commission returned." },
+      { path: "payout.fees", type: "Array<{ label: string; amount: number; vatPercent?: number; reverseCharge?: boolean }> | undefined", summary: "Commission and fees before VAT. VAT is rounded per line; reverse-charged fees get a note instead." },
+      { path: "payout.chargebacks", type: 'Array<{ orderId: string; amount: number; disputeFee?: number; outcome: "open" | "won" | "lost"; raisedEarlier?: boolean }> | undefined', summary: "Deducted with their fee when raised this period; a win adds the amount back." },
+      { path: "payout.reserve", type: "{ held?: number; released?: number; days?: number } | undefined", summary: "New holds come off, matured holds come back. Missing means no reserve." },
+      { path: "payout.accountLast4", type: "string | undefined", summary: "Only its last four digits are printed. Missing prints 'your bank account'." },
+      { path: "payout.negativeBalanceMethod", type: '"carry" | "debit" | undefined', summary: "What a negative closing balance becomes. Missing means carry." },
+      { path: "payout.closingBalance", type: "number | undefined", summary: "The platform's own closing figure; the document fails when the rows do not sum to it." },
+    ],
+    arrangements: [
+      { id: "signed", title: "Signed", summary: "One amount column, every row signed, closing balance at the foot." },
+      { id: "columns", title: "In and out", summary: "Money in and money out in two unsigned columns, the way a bank statement reads." },
+    ],
+    files: node("marketplace-payout-statement", { deriver: true, arrangements: ["signed", "columns"] }),
+    previewData: {
+      payout: {
+        currency: "GBP",
+        openingBalance: -184250,
+        orders: [
+          { id: "206-4817725-9930714", itemTotal: 12849900, shipping: 245000, facilitatorTax: 2618980 },
+          { id: "206-9102384-5521036", itemTotal: 8734550, shipping: 189900, facilitatorTax: 1784890 },
+          { id: "206-3345120-0087412", itemTotal: 4412075, shipping: 0, facilitatorTax: 882415 },
+        ],
+        refunds: [
+          { orderId: "206-9102384-5521036", amount: 1249900, commissionRefunded: 187485, adminFee: 500 },
+          { orderId: "206-3345120-0087412", amount: 18990, commissionRefunded: 2849, adminFee: 570 },
+        ],
+        fees: [
+          { label: "Referral fees (Home & Kitchen, 15% up to £100 and 8% above)", amount: 2304617, vatPercent: 20 },
+          { label: "Fulfilment fees, oversize and standard-parcel tiers", amount: 1187340, vatPercent: 20 },
+          { label: "Monthly storage fees including aged-inventory surcharge", amount: 96215, vatPercent: 20 },
+          { label: "Sponsored Products advertising, invoiced from Luxembourg", amount: 845000, reverseCharge: true },
+        ],
+        chargebacks: [
+          { orderId: "206-4817725-9930714", amount: 349900, disputeFee: 1500, outcome: "lost" },
+          { orderId: "206-1188234-7765102", amount: 128450, disputeFee: 1500, outcome: "open" },
+          { orderId: "206-5520918-3349876", amount: 89999, disputeFee: 1500, outcome: "won", raisedEarlier: true },
+        ],
+        reserve: { held: 2570253, released: 1984120, days: 90 },
+        accountLast4: "4417",
+        negativeBalanceMethod: "carry",
+        closingBalance: 19039259,
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "de-mahnung-fee",
+    title: "German Mahnung fee and Verzug status",
+    summary: "When each invoice went into Verzug, and what this Mahnung may lawfully charge.",
+    detail:
+      "For each invoice in a German dunning letter, states since when the debtor " +
+      "is in Verzug and why: a contractual payment date, 30 days after due date " +
+      "and receipt of the invoice (for a consumer only if the invoice warned of " +
+      "it; for a business, from receipt of the goods when the invoice date is " +
+      "unknown), or the first Mahnung after the due date. Deadlines that end on a " +
+      "weekend or public holiday move to the next working day under § 193 BGB, " +
+      "nationwide holidays included. The Mahnung that causes Verzug is free and " +
+      "says so; later ones carry material costs once per letter, capped for " +
+      "consumers with the § 309 Nr. 5 proof clause. A business debtor gets the " +
+      "EUR 40 Pauschale once per invoice, with Mahnung fees credited against it " +
+      "so only the excess is charged; a consumer never does. All of it is one deriver.",
+    category: "Body",
+    tags: ["invoice", "dunning", "germany", "legal", "money", "deriver", "branching", "section"],
+    exports: ["DeMahnungFee"],
+    dataFields: [
+      { path: "mahnung.debtorType", type: '"consumer" | "business"', summary: "Decides the Pauschale, the 30-day rule and the fee cap. Anything else fails the document." },
+      { path: "mahnung.date", type: "string", summary: "ISO 8601 date this Mahnung reaches the debtor. Required." },
+      { path: "mahnung.fee", type: "number | undefined", summary: "Material cost of this letter in euros, charged once. Missing means none; above 2.50 fails for a consumer." },
+      { path: "mahnung.holidays", type: "string[] | undefined", summary: "The debtor's Land holidays, ISO 8601. Nationwide holidays are built in." },
+      {
+        path: "mahnung.invoices",
+        type: "Array<{ number: string; amount: number; dueDate: string; invoiceReceivedDate?: string; goodsReceivedDate?: string; contractPaymentDate?: string; contractPaymentFromEvent?: boolean; verzugWarningOnInvoice?: boolean; mahnungen?: Array<{ date: string; feeCharged?: number }> }>",
+        summary: "Every invoice the letter covers, euros, with earlier Mahnungen. Required and non-empty.",
+      },
+    ],
+    arrangements: [
+      { id: "stacked", title: "Stacked", summary: "Each invoice as a heading with its Verzug, fee and Pauschale lines beneath." },
+      { id: "table", title: "Table", summary: "One row per invoice, with Verzug, fee and Pauschale in columns." },
+    ],
+    files: node("de-mahnung-fee", { deriver: true, arrangements: ["stacked", "table"] }),
+    previewData: {
+      mahnung: {
+        debtorType: "business",
+        date: "2026-11-19",
+        fee: 6.5,
+        holidays: ["2026-11-18"],
+        invoices: [
+          {
+            number: "RE-2026-006233-WARTUNG-Q4-STANDORT-LEIPZIG",
+            amount: 92840.1,
+            dueDate: "2026-10-19",
+            invoiceReceivedDate: "2026-10-19",
+          },
+          {
+            number: "RE-2026-004817/TEILLIEFERUNG-3-RAHMENVERTRAG-NORD",
+            amount: 1284750.0,
+            dueDate: "2026-08-31",
+            contractPaymentDate: "2026-08-31",
+            mahnungen: [
+              { date: "2026-09-15", feeCharged: 6.5 }, { date: "2026-09-29", feeCharged: 6.5 },
+              { date: "2026-10-13", feeCharged: 6.5 }, { date: "2026-10-27", feeCharged: 6.5 },
+              { date: "2026-11-03", feeCharged: 6.5 }, { date: "2026-11-10", feeCharged: 6.5 },
+            ],
+          },
+          {
+            number: "RE-2026-005102-ERSATZTEILE-HYDRAULIK",
+            amount: 486320.75,
+            dueDate: "2026-09-01",
+            invoiceReceivedDate: "2026-09-03",
+          },
+        ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "nl-collection-costs",
+    title: "Dutch collection costs",
+    summary: "Dutch statutory collection costs on the WIK staffel, and the fourteen-day letter that makes them due.",
+    detail:
+      "Collection costs under Dutch law are all or nothing: one mistake voids the claim. " +
+      "A consumer owes them only after a veertiendagenbrief that states the exact figure, " +
+      "and the fourteen days run from the day after receipt, so the letter prints a payment " +
+      "date fifteen days after the expected receipt, rolled past weekends and public holidays. " +
+      "The staffel is applied once to every invoice the letter names, with interest that has " +
+      "run a year added first, and rounded to the cent once. btw is added only when the " +
+      "creditor cannot reclaim it. A consumer's low instalments get EUR 40 and then EUR 20 in " +
+      "a six-month window. A business owes the staffel or EUR 40 per invoice, whichever is " +
+      "more, or what its contract says, with no letter. A later letter claims costs only once " +
+      "the earlier deadline has passed and it stated an amount; otherwise nothing is printed. " +
+      "An agency prints its Wki number. All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "collection", "netherlands", "dutch", "legal", "deriver", "branching", "section"],
+    exports: ["NlCollectionCosts"],
+    dataFields: [
+      { path: "collection.debtorType", type: '"consumer" | "business"', summary: "Decides which rules apply. Required." },
+      { path: "collection.creditorCanReclaimVat", type: "boolean | undefined", summary: "false adds 21% btw to the costs. Missing means no btw." },
+      { path: "collection.sendDate", type: "string", summary: "ISO 8601 date this document is sent. Required." },
+      { path: "collection.channel", type: '"post" | "email" | undefined', summary: "Sets the expected receipt. Required on a consumer's veertiendagenbrief." },
+      { path: "collection.postDeliveryDays", type: "number | undefined", summary: "Days a posted letter takes. Missing means 4." },
+      { path: "collection.invoices", type: "Array<{ number: string; principal: number; dueDate: string }>", summary: "Every overdue invoice claimed, in euros. Added together before the staffel. Required." },
+      { path: "collection.interestAccrued", type: "number | undefined", summary: "Statutory interest in euros; added to the base once it has run a year." },
+      { path: "collection.interestRunningSince", type: "string | undefined", summary: "ISO 8601 date the interest started." },
+      { path: "collection.instalment", type: "{ priorCharged: number; windowStart?: string } | undefined", summary: "A consumer instalment: EUR 40, then EUR 20 in a six-month window, under EUR 266.67." },
+      { path: "collection.contractualCosts", type: "number | undefined", summary: "Business only: the contract clause's costs, excluding btw. Replaces the staffel." },
+      { path: "collection.previousLetter", type: "{ deadline: string; statedCosts?: number; receivedDate?: string } | undefined", summary: "Consumer only: the veertiendagenbrief already sent. Costs print only after its deadline, and only if it stated them." },
+      { path: "collection.agency", type: "{ name: string; registrationNumber: string } | undefined", summary: "A collection agency sender; its Wki number is printed." },
+    ],
+    arrangements: [
+      { id: "stacked", title: "Stacked", summary: "One labelled figure under another, below the statement." },
+      { id: "table", title: "Table", summary: "Labels on the left, amounts right-aligned, so the figures add up down the page." },
+    ],
+    files: node("nl-collection-costs", { deriver: true, arrangements: ["stacked", "table"] }),
+    previewData: {
+      collection: {
+        debtorType: "consumer",
+        creditorCanReclaimVat: false,
+        sendDate: "2026-11-19",
+        channel: "post",
+        invoices: [
+          { number: "VF-2025-0004817-ENERGIE-NOORD", principal: 7845.32, dueDate: "2025-09-30" },
+          { number: "VF-2025-0005129-ENERGIE-NOORD", principal: 6912.75, dueDate: "2025-10-31" },
+          { number: "VF-2026-0000318-EINDAFREKENING", principal: 3991.93, dueDate: "2026-01-31" },
+        ],
+        interestAccrued: 612.48,
+        interestRunningSince: "2025-10-01",
+        agency: {
+          name: "Incassobureau Noord-Holland Gerechtsdeurwaarders en Juridische Dienstverlening B.V.",
+          registrationNumber: "2024-0048176",
+        },
+      },
     },
     requires: [],
   },

@@ -47,7 +47,7 @@ const FocusPanel: Nodes<{ fund: FocusHolding }> = ({ fund }) => (
                 data={{
                   categories: fund.spark.map((_, i) => String(i + 1)),
                   series: [
-                    { label: "Where it started", values: fund.spark.map(() => fund.spark[0]!), color: "C8D3CE", dash: true, widthPt: 0.75 },
+                    { label: "Where it started", values: fund.spark.map(() => fund.spark[0]!), color: "C8D3CE", dash: "dashed", widthPt: 0.75 },
                     { label: fund.name, values: fund.spark, color: "17624A", widthPt: 1.3 },
                   ],
                 }}

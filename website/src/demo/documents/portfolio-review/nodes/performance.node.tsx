@@ -54,7 +54,7 @@ export const Performance: Nodes = () => {
           series: [
             // The ground under the portfolio's line, in the canvas's 8% green.
             { label: "Your portfolio", values: perf.portfolio, band: perf.portfolio.map(() => 98), color: "ECF2F0" },
-            { label: perf.benchmark[perf.benchmark.length - 1]!.toFixed(1), values: perf.benchmark, color: "5C6B64", dash: true, widthPt: 1, endLabel: true },
+            { label: perf.benchmark[perf.benchmark.length - 1]!.toFixed(1), values: perf.benchmark, color: "5C6B64", dash: "dashed", widthPt: 1, endLabel: true },
             // Named for the figure it ends on, which is what the canvas prints there.
             { label: perf.portfolio[perf.portfolio.length - 1]!.toFixed(1), values: perf.portfolio, color: "17624A", widthPt: 1.8, endLabel: true },
           ],

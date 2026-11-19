@@ -24,7 +24,7 @@
 
 import type { DocumentModel, DocumentNode, ImageFloat } from "../domain/types.ts";
 import { fillPageFields } from "./docx_fields.ts";
-import { columnWidthMm } from "./page_size.ts";
+import { columnWidthMm, pageBorderOffsetPt } from "./page_size.ts";
 import type { PackedParagraph, PackedTable } from "./docx_packed.ts";
 
 export { fillPageFields } from "./docx_fields.ts";
@@ -102,13 +102,14 @@ export function settleDocxPreview(
   addParagraphSpacing(container);
   applyDoubleBorders(container);
   liftShapeText(container);
-  fillPageFields(container, model?.style?.page, model === undefined ? undefined : pageSeparators(model));
+  fillPageFields(container, model?.style?.page, model);
   seatFooters(container);
   hangListMarkers(container);
 
   if (model !== undefined) {
     applyTableIndents(container, model);
     alignPageBodies(container, model);
+    framePages(container, model);
   }
 
   if (packed !== undefined) {
@@ -412,23 +413,6 @@ export function inlinePictureWrappers(container: Element): void {
 }
 
 
-/** What each of the document's page numbers writes between its two fields. */
-function pageSeparators(model: DocumentModel): string[] {
-  const found = new Set<string>();
-  const walk = (nodes: readonly DocumentNode[] | undefined) => {
-    for (const node of nodes ?? []) {
-      if (node.kind === "pageNumber" && (node.format ?? "currentOfTotal") === "currentOfTotal") {
-        found.add(node.separator ?? " / ");
-      }
-      if ("children" in node) walk(node.children);
-    }
-  };
-  for (const part of [model.header, model.footer, model.firstHeader, model.firstFooter, model.evenHeader, model.evenFooter]) {
-    walk(part);
-  }
-  return [...found];
-}
-
 /**
  * Every floating picture, put where the file pins it: on the page, not in the line.
  *
@@ -591,6 +575,26 @@ function alignPageBodies(container: Element, model: DocumentModel): void {
     const style = (article as HTMLElement).style;
     style.marginTop = "auto";
     if (valign === "bottom") style.marginBottom = "0px";
+  }
+}
+
+/**
+ * The page border, drawn as an outline inset from each sheet's edge.
+ *
+ * docx-preview parses `w:pgBorders` and draws nothing from it. An outline rather
+ * than a CSS border because Word's page border takes up no room: it moves no
+ * text, and an outline is the one CSS line that stays out of layout too. The
+ * offset is to the line's outer edge, which is what `w:space` measures from the paper.
+ */
+function framePages(container: Element, model: DocumentModel): void {
+  const page = model.style?.page;
+  if (!page?.border) return;
+  // Three widths across for a double, for the reason applyDoubleBorders gives.
+  const widthPt = (page.borderWidthPt ?? 1) * (page.borderStyle === "double" ? 3 : 1);
+  const line = page.borderStyle === undefined || page.borderStyle === "single" ? "solid" : page.borderStyle;
+  for (const section of container.querySelectorAll<HTMLElement>("section.docx")) {
+    section.style.outline = `${widthPt}pt ${line} #${page.border}`;
+    section.style.outlineOffset = `-${pageBorderOffsetPt(page) + widthPt}pt`;
   }
 }
 

@@ -259,6 +259,8 @@ test("a <Text> standing beside the nodes says where it belongs", async () => {
 
 const SUP = '<w:vertAlign w:val="superscript"/>';
 const SUB = '<w:vertAlign w:val="subscript"/>';
+const DBL = '<w:u w:val="double"/>';
+const SGL = '<w:u w:val="single"/>';
 
 function count(xml: string, fragment: string): number {
   return xml.split(fragment).length - 1;
@@ -395,6 +397,88 @@ test("a stored model with an unknown script prints plain", async () => {
   assertStringIncludes(textOf(xml), "84 m2.");
 });
 
+const totalDue = (
+  <Document id="d" title="D">
+    <Paragraph id="p">
+      Total due <Text bold underline="double">1,240.00</Text>
+    </Paragraph>
+  </Document>
+);
+
+test("a double-underlined figure is a run of its own", async () => {
+  const doc = await build(totalDue);
+  const xml = await documentXml(doc);
+
+  assertEquals(paragraph(doc).runs, [{ text: "Total due " }, { text: "1,240.00", bold: true, underline: "double" }]);
+  assertStringIncludes(xml, `<w:b/><w:bCs/>${DBL}</w:rPr><w:t xml:space="preserve">1,240.00</w:t>`);
+  assertEquals(count(xml, "<w:u "), 1);
+});
+
+test("underline true stays a single rule", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p"><Text underline>terms</Text></Paragraph>
+    </Document>,
+  );
+  const xml = await documentXml(doc);
+
+  assertEquals(paragraph(doc).runs, [{ text: "terms", underline: true }]);
+  assertStringIncludes(xml, SGL);
+  assertEquals(xml.includes('w:val="double"'), false);
+});
+
+test("underline left out or false draws no rule", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p"><Text bold>a</Text><Text underline={false}>b</Text></Paragraph>
+    </Document>,
+  );
+
+  assertEquals((await documentXml(doc)).includes("<w:u "), false);
+  assertEquals(paragraph(doc).runs!.some((run) => run.underline === true || run.underline === "double"), false);
+});
+
+test("the inner underline wins and neighbours set alike merge", async () => {
+  const doc = await build(
+    <Document id="d" title="D">
+      <Paragraph id="p">
+        <Text underline="double">Net <Text underline>VAT</Text></Text><Text underline="double"> total</Text>
+      </Paragraph>
+    </Document>,
+  );
+
+  assertEquals(paragraph(doc).runs, [
+    { text: "Net ", underline: "double" },
+    { text: "VAT", underline: true },
+    { text: " total", underline: "double" },
+  ]);
+});
+
+test("a double-underlined link keeps its double rule and a plain link the single one", async () => {
+  const xml = await documentXml(
+    await build(
+      <Document id="d" title="D">
+        <Paragraph id="p">
+          <Text href="https://example.com/a" underline="double">A</Text> <Text href="https://example.com/b">B</Text>
+        </Paragraph>
+      </Document>,
+    ),
+  );
+  const links = xml.match(/<w:hyperlink[\s\S]*?<\/w:hyperlink>/g) ?? [];
+
+  assertStringIncludes(links.find((l) => l.includes(">A<")) ?? "", DBL);
+  assertStringIncludes(links.find((l) => l.includes(">B<")) ?? "", SGL);
+});
+
+test("a stored model with an unknown underline draws the single rule", async () => {
+  const doc = await build(totalDue);
+  paragraph(doc).runs![1].underline = "wavy" as never;
+  const xml = await documentXml(doc);
+
+  assertStringIncludes(xml, SGL);
+  assertEquals(xml.includes('w:val="wavy"'), false);
+});
+
 const variantStyle: DocumentStyle = {
   ...cleanMinimalDocumentStyle,
   blocks: {
@@ -491,7 +575,7 @@ test("a block with no opinion leaves the paragraph's own setting alone", async (
   assertStringIncludes(run, SHD);
 });
 
-test("a linked variant keeps the accent colour and the shading", async () => {
+test("a linked variant keeps its own colour and the shading", async () => {
   const doc = await build(
     <Document id="d" title="D">
       <Paragraph id="p">
@@ -502,7 +586,7 @@ test("a linked variant keeps the accent colour and the shading", async () => {
   const xml = await documentXml({ ...doc, style: variantStyle });
   const link = /<w:hyperlink[\s\S]*?<\/w:hyperlink>/.exec(xml)?.[0] ?? "";
 
-  assertStringIncludes(link, '<w:color w:val="2F5FBD"/>');
+  assertStringIncludes(link, '<w:color w:val="92400E"/>');
   assertStringIncludes(link, SHD);
 });
 
@@ -586,4 +670,88 @@ test("a published run keeps its variant when its token is settled", async () => 
 
   assertEquals(settled.runs?.[1].variant, "amountDue");
   assertEquals(settled.runs?.map((run) => run.text).join(""), settled.text);
+});
+
+function linkXml(xml: string, anchor: string): string {
+  return (xml.match(/<w:hyperlink[\s\S]*?<\/w:hyperlink>/g) ?? []).find((link) => link.includes(anchor)) ?? "";
+}
+
+// A built model carries no style of its own, so each test hands it one.
+const styled = (doc: DocumentModel, patch: Partial<DocumentStyle> = {}): DocumentModel => ({
+  ...doc,
+  style: { ...cleanMinimalDocumentStyle, ...patch },
+});
+const withBand = (doc: DocumentModel): DocumentModel =>
+  styled(doc, { blocks: { band: { fill: "1F2933", color: "FFFFFF" } } });
+
+test("a link with no block colour is drawn in the accent, underlined", async () => {
+  const doc = styled(await build(
+    <Document id="d" title="D">
+      <Paragraph id="pay">
+        You can <Text href="https://example.com/pay">pay online</Text> before the due date.
+      </Paragraph>
+    </Document>,
+  ));
+  const link = linkXml(await documentXml(doc), "pay online");
+
+  assertStringIncludes(link, `<w:color w:val="${cleanMinimalDocumentStyle.palette!.accent}"/>`);
+  assertStringIncludes(link, '<w:u w:val="single"/>');
+});
+
+test("a link takes the colour of its paragraph's variant", async () => {
+  const doc = withBand(await build(
+    <Document id="d" title="D">
+      <Paragraph id="contact" variant="band">
+        Questions? <Text href="mailto:billing@example.com">Email billing</Text>.
+      </Paragraph>
+    </Document>,
+  ));
+  const link = linkXml(await documentXml(doc), "Email billing");
+
+  assertStringIncludes(link, '<w:color w:val="FFFFFF"/>');
+  assertEquals(link.includes(cleanMinimalDocumentStyle.palette!.accent), false);
+  assertStringIncludes(link, '<w:u w:val="single"/>');
+});
+
+test("a link in a header cell takes the heading ink, not the accent it is filled with", async () => {
+  const doc = styled(await build(
+    <Document id="d" title="D">
+      <Table id="links" columns={[{ width: "auto" }]}>
+        <Row id="head" header>
+          <Cell id="h"><Text href="https://example.com/rates">Rates</Text></Cell>
+        </Row>
+      </Table>
+    </Document>,
+  ));
+  const link = linkXml(await documentXml(doc), "Rates");
+
+  assertStringIncludes(link, `<w:color w:val="${cleanMinimalDocumentStyle.palette!.page}"/>`);
+  assertEquals(link.includes(`w:val="${cleanMinimalDocumentStyle.palette!.accent}"`), false);
+});
+
+test("a link in a cell whose variant sets a colour takes it", async () => {
+  const doc = withBand(await build(
+    <Document id="d" title="D">
+      <Table id="links" columns={[{ width: "auto" }]}>
+        <Row id="r">
+          <Cell id="c" variant="band"><Text href="https://example.com/rates">Rates</Text></Cell>
+        </Row>
+      </Table>
+    </Document>,
+  ));
+
+  assertStringIncludes(linkXml(await documentXml(doc), "Rates"), '<w:color w:val="FFFFFF"/>');
+});
+
+test("a style with no palette leaves the link in the surrounding ink", async () => {
+  const built = await build(
+    <Document id="d" title="D">
+      <Paragraph id="pay">
+        You can <Text href="https://example.com/pay">pay online</Text>.
+      </Paragraph>
+    </Document>,
+  );
+  const doc = styled(built, { palette: undefined });
+
+  assertEquals(linkXml(await documentXml(doc), "pay online").includes("<w:color"), false);
 });

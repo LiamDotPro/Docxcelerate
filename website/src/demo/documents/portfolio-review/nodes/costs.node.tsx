@@ -94,7 +94,7 @@ export const Costs: Nodes = () => {
                 categories: costs.effect.years.map((year, i) => (i % 2 === 0 ? year : "")),
                 series: [
                   { label: "What costs take", values: costs.effect.before, band: costs.effect.after, color: "DBEEE5" },
-                  { label: "Before costs", values: costs.effect.before, color: "5C6B64", dash: true, widthPt: 1 },
+                  { label: "Before costs", values: costs.effect.before, color: "5C6B64", dash: "dashed", widthPt: 1 },
                   { label: "After costs", values: costs.effect.after, color: "17624A", widthPt: 1.8 },
                 ],
               }}

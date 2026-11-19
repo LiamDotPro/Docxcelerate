@@ -11,6 +11,10 @@
  */
 
 import type { DocumentPageStyle, PageNumberStyle } from "../domain/style.ts";
+import type { DocumentModel, DocumentNode, PageNumberFormat } from "../domain/types.ts";
+
+/** What a holder stands for: the form its node asked for, and the words it held. */
+type PageField = { format: PageNumberFormat; text: string };
 
 /**
  * PAGE and NUMPAGES, filled in from the layout that just happened.
@@ -21,22 +25,25 @@ import type { DocumentPageStyle, PageNumberStyle } from "../domain/style.ts";
  * section count, which is the count Word reaches too: it is the same file and,
  * once the preview paginates, the same pagination.
  *
- * Only the separator the document itself wrote between the two fields is
- * touched, and only inside a footer. A page number written as a literal is left
- * exactly as the document wrote it.
+ * Only the words the document itself wrote beside the fields are touched, and
+ * only inside a footer: the separator between two numbers, or the prefix before
+ * one, found from `model`. Without one, the bare `/` a default `<PageNumber />`
+ * leaves behind. A single number with no prefix, or a separator of only
+ * whitespace, leaves nothing to anchor on and stays blank in the preview; Word
+ * is always right. A page number written as a literal is left as written.
  *
  * @param container The element the preview was rendered into.
  * @param numbering Where the page numbers start and how they are written. Left
  * out, it is read back from the sheets, where an earlier call stamped it.
- * @param separators What the document's page numbers put between the two
- * fields — "PAGE 3 OF 13" writes " OF ". Left out, it is read back from the
- * sheets the same way; a document that never said writes " / ".
+ * @param model The document that was packed, for the words each page number
+ * wrote. Without it only the default `/` form is found.
  */
 export function fillPageFields(
   container: Element,
   numbering?: Pick<DocumentPageStyle, "firstPageNumber" | "numberStyle">,
-  separators?: readonly string[],
+  model?: DocumentModel,
 ): void {
+  const anchors = pageFieldAnchors(model);
   const pages = [...container.querySelectorAll("section.docx")];
 
   // `newSheet` clones the section with `cloneNode(false)`, which copies
@@ -52,22 +59,9 @@ export function fillPageFields(
       }
     }
   }
-  if (separators !== undefined && separators.length > 0) {
-    for (const page of pages) page.setAttribute("data-page-separators", JSON.stringify(separators));
-  }
   const stamped = pages[0];
   const start = Number(stamped?.getAttribute("data-first-page-number") ?? 1);
   const style = (stamped?.getAttribute("data-number-style") ?? "decimal") as PageNumberStyle;
-  const written: string[] = JSON.parse(stamped?.getAttribute("data-page-separators") ?? '[" / "]');
-  // The separator as it stands between the fields, alone or between two numbers
-  // an earlier pass wrote. Trimmed, because a renderer may drop the spaces
-  // around it, and escaped, because a separator is text, not a pattern.
-  const patterns = written.map((separator) => ({
-    separator,
-    pattern: new RegExp(
-      `^\\s*(?:[\\dA-Za-z]+\\s*)?${separator.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\\s*\\d+)?\\s*$`,
-    ),
-  }));
 
   pages.forEach((page, index) => {
     const footer = page.querySelector(":scope > footer");
@@ -75,23 +69,51 @@ export function fillPageFields(
       return;
     }
 
-    // The innermost element holding the separator, so the number lands beside
-    // the slash rather than replacing the whole footer.
-    //
-    // Either the bare separator docx-preview left behind, or a number this
-    // function already wrote. It has to be both, because it runs twice: once
-    // when the preview is settled, and again after pagination, which is what
-    // changes the answer. Matching only the bare form meant the second pass
-    // found nothing to correct and every sheet of a five-page document kept the
-    // "1 / 1" the first pass had written.
-    for (const element of footer.querySelectorAll("*")) {
-      if (element.children.length > 0) continue;
-      const match = patterns.find(({ pattern }) => pattern.test(element.textContent ?? ""));
-      if (match !== undefined) {
-        element.textContent = `${formatPageNumber(start + index, style)}${match.separator}${pages.length}`;
+    for (const holder of footer.querySelectorAll("*")) {
+      if (holder.children.length > 0) continue;
+
+      // Marked when first found: once filled, its words are a number nothing
+      // could find again, and pagination fills it again without a model. The
+      // marks travel with the clone pagination makes of a footer.
+      if (!holder.hasAttribute("data-page-field")) {
+        const field = anchors.get((holder.textContent ?? "").trim());
+        if (field === undefined) continue;
+        holder.setAttribute("data-page-field", field.format);
+        holder.setAttribute("data-page-text", field.text);
       }
+
+      const current = formatPageNumber(start + index, style);
+      const format = holder.getAttribute("data-page-field");
+      const text = holder.getAttribute("data-page-text") ?? "";
+      holder.textContent = format === "current"
+        ? `${text}${current}`
+        : format === "total"
+        ? `${text}${pages.length}`
+        : `${current}${text}${pages.length}`;
     }
   });
+}
+
+/** The words each footer page number leaves once its fields are dropped, keyed by what they trim to. */
+function pageFieldAnchors(model: DocumentModel | undefined): Map<string, PageField> {
+  const anchors = new Map<string, PageField>([["/", { format: "currentOfTotal", text: " / " }]]);
+  const walk = (nodes: readonly DocumentNode[] | undefined): void => {
+    for (const node of nodes ?? []) {
+      if (node.kind === "pageNumber") {
+        const format = node.format ?? "currentOfTotal";
+        // Between the numbers for "3 of 10", before the one number otherwise.
+        const text = format === "currentOfTotal" ? node.separator ?? " / " : node.prefix ?? "";
+        if (text.trim() !== "") anchors.set(text.trim(), { format, text });
+      } else if ("children" in node) {
+        walk(node.children);
+      }
+    }
+  };
+
+  walk(model?.footer);
+  walk(model?.firstFooter);
+  walk(model?.evenFooter);
+  return anchors;
 }
 
 const ROMAN: ReadonlyArray<readonly [number, string]> = [
