@@ -1127,6 +1127,75 @@ export const COMPONENTS: RegistryComponent[] = [
   },
   {
     kind: "component",
+    id: "contingency-settlement-statement",
+    title: "Contingency settlement statement",
+    summary:
+      "The closing statement for a contingent or damages-based fee: the fee by band, the statutory cap, liens, and the net to the client.",
+    detail:
+      "The closing statement a contingent or damages-based fee requires: the recovery, each deduction in the order the agreement and the law apply it, and the net to the client, in one column that adds up. " +
+      "Tiered rates are charged marginally by band, never the top rate on the whole sum, at the rate for the stage the case reached. " +
+      "The fee is worked out on gross or on recovery net of expenses as the agreement says, and the statement shows what the other base would have charged. " +
+      "A statutory cap (New York §474-a, California §6146, the UK DBA Regulations or the CFA Order) is computed and compared with the agreed fee, and the lower is charged. " +
+      "The DBA cap counts VAT and counsel's fees and leaves out future loss, and costs paid by the other side are credited. " +
+      "Liens come off the client's share after the fee unless marked otherwise. " +
+      "A recovery that does not cover everything prints as a shortfall with the agreement's terms on who carries it. " +
+      "All of it is worked out by one deriver that ships with the component.",
+    category: "Body",
+    tags: ["legal", "settlement", "fees", "liens", "table", "deriver", "branching"],
+    exports: ["ContingencySettlementStatement"],
+    dataFields: [
+      { path: "settlement.regime", type: '"contingency" | "DBA" | "CFA"', summary: "Which agreement the fee is paid under. Anything else throws." },
+      { path: "settlement.currency", type: "string", summary: "ISO 4217 code all amounts are in." },
+      { path: "settlement.grossRecovery", type: "number", summary: "Total awarded or agreed, before anything is taken off." },
+      { path: "settlement.stage", type: '"pre-suit" | "filed" | "trial" | "appeal" | undefined', summary: "Picks the rate. Required when the schedule is staged or the California cap applies." },
+      { path: "settlement.schedule", type: "Array<{ stage?: string; upTo?: number; percent: number }>", summary: "The agreement's rates: marginal bands, or the CFA uplift." },
+      { path: "settlement.base", type: '"gross" | "net" | undefined', summary: "Whether the fee is on the gross recovery or net of expenses. Required for contingency and DBA." },
+      { path: "settlement.statutoryCap", type: '"ny-medical-malpractice" | "ca-medical-negligence" | undefined', summary: "A statutory fee cap to compare against. Contingency only." },
+      { path: "settlement.claimType", type: '"personal-injury" | "employment" | "other" | undefined', summary: "Which DBA or CFA cap applies. Required for DBA and CFA." },
+      { path: "settlement.damagesBreakdown", type: "{ general: number; pastLoss: number; futureLoss?: number } | undefined", summary: "Heads of damage for the UK personal-injury caps. Future loss is excluded." },
+      { path: "settlement.baseCosts", type: "number | undefined", summary: "CFA base costs before VAT. Required for CFA." },
+      { path: "settlement.vatPercent", type: "number | undefined", summary: "VAT on the solicitor's charges, DBA and CFA. Missing is 0." },
+      { path: "settlement.counselFees", type: "number | undefined", summary: "Counsel's fees including VAT, inside the DBA cap." },
+      { path: "settlement.recoverableCostsPaid", type: "number | undefined", summary: "Costs paid by the other side, credited against what the client owes." },
+      { path: "settlement.expenses", type: "Array<{ label: string; amount: number }> | undefined", summary: "Case expenses, one row each." },
+      { path: "settlement.liens", type: "Array<{ holder: string; amount: number; reducedAmount?: number; beforeFee?: boolean; cru?: boolean }> | undefined", summary: "Liens paid from the client's share after the fee unless marked beforeFee." },
+      { path: "settlement.shortfallTerms", type: "string | undefined", summary: "The agreement's words on who carries a shortfall. Missing there prints a warning." },
+    ],
+    files: node("contingency-settlement-statement", { deriver: true }),
+    previewData: {
+      settlement: {
+        regime: "contingency",
+        currency: "USD",
+        grossRecovery: 4850000,
+        stage: "trial",
+        base: "net",
+        statutoryCap: "ny-medical-malpractice",
+        schedule: [
+          { stage: "pre-suit", percent: 25 },
+          { stage: "filed", percent: 30 },
+          { stage: "trial", percent: 100 / 3 },
+          { stage: "appeal", percent: 40 },
+        ],
+        expenses: [
+          { label: "Expert witness fees: board-certified neurosurgeon, life-care planner and forensic economist", amount: 186450 },
+          { label: "Court reporter and videographer charges for fourteen depositions", amount: 38912.75 },
+          { label: "Medical records retrieval and certification, Mount Sinai and NYU Langone", amount: 6240.3 },
+          { label: "Index number, request for judicial intervention and jury demand filing fees", amount: 1335 },
+          { label: "Trial exhibits, demonstrative animations and courtroom technology", amount: 54780 },
+        ],
+        liens: [
+          { holder: "Centers for Medicare & Medicaid Services (Medicare Secondary Payer Recovery)", amount: 312480.66, reducedAmount: 198214.09 },
+          { holder: "Empire BlueCross BlueShield of New York, self-funded ERISA health plan", amount: 147905.12, reducedAmount: 98603.41 },
+          { holder: "New York State Workers' Compensation Board lien", amount: 64220 },
+        ],
+        shortfallTerms:
+          "If the recovery does not cover the fee, expenses and liens, the firm waives any unrecovered expenses and the client remains responsible for the liens.",
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
     id: "stage-payment-schedule",
     title: "Stage payment schedule",
     summary: "Stage payments that add up to the contract sum to the penny, with each stage's VAT tax point.",
