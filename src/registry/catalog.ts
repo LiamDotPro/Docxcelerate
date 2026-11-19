@@ -318,6 +318,64 @@ export const COMPONENTS: RegistryComponent[] = [
 
   {
     kind: "component",
+    id: "invoice-totals",
+    title: "Invoice totals",
+    summary: "Line items and VAT totals, worked in minor units and rounded once per rate.",
+    detail:
+      "The arithmetic every invoice gets subtly wrong, done once in a deriver. " +
+      "Money is worked in integer minor units at the currency's own exponent, " +
+      "so yen and dinars come out right and no float reaches a total. Each " +
+      "line is rounded once, lines are grouped by rate, and VAT is worked once " +
+      "per band on the band's sum. That is rate-level rounding, which HMRC and " +
+      "the EU accept, and it is the figure an accounting system recomputes; " +
+      "per-line VAT summed drifts a penny from it. Inclusive prices have their " +
+      "VAT backed out of the band's gross, so the total is exactly what was " +
+      "charged. Discounts reduce their own band. Exempt lines print under " +
+      "their own label rather than as 0%, and more than one band draws the " +
+      "per-rate VAT analysis an invoice is required to carry.",
+    category: "Body",
+    tags: ["money", "table", "tax", "invoice", "branching", "section"],
+    exports: ["InvoiceTotals"],
+    dataFields: [
+      {
+        path: "invoice.currency",
+        type: "string",
+        summary: "ISO 4217 code. Required; sets the decimal places.",
+      },
+      {
+        path: "invoice.pricing",
+        type: '"exclusive" | "inclusive" | undefined',
+        summary: "Whether unit prices exclude or include VAT. Defaults to exclusive.",
+      },
+      {
+        path: "invoice.lines",
+        type:
+          "Array<{ description: string; quantity: number; unit?: string; unitPrice: number; taxRate: number | null; taxLabel?: string }>",
+        summary:
+          "One per line, in print order. `taxRate` is a percentage; `null` is exempt or outside scope, labelled by `taxLabel`. Empty prints \"no charges\".",
+      },
+    ],
+    files: node("invoice-totals", { deriver: true }),
+    previewData: {
+      invoice: {
+        currency: "GBP",
+        pricing: "exclusive",
+        lines: [
+          { description: "Quarterly planned preventive maintenance of rooftop air handling units AHU-1 to AHU-6, including filter replacement and belt tensioning", quantity: 4, unit: "visits", unitPrice: 12850, taxRate: 20 },
+          { description: "Out-of-hours emergency call-out, chilled water pump failure at Riverside House, 14–15 March", quantity: 7.25, unit: "h", unitPrice: 142.5, taxRate: 20 },
+          { description: "Replacement variable-speed drive and mounting kit for pump P-03", quantity: 1, unitPrice: 3487.6, taxRate: 20 },
+          { description: "Communal heating fuel and power, March (reduced rate)", quantity: 18432.5, unit: "kWh", unitPrice: 0.2847, taxRate: 5 },
+          { description: "Printed site logbooks and operating manuals", quantity: 6, unit: "copies", unitPrice: 48.5, taxRate: 0 },
+          { description: "Plant breakdown insurance premium recharge, 2026–27", quantity: 1, unitPrice: 2310, taxRate: null, taxLabel: "Exempt" },
+          { description: "Loyalty discount on planned maintenance", quantity: 1, unitPrice: -2570, taxRate: 20 },
+        ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
     id: "balance-trend",
     title: "Balance trend",
     summary: "A line of how a balance has moved, and a sentence saying the same thing.",
@@ -965,6 +1023,51 @@ export const COMPONENTS: RegistryComponent[] = [
   },
   {
     kind: "component",
+    id: "invoice-billing-periods",
+    title: "Invoice billing periods",
+    summary: "The periods a subscription invoice bills for, in advance and in arrears.",
+    detail:
+      "Works out the periods an invoice states from the billing anchor and " +
+      "interval. Month-end anchors are clamped without being forgotten, so an " +
+      "anchor of the 31st bills on 31 Jan, 28 Feb and 31 Mar, and 29 Feb on an " +
+      "annual plan falls on 28 Feb in a common year. End dates are inclusive, " +
+      "the EN 16931 convention. Licensed items are billed in advance for the " +
+      "coming period and metered items in arrears for the previous one, so " +
+      "one invoice can state two periods; the header period then runs from " +
+      "the earliest start to the latest end, so it contains every line " +
+      "period, as Peppol requires. A first period that starts off the anchor " +
+      "is labelled a part period. Dates are calendar dates in the seller's " +
+      "billing time zone, never UTC. All of it is one deriver.",
+    category: "Opening",
+    tags: ["invoice", "subscription", "billing", "dates", "deriver", "section"],
+    exports: ["InvoiceBillingPeriods"],
+    dataFields: [
+      { path: "billing.anchor", type: "string", summary: "The original anchor date, YYYY-MM-DD or an instant with an offset. Required; its day is kept for every period." },
+      { path: "billing.interval", type: '"week" | "month" | "year"', summary: "The unit the cycle repeats in. Anything else fails the document." },
+      { path: "billing.intervalCount", type: "number | undefined", summary: "Units per period; 3 months is quarterly. Missing means 1." },
+      { path: "billing.invoiceDate", type: "string", summary: "When the invoice is issued, read in the billing time zone. Required." },
+      { path: "billing.timeZone", type: "string", summary: "The seller's IANA billing time zone. Required." },
+      { path: "billing.signupDate", type: "string | undefined", summary: "When the subscription started. Inside a billed period, it starts a part period." },
+      { path: "billing.hasAdvanceItems", type: "boolean", summary: "Licensed items, billed in advance for the coming period. Missing means false." },
+      { path: "billing.hasArrearsItems", type: "boolean", summary: "Metered items, billed in arrears for the previous period. Missing means false." },
+    ],
+    files: node("invoice-billing-periods", { deriver: true }),
+    previewData: {
+      billing: {
+        anchor: "2025-12-31",
+        interval: "month",
+        intervalCount: 1,
+        invoiceDate: "2027-01-01T02:30:00Z",
+        timeZone: "America/Argentina/Buenos_Aires",
+        signupDate: "2025-12-14",
+        hasAdvanceItems: true,
+        hasArrearsItems: true,
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
     id: "plan-change-proration",
     title: "Plan change proration",
     summary: "The credit and charge lines a mid-period plan change causes, and what the net means.",
@@ -1082,6 +1185,686 @@ export const COMPONENTS: RegistryComponent[] = [
         cancelInstructions:
           "Write to Contract Renewals at the address on your master services agreement, or sign in to the customer portal, open Agreements, choose the maintenance agreement and select Cancel automatic renewal, at least by the date above",
       },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "commitment-drawdown",
+    title: "Commitment drawdown",
+    summary: "Prepaid commitment and credit drawn down line by line before tax, with what is left and any true-up.",
+    detail:
+      "Applies prepaid commitment and credit grants to each usage line in invoice " +
+      "order, before tax, and splits the line where a balance runs out into a " +
+      "covered part and an overage part, exact in minor units. A grant counts if " +
+      "it was live on the usage date, not the invoice date, so usage from the last " +
+      "days of a period still draws on a grant that expired before the invoice. " +
+      "Rollover burns first, then paid commitment, then promotional credit, and " +
+      "within each by priority then earliest expiry, so the credit closest to " +
+      "lapsing is used first. Unit grants such as minutes cover only the prices " +
+      "they name, and their overage is priced at the line's unit price. On the " +
+      "invoice that ends the term, the minimum commitment is trued up against " +
+      "eligible spend, which excludes promotional credit, less true-ups already " +
+      "billed. Credits expiring soon are named, with what is projected to go " +
+      "unused. The tax basis decides whether only the overage carries VAT or the " +
+      "full usage does, with the credit deducted after tax. All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "invoice", "subscription", "usage", "credits", "commitment", "tax", "table", "deriver", "branching", "section"],
+    exports: ["CommitmentDrawdown"],
+    dataFields: [
+      { path: "drawdown.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required." },
+      { path: "drawdown.invoiceDate", type: "string", summary: "ISO 8601 issue date. Drives expiry warnings only. Required." },
+      { path: "drawdown.period", type: "{ start: string; end: string }", summary: "ISO 8601 usage period, end inclusive. Required." },
+      { path: "drawdown.term", type: "{ start: string; end: string; commitment: number; eligibleSpendToDate?: number; trueUpsBilled?: number } | undefined", summary: "Minimum-commitment term in minor units. Missing means no true-up." },
+      { path: "drawdown.lines", type: "Array<{ key?: string; description: string; usageDate?: string; quantity: number; quantityDecimals?: number; unit?: string; unitPrice?: number; amount: number; priceId?: string }>", summary: "Priced usage lines in invoice order, amounts in integer minor units." },
+      { path: "drawdown.grants", type: "Array<{ id: string; name: string; kind: \"rollover\" | \"commit\" | \"promotional\"; denomination: \"money\" | \"units\"; unit?: string; balance: number; priority?: number; effective: string; expires?: string; created?: string; priceIds?: string[]; dailyBurn?: number }>", summary: "Grants with a balance, any order. Units grants need priceIds." },
+      { path: "drawdown.creditTaxBasis", type: "\"taxed-at-purchase\" | \"multi-purpose\"", summary: "How paid credit was taxed. Decides the VAT base. Required." },
+      { path: "drawdown.warnDays", type: "number | undefined", summary: "Days ahead an expiring credit is warned about. Missing means 30." },
+    ],
+    files: node("commitment-drawdown", { deriver: true }),
+    previewData: {
+      drawdown: {
+        currency: "USD",
+        invoiceDate: "2026-07-02",
+        period: { start: "2026-06-01", end: "2026-06-30" },
+        term: { start: "2025-07-01", end: "2026-06-30", commitment: 300000000, eligibleSpendToDate: 198450000, trueUpsBilled: 2500000 },
+        creditTaxBasis: "multi-purpose",
+        warnDays: 30,
+        lines: [
+          { key: "L1", description: "Inference API: frontier model, input tokens (EU data residency)", usageDate: "2026-06-30", quantity: 18400000000, unit: "tokens", unitPrice: 0.0003, amount: 5520000, priceId: "price_frontier_input_eu" },
+          { key: "L2", description: "Inference API: frontier model, output tokens (EU data residency)", usageDate: "2026-06-30", quantity: 2950000000, unit: "tokens", unitPrice: 0.0015, amount: 4425000, priceId: "price_frontier_output_eu" },
+          { key: "L3", description: "Speech-to-text transcription, enhanced accuracy tier", usageDate: "2026-06-30", quantity: 1284750.5, unit: "minutes", unitPrice: 2.4, amount: 3083401, priceId: "price_stt_enhanced" },
+          { key: "L4", description: "Vector storage, GB-months (multi-region replicated)", usageDate: "2026-06-30", quantity: 48250.75, unit: "GB-months", unitPrice: 23, amount: 1109767, priceId: "price_vector_storage" },
+          { key: "L5", description: "Dedicated capacity reservation: 8 accelerator nodes, eu-west", usageDate: "2026-06-30", quantity: 720, unit: "hours", unitPrice: 98000, amount: 70560000, priceId: "price_dedicated_capacity" },
+          { key: "L6", description: "Batch inference: frontier model, input tokens (batch discount)", usageDate: "2026-06-30", quantity: 9200000000, unit: "tokens", unitPrice: 0.00015, amount: 1380000, priceId: "price_frontier_batch_input" },
+          { key: "L7", description: "Premium support: 24/7 enterprise response (monthly)", usageDate: "2026-06-30", quantity: 1, unitPrice: 4500000, amount: 4500000, priceId: "price_support_enterprise" },
+        ],
+        grants: [
+          { id: "g-roll", name: "Rollover from the 2024–25 annual commitment", kind: "rollover", denomination: "money", balance: 12500000, priority: 1, effective: "2025-07-01", expires: "2026-07-01" },
+          { id: "g-commit", name: "Annual prepaid commitment 2025–26 (enterprise platform agreement)", kind: "commit", denomination: "money", balance: 48000000, priority: 1, effective: "2025-07-01", expires: "2026-07-31", dailyBurn: 1600000 },
+          { id: "g-minutes", name: "Prepaid transcription minutes bundle, enhanced tier", kind: "commit", denomination: "units", unit: "minutes", balance: 1000000, priority: 0, effective: "2025-07-01", expires: "2026-07-15", priceIds: ["price_stt_enhanced"], dailyBurn: 9500 },
+          { id: "g-promo", name: "Launch partner promotional credit (frontier models)", kind: "promotional", denomination: "money", balance: 2500000, effective: "2026-01-01", expires: "2026-12-31", priceIds: ["price_frontier_input_eu", "price_frontier_output_eu"] },
+        ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "timesheet-fee-summary",
+    title: "Timesheet fee summary",
+    summary: "Billed fees per timekeeper from raw time entries, rounded per entry and rated by date.",
+    detail:
+      "Each entry is rounded to the billing increment on its own (up or to nearest, " +
+      "minimum one increment), because per-entry, per-day and per-total rounding " +
+      "bill different hours and the client's guidelines name one: three 7-minute " +
+      "entries are 0.60 hours, not 0.40. Each entry is rated by its date, so a rate " +
+      "change mid-invoice splits the timekeeper into two rows instead of applying the " +
+      "new rate backwards. A client-approved rate below standard never replaces the " +
+      "rate; the row keeps the engagement-letter rate and a 'reduction per billing " +
+      "guidelines' line shows the difference. Travel is its own row at the agreed " +
+      "factor, no-charge time is listed at 0.00 with its hours, and a write-down is " +
+      "its own line with its reason. Hours always print with two decimals and every " +
+      "row's hours times rate equals its amount, counted in integer minor units. " +
+      "All of it is one deriver.",
+    category: "Body",
+    tags: ["invoice", "legal", "time", "billing", "table", "deriver"],
+    exports: ["TimesheetFeeSummary"],
+    dataFields: [
+      { path: "time.entries", type: 'Array<{ date: string; timekeeperId: string; minutes: number; kind?: "work" | "travel" | "no-charge" }>', summary: "Raw time entries, each rounded on its own. Empty prints 'No time was recorded'." },
+      { path: "time.timekeepers", type: "Array<{ id: string; name: string; role: string; rates: Array<{ from: string; rate: number }>; approvedRate?: number }>", summary: "In print order; dated standard rates, and an optional client-approved rate." },
+      { path: "time.billing.incrementMinutes", type: "number | undefined", summary: "Billing increment in minutes, a multiple of 3. Missing means 6 (0.1 hours)." },
+      { path: "time.billing.rounding", type: '"up" | "nearest" | undefined', summary: "How each entry rounds to the increment. Missing means up." },
+      { path: "time.billing.travelFactor", type: "number | undefined", summary: "Share of the rate travel bills at, 0 to 1. Missing means the full rate." },
+      { path: "time.billing.writeDown", type: "{ amount: number; reason: string } | undefined", summary: "An agreed write-down, printed as its own line with its reason." },
+      { path: "time.currency", type: "string | undefined", summary: "ISO 4217 code; sets the minor unit. Missing means GBP." },
+    ],
+    files: node("timesheet-fee-summary", { deriver: true }),
+    previewData: {
+      time: {
+        currency: "GBP",
+        billing: {
+          incrementMinutes: 6,
+          rounding: "up",
+          travelFactor: 0.5,
+          writeDown: { amount: 4750, reason: "Agreed reduction for duplicated research on the limitation point" },
+        },
+        timekeepers: [
+          { id: "AMF", name: "Alexandra Montgomery-Fitzwilliam KC", role: "Partner, Head of Commercial Litigation",
+            rates: [{ from: "2025-04-01", rate: 1150 }, { from: "2026-10-01", rate: 1295 }], approvedRate: 1200 },
+          { id: "COH", name: "Chukwuemeka Okonkwo-Hargreaves", role: "Senior Associate (Solicitor-Advocate)",
+            rates: [{ from: "2025-04-01", rate: 685 }] },
+          { id: "PSL", name: "Priyanka Subramaniam-Lindqvist", role: "Trainee Solicitor",
+            rates: [{ from: "2025-09-01", rate: 245 }] },
+        ],
+        entries: [
+          { date: "2026-09-14", timekeeperId: "AMF", minutes: 547 },
+          { date: "2026-09-29", timekeeperId: "AMF", minutes: 412 },
+          { date: "2026-10-02", timekeeperId: "AMF", minutes: 583 },
+          { date: "2026-10-02", timekeeperId: "AMF", minutes: 185, kind: "travel" },
+          { date: "2026-09-15", timekeeperId: "COH", minutes: 598 },
+          { date: "2026-09-16", timekeeperId: "COH", minutes: 601 },
+          { date: "2026-10-02", timekeeperId: "COH", minutes: 185, kind: "travel" },
+          { date: "2026-10-05", timekeeperId: "COH", minutes: 44, kind: "no-charge" },
+          { date: "2026-09-17", timekeeperId: "PSL", minutes: 589 },
+          { date: "2026-09-18", timekeeperId: "PSL", minutes: 7 },
+        ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "disbursements-and-recharges",
+    title: "Disbursements and recharges",
+    summary: "Expenses split into recharges that carry your fees' VAT and disbursements passed on at cost outside it.",
+    detail:
+      "Splits a professional-services invoice's expenses into the two VAT treatments. " +
+      "A recharge is a cost of your own service: it takes the main supply's VAT rate " +
+      "on what you are out of pocket, net of input VAT you reclaimed and including tax " +
+      "you could not, so a zero-rated fare or exempt postage recharged becomes " +
+      "standard-rated. A disbursement is paid as the client's agent at exact cost, " +
+      "outside the scope of VAT, and listed after the recharges' VAT total. An item " +
+      "marked as paid as agent is moved to the recharges with a printed note, or " +
+      "refused in strict mode, when it carries a markup, input VAT you reclaimed, or a " +
+      "category HMRC treats as your own cost such as travel or electronic search fees. " +
+      "Foreign receipts are converted at the rate for the expense date and print the " +
+      "original amount, rate and converted figure. VAT is worked once on the " +
+      "recharges' net, half away from zero. US invoices skip VAT and split on a " +
+      "per-line taxable flag. All of it is one deriver.",
+    category: "Body",
+    tags: ["money", "invoice", "vat", "sales-tax", "expenses", "table", "deriver", "branching", "section"],
+    exports: ["DisbursementsAndRecharges"],
+    dataFields: [
+      {
+        path: "invoice.jurisdiction",
+        type: '"UK" | "EU" | "DE" | "FR" | "US"',
+        summary: "Whose rules apply. DE and FR read as EU; US skips VAT. Required with expenses.",
+      },
+      { path: "invoice.currency", type: "string", summary: "ISO 4217 code every figure is printed in. Required with expenses." },
+      {
+        path: "invoice.mainSupplyVatRate",
+        type: "number | null",
+        summary: "Fees' VAT rate as a percentage; every recharge takes it. null: fees carry no VAT, so neither do recharges.",
+      },
+      {
+        path: "invoice.expenses",
+        type:
+          "Array<{ date: string; description: string; category?: string; net: number; inputVatReclaimed?: number; irrecoverableTax?: number; currency?: string; fxRate?: number; markupPercent?: number; paidAsAgent?: boolean; supplierName?: string; taxable?: boolean }>",
+        summary: "Each expense in major units before tax on it. Missing or empty prints nothing.",
+      },
+    ],
+    files: node("disbursements-and-recharges", { deriver: true }),
+    previewData: {
+      invoice: {
+        jurisdiction: "UK",
+        currency: "GBP",
+        mainSupplyVatRate: 20,
+        expenses: [
+          { date: "2026-10-20", description: "Stamp Duty Land Tax on the purchase of Unit 4, Riverside Commercial Park", net: 487250, supplierName: "HM Revenue & Customs", paidAsAgent: true },
+          { date: "2026-10-07", description: "Return rail fare, London Euston to Manchester Piccadilly, for the site inspection", category: "travel", net: 382.4, paidAsAgent: true },
+          { date: "2026-10-02", description: "Court issue fee, claim form, Business and Property Courts", category: "court-fee", net: 10000, supplierName: "HM Courts & Tribunals Service", paidAsAgent: true },
+          { date: "2026-10-08", description: "Hotel, two nights, Frankfurt am Main, for the witness interviews", category: "accommodation", currency: "EUR", net: 1250, irrecoverableTax: 87.5, fxRate: 0.8571 },
+          { date: "2026-10-13", description: "Electronic local authority and drainage searches, 14 registered titles", category: "electronic-search", net: 2940, supplierName: "Northgate Property Searches Ltd", paidAsAgent: true },
+          { date: "2026-10-06", description: "HM Land Registry official copies and title plans, 14 registered titles", category: "land-registry", net: 147, supplierName: "HM Land Registry", paidAsAgent: true },
+          { date: "2026-10-15", description: "Printing and binding of eight lever-arch trial bundles", category: "printing", net: 1184.6, inputVatReclaimed: 236.92 },
+          { date: "2026-10-21", description: "Counsel's fee for advice on the lease and rent review", net: 18750, supplierName: "Three Crowns Lane Chambers", paidAsAgent: true },
+          { date: "2026-10-17", description: "Translation of German witness statements into English", currency: "EUR", net: 4800, fxRate: 0.8569, markupPercent: 10 },
+        ],
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "fee-cap-status",
+    title: "Fee cap status",
+    summary: "What a capped, ceiling or estimated engagement may charge on this invoice, and what the invoice has to say about it.",
+    detail:
+      "A cap is clipped, not printed: a hard cap or ceiling charges only what " +
+      "is left under it, and the excess is printed as fees above the cap, not " +
+      "charged, so the client sees the value written off. A cap already used up " +
+      "bills the period at nil. An estimate is not a cap: fees are charged in " +
+      "full, and once they pass it the invoice prints the revised estimate and " +
+      "when the client was told, or an 'incomplete' warning when nobody was, " +
+      "because an untold overrun can be challenged. A ceiling past its notice " +
+      "threshold (85% unless set) prints the percentage used and the notice. " +
+      "Optional withholding stops at its limit. Four states, four ids: under, " +
+      "approaching, reached, exceeded, all decided by one deriver.",
+    category: "Body",
+    tags: ["invoice", "fees", "cap", "estimate", "legal", "deriver", "branching", "section"],
+    exports: ["FeeCapStatus"],
+    dataFields: [
+      { path: "feeCap.kind", type: '"hard" | "estimate" | "ceiling"', summary: "What kind of limit. Anything else fails the document." },
+      { path: "feeCap.amount", type: "number", summary: "The cap, ceiling or original estimate. Required, above 0." },
+      { path: "feeCap.billedToDate", type: "number", summary: "Charged on earlier invoices under this limit, before withholding. Required." },
+      { path: "feeCap.noticeThreshold", type: "number | undefined", summary: "Percent of the limit that counts as approaching. Missing means 85 for a ceiling, none otherwise." },
+      { path: "feeCap.revisedEstimate", type: "{ amount: number; notifiedOn: string } | undefined", summary: "Estimate only: the revised figure and the ISO date the client was told. Missing on an overrun prints a warning." },
+      { path: "feeCap.withholding", type: "{ percent: number; limit: number; withheldToDate: number } | undefined", summary: "A retention that stops at its limit. Missing means nothing is withheld." },
+      { path: "feeCap.currency", type: "string | undefined", summary: "ISO 4217 code. Defaults to GBP." },
+      { path: "fees.thisPeriod", type: "number", summary: "Fees for this period, before the cap and withholding. Required, 0 or more." },
+    ],
+    arrangements: [
+      { id: "table", title: "Table", summary: "Labels in a column with the amounts right-aligned beside them, so the figures check against each other." },
+      { id: "stacked", title: "Stacked", summary: "One labelled figure under another, down the text column." },
+    ],
+    files: node("fee-cap-status", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      feeCap: {
+        kind: "ceiling",
+        amount: 2500000,
+        billedToDate: 2312480.55,
+        noticeThreshold: 85,
+        withholding: { percent: 10, limit: 250000, withheldToDate: 231248.06 },
+        currency: "GBP",
+      },
+      fees: { thisPeriod: 418960.4 },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "final-invoice-settlement",
+    title: "Final invoice settlement",
+    summary: "The final invoice after advances: the whole supply by VAT rate, each advance deducted, and the balance.",
+    detail:
+      "A final invoice restates the whole supply, then takes off what the advance " +
+      "invoices already covered. This one prints the full supply net and VAT per " +
+      "rate band, deducts each advance on its own row with the net and VAT printed " +
+      "on that advance invoice, never re-derived from its gross, and ends on the " +
+      "balance, so VAT already declared is not charged twice. Only advances " +
+      "received are deducted: one invoiced but unpaid is listed as not yet " +
+      "received and stays in the amount due, except in the UK, where an issued " +
+      "VAT invoice is already a tax point. When the rate changed in between, the " +
+      "UK keeps each deposit at its own rate and prints two bands; Germany and " +
+      "France tax the whole supply at the rate on completion and show the " +
+      "re-rating as an 'of which' line. Advances that exceed the total print as " +
+      "overpaid, to be refunded or credited, with a note that a credit note is " +
+      "needed, never as a negative amount due. A small business prints no VAT " +
+      "columns. Up to four rates and eight deducted advances; more fails the " +
+      "document. All of it is one deriver, in integer minor units.",
+    category: "Body",
+    tags: ["invoice", "vat", "tax", "money", "advance-payment", "table", "deriver", "branching", "section"],
+    exports: ["FinalInvoiceSettlement"],
+    dataFields: [
+      { path: "invoice.jurisdiction", type: '"UK" | "EU" | "DE" | "FR" | "US"', summary: "Whose rate-change and deduction rules apply. Anything else fails the document." },
+      { path: "invoice.currency", type: "string", summary: "ISO 4217 code. Sets the minor units. Required." },
+      { path: "invoice.lines", type: "Array<{ net: number; vatRate?: number }>", summary: "The whole supply in integer minor units, each line at its rate on completion. Required." },
+      { path: "invoice.advances", type: "Array<{ number: string; issueDate: string; net: number; vat?: number; vatRate?: number; received: boolean; supplyRate?: number }> | undefined", summary: "Every advance invoiced, amounts exactly as printed on it, in minor units. Missing means none." },
+      { path: "seller.smallBusinessExempt", type: "boolean | undefined", summary: "True for a seller who charges no VAT: no VAT columns. Missing means VAT is shown." },
+    ],
+    files: node("final-invoice-settlement", { deriver: true }),
+    previewData: {
+      invoice: {
+        jurisdiction: "DE",
+        currency: "EUR",
+        lines: [
+          { net: 487654321, vatRate: 16 },
+          { net: 12345678, vatRate: 5 },
+        ],
+        advances: [
+          { number: "AR-2020-000147/BAU-NORD-01", issueDate: "2020-05-29", net: 150000000, vat: 28500000, vatRate: 19, received: true, supplyRate: 16 },
+          { number: "AR-2020-000163/BAU-NORD-02", issueDate: "2020-08-31", net: 120000000, vat: 19200000, vatRate: 16, received: true },
+          { number: "AR-2020-000171/BAU-NORD-03", issueDate: "2020-09-30", net: 80000000, vat: 12800000, vatRate: 16, received: false },
+        ],
+      },
+      seller: { smallBusinessExempt: false },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "advance-payment-invoice",
+    title: "Advance payment invoice",
+    summary: "A deposit or prepayment against an order: the share requested, what's already been asked for, and what's left.",
+    detail:
+      "A deposit or prepayment invoice against an order: the order total, what has already been requested, the share requested now and what is left to invoice. A percentage is taken of the order gross, never of the net plus VAT, because the customer expects the figure on the quote and the two routes differ by a cent. On a mixed-rate order the deposit is spread across the rates by largest remainder in minor units, so the shares add up to the deposit and deposits plus balance add up to the order, exactly. Requesting more than 100% of the order fails the document. UK and EU prepayments are charged VAT now, because the payment is a tax point, and the date of payment prints when it differs from the issue date. Germany says it is an Anzahlungsrechnung. A US deposit carries no sales tax until the final invoice, and a refundable security deposit carries no VAT and says so. Every figure comes from one deriver.",
+    category: "Body",
+    tags: ["invoice", "deposit", "vat", "tax", "deriver", "branching", "section"],
+    exports: ["AdvancePaymentInvoice"],
+    dataFields: [
+      { path: "order.reference", type: "string", summary: "The order the deposit is against. Required." },
+      { path: "order.date", type: "string | undefined", summary: "ISO 8601 order date. Printed when given." },
+      { path: "order.currency", type: "string", summary: "ISO 4217 code. Required; sets the decimal places." },
+      { path: "order.lines", type: "Array<{ gross?: number; net?: number; vatRate?: number }>", summary: "Enough of the order to total it per rate. One of gross or net per line. Required, non-empty." },
+      { path: "deposit.percent", type: "number | undefined", summary: "Share of the order gross, over 0 and up to 100. Give this or amount." },
+      { path: "deposit.amount", type: "number | undefined", summary: "A fixed gross amount. Give this or percent." },
+      { path: "deposit.kind", type: '"prepayment" | "security"', summary: "Part of the price, or a refundable security deposit with no VAT. Required." },
+      { path: "deposit.receivedDate", type: "string | undefined", summary: "ISO 8601. Printed on a prepayment when it differs from the issue date." },
+      { path: "previousDeposits", type: "Array<{ number: string; amount: number }> | undefined", summary: "Prepayments already requested. Over 100% of the order fails the document." },
+      { path: "invoice.jurisdiction", type: '"UK" | "EU" | "DE" | "FR" | "US"', summary: "Whose tax wording applies. US charges no tax on the deposit." },
+      { path: "invoice.issueDate", type: "string", summary: "ISO 8601 date of issue. Required; compared with the payment date." },
+    ],
+    arrangements: [
+      { id: "table", title: "Table", summary: "Labels in a column with the figures right-aligned beside them, so the sum can be checked." },
+      { id: "stacked", title: "Stacked", summary: "One labelled line under another, down the text column." },
+    ],
+    files: node("advance-payment-invoice", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      order: {
+        reference: "SO-2026-11-004817/FACILITIES-NORTH-REFIT/REV-3",
+        date: "2026-10-14",
+        currency: "GBP",
+        lines: [
+          { gross: 1284750.0, vatRate: 20 },
+          { net: 412333.33, vatRate: 5 },
+          { gross: 96410.07, vatRate: 0 },
+        ],
+      },
+      deposit: { percent: 30, kind: "prepayment", receivedDate: "2026-11-28" },
+      previousDeposits: [
+        { number: "ADV-2026-11-000417-A", amount: 250000.0 },
+        { number: "ADV-2026-11-000418-B", amount: 125000.0 },
+      ],
+      invoice: { jurisdiction: "UK", issueDate: "2026-11-30" },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "credit-note-totals",
+    title: "Credit note totals",
+    summary: "What a credit note credits, by VAT band, worked from the original invoice so it nets to zero.",
+    detail:
+      "Credits are worked from the original invoice, never from today's settings. " +
+      "Each credited line keeps the VAT rate the invoice charged, and a foreign-currency " +
+      "invoice keeps its sterling exchange rate, so a rate change since cannot credit the " +
+      "wrong VAT. A full cancellation copies the original band figures exactly rather than " +
+      "recomputing them, so the two documents net to zero. A partial return credits quantity " +
+      "times the original unit price, with VAT rounded per band. A goodwill amount is spread " +
+      "across the original VAT bands pro rata by largest remainder, so no band is credited " +
+      "more VAT than it charged. Earlier credit notes are subtracted first, and a credit " +
+      "larger than what remains in any band fails the document. Amounts print positive under " +
+      "a Credit heading, as Peppol 381 expects, never as negative invoice lines.",
+    category: "Body",
+    tags: ["credit-note", "invoice", "vat", "totals", "deriver", "table", "section"],
+    exports: ["CreditNoteTotals"],
+    dataFields: [
+      { path: "creditNote.original.number", type: "string", summary: "The invoice credited. Required." },
+      { path: "creditNote.original.issueDate", type: "string", summary: "ISO 8601 issue date of that invoice. Required." },
+      { path: "creditNote.original.currency", type: "string", summary: "ISO 4217 code of that invoice. The credit is in the same currency. Required." },
+      { path: "creditNote.original.fxToGBP", type: "number | undefined", summary: "Pounds per 1 unit of currency, as on the original. Given: VAT is also stated in sterling." },
+      { path: "creditNote.original.vatGBP", type: "number | undefined", summary: "The original's sterling VAT total, copied on a first full cancellation." },
+      {
+        path: "creditNote.original.bands",
+        type: "Array<{ vatRate: number | null; label?: string; net: number; vat: number }>",
+        summary: "The original VAT analysis, in printed order. Required.",
+      },
+      {
+        path: "creditNote.original.lines",
+        type: "Array<{ id: string; description: string; qty: number; unitNet: number; vatRate: number | null }> | undefined",
+        summary: "The original lines. Required for a lines credit.",
+      },
+      {
+        path: "creditNote.previousCredits",
+        type: "Array<{ bands: Array<{ vatRate: number | null; net: number; vat: number }> }> | undefined",
+        summary: "Earlier credit notes on this invoice, subtracted before the limit check.",
+      },
+      { path: "creditNote.credit.mode", type: '"full" | "lines" | "amount"', summary: "Cancel the remainder, return lines, or credit a lump sum." },
+      { path: "creditNote.credit.lines", type: "Array<{ id: string; qty: number }> | undefined", summary: "What is returned, for a lines credit." },
+      { path: "creditNote.credit.amount", type: "number | undefined", summary: "The VAT-inclusive sum, for an amount credit." },
+    ],
+    files: node("credit-note-totals", { deriver: true }),
+    previewData: {
+      creditNote: {
+        original: {
+          number: "SI-2026-09-004817/REV-2",
+          issueDate: "2026-09-30",
+          currency: "EUR",
+          fxToGBP: 0.8567,
+          vatGBP: 223790.6,
+          bands: [
+            { vatRate: 20, net: 1283650.0, vat: 256730.0 },
+            { vatRate: 5, net: 89880.0, vat: 4494.0 },
+            { vatRate: 0, net: 18500.0, vat: 0 },
+          ],
+          lines: [
+            { id: "L1", description: "Annual enterprise licence, Docxcelerate Document Engine, 2,500 seats, unlimited recipients", qty: 2500, unitNet: 412.75, vatRate: 20 },
+            { id: "L2", description: "Implementation and data migration services, phase two (statement and arrears templates)", qty: 186.5, unitNet: 1350, vatRate: 20 },
+            { id: "L3", description: "Printed welcome packs on recycled board, posted to every registered recipient", qty: 48000, unitNet: 1.8725, vatRate: 5 },
+            { id: "L4", description: "Accessibility audit of published templates by an accredited third party", qty: 1, unitNet: 18500, vatRate: 0 },
+          ],
+        },
+        previousCredits: [{ bands: [{ vatRate: 20, net: 41275.0, vat: 8255.0 }] }],
+        credit: { mode: "lines", lines: [{ id: "L1", qty: 300 }, { id: "L3", qty: 12000 }, { id: "L2", qty: 12.5 }] },
+      },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "construction-payment-timetable",
+    title: "Construction Act payment timetable",
+    summary: "The Construction Act payment dates for one interim payment, counted the way section 116 counts them.",
+    detail:
+      "Works out when an interim payment falls due, the payment notice deadline five " +
+      "days later, the final date for payment, and the pay less deadline counted back " +
+      "from that final date, never forward from the due date. Days are counted under " +
+      "section 116: Christmas Day, Good Friday and the contract region's own bank " +
+      "holidays are skipped, weekends are not, so a Scottish job never uses " +
+      "England's list. With no valid payment notice, the payee's claim stands as the " +
+      "notified sum, or the payee's default notice does and moves the final date back " +
+      "by its delay. A contract with a residential occupier gets one sentence saying " +
+      "the Act does not apply. All of it is one deriver.",
+    category: "Body",
+    tags: ["construction", "payment", "legal", "dates", "uk", "deriver"],
+    exports: ["ConstructionPaymentTimetable"],
+    dataFields: [
+      { path: "contract.region", type: '"EW" | "SC" | "NI"', summary: "Whose Act and whose bank holidays. Required." },
+      { path: "contract.residentialOccupier", type: "boolean | undefined", summary: "True prints only that the Act does not apply." },
+      { path: "contract.dueDateDays", type: "number | undefined", summary: "Days after the valuation period that payment falls due. Missing means the Scheme." },
+      { path: "contract.finalDateDays", type: "number | undefined", summary: "Days after the due date of the final date for payment. Missing means 17." },
+      { path: "contract.payLessDays", type: "number | undefined", summary: "Days before the final date a pay less notice is due. Missing means 7." },
+      { path: "payment.valuationPeriodEnd", type: "string", summary: "ISO 8601 last day of the valuation period. Required." },
+      { path: "payment.claimReceived", type: "string | undefined", summary: "ISO 8601 date the payment claim arrived. Required under the Scheme." },
+      { path: "payment.paymentNoticeIssued", type: "string | undefined", summary: "ISO 8601 date of the payer's notice. Late counts as none." },
+      { path: "payment.defaultNoticeIssued", type: "string | undefined", summary: "ISO 8601 date of the payee's default notice. Moves the final date back." },
+      { path: "bankHolidays", type: "{ EW?: string[]; SC?: string[]; NI?: string[] }", summary: "Bank holidays by region, covering every year the timetable runs through." },
+    ],
+    arrangements: [
+      { id: "table", title: "Table", summary: "The four dates in a label and date table, for a timetable read at a glance." },
+      { id: "stacked", title: "Stacked", summary: "One line per date, for a letter that reads as prose." },
+    ],
+    files: node("construction-payment-timetable", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      contract: { region: "SC", dueDateDays: 14, finalDateDays: 30, payLessDays: 7 },
+      payment: {
+        valuationPeriodEnd: "2026-12-04",
+        claimReceived: "2027-01-12",
+        paymentNoticeIssued: "2027-01-06",
+        defaultNoticeIssued: "2027-01-14",
+      },
+      bankHolidays: {
+        SC: [
+          "2026-01-01", "2026-01-02", "2026-04-03", "2026-05-04", "2026-05-25", "2026-08-03", "2026-11-30", "2026-12-25", "2026-12-28",
+          "2027-01-01", "2027-01-04", "2027-03-26", "2027-05-03", "2027-05-31", "2027-08-02", "2027-11-30", "2027-12-27", "2027-12-28",
+        ],
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "cis-invoice-deduction",
+    title: "CIS invoice deduction",
+    summary: "What a construction subcontractor is paid on an invoice, after CIS and VAT.",
+    detail:
+      "CIS comes off the labour only: the ex-VAT gross less materials at cost, " +
+      "plant hire and consumables, with any markup left in labour. VAT is worked " +
+      "out on the whole gross and is never reduced by CIS. The rate follows HMRC " +
+      "verification: nothing under gross payment status, 20% registered, 30% " +
+      "unverified with a warning to verify. The deduction is floored to the " +
+      "penny, so it never over-deducts. The domestic reverse charge applies when " +
+      "both parties are VAT-registered, the customer is CIS-registered and has not " +
+      "notified end-user or intermediary status: silence means reverse charge. " +
+      "The 5% disregard and zero-rated work stay standard. Under the reverse " +
+      "charge no VAT is added, and the notional VAT is returned for " +
+      "tax-treatment-notice. Unclear data fails the document instead of guessing.",
+    category: "Body",
+    tags: ["invoice", "cis", "construction", "vat", "tax", "deriver", "table"],
+    exports: ["CisInvoiceDeduction"],
+    dataFields: [
+      { path: "invoice.grossExVat", type: "number", summary: "Invoice value before VAT, materials included. Required." },
+      { path: "invoice.materialsCost", type: "number", summary: "Materials at cost, net of reclaimable VAT. Required; 0 when none." },
+      { path: "invoice.plantHire", type: "number | undefined", summary: "Plant hire at cost. Missing means 0." },
+      { path: "invoice.consumables", type: "number | undefined", summary: "Consumables and fuel at cost. Missing means 0." },
+      { path: "invoice.vatRate", type: "0.2 | 0.05 | 0", summary: "The supply's VAT rate. Zero-rated is never reverse-charged." },
+      { path: "invoice.reverseChargeShare", type: "number | undefined", summary: "Fraction that is reverse-charge services. At 5% or less the whole invoice is standard. Missing means 1." },
+      { path: "supplier.vatRegistered", type: "boolean", summary: "Whether the subcontractor charges VAT. Required." },
+      { path: "supplier.cisStatus", type: '"gross" | "net" | "unverified"', summary: "HMRC verification: 0%, 20% or 30%. Anything else fails the document." },
+      { path: "supplier.verificationNumber", type: "string | undefined", summary: "HMRC verification number, printed when given." },
+      { path: "customer.vatRegistered", type: "boolean", summary: "Required when VAT is charged at 20% or 5%." },
+      { path: "customer.cisRegistered", type: "boolean", summary: "Required when VAT is charged at 20% or 5%." },
+      { path: "customer.endUserNotified", type: '"end-user" | "intermediary" | undefined', summary: "Written notice that takes the invoice out of the reverse charge. Missing means reverse charge." },
+    ],
+    files: node("cis-invoice-deduction", { deriver: true, arrangements: ["table", "stacked"] }),
+    previewData: {
+      invoice: {
+        grossExVat: 486250.75,
+        materialsCost: 172430.18,
+        plantHire: 38615.4,
+        consumables: 9872.65,
+        vatRate: 0.2,
+      },
+      supplier: { vatRegistered: true, cisStatus: "unverified", verificationNumber: "V1234567890AB" },
+      customer: { vatRegistered: true, cisRegistered: true },
+    },
+    arrangements: [
+      { id: "table", title: "Table", summary: "Labels in a column with the figures right-aligned beside them, so the sums can be checked." },
+      { id: "stacked", title: "Stacked", summary: "One labelled figure under another, for a narrow column." },
+    ],
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "us-sales-tax-breakdown",
+    title: "US sales tax breakdown",
+    summary: "Sales tax split into state, county, city and district rows that add up to the tax charged.",
+    detail:
+      "Splits the sales tax into one row per jurisdiction, state first, each on its " +
+      "own taxable amount, because a city can exempt clothing the state taxes and a " +
+      "county can cap the taxable price of a single item. Each row is rounded on its " +
+      "own base and the cent left over against the total is put on the state row, so " +
+      "the rows always add up to the tax charged, which multiplying a combined rate " +
+      "by the subtotal does not give you. Rates are decimal strings worked in whole " +
+      "numbers, never floats. Shipping is taxed only where the jurisdiction taxes " +
+      "delivery and only for the taxable share of the order, and a charge sent as " +
+      "shipping and handling together prints a warning, because that makes delivery " +
+      "taxable where it would not be. Exempt lines are listed under their reason. " +
+      "When a marketplace facilitator collected the tax, the rows are replaced by a " +
+      "statement saying so. Everything is worked out by a deriver that ships with it.",
+    category: "Body",
+    tags: ["tax", "sales-tax", "us", "invoice", "table", "deriver"],
+    exports: ["UsSalesTaxBreakdown"],
+    dataFields: [
+      { path: "salesTax.currency", type: "string | undefined", summary: "ISO 4217 code for every amount. Defaults to USD." },
+      {
+        path: "salesTax.lines",
+        type:
+          "Array<{ description: string; amountMinor: number; taxable: boolean; category?: string; exemptReason?: string }> | undefined",
+        summary: "Net line prices in cents. Taxable is required; non-taxable lines are listed under their reason.",
+      },
+      {
+        path: "salesTax.shipping",
+        type: "{ amountMinor: number; separatelyStated?: boolean; combinedWithHandling?: boolean } | undefined",
+        summary: "The delivery charge. Combined with handling, it warns in states that exempt delivery stated on its own.",
+      },
+      {
+        path: "salesTax.jurisdictions",
+        type:
+          '{ level: "state" | "county" | "city" | "special"; name: string; rate: string; taxesShipping?: boolean; exemptCategories?: string[]; perItemCapMinor?: number }[] | undefined',
+        summary: 'Every taxing jurisdiction, exactly one state. Rates are decimal strings such as "0.0625".',
+      },
+      {
+        path: "salesTax.collectedBy",
+        type: '"seller" | "marketplace" | undefined',
+        summary: "Marketplace replaces the rows with the facilitator statement. Defaults to seller.",
+      },
+      {
+        path: "salesTax.marketplaceName",
+        type: "string | undefined",
+        summary: "Named in the facilitator statement when the marketplace collected the tax.",
+      },
+    ],
+    files: [...node("us-sales-tax-breakdown", { deriver: true })],
+    previewData: {
+      salesTax: {
+        currency: "USD",
+        lines: [
+          {
+            description: "Ride-on industrial floor scrubber, 40-inch cleaning path, lithium-ion battery (x12)",
+            amountMinor: 148750000, taxable: true, category: "manufacturing-machinery",
+          },
+          { description: "Replacement squeegee blades and brush decks, assorted", amountMinor: 2486475, taxable: true },
+          {
+            description: "Extended service agreement, 60 months", amountMinor: 18750000, taxable: false,
+            exemptReason: "Optional service contract, not tangible personal property",
+          },
+        ],
+        shipping: { amountMinor: 2485000, separatelyStated: true, combinedWithHandling: true },
+        jurisdictions: [
+          { level: "state", name: "Colorado", rate: "0.029", exemptCategories: ["manufacturing-machinery"] },
+          { level: "county", name: "Arapahoe County", rate: "0.0025", exemptCategories: ["manufacturing-machinery"] },
+          { level: "city", name: "City of Greenwood Village", rate: "0.03" },
+          { level: "special", name: "Regional Transportation District", rate: "0.01", exemptCategories: ["manufacturing-machinery"] },
+          { level: "special", name: "Scientific and Cultural Facilities District", rate: "0.001", exemptCategories: ["manufacturing-machinery"] },
+        ],
+        collectedBy: "seller",
+      },
+    },
+    requires: [],
+  },
+  {
+    kind: "component",
+    id: "vat-place-of-supply",
+    title: "VAT place of supply",
+    summary: "Decides whose VAT applies to a sale and at what rate, and prints the one line that says so.",
+    detail:
+      "Decides the VAT treatment before anything is printed: domestic, reverse " +
+      "charge, intra-Community supply, zero-rated export, outside the scope, or " +
+      "the customer's country's rate under the OSS. The EUR 10,000 distance-" +
+      "selling threshold is tested EU-wide on the current and the preceding " +
+      "year, and either one over means destination VAT. A VAT number only " +
+      "counts once it is marked validated, so an unproven business claim is " +
+      "charged VAT, with a note saying why, and a consumer never gets reverse " +
+      "charge. Northern Ireland counts as the EU for goods. Rates come from your " +
+      "data, never from a table that goes stale. The decision is made by a " +
+      "deriver that ships with it, and its treatment and rate are readable as " +
+      "derived values for the totals.",
+    category: "Legal",
+    tags: ["tax", "vat", "invoice", "legal", "oss", "deriver"],
+    exports: ["VatPlaceOfSupply"],
+    dataFields: [
+      { path: "seller.country", type: "string", summary: "Where the seller is established: an EU member state, GB or XI. Anything else throws." },
+      { path: "seller.ossRegistered", type: "boolean | undefined", summary: "True when the seller charges destination VAT under the Union OSS even under the threshold." },
+      { path: "seller.euDistanceSales", type: "{ currentYear: number; priorYear: number } | undefined", summary: "EU-wide cross-border B2C sales in EUR, this year and last. Required for a B2C EU distance sale unless OSS-registered." },
+      { path: "customer.country", type: "string", summary: "Where the customer is, as an ISO country code. Outside the EU and UK means export or outside the scope." },
+      { path: "customer.isBusiness", type: "boolean", summary: "Whether the customer buys as a business. Missing means a consumer." },
+      { path: "customer.vatNumber", type: "string | undefined", summary: "Needed with vatNumberValidated for reverse charge or an intra-Community supply." },
+      { path: "customer.vatNumberValidated", type: "boolean | undefined", summary: "True only once the number has been checked. Anything else means VAT is charged." },
+      { path: "supply.kind", type: '"goods" | "services" | "digital"', summary: "What is sold. Digital means telecoms, broadcasting and electronic services." },
+      { path: "supply.shipsFrom", type: "string | undefined", summary: "Goods only: where they leave from. Defaults to the seller's country." },
+      { path: "supply.shipsTo", type: "string | undefined", summary: "Goods only: where they arrive. Defaults to the customer's country." },
+      { path: "vatRates", type: "Record<string, number>", summary: "Current standard rate per country, as a percentage. Only the rate needed is read; a missing one throws." },
+    ],
+    files: [...node("vat-place-of-supply", { deriver: true })],
+    previewData: {
+      seller: { country: "DE", ossRegistered: false, euDistanceSales: { currentYear: 4850000, priorYear: 3920000 } },
+      customer: { country: "FI", isBusiness: true, vatNumber: "FI12345678", vatNumberValidated: false },
+      supply: { kind: "digital", shipsFrom: "DE", shipsTo: "FI" },
+      vatRates: { DE: 19, FI: 25.5, NL: 21 },
+    },
+    requires: [],
+  },
+
+  {
+    kind: "component",
+    id: "india-gst-split",
+    title: "India GST split",
+    summary: "CGST and SGST, or IGST, decided from the place of supply against the GSTIN's state code, never the billing address.",
+    detail:
+      "Picks the tax head from the place of supply against the state code in the " +
+      "supplier's GSTIN, never from the billing address or a typed state name: the " +
+      "same state gets CGST plus SGST (UTGST in a Union Territory without a " +
+      "legislature) at half the rate each, a different state gets IGST at the full " +
+      "rate. Supplies to an SEZ and exports are always inter-state; under a letter " +
+      "of undertaking they carry IGST at nil and the Rule 46 mention. Each half is " +
+      "rounded to the paisa on its own, so an odd paisa can make CGST plus SGST " +
+      "differ from IGST on the same base, which is correct. Prints place of supply " +
+      "as 'State (code)', the mandatory 'Reverse charge: Yes/No', an HSN/SAC-wise " +
+      "summary, the round-off to the nearest rupee, and the total in words in lakh " +
+      "and crore. Under reverse charge the tax is shown but not added to the amount " +
+      "payable. All of it is worked out by a deriver that ships with it.",
+    category: "Body",
+    tags: ["tax", "gst", "india", "invoice", "table", "branching", "deriver"],
+    exports: ["IndiaGstSplit"],
+    dataFields: [
+      { path: "seller.gstin", type: "string", summary: "The supplier's GSTIN. Its first two digits are the supplier's state, the only one believed." },
+      { path: "seller.stateCode", type: "string | undefined", summary: "Optional cross-check. Differing from the GSTIN's prefix throws." },
+      { path: "placeOfSupply.stateCode", type: "string", summary: "Two-digit GST state code, or 96 for an export. Decides the tax head with the GSTIN prefix." },
+      { path: "placeOfSupply.stateName", type: "string", summary: "Printed as 'Name (code)'. Never used to decide anything." },
+      { path: "customer.isSez", type: "boolean | undefined", summary: "A supply to an SEZ unit or developer, always inter-state. Missing means no." },
+      { path: "supply.exportUnderLut", type: "boolean | undefined", summary: "An export or SEZ supply under a letter of undertaking: IGST at nil with the Rule 46 mention." },
+      { path: "supply.reverseCharge", type: "boolean", summary: "Printed as 'Reverse charge: Yes/No'. Required. Yes leaves the tax out of the amount payable." },
+      { path: "lines", type: "Array<{ hsnSac: string; taxableMinor: number; rate: number }>", summary: "Taxable value in paise and the full GST rate per line, summed per HSN/SAC and rate." },
+    ],
+    files: node("india-gst-split", { deriver: true }),
+    previewData: {
+      seller: { gstin: "26AAACR5055K1Z5", stateCode: "26" },
+      placeOfSupply: { stateCode: "26", stateName: "Dadra and Nagar Haveli and Daman and Diu" },
+      customer: { isSez: false },
+      supply: { exportUnderLut: false, reverseCharge: false },
+      lines: [
+        { hsnSac: "84714190", taxableMinor: 12345678950, rate: 18 },
+        { hsnSac: "998314", taxableMinor: 4567890125, rate: 18 },
+        { hsnSac: "84714190", taxableMinor: 9999999, rate: 18 },
+        { hsnSac: "30049099", taxableMinor: 234567891, rate: 5 },
+        { hsnSac: "71023910", taxableMinor: 9876543, rate: 0.25 },
+      ],
     },
     requires: [],
   },
